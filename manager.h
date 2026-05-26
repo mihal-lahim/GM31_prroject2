@@ -20,4 +20,18 @@ public:
 		m_GameObjects.push_back(gameObject);
 		return gameObject;
 	}
+
+	template<typename T>//テンプレート関数
+	static T* GetGameObject()
+	{
+		for (GameObject* gameObject : m_GameObjects)
+		{
+			T* find = dynamic_cast<T*>(gameObject);
+			if(find!=nullptr)
+			{
+				return find;
+			}
+		}
+		return nullptr;
+	}
 };

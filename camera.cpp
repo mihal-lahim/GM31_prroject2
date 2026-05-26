@@ -2,7 +2,8 @@
 #include"manager.h"
 #include "renderer.h"
 #include "camera.h"
-
+#include "player.h"
+#include "keyboard.h"
 void Camera::Init()
 {
 	m_Position = {0.0f, 10.0f, -20.0f};
@@ -12,7 +13,16 @@ void Camera::Uninit()
 {}
 
 void Camera::Update()
-{}
+{
+	Player* player = Manager::GetGameObject<Player>();
+	Vector3 playerPos = player->GetPosition();
+	Vector3 playerForward = player->GetForward();
+
+	m_Target = playerPos;
+	
+	m_Position = m_Target - playerForward * 10.0f + Vector3(0.0f, 5.0f, 0.0f);
+
+}
 
 void Camera::Draw()
 {

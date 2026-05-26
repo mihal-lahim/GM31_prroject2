@@ -9,10 +9,13 @@ private:
 	ID3D11InputLayout* m_VertexLayout;
 	ID3D11VertexShader* m_VertexShader;
 	ID3D11PixelShader* m_PixelShader;
-
+	bool m_OnGround = false;
 public:
 	void Init()override;
 	void Uninit()override;
 	void Update()override;
 	void Draw()override;
+
+	void SetOnGround(bool onGround) { m_OnGround = onGround; }
+	bool GetOnGround() const { return m_OnGround; }
 };

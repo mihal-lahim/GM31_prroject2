@@ -49,7 +49,7 @@ void Field::Init()
 	//テクスチャ読み込み
 	TexMetadata metadata{};
 	ScratchImage image{};
-	LoadFromWICFile(L"assets/texture/hanamisaki.png", WIC_FLAGS_NONE, &metadata, image);
+	LoadFromWICFile(L"assets/texture/ground.png", WIC_FLAGS_NONE, &metadata, image);
 	CreateShaderResourceView(Renderer::GetDevice(), image.GetImage(0, 0, 0), 1, metadata, &m_pTexture);
 	assert(m_pTexture);
 

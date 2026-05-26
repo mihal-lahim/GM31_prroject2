@@ -30,28 +30,42 @@ void Player::Update()
 {
 	float dt = 1.0f / 60.0f;//1/60秒に動く数値を指定するため
 	
+	Vector3 forward = GetForward();
+	Vector3 right = GetRight();	
+	Vector3 left = GetLeft();
+
 	//移動
 	if (Keyboard_IsKeyDown(KK_W))
 	{
-		m_Velocity.z += 50.0f * dt;
+		m_Velocity += forward * 50.0f * dt;
 	}
 	if (Keyboard_IsKeyDown(KK_S))
 	{
-		m_Velocity.z -= 50.0f * dt;
+		m_Velocity -= forward * 50.0f * dt;
 	}
 	if (Keyboard_IsKeyDown(KK_A))
 	{
-		m_Velocity.x -= 50.0f * dt;
+		m_Velocity += left * 50.0f * dt;
 	}
 	if (Keyboard_IsKeyDown(KK_D))
 	{
-		m_Velocity.x += 50.0f * dt;
+		m_Velocity += right * 50.0f * dt;
 	}
 	//ジャンプ
-	if (Keyboard_IsKeyDownTrigger(KK_SPACE))
+	if (Keyboard_IsKeyDownTrigger(KK_SPACE)&&GetOnGround())
 	{
-		m_Velocity.y += 5.0f;//激力
+		m_Velocity.y +=20.0f;//激力
 	}
+	//回転
+	if (Keyboard_IsKeyDown(KK_LEFT))
+	{
+		m_Rotation.y -= 3.0f * dt;
+	}
+	if (Keyboard_IsKeyDown(KK_RIGHT))
+	{
+		m_Rotation.y += 3.0f * dt;
+	}
+
 
 	//重力適用
 	m_Velocity.y += -50.0f * dt;
@@ -67,6 +81,15 @@ void Player::Update()
 		m_Position.y = 0.0f;
 		m_Velocity.y = 0.0f;
 		
+	}
+	//接地判定
+	if (m_Position.y <= 0.0f)
+	{
+		SetOnGround(true);
+	}
+	else
+	{
+		SetOnGround(false);
 	}
 	
 	//継承元のUpdateを呼び出す
@@ -86,7 +109,7 @@ void Player::Draw()
 	//マトリクス設定
 	XMMATRIX world, scale, rot, trans;
 	scale = XMMatrixScaling(m_Scale.x, m_Scale.y, m_Scale.z);
-	rot = XMMatrixRotationRollPitchYaw(m_Rotation.x, m_Rotation.y, m_Rotation.z);
+	rot = XMMatrixRotationRollPitchYaw(m_Rotation.x, m_Rotation.y + XM_PI, m_Rotation.z);
 	trans = XMMatrixTranslation(m_Position.x, m_Position.y, m_Position.z);
 	world = scale * rot * trans;
 
