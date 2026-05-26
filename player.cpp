@@ -29,31 +29,45 @@ void Player::Uninit()
 void Player::Update()
 {
 	float dt = 1.0f / 60.0f;//1/60秒に動く数値を指定するため
-	float speed = 1.5f;//その数値
-	//摩擦
-	float friction = 0.9f;
+	
 	//移動
 	if (Keyboard_IsKeyDown(KK_W))
 	{
-		m_Velocity.z += speed * dt;
+		m_Velocity.z += 50.0f * dt;
 	}
 	if (Keyboard_IsKeyDown(KK_S))
 	{
-		m_Velocity.z -= speed * dt;
+		m_Velocity.z -= 50.0f * dt;
 	}
 	if (Keyboard_IsKeyDown(KK_A))
 	{
-		m_Velocity.x -= speed * dt;
+		m_Velocity.x -= 50.0f * dt;
 	}
 	if (Keyboard_IsKeyDown(KK_D))
 	{
-		m_Velocity.x += speed * dt;
+		m_Velocity.x += 50.0f * dt;
+	}
+	//ジャンプ
+	if (Keyboard_IsKeyDownTrigger(KK_SPACE))
+	{
+		m_Velocity.y += 5.0f;//激力
 	}
 
-	//減速
-	m_Velocity *= friction;
+	//重力適用
+	m_Velocity.y += -50.0f * dt;
+	//抵抗力
+	m_Velocity.x += -m_Velocity.x * 5.0f * dt;
+	m_Velocity.z += -m_Velocity.z * 5.0f * dt;
+
 	//移動値適用
-	m_Position += m_Velocity;
+	m_Position += m_Velocity * dt;
+	//衝突判定
+	if (m_Position.y < 0.0f)
+	{
+		m_Position.y = 0.0f;
+		m_Velocity.y = 0.0f;
+		
+	}
 	
 	//継承元のUpdateを呼び出す
 	GameObject::Update();
