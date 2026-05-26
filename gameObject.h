@@ -50,7 +50,7 @@ public:
 		m_Components.push_back(component);
 		return component;
 	}
-	Vector3 GetForward()
+	virtual Vector3 GetForward()
 	{
 		XMMATRIX rot = XMMatrixRotationRollPitchYaw(m_Rotation.x, 
 													m_Rotation.y, m_Rotation.z);
@@ -58,7 +58,7 @@ public:
 		XMStoreFloat3((XMFLOAT3*)&forward, rot.r[2]);
 		return forward;
 	}
-	Vector3 GetRight()
+	virtual Vector3 GetRight()
 	{
 		XMMATRIX rot = XMMatrixRotationRollPitchYaw(m_Rotation.x,
 			m_Rotation.y, m_Rotation.z);
@@ -66,7 +66,7 @@ public:
 		XMStoreFloat3((XMFLOAT3*)&right, rot.r[0]);
 		return right;
 	}
-	Vector3 GetUp()
+	virtual Vector3 GetUp()
 	{
 		XMMATRIX rot = XMMatrixRotationRollPitchYaw(m_Rotation.x,
 			m_Rotation.y, m_Rotation.z);
@@ -74,7 +74,7 @@ public:
 		XMStoreFloat3((XMFLOAT3*)&up, rot.r[1]);
 		return up;
 	}
-	Vector3 GetLeft()
+	virtual Vector3 GetLeft() 
 	{
 		XMMATRIX rot = XMMatrixRotationRollPitchYaw(m_Rotation.x,
 			m_Rotation.y, m_Rotation.z);
