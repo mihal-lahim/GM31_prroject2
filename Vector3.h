@@ -129,6 +129,11 @@ public:
 					   a.z * b.x - a.x * b.z,
 					   a.x * b.y - a.y * b.x);
 	}
+	//長さ
+	float length() const
+	{
+		return sqrtf(x * x + y * y + z * z);
+	}
 };
 
  

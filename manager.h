@@ -34,4 +34,19 @@ public:
 		}
 		return nullptr;
 	}
+
+	template<typename T>//テンプレート関数
+	static std::vector<T*> GetGameObjects()
+	{
+		std::vector<T*> gameObjects;
+		for (GameObject* gameObject : m_GameObjects)
+		{
+			T* find = dynamic_cast<T*>(gameObject);
+			if (find != nullptr)
+			{
+				gameObjects.push_back(find);
+			}
+		}
+		return gameObjects;
+	}
 };

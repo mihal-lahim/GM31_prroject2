@@ -131,6 +131,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="bullet.h" />
     <ClInclude Include="camera.h" />
     <ClInclude Include="component.h" />
     <ClInclude Include="DirectXTex.h" />
@@ -145,9 +146,11 @@
     <ClInclude Include="polygon2D.h" />
     <ClInclude Include="renderer.h" />
     <ClInclude Include="spriteRenderer.h" />
+    <ClInclude Include="tree.h" />
     <ClInclude Include="Vector3.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="bullet.cpp" />
     <ClCompile Include="camera.cpp" />
     <ClCompile Include="enemy.cpp" />
     <ClCompile Include="field.cpp" />
@@ -158,6 +161,7 @@
     <ClCompile Include="player.cpp" />
     <ClCompile Include="polygon2D.cpp" />
     <ClCompile Include="renderer.cpp" />
+    <ClCompile Include="tree.cpp" />
   </ItemGroup>
   <ItemGroup>
     <FxCompile Include="common.hlsl">

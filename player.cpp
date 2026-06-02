@@ -5,7 +5,8 @@
 #include "modelRenderer.h"
 #include "keyboard.h"
 #include "player.h"
-
+#include "bullet.h"
+#include "manager.h"
 void Player::Init()
 {
 	m_Position = { 0.0f, 0.0f, 0.0f };
@@ -92,6 +93,14 @@ void Player::Update()
 		SetOnGround(false);
 	}
 	
+	//弾発射
+	if (Keyboard_IsKeyDownTrigger(KK_J))
+	{
+		Bullet* bullet = Manager::AddGameObject<Bullet>();
+		bullet->SetPosition(m_Position);
+		bullet->SetVelocity(GetForward() * 5.0f);
+	}
+
 	//継承元のUpdateを呼び出す
 	GameObject::Update();
 }

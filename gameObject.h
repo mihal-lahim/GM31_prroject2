@@ -6,6 +6,9 @@
 class GameObject
 {
 protected:
+
+	bool m_Destroy = false;
+
 	Vector3 m_Position{ 0.0f, 0.0f, 0.0f };
 	Vector3 m_Rotation{ 0.0f, 0.0f, 0.0f };
 	Vector3 m_Scale{ 1.0f, 1.0f, 1.0f };
@@ -20,6 +23,21 @@ public:
 	Vector3 GetPosition() const { return m_Position; }
 	Vector3 GetRotation() const { return m_Rotation; }
 	Vector3 GetScale() const { return m_Scale; }
+
+	void SetDestroy() { m_Destroy = true; }
+	bool Destroy()
+	{
+		if(m_Destroy)
+		{ 
+			Uninit();
+			delete this;
+			return true;
+		}
+		else
+		{
+			return false;
+		}
+	}
 
 	virtual void Init() {}
 	virtual void Uninit() {
