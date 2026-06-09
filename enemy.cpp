@@ -8,6 +8,8 @@
 
 void Enemy::Init()
 {
+	m_Layer = 1;
+
 	AddComponent<ModelRenderer>(this)->Load("assets\\model\\player.obj");
 	//シェーダー読み込み
 	Renderer::CreateVertexShader(&m_VertexShader, &m_VertexLayout, "unlitTextureVS.cso");

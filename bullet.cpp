@@ -2,14 +2,17 @@
 #include "manager.h"
 #include "renderer.h"
 #include"modelRenderer.h"
+#include "gameObject.h"
 #include "bullet.h"
 #include "player.h"
 #include "enemy.h"
+#include "explosion.h"
 
 
 
 void Bullet::Init()
 {
+	m_Layer = 1;
 	AddComponent<ModelRenderer>(this)->Load("assets\\model\\bullet.obj");
 	//シェーダー読み込み
 	Renderer::CreateVertexShader(&m_VertexShader, &m_VertexLayout, "unlitTextureVS.cso");
@@ -47,6 +50,9 @@ void Bullet::Update()
 		{
 			enemy->SetDestroy();//敵を削除予約
 			SetDestroy();//自分自身を削除予約
+
+			Manager::AddGameObject<Explosion>()->SetPosition(enemy->GetPosition()+Vector3(0.0f, 1.0f, 0.0f));//爆発エフェクト生成
+
 			break;//ループから抜ける
 		}
 

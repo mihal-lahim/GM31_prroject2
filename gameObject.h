@@ -8,13 +8,15 @@ class GameObject
 protected:
 
 	bool m_Destroy = false;
-
+	int m_Layer = 1;
 	Vector3 m_Position{ 0.0f, 0.0f, 0.0f };
 	Vector3 m_Rotation{ 0.0f, 0.0f, 0.0f };
 	Vector3 m_Scale{ 1.0f, 1.0f, 1.0f };
 
 	 std::list<Component*> m_Components;
 public:
+
+	int GetLayer() const { return m_Layer; }
 
 	void SetPosition(const Vector3& Position) { m_Position = Position; }
 	void SetRotation(const Vector3& Rotation) { m_Rotation = Rotation; }

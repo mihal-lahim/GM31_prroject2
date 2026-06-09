@@ -9,6 +9,7 @@
 #include "manager.h"
 void Player::Init()
 {
+	m_Layer = 1;
 	m_Position = { 0.0f, 0.0f, 0.0f };
 
 	AddComponent<ModelRenderer>(this)->Load("assets\\model\\player.obj");
@@ -66,6 +67,8 @@ void Player::Update()
 	{
 		m_Rotation.y += 3.0f * dt;
 	}
+
+	
 
 
 	//重力適用

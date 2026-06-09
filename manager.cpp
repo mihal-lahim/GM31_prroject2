@@ -9,7 +9,8 @@
 #include "enemy.h"
 #include "bullet.h"
 #include "tree.h"
-
+#include "explosion.h"
+#include "sky.h"
 std::list<GameObject*> Manager::m_GameObjects;
 
 void Manager::Init()
@@ -18,17 +19,20 @@ void Manager::Init()
 	
 	GameObject* gameObject;
 	AddGameObject<Camera>();
+	AddGameObject<Sky>();
 	AddGameObject<Player>();
 
 	AddGameObject<Enemy>()->SetPosition({ 0.0f, 0.0f, 10.0f });
 	AddGameObject<Enemy>()->SetPosition({ 5.0f, 0.0f, 10.0f });
 	AddGameObject<Enemy>()->SetPosition({ -5.0f, 0.0f, 10.0f });
-	AddGameObject<Bullet>()->SetPosition({ 0.0f, 2.0f, 0.0f });
 	AddGameObject<Field>();
-	AddGameObject<Tree>();
-	//AddGameObject<Polygon2D>();
+	AddGameObject<Tree>()->SetPosition({ -6.0f, 0.0f, 0.0f });
+	AddGameObject<Tree>()->SetPosition({ 6.0f, 0.0f, 0.0f });
+	AddGameObject<Tree>()->SetPosition({ -2.0f, 0.0f, 3.0f });
+	AddGameObject<Tree>()->SetPosition({ 1.0f, 0.0f, -2.0f });
+	AddGameObject<Polygon2D>();
 	
-
+	
 }
 
 void Manager::Uninit()
@@ -60,9 +64,15 @@ void Manager::Update()
 void Manager::Draw()
 {
 	Renderer::Begin();
-	for (GameObject* gameObject : m_GameObjects)
+	for (int layer = 0; layer <= 4; layer++)//レイヤー0～4まで描画する
 	{
-		gameObject->Draw();
+		for (GameObject* gameObject : m_GameObjects)
+		{
+			if(gameObject->GetLayer()==layer)//レイヤーが同じなら描画する
+			{
+				gameObject->Draw();
+			}
+		}
 	}
 	
 	Renderer::End();

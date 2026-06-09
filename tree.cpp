@@ -8,6 +8,7 @@
 
 void Tree::Init()
 {
+	m_Layer = 2;
 	VERTEX_3D vertex[4];
 
 	vertex[0].Position = XMFLOAT3(-4.0f, 8.0f, 0.0f);
@@ -90,7 +91,7 @@ void Tree::Draw()
 	//マトリクス設定
 	XMMATRIX world, scale, rot, trans;
 	scale = XMMatrixScaling(m_Scale.x, m_Scale.y, m_Scale.z);
-	rot = XMMatrixRotationRollPitchYaw(m_Rotation.x, m_Rotation.y, m_Rotation.z);
+	//rot = XMMatrixRotationRollPitchYaw(m_Rotation.x, m_Rotation.y, m_Rotation.z);
 	trans = XMMatrixTranslation(m_Position.x, m_Position.y, m_Position.z);
 	world = scale * invView * trans;
 
@@ -113,7 +114,7 @@ void Tree::Draw()
 	//プリミティブトポロジ設定
 	Renderer::GetDeviceContext()->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
 
-	//ポリゴン描画
+	// ポリゴン描画
 	Renderer::GetDeviceContext()->Draw(4, 0);
 }
 
