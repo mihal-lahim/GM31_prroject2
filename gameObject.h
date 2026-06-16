@@ -9,6 +9,9 @@ protected:
 
 	bool m_Destroy = false;
 	int m_Layer = 1;
+
+	float m_CameraZ;//ソート用Z値
+
 	Vector3 m_Position{ 0.0f, 0.0f, 0.0f };
 	Vector3 m_Rotation{ 0.0f, 0.0f, 0.0f };
 	Vector3 m_Scale{ 1.0f, 1.0f, 1.0f };
@@ -17,6 +20,13 @@ protected:
 public:
 
 	int GetLayer() const { return m_Layer; }
+
+	float GetCameraZ() const { return m_CameraZ; }
+	void CalcCameraZ(const Vector3& CameraPosition, const Vector3& CameraForward)
+	{
+		Vector3 direction = m_Position - CameraPosition;
+		m_CameraZ = Vector3::dot(direction, CameraForward);
+	}
 
 	void SetPosition(const Vector3& Position) { m_Position = Position; }
 	void SetRotation(const Vector3& Rotation) { m_Rotation = Rotation; }

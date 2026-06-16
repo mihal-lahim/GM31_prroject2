@@ -11,6 +11,7 @@
 #include "tree.h"
 #include "explosion.h"
 #include "sky.h"
+#include "box.h"
 std::list<GameObject*> Manager::m_GameObjects;
 
 void Manager::Init()
@@ -31,7 +32,10 @@ void Manager::Init()
 	AddGameObject<Tree>()->SetPosition({ -2.0f, 0.0f, 3.0f });
 	AddGameObject<Tree>()->SetPosition({ 1.0f, 0.0f, -2.0f });
 	AddGameObject<Polygon2D>();
-	
+	Box* box = AddGameObject<Box>();
+	box->SetPosition({ -10.0f, 0.0f, 5.0f });
+	box->SetScale({ 2.0f, 1.0f, 2.0f });
+
 	
 }
 
@@ -64,6 +68,20 @@ void Manager::Update()
 void Manager::Draw()
 {
 	Renderer::Begin();
+	Camera* camera = GetGameObject<Camera>();
+	Vector3 forward = camera->GetForward();
+	Vector3 position = camera->GetPosition();
+
+	for (GameObject* gameObject : m_GameObjects)
+	{
+		gameObject->CalcCameraZ(position, forward);
+	}
+	//Zソート　ラムダ式
+	m_GameObjects.sort([](GameObject* a, GameObject* b)
+		{
+			return a->GetCameraZ() > b->GetCameraZ();
+		});
+	//レイヤー順に描画
 	for (int layer = 0; layer <= 4; layer++)//レイヤー0～4まで描画する
 	{
 		for (GameObject* gameObject : m_GameObjects)

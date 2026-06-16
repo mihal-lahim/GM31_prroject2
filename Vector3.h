@@ -134,6 +134,11 @@ public:
 	{
 		return sqrtf(x * x + y * y + z * z);
 	}
+	//内積
+	static float dot(const Vector3& a,const Vector3& b)
+	{
+		return a.x * b.x + a.y * b.y + a.z * b.z;
+	}
 };
 
  

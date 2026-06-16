@@ -10,6 +10,7 @@ private:
 	ID3D11VertexShader* m_VertexShader;
 	ID3D11PixelShader* m_PixelShader;
 	bool m_OnGround = false;
+	float m_MoveAnimation = 0.0f;
 public:
 	void Init()override;
 	void Uninit()override;
