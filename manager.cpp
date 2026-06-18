@@ -12,6 +12,7 @@
 #include "explosion.h"
 #include "sky.h"
 #include "box.h"
+#include "particle.h"
 std::list<GameObject*> Manager::m_GameObjects;
 
 void Manager::Init()
@@ -35,7 +36,7 @@ void Manager::Init()
 	Box* box = AddGameObject<Box>();
 	box->SetPosition({ -10.0f, 0.0f, 5.0f });
 	box->SetScale({ 2.0f, 1.0f, 2.0f });
-
+	AddGameObject<Particle>()->SetPosition({ 0.0f, 0.0f, -5.0f });
 	
 }
 
