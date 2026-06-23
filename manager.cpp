@@ -1,43 +1,20 @@
 #include "main.h"
 #include "manager.h"
 #include "renderer.h"
-#include "polygon2D.h"
-#include "field.h"
-#include "camera.h"
 #include "gameObject.h"
-#include "player.h"
-#include "enemy.h"
-#include "bullet.h"
-#include "tree.h"
-#include "explosion.h"
-#include "sky.h"
-#include "box.h"
-#include "particle.h"
+#include "camera.h"
+#include "game.h"
+#include "title.h"
+#include "result.h"
 std::list<GameObject*> Manager::m_GameObjects;
+Scene* Manager::m_Scene = nullptr;
+Scene* Manager::m_NextScene = nullptr;
 
 void Manager::Init()
 {
 	Renderer::Init();
-	
-	GameObject* gameObject;
-	AddGameObject<Camera>();
-	AddGameObject<Sky>();
-	AddGameObject<Player>();
-
-	AddGameObject<Enemy>()->SetPosition({ 0.0f, 0.0f, 10.0f });
-	AddGameObject<Enemy>()->SetPosition({ 5.0f, 0.0f, 10.0f });
-	AddGameObject<Enemy>()->SetPosition({ -5.0f, 0.0f, 10.0f });
-	AddGameObject<Field>();
-	AddGameObject<Tree>()->SetPosition({ -6.0f, 0.0f, 0.0f });
-	AddGameObject<Tree>()->SetPosition({ 6.0f, 0.0f, 0.0f });
-	AddGameObject<Tree>()->SetPosition({ -2.0f, 0.0f, 3.0f });
-	AddGameObject<Tree>()->SetPosition({ 1.0f, 0.0f, -2.0f });
-	AddGameObject<Polygon2D>();
-	Box* box = AddGameObject<Box>();
-	box->SetPosition({ -10.0f, 0.0f, 5.0f });
-	box->SetScale({ 2.0f, 1.0f, 2.0f });
-	AddGameObject<Particle>()->SetPosition({ 0.0f, 0.0f, -5.0f });
-	
+	m_Scene = new Title();
+	m_Scene->Init();
 }
 
 void Manager::Uninit()
@@ -47,13 +24,19 @@ void Manager::Uninit()
 		gameObject->Uninit();
 		delete gameObject;
 	}
-
+	
 	Renderer::Uninit();
 	
 }
 
 void Manager::Update()
 {
+
+	if (m_Scene != nullptr)
+	{
+		m_Scene->Update();
+	}
+
 	for (GameObject* gameObject : m_GameObjects)
 	{
 		gameObject->Update();
@@ -64,15 +47,36 @@ void Manager::Update()
 	{
 			return gameObject->Destroy();
 	});
+	//シーン切り替え
+	if (m_NextScene != nullptr)
+	{
+		if(m_Scene!=nullptr)
+		{
+			m_Scene->Uninit();
+			delete m_Scene;
+		}
+		for (GameObject* gameObject : m_GameObjects)
+		{
+			gameObject->Uninit();
+			delete gameObject;
+		}
+		m_GameObjects.clear();
+		m_Scene = m_NextScene;
+		m_Scene->Init();
+
+		m_NextScene = nullptr;
+	}
 }
 
 void Manager::Draw()
 {
 	Renderer::Begin();
 	Camera* camera = GetGameObject<Camera>();
-	Vector3 forward = camera->GetForward();
-	Vector3 position = camera->GetPosition();
 
+	if (camera)
+	{
+		Vector3 forward = camera->GetForward();
+		Vector3 position = camera->GetPosition();
 	for (GameObject* gameObject : m_GameObjects)
 	{
 		gameObject->CalcCameraZ(position, forward);
@@ -82,6 +86,7 @@ void Manager::Draw()
 		{
 			return a->GetCameraZ() > b->GetCameraZ();
 		});
+	}
 	//レイヤー順に描画
 	for (int layer = 0; layer <= 4; layer++)//レイヤー0～4まで描画する
 	{

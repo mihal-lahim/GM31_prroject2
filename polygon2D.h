@@ -12,7 +12,9 @@ private:
 	ID3D11PixelShader* m_PixelShader;
 	ID3D11ShaderResourceView* m_pTexture;
 public:
-	void Init()override;
+	void Init()override{}
+	void Init(float x, float y,
+		float width, float height, const WCHAR* texturePath);
 	void Uninit()override;
 	void Update()override;
 	void Draw()override;
