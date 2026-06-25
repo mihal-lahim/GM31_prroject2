@@ -15,7 +15,7 @@ void Title::Uninit()
 
 void Title::Update()
 {
-	if (Keyboard_IsKeyDown(KK_ENTER))
+	if (Keyboard_IsKeyDownTrigger(KK_ENTER))
 	{
 		Manager::ChangeScene<Game>();
 	}

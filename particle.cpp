@@ -5,6 +5,9 @@
 #include"renderer.h"
 #include "particle.h"
 #include "camera.h"
+#include "keyboard.h"
+#include "player.h"
+#include "gameObject.h"
 
 void Particle::Init()
 {
@@ -73,21 +76,31 @@ void Particle::Uninit()
 
 void Particle::Update()
 {
-	//パーティクル発射
-	for (int i = 0; i < PARTICLE_MAX; i++)
+	float dt = 1.0f / 60.0f;
+	int count = 10;
+	if (Keyboard_IsKeyDownTrigger(KK_SPACE))
 	{
-		if (!m_Particle[i].Enable)
+		count = 100;
+		GameObject* player = Manager::GetGameObject<Player>();
+		//パーティクル発射
+		for (int i = 0; i < PARTICLE_MAX; i++)
 		{
-			m_Particle[i].Enable = true;
-			m_Particle[i].Life = 60;
-			m_Particle[i].Position = m_Position;
-			m_Particle[i].Velocity = { ((float)rand() / RAND_MAX - 0.5f) * 5.0f,
-									 (float)rand() / RAND_MAX * 5.0f,
-									 ((float)rand() / RAND_MAX - 0.5f) * 5.0f };
-			break;
+			if (!m_Particle[i].Enable)
+			{
+				m_Particle[i].Enable = true;
+				m_Particle[i].Life = 60;
+				m_Particle[i].Position = player->GetPosition();
+				m_Particle[i].Velocity = { ((float)rand() / RAND_MAX - 0.5f) * 10.0f,
+										 (float)rand() / RAND_MAX * 400.0f,
+										 ((float)rand() / RAND_MAX - 0.5f) * 10.0f };
+				count--;
+				if (count <= 0)
+					break;
+
+			}
 		}
 	}
-	float dt = 1.0f / 60.0f;
+
 	//パーティクル更新
 	Vector3 gravity = { 0.0f,-9.8f,0.0f };
 	for (int i = 0; i < PARTICLE_MAX; i++)
@@ -122,10 +135,11 @@ void Particle::Draw()
 	invView.r[3].m128_f32[2] = 0.0f;
 
 
-
+	//加算合成
+	Renderer::SetAddBlendEnable(true);
 	//マテリアルの設定
 	MATERIAL material{};
-	material.Diffuse = XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f);
+	material.Diffuse = XMFLOAT4(0.0f, 0.5f, 0.4f, 1.0f);
 	material.TextureEnable = TRUE;
 	Renderer::SetMaterial(material);
 
@@ -162,6 +176,8 @@ void Particle::Draw()
 	}
 	//深度バッファ有効化
 	Renderer::SetDepthEnable(true);
+	//加算合成無効化
+	Renderer::SetAddBlendEnable(false);
 }
 
 

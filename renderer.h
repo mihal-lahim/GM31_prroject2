@@ -61,6 +61,7 @@ private:
 	static ID3D11DepthStencilState* m_DepthStateDisable;
 
 	static ID3D11BlendState*		m_BlendState;
+	static ID3D11BlendState*		m_BlendStateAdd;
 	static ID3D11BlendState*		m_BlendStateATC;
 
 
@@ -79,6 +80,7 @@ public:
 	static void SetProjectionMatrix(XMMATRIX ProjectionMatrix);
 	static void SetMaterial(MATERIAL Material);
 	static void SetLight(LIGHT Light);
+	static void SetAddBlendEnable(bool Enable);
 
 	static ID3D11Device* GetDevice( void ){ return m_Device; }
 	static ID3D11DeviceContext* GetDeviceContext( void ){ return m_DeviceContext; }

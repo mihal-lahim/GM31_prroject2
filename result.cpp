@@ -17,7 +17,7 @@ void Result::Uninit()
 
 void Result::Update()
 {
-	if (Keyboard_IsKeyDown(KK_ENTER))
+	if (Keyboard_IsKeyDownTrigger(KK_ENTER))
 	{
 		Manager::ChangeScene<Title>();
 	}
