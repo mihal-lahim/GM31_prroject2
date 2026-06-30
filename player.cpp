@@ -9,6 +9,9 @@
 #include "manager.h"
 #include "tree.h"
 #include "box.h"
+#include "audio.h"
+
+
 void Player::Init()
 {
 	m_Layer = 1;
@@ -20,7 +23,9 @@ void Player::Init()
 	Renderer::CreateVertexShader(&m_VertexShader, &m_VertexLayout, "unlitTextureVS.cso");
 
 	Renderer::CreatePixelShader(&m_PixelShader, "unlitTexturePS.cso");
-
+	//SE読み込み
+	m_JumpSE = AddComponent<Audio>(this);
+	m_JumpSE->Load("assets/audio/wan.wav");
 }
 
 void Player::Uninit()
@@ -28,6 +33,7 @@ void Player::Uninit()
 	m_VertexLayout->Release();
 	m_VertexShader->Release();
 	m_PixelShader->Release();
+	m_JumpSE->Uninit();
 }
 
 void Player::Update()
@@ -65,6 +71,7 @@ void Player::Update()
 		m_Scale.y = 2.0f;//ジャンプ中は
 		m_Scale.x = 0.5f;
 		m_Scale.z = 0.5f;
+		m_JumpSE->Play();
 	}
 
 	//スケールを戻す

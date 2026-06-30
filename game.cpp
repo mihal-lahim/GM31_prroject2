@@ -13,6 +13,7 @@
 #include "particle.h"
 #include "manager.h"
 #include "result.h"
+#include "score.h"
 void Game::Init()
 {
 	GameObject* gameObject;
@@ -20,19 +21,25 @@ void Game::Init()
 	Manager::AddGameObject<Sky>();
 	Manager::AddGameObject<Player>();
 
-	Manager::AddGameObject<Enemy>()->SetPosition({ 0.0f, 0.0f, 10.0f });
-	Manager::AddGameObject<Enemy>()->SetPosition({ 5.0f, 0.0f, 10.0f });
-	Manager::AddGameObject<Enemy>()->SetPosition({ -5.0f, 0.0f, 10.0f });
+	
 	Manager::AddGameObject<Field>();
-	Manager::AddGameObject<Tree>()->SetPosition({ -6.0f, 0.0f, 0.0f });
-	Manager::AddGameObject<Tree>()->SetPosition({ 6.0f, 0.0f, 0.0f });
-	Manager::AddGameObject<Tree>()->SetPosition({ -2.0f, 0.0f, 3.0f });
-	Manager::AddGameObject<Tree>()->SetPosition({ 1.0f, 0.0f, -2.0f });
-	Manager::AddGameObject<Polygon2D>()->Init(0.0f, 0.0f, 200.0f, 200.0f, L"assets/texture/hanamihanami.png");
+	//Manager::AddGameObject<Polygon2D>()->Init(0.0f, 0.0f, 200.0f, 200.0f, L"assets/texture/hanamihanami.png");
 	Box* box = Manager::AddGameObject<Box>();
 	box->SetPosition({ -10.0f, 0.0f, 5.0f });
 	box->SetScale({ 2.0f, 1.0f, 2.0f });
-	Manager::AddGameObject<Particle>()->SetPosition({ 0.0f, 0.0f, -5.0f });
+	Manager::AddGameObject<Score>()->SetPosition({ 100.0f, 100.0f, 0.0f });
+	//敵を20体生成する
+	for (int i = 0; i < 20; i++)
+	{
+		Vector3 position = { (float)(rand() % 40 - 20), 0.0f, (float)(rand() %40 - 20) };
+		Manager::AddGameObject<Enemy>()->SetPosition(position);
+	}
+	//木を20体生成する
+	for (int i = 0; i < 20; i++)
+	{
+		Vector3 position = { (float)(rand() % 40 - 20), 0.0f, (float)(rand() % 40 - 20) };
+		Manager::AddGameObject<Tree>()->SetPosition(position);
+	}
 }
 
 void Game::Uninit()

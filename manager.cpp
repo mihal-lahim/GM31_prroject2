@@ -1,6 +1,7 @@
 #include "main.h"
 #include "manager.h"
 #include "renderer.h"
+#include "audio.h"
 #include "gameObject.h"
 #include "camera.h"
 #include "game.h"
@@ -13,18 +14,21 @@ Scene* Manager::m_NextScene = nullptr;
 void Manager::Init()
 {
 	Renderer::Init();
+	Audio::InitMaster();
 	m_Scene = new Title();
 	m_Scene->Init();
 }
 
 void Manager::Uninit()
 {
+
 	for (GameObject* gameObject : m_GameObjects)
 	{
 		gameObject->Uninit();
 		delete gameObject;
 	}
-	
+
+	Audio::UninitMaster();
 	Renderer::Uninit();
 	
 }

@@ -7,7 +7,7 @@
 #include "player.h"
 #include "enemy.h"
 #include "explosion.h"
-
+#include "score.h"
 
 
 void Bullet::Init()
@@ -52,6 +52,7 @@ void Bullet::Update()
 			SetDestroy();//自分自身を削除予約
 
 			Manager::AddGameObject<Explosion>()->SetPosition(enemy->GetPosition()+Vector3(0.0f, 1.0f, 0.0f));//爆発エフェクト生成
+			Manager::GetGameObject<Score>()->Add(1); // スコアを追加
 
 			break;//ループから抜ける
 		}

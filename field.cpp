@@ -3,7 +3,7 @@
 #include"main.h"
 #include"renderer.h"
 #include "field.h"
-
+#include "audio.h"
 
 void Field::Init()
 {
@@ -54,6 +54,11 @@ void Field::Init()
 	CreateShaderResourceView(Renderer::GetDevice(), image.GetImage(0, 0, 0), 1, metadata, &m_pTexture);
 	assert(m_pTexture);
 
+	//BGM再生
+	Audio* bgm = AddComponent<Audio>(this);
+	bgm->Load("assets/audio/bgm.wav");
+	bgm->Play(true);
+
 }
 
 void Field::Uninit()
@@ -64,10 +69,13 @@ void Field::Uninit()
 	m_VertexShader->Release();
 	m_PixelShader->Release();
 	m_pTexture->Release();
+	GameObject::Uninit();
 }
 
 void Field::Update()
-{}
+{
+	GameObject::Update();
+}
 
 void Field::Draw()
 {
@@ -107,6 +115,8 @@ void Field::Draw()
 
 	//ポリゴン描画
 	Renderer::GetDeviceContext()->Draw(4, 0);
+
+	GameObject::Draw();
 }
 
 
