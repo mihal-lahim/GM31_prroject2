@@ -22,11 +22,20 @@ HWND GetWindow()
 
 static LONG g_MouseDeltaX = 0;
 static LONG g_MouseDeltaY = 0;
+static bool g_MouseLeftButtonDown = false;
+static bool g_MouseLeftButtonPressed = false;
 
 void Mouse_Reset()
 {
 	g_MouseDeltaX = 0;
 	g_MouseDeltaY = 0;
+	g_MouseLeftButtonDown = false;
+	g_MouseLeftButtonPressed = false;
+}
+
+void Mouse_EndFrame()
+{
+	g_MouseLeftButtonPressed = false;
 }
 
 void Mouse_Initialize(HWND hWnd)
@@ -58,6 +67,16 @@ bool Mouse_ConsumeDelta(float* deltaX, float* deltaY)
 	return moved;
 }
 
+bool Mouse_IsLeftButtonDown()
+{
+	return g_MouseLeftButtonDown;
+}
+
+bool Mouse_IsLeftButtonDownTrigger()
+{
+	return g_MouseLeftButtonPressed;
+}
+
 bool Mouse_ProcessMessage(UINT message, WPARAM wParam, LPARAM lParam)
 {
 	switch (message)
@@ -87,6 +106,15 @@ bool Mouse_ProcessMessage(UINT message, WPARAM wParam, LPARAM lParam)
 
 			return true;
 		}
+
+	case WM_LBUTTONDOWN:
+		g_MouseLeftButtonDown = true;
+		g_MouseLeftButtonPressed = true;
+		return true;
+
+	case WM_LBUTTONUP:
+		g_MouseLeftButtonDown = false;
+		return true;
 	}
 
 	return false;
@@ -172,6 +200,8 @@ int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLi
 
 				Manager::Update();
 				Manager::Draw();
+				keycopy();
+				Mouse_EndFrame();
 			}
 		}
 	}

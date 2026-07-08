@@ -39,6 +39,9 @@ void Invoke(std::function<void()> Function, int Time);
 void Mouse_Initialize(HWND hWnd);
 bool Mouse_ProcessMessage(UINT message, WPARAM wParam, LPARAM lParam);
 bool Mouse_ConsumeDelta(float* deltaX, float* deltaY);
+void Mouse_EndFrame();
+bool Mouse_IsLeftButtonDown();
+bool Mouse_IsLeftButtonDownTrigger();
 void Mouse_Reset();
 
 #include "Vector3.h"

@@ -35,6 +35,8 @@ static float LerpAngle(float current, float target, float t)
 
 // Turn response. 0.0f = no change, 1.0f = instant snap.
 static constexpr float kTurnLerp = 0.22f;
+// Shot interval in seconds. Lower values fire faster.
+static constexpr float kShotCoolTime = 0.25f;
 
 
 void Player::Init()
@@ -68,6 +70,15 @@ void Player::Update()
 
 	float dt = GameTime::GetDeltaTime();//1/60遘偵↓蜍輔￥謨ｰ蛟､繧呈欠螳壹☆繧九◆繧・
 	
+	if (m_ShotCoolTime > 0.0f)
+	{
+		m_ShotCoolTime -= dt;
+		if (m_ShotCoolTime < 0.0f)
+		{
+			m_ShotCoolTime = 0.0f;
+		}
+	}
+
 	Camera* camera = Manager::GetGameObject<Camera>();
 	Vector3 cameraForward{ 0.0f, 0.0f, 1.0f };
 	Vector3 cameraRight{ 1.0f, 0.0f, 0.0f };
@@ -166,11 +177,12 @@ void Player::Update()
 	}
 	
 	//蠑ｾ逋ｺ蟆・
-	if (Keyboard_IsKeyDownTrigger(KK_J))
+	if (Mouse_IsLeftButtonDownTrigger() && m_ShotCoolTime <= 0.0f)
 	{
 		Bullet* bullet = Manager::AddGameObject<Bullet>();
 		bullet->SetPosition(m_Position);
 		bullet->SetVelocity(GetForward() * 5.0f);
+		m_ShotCoolTime = kShotCoolTime;
 	}
 
 	//遘ｻ蜍輔い繝九Γ繝ｼ繧ｷ繝ｧ繝ｳ

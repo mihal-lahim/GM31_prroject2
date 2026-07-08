@@ -11,6 +11,7 @@ private:
 	ID3D11PixelShader* m_PixelShader;
 	bool m_OnGround = false;
 	float m_MoveAnimation = 0.0f;
+	float m_ShotCoolTime = 0.0f;
 
 	class Audio* m_JumpSE;
 public:
