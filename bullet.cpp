@@ -1,5 +1,6 @@
 #include"main.h"
 #include "manager.h"
+#include "gameTime.h"
 #include "renderer.h"
 #include"modelRenderer.h"
 #include "gameObject.h"
@@ -12,7 +13,7 @@
 
 void Bullet::Init()
 {
-	m_Layer = 1;
+	m_Layer = Layer::World;
 	AddComponent<ModelRenderer>(this)->Load("assets\\model\\bullet.obj");
 	//シェーダー読み込み
 	Renderer::CreateVertexShader(&m_VertexShader, &m_VertexLayout, "unlitTextureVS.cso");
@@ -30,28 +31,28 @@ void Bullet::Uninit()
 
 void Bullet::Update()
 {
-	float dt = 1.0f / 60.0f;//1/60秒に動く数値を指定するため
-	float speed = 1.5f;//その数値
+	float dt = GameTime::GetDeltaTime();//1/60秒に動く数値を指定するためE
+	float speed = 1.5f;//そ�E数値
 	//摩擦
 	float friction = 0.9f;
-	//減速
+	//減送E
 	m_Velocity *= friction;
 	//移動値適用
 	m_Position += m_Velocity;
 
-	//敵との衝突判定
+	//敵との衝突判宁E
 	auto enemies = Manager::GetGameObjects<Enemy>();
 	for (auto* enemy : enemies)
 	{
 		Vector3 direction = enemy->GetPosition() - m_Position;
 		float length = direction.length();
 
-		if (length < 1.0f)//衝突判定　距離が1.0f未満なら衝突とみなす
+		if (length < 1.0f)//衝突判定　距離ぁE.0f未満なら衝突とみなぁE
 		{
-			enemy->SetDestroy();//敵を削除予約
-			SetDestroy();//自分自身を削除予約
+			enemy->SetDestroy();//敵を削除予紁E
+			SetDestroy();//自刁E�E身を削除予紁E
 
-			Manager::AddGameObject<Explosion>()->SetPosition(enemy->GetPosition()+Vector3(0.0f, 1.0f, 0.0f));//爆発エフェクト生成
+			Manager::AddGameObject<Explosion>()->SetPosition(enemy->GetPosition()+Vector3(0.0f, 1.0f, 0.0f));//爁E��エフェクト生戁E
 			Manager::GetGameObject<Score>()->Add(1); // スコアを追加
 
 			break;//ループから抜ける
@@ -59,28 +60,28 @@ void Bullet::Update()
 
 	}
 
-	//寿命減少
+	//寿命減封E
 	m_Lifetime -= dt;
 	if (m_Lifetime <= 0.0f)
 	{
-		//自分自身を削除予約
+		//自刁E�E身を削除予紁E
 		SetDestroy();
 	}
-	//継承元のUpdateを呼び出す
+	//継承允E�EUpdateを呼び出ぁE
 	GameObject::Update();
 }
 
 void Bullet::Draw()
 {
-	//入力レイアウト設定
+	//入力レイアウト設宁E
 	Renderer::GetDeviceContext()->IASetInputLayout(m_VertexLayout);
 
-	//シェーダー設定
+	//シェーダー設宁E
 	Renderer::GetDeviceContext()->VSSetShader(m_VertexShader, NULL, 0);
 	Renderer::GetDeviceContext()->PSSetShader(m_PixelShader, NULL, 0);
 
 
-	//マトリクス設定
+	//マトリクス設宁E
 	XMMATRIX world, scale, rot, trans;
 	scale = XMMatrixScaling(m_Scale.x, m_Scale.y, m_Scale.z);
 	rot = XMMatrixRotationRollPitchYaw(m_Rotation.x, m_Rotation.y, m_Rotation.z);
@@ -89,6 +90,8 @@ void Bullet::Draw()
 
 	Renderer::SetWorldMatrix(world);
 
-	//継承元のDrawを呼び出す
+	//継承允E�EDrawを呼び出ぁE
 	GameObject::Draw();
 }
+
+

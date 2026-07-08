@@ -6,7 +6,7 @@
 #include "keyboard.h"
 void Camera::Init()
 {
-	m_Layer = 0;
+	m_Layer = Layer::Camera;
 	m_Position = {0.0f, 10.0f, -20.0f};
 }
 
@@ -42,3 +42,4 @@ void Camera::Draw()
 
 	Renderer::SetViewMatrix(m_ViewMatrix);
 }
+

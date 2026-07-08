@@ -5,7 +5,7 @@
 
 void Score::Init()
 {
-	m_Layer = 3;
+	m_Layer = Layer::UI;
 	VERTEX_3D vertex[4];
 
 	vertex[0].Position = XMFLOAT3(0, 0, 0.0f);
@@ -28,7 +28,7 @@ void Score::Init()
 	vertex[3].Diffuse = XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f);
 	vertex[3].TexCoord = XMFLOAT2(1.0f, 1.0f);
 
-	//頂点バッファ生成
+	//頂点バッファ生�E
 	D3D11_BUFFER_DESC bd{};
 	bd.Usage = D3D11_USAGE_DYNAMIC;
 	bd.ByteWidth = sizeof(VERTEX_3D) * 4;
@@ -45,7 +45,7 @@ void Score::Init()
 
 	Renderer::CreatePixelShader(&m_PixelShader, "unlitTexturePS.cso");
 
-	//テクスチャ読み込み
+	//チE��スチャ読み込み
 	TexMetadata metadata{};
 	ScratchImage image{};
 	LoadFromWICFile(L"assets/texture/number.png", WIC_FLAGS_NONE, &metadata, image);
@@ -72,17 +72,17 @@ void Score::Update()
 
 void Score::Draw()
 {
-	//入力レイアウト設定
+	//入力レイアウト設宁E
 	Renderer::GetDeviceContext()->IASetInputLayout(m_VertexLayout);
 
-	//シェーダー設定
+	//シェーダー設宁E
 	Renderer::GetDeviceContext()->VSSetShader(m_VertexShader, NULL, 0);
 	Renderer::GetDeviceContext()->PSSetShader(m_PixelShader, NULL, 0);
 
-	//マトリクス設定
+	//マトリクス設宁E
 	Renderer::SetWorldViewProjection2D();
 
-	//マトリクス設定
+	//マトリクス設宁E
 	XMMATRIX world, scale, rot, trans;
 	scale = XMMatrixScaling(m_Scale.x, m_Scale.y, m_Scale.z);
 	rot = XMMatrixRotationRollPitchYaw(m_Rotation.x, m_Rotation.y, m_Rotation.z);
@@ -91,32 +91,32 @@ void Score::Draw()
 
 	Renderer::SetWorldMatrix(world);
 
-	//マテリアルの設定
+	//マテリアルの設宁E
 	MATERIAL material{};
 	material.Diffuse = XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f);
 	material.TextureEnable = TRUE;
 	Renderer::SetMaterial(material);
 
-	//テクスチャの設定
+	//チE��スチャの設宁E
 	Renderer::GetDeviceContext()->PSSetShaderResources(0, 1, &m_pTexture);
 
-	//頂点バッファ設定
+	//頂点バッファ設宁E
 	UINT stride = sizeof(VERTEX_3D);
 	UINT offset = 0;
 	Renderer::GetDeviceContext()->IASetVertexBuffers(0, 1, &m_VertexBuffer, &stride, &offset);
 
-	//プリミティブトポロジ設定
+	//プリミティブトポロジ設宁E
 	Renderer::GetDeviceContext()->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
 
 	int number = m_value;
 
 	for (int i = 0; i < 4; i++)
 	{
-		//頂点データ変更
+		//頂点チE�Eタ変更
 		int num = number % 10;
 		number /= 10;
 
-		//頂点バッファにデータ転送
+		//頂点バッファにチE�Eタ転送E
 		D3D11_MAPPED_SUBRESOURCE msr;
 		Renderer::GetDeviceContext()->Map(m_VertexBuffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &msr);
 
@@ -149,10 +149,11 @@ void Score::Draw()
 		vertex[3].Diffuse = XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f);
 		vertex[3].TexCoord = XMFLOAT2(tx + tw, ty + th);
 
-		//確定
+		//確宁E
 		Renderer::GetDeviceContext()->Unmap(m_VertexBuffer, 0);
 
 		//ポリゴン描画
 		Renderer::GetDeviceContext()->Draw(4, 0);
 	}
 }
+

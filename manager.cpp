@@ -1,5 +1,6 @@
 #include "main.h"
 #include "manager.h"
+#include "gameTime.h"
 #include "renderer.h"
 #include "audio.h"
 #include "gameObject.h"
@@ -35,6 +36,8 @@ void Manager::Uninit()
 
 void Manager::Update()
 {
+	GameTime::Update();
+
 
 	if (m_Scene != nullptr)
 	{
@@ -46,12 +49,12 @@ void Manager::Update()
 		gameObject->Update();
 	}
 
-	//ゲームオブジェクト削除　ラムダ式
+	//ゲームオブジェクト削除　ラムダ弁E
 	m_GameObjects.remove_if([](GameObject* gameObject) 
 	{
 			return gameObject->Destroy();
 	});
-	//シーン切り替え
+	//シーン刁E��替ぁE
 	if (m_NextScene != nullptr)
 	{
 		if(m_Scene!=nullptr)
@@ -85,18 +88,18 @@ void Manager::Draw()
 	{
 		gameObject->CalcCameraZ(position, forward);
 	}
-	//Zソート　ラムダ式
+	//Zソート　ラムダ弁E
 	m_GameObjects.sort([](GameObject* a, GameObject* b)
 		{
 			return a->GetCameraZ() > b->GetCameraZ();
 		});
 	}
-	//レイヤー順に描画
-	for (int layer = 0; layer <= 4; layer++)//レイヤー0～4まで描画する
+	//レイヤー頁E��描画
+	for (int layer = 0; layer < static_cast<int>(Layer::Count); layer++)//レイヤー0�E�Eまで描画する
 	{
 		for (GameObject* gameObject : m_GameObjects)
 		{
-			if(gameObject->GetLayer()==layer)//レイヤーが同じなら描画する
+			if (static_cast<int>(gameObject->GetLayer()) == layer)//レイヤーが同じなら描画する
 			{
 				gameObject->Draw();
 			}
@@ -105,3 +108,7 @@ void Manager::Draw()
 	
 	Renderer::End();
 }
+
+
+
+

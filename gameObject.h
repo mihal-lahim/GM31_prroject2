@@ -3,12 +3,21 @@
 
 #include "component.h"
 
+enum class Layer
+{
+	Camera = 0,
+	World = 1,
+	Effect = 2,
+	UI = 3,
+	Count
+};
+
 class GameObject
 {
 protected:
 
 	bool m_Destroy = false;
-	int m_Layer = 1;
+	Layer m_Layer = Layer::World;
 
 	float m_CameraZ;//ソート用Z値
 
@@ -18,8 +27,9 @@ protected:
 
 	 std::list<Component*> m_Components;
 public:
+	virtual ~GameObject() {}
 
-	int GetLayer() const { return m_Layer; }
+	Layer GetLayer() const { return m_Layer; }
 
 	float GetCameraZ() const { return m_CameraZ; }
 	void CalcCameraZ(const Vector3& CameraPosition, const Vector3& CameraForward)
@@ -72,7 +82,7 @@ public:
 		}
 	}
 
-	template<typename T>//テンプレート関数
+	template<typename T>//チE��プレート関数
 	T* AddComponent(GameObject* Object)
 	{
 		T* component = new T(Object);
@@ -113,3 +123,5 @@ public:
 		return -left;
 	}
 };
+
+

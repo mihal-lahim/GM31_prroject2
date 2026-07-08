@@ -3,6 +3,8 @@
 class Scene
 {
 public:
+	virtual ~Scene() {}
+
 	virtual void Init() = 0;
 	virtual void Uninit() = 0;
 	virtual void Update() = 0;

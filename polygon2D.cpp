@@ -5,7 +5,7 @@
 
 void Polygon2D::Init(float x, float y, float width, float height,const WCHAR* texturePath)
 {
-	m_Layer = 3;
+	m_Layer = Layer::UI;
 	VERTEX_3D vertex[4];
 
 	vertex[0].Position = XMFLOAT3(x, y, 0.0f);
@@ -28,7 +28,7 @@ void Polygon2D::Init(float x, float y, float width, float height,const WCHAR* te
 	vertex[3].Diffuse = XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f);
 	vertex[3].TexCoord = XMFLOAT2(1.0f, 1.0f);
 
-	//頂点バッファ生成
+	//頂点バッファ生�E
 	D3D11_BUFFER_DESC bd{};
 	bd.Usage = D3D11_USAGE_DEFAULT;
 	bd.ByteWidth = sizeof(VERTEX_3D) * 4;
@@ -45,7 +45,7 @@ void Polygon2D::Init(float x, float y, float width, float height,const WCHAR* te
 
 	Renderer::CreatePixelShader(&m_PixelShader, "unlitTexturePS.cso");
 
-	//テクスチャ読み込み
+	//チE��スチャ読み込み
 	TexMetadata metadata{};
 	ScratchImage image{};
 	LoadFromWICFile(texturePath, WIC_FLAGS_NONE, &metadata, image);
@@ -71,17 +71,17 @@ void Polygon2D::Update()
 
 void Polygon2D::Draw()
 {
-	//入力レイアウト設定
+	//入力レイアウト設宁E
 	Renderer::GetDeviceContext()->IASetInputLayout(m_VertexLayout);
 
-	//シェーダー設定
+	//シェーダー設宁E
 	Renderer::GetDeviceContext()->VSSetShader(m_VertexShader, NULL, 0);
 	Renderer::GetDeviceContext()->PSSetShader(m_PixelShader, NULL, 0);
 
-	//マトリクス設定
+	//マトリクス設宁E
 	Renderer::SetWorldViewProjection2D();
 
-	//マトリクス設定
+	//マトリクス設宁E
 	XMMATRIX world, scale, rot, trans;
 	scale = XMMatrixScaling(1.0f, 1.0f, 1.0f);
 	rot = XMMatrixRotationRollPitchYaw(0.0f, 0.0f, 0.0f);
@@ -90,23 +90,24 @@ void Polygon2D::Draw()
 
 	Renderer::SetWorldMatrix(world);
 
-	//マテリアルの設定
+	//マテリアルの設宁E
 	MATERIAL material{};
 	material.Diffuse = XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f);
 	material.TextureEnable = TRUE;
 	Renderer::SetMaterial(material);
 
-	//テクスチャの設定
+	//チE��スチャの設宁E
 	Renderer::GetDeviceContext()->PSSetShaderResources(0, 1, &m_pTexture);
 
-	//頂点バッファ設定
+	//頂点バッファ設宁E
 	UINT stride = sizeof(VERTEX_3D);
 	UINT offset = 0;
 	Renderer::GetDeviceContext()->IASetVertexBuffers(0, 1, &m_VertexBuffer, &stride, &offset);
 
-	//プリミティブトポロジ設定
+	//プリミティブトポロジ設宁E
 	Renderer::GetDeviceContext()->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
 
 	//ポリゴン描画
 	Renderer::GetDeviceContext()->Draw(4, 0);
 }
+

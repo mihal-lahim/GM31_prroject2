@@ -10,13 +10,11 @@
 #include "explosion.h"
 #include "sky.h"
 #include "box.h"
-#include "particle.h"
 #include "manager.h"
 #include "result.h"
 #include "score.h"
 void Game::Init()
 {
-	GameObject* gameObject;
 	Manager::AddGameObject<Camera>();
 	Manager::AddGameObject<Sky>();
 	Manager::AddGameObject<Player>();

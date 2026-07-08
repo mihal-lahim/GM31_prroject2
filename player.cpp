@@ -7,14 +7,16 @@
 #include "player.h"
 #include "bullet.h"
 #include "manager.h"
+#include "gameTime.h"
 #include "tree.h"
 #include "box.h"
 #include "audio.h"
+#include "playerMoveParticle.h"
 
 
 void Player::Init()
 {
-	m_Layer = 1;
+	m_Layer = Layer::World;
 	m_Position = { 0.0f, 0.0f, 0.0f };
 
 	AddComponent<ModelRenderer>(this)->Load("assets\\model\\player.obj");
@@ -26,6 +28,7 @@ void Player::Init()
 	//SE読み込み
 	m_JumpSE = AddComponent<Audio>(this);
 	m_JumpSE->Load("assets/audio/wan.wav");
+	AddComponent<PlayerMoveParticle>(this);
 }
 
 void Player::Uninit()
@@ -33,20 +36,20 @@ void Player::Uninit()
 	m_VertexLayout->Release();
 	m_VertexShader->Release();
 	m_PixelShader->Release();
-	m_JumpSE->Uninit();
+	GameObject::Uninit();
 }
 
 void Player::Update()
 {
-	Vector3 oldPosition = m_Position;//前のフレームの位置を保存するため
+	Vector3 oldPosition = m_Position;//前�Eフレームの位置を保存するためE
 
-	float dt = 1.0f / 60.0f;//1/60秒に動く数値を指定するため
+	float dt = GameTime::GetDeltaTime();//1/60秒に動く数値を指定するためE
 	
 	Vector3 forward = GetForward();
 	Vector3 right = GetRight();	
 	Vector3 left = GetLeft();
 
-	//移動
+	//移勁E
 	if (Keyboard_IsKeyDown(KK_W))
 	{
 		m_Velocity += forward * 50.0f * dt;
@@ -63,10 +66,10 @@ void Player::Update()
 	{
 		m_Velocity += right * 50.0f * dt;
 	}
-	//ジャンプ
+	//ジャンチE
 	if (Keyboard_IsKeyDownTrigger(KK_SPACE)&&GetOnGround())
 	{
-		m_Velocity.y +=20.0f;//激力
+		m_Velocity.y +=20.0f;//激劁E
 
 		m_Scale.y = 2.0f;//ジャンプ中は
 		m_Scale.x = 0.5f;
@@ -74,7 +77,7 @@ void Player::Update()
 		m_JumpSE->Play();
 	}
 
-	//スケールを戻す
+	//スケールを戻ぁE
 	m_Scale.x += (1.0f - m_Scale.x) * 0.07f;
 	m_Scale.y += (1.0f - m_Scale.y) * 0.07f;
 	m_Scale.z += (1.0f - m_Scale.z) * 0.07f;
@@ -103,7 +106,7 @@ void Player::Update()
 
 	bool oldOnGround = GetOnGround();
 
-	//衝突判定
+	//衝突判宁E
 	if (m_Position.y < 0.0f)
 	{
 		m_Position.y = 0.0f;
@@ -123,7 +126,7 @@ void Player::Update()
 		m_Scale.z = 1.5f;
 	}
 	
-	//弾発射
+	//弾発封E
 	if (Keyboard_IsKeyDownTrigger(KK_J))
 	{
 		Bullet* bullet = Manager::AddGameObject<Bullet>();
@@ -138,7 +141,7 @@ void Player::Update()
 		m_Scale.y = 1.0f + sinf(m_MoveAnimation*3.0f)*0.03f;
 	}
 
-	//木との衝突判定
+	//木との衝突判宁E
 	auto trees = Manager::GetGameObjects<Tree>();
 	for (Tree* tree : trees)
 	{
@@ -154,11 +157,11 @@ void Player::Update()
 		if (length < 1.5f)
 		{
 			direction /= length;;//正規化
-			direction *= 1.5f-length;//重なり分だけ押し出す
+			direction *= 1.5f-length;//重なり�Eだけ押し�EぁE
 			m_Position += direction;//プレイヤーの位置を修正
 		}
 	}
-	//ボックスとの衝突判定
+	//ボックスとの衝突判宁E
 	auto boxes = Manager::GetGameObjects<Box>();
 	for (Box* box : boxes)
 	{
@@ -190,21 +193,21 @@ void Player::Update()
 			
 		}
 	}
-	//継承元のUpdateを呼び出す
+	//継承允E�EUpdateを呼び出ぁE
 	GameObject::Update();
 }
 
 void Player::Draw()
 {
-	//入力レイアウト設定
+	//入力レイアウト設宁E
 	Renderer::GetDeviceContext()->IASetInputLayout(m_VertexLayout);
 
-	//シェーダー設定
+	//シェーダー設宁E
 	Renderer::GetDeviceContext()->VSSetShader(m_VertexShader, NULL, 0);
 	Renderer::GetDeviceContext()->PSSetShader(m_PixelShader, NULL, 0);
 
 
-	//マトリクス設定
+	//マトリクス設宁E
 	XMMATRIX world, scale, rot, trans;
 	scale = XMMatrixScaling(m_Scale.x, m_Scale.y, m_Scale.z);
 	rot = XMMatrixRotationRollPitchYaw(m_Rotation.x, m_Rotation.y + XM_PI, m_Rotation.z);
@@ -213,9 +216,11 @@ void Player::Draw()
 
 	Renderer::SetWorldMatrix(world);
 
-	//継承元のDrawを呼び出す
+	//継承允E�EDrawを呼び出ぁE
 	GameObject::Draw();
 }
+
+
 
 
 
