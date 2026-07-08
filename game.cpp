@@ -15,9 +15,9 @@
 #include "score.h"
 void Game::Init()
 {
+	Manager::AddGameObject<Player>();
 	Manager::AddGameObject<Camera>();
 	Manager::AddGameObject<Sky>();
-	Manager::AddGameObject<Player>();
 
 	
 	Manager::AddGameObject<Field>();
@@ -26,13 +26,13 @@ void Game::Init()
 	box->SetPosition({ -10.0f, 0.0f, 5.0f });
 	box->SetScale({ 2.0f, 1.0f, 2.0f });
 	Manager::AddGameObject<Score>()->SetPosition({ 100.0f, 100.0f, 0.0f });
-	//敵を20体生成する
+	//謨ｵ繧・0菴鍋函謌舌☆繧・
 	for (int i = 0; i < 20; i++)
 	{
 		Vector3 position = { (float)(rand() % 40 - 20), 0.0f, (float)(rand() %40 - 20) };
 		Manager::AddGameObject<Enemy>()->SetPosition(position);
 	}
-	//木を20体生成する
+	//譛ｨ繧・0菴鍋函謌舌☆繧・
 	for (int i = 0; i < 20; i++)
 	{
 		Vector3 position = { (float)(rand() % 40 - 20), 0.0f, (float)(rand() % 40 - 20) };
@@ -45,7 +45,7 @@ void Game::Uninit()
 
 void Game::Update()
 {
-	//エネミーの数を数える
+	//繧ｨ繝阪Α繝ｼ縺ｮ謨ｰ繧呈焚縺医ｋ
 	int enemyCount = Manager::GetGameObjects<Enemy>().size();
 	if (enemyCount == 0)
 	{

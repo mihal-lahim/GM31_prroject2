@@ -8,10 +8,38 @@
 #include "bullet.h"
 #include "manager.h"
 #include "gameTime.h"
+#include "camera.h"
 #include "tree.h"
 #include "box.h"
 #include "audio.h"
 #include "playerMoveParticle.h"
+
+static float WrapAngle(float angle)
+{
+	while (angle > XM_PI)
+	{
+		angle -= XM_PI * 2.0f;
+	}
+	while (angle < -XM_PI)
+	{
+		angle += XM_PI * 2.0f;
+	}
+	return angle;
+}
+
+static float ApproachAngle(float current, float target, float maxDelta)
+{
+	float delta = WrapAngle(target - current);
+	if (delta > maxDelta)
+	{
+		delta = maxDelta;
+	}
+	if (delta < -maxDelta)
+	{
+		delta = -maxDelta;
+	}
+	return current + delta;
+}
 
 
 void Player::Init()
@@ -21,11 +49,11 @@ void Player::Init()
 
 	AddComponent<ModelRenderer>(this)->Load("assets\\model\\player.obj");
 	
-	//シェーダー読み込み
+	//繧ｷ繧ｧ繝ｼ繝繝ｼ隱ｭ縺ｿ霎ｼ縺ｿ
 	Renderer::CreateVertexShader(&m_VertexShader, &m_VertexLayout, "unlitTextureVS.cso");
 
 	Renderer::CreatePixelShader(&m_PixelShader, "unlitTexturePS.cso");
-	//SE読み込み
+	//SE隱ｭ縺ｿ霎ｼ縺ｿ
 	m_JumpSE = AddComponent<Audio>(this);
 	m_JumpSE->Load("assets/audio/wan.wav");
 	AddComponent<PlayerMoveParticle>(this);
@@ -41,72 +69,97 @@ void Player::Uninit()
 
 void Player::Update()
 {
-	Vector3 oldPosition = m_Position;//前�Eフレームの位置を保存するためE
+	Vector3 oldPosition = m_Position;//蜑阪・繝輔Ξ繝ｼ繝縺ｮ菴咲ｽｮ繧剃ｿ晏ｭ倥☆繧九◆繧・
 
-	float dt = GameTime::GetDeltaTime();//1/60秒に動く数値を指定するためE
+	float dt = GameTime::GetDeltaTime();//1/60遘偵↓蜍輔￥謨ｰ蛟､繧呈欠螳壹☆繧九◆繧・
 	
-	Vector3 forward = GetForward();
-	Vector3 right = GetRight();	
-	Vector3 left = GetLeft();
+	Camera* camera = Manager::GetGameObject<Camera>();
+	Vector3 cameraForward{ 0.0f, 0.0f, 1.0f };
+	Vector3 cameraRight{ 1.0f, 0.0f, 0.0f };
+	if (camera != nullptr)
+	{
+		cameraForward = camera->GetForward();
+		cameraForward.y = 0.0f;
+		cameraForward.normalize();
 
-	//移勁E
+		cameraRight = camera->GetRight();
+		cameraRight.y = 0.0f;
+		cameraRight.normalize();
+	}
+
+	Vector3 moveDirection{ 0.0f, 0.0f, 0.0f };
+
+	// Movement input is camera-relative, and the player turns first.
 	if (Keyboard_IsKeyDown(KK_W))
 	{
-		m_Velocity += forward * 50.0f * dt;
+		moveDirection += cameraForward;
 	}
 	if (Keyboard_IsKeyDown(KK_S))
 	{
-		m_Velocity -= forward * 50.0f * dt;
+		moveDirection -= cameraForward;
 	}
 	if (Keyboard_IsKeyDown(KK_A))
 	{
-		m_Velocity += left * 50.0f * dt;
+		moveDirection -= cameraRight;
 	}
 	if (Keyboard_IsKeyDown(KK_D))
 	{
-		m_Velocity += right * 50.0f * dt;
+		moveDirection += cameraRight;
 	}
-	//ジャンチE
+
+	float moveLength = moveDirection.length();
+	if (moveLength > 0.0f)
+	{
+		moveDirection.y = 0.0f;
+		moveDirection /= moveLength;
+
+		float targetYaw = atan2f(moveDirection.x, moveDirection.z);
+		m_Rotation.y = ApproachAngle(m_Rotation.y, targetYaw, 3.0f * dt);
+
+		float yawDiff = fabsf(WrapAngle(targetYaw - m_Rotation.y));
+		if (yawDiff < XMConvertToRadians(5.0f))
+		{
+			m_Velocity += moveDirection * 50.0f * dt;
+		}
+		else
+		{
+			m_Velocity.x = 0.0f;
+			m_Velocity.z = 0.0f;
+		}
+	}
+	else
+	{
+		
+	}
+
+	//繧ｸ繝｣繝ｳ繝・
 	if (Keyboard_IsKeyDownTrigger(KK_SPACE)&&GetOnGround())
 	{
-		m_Velocity.y +=20.0f;//激劁E
+		m_Velocity.y +=20.0f;//豼蜉・
 
-		m_Scale.y = 2.0f;//ジャンプ中は
+		m_Scale.y = 2.0f;//繧ｸ繝｣繝ｳ繝嶺ｸｭ縺ｯ
 		m_Scale.x = 0.5f;
 		m_Scale.z = 0.5f;
 		m_JumpSE->Play();
 	}
 
-	//スケールを戻ぁE
+	//繧ｹ繧ｱ繝ｼ繝ｫ繧呈綾縺・
 	m_Scale.x += (1.0f - m_Scale.x) * 0.07f;
 	m_Scale.y += (1.0f - m_Scale.y) * 0.07f;
 	m_Scale.z += (1.0f - m_Scale.z) * 0.07f;
 
-	//回転
-	if (Keyboard_IsKeyDown(KK_LEFT))
-	{
-		m_Rotation.y -= 3.0f * dt;
-	}
-	if (Keyboard_IsKeyDown(KK_RIGHT))
-	{
-		m_Rotation.y += 3.0f * dt;
-	}
-
-	
-
-
-	//重力適用
+	//驥榊鴨驕ｩ逕ｨ
 	m_Velocity.y += -50.0f * dt;
-	//抵抗力
+	//謚ｵ謚怜鴨
 	m_Velocity.x += -m_Velocity.x * 5.0f * dt;
 	m_Velocity.z += -m_Velocity.z * 5.0f * dt;
 
-	//移動値適用
+	//遘ｻ蜍募､驕ｩ逕ｨ
 	m_Position += m_Velocity * dt;
 
 	bool oldOnGround = GetOnGround();
 
-	//衝突判宁E
+	//陦晉ｪ∝愛螳・
 	if (m_Position.y < 0.0f)
 	{
 		m_Position.y = 0.0f;
@@ -118,7 +171,7 @@ void Player::Update()
 		SetOnGround(false);
 	}
 
-	//つぶすアニメーション
+	//縺､縺ｶ縺吶い繝九Γ繝ｼ繧ｷ繝ｧ繝ｳ
 	if (!oldOnGround && GetOnGround())
 	{
 		m_Scale.y = 0.8f;
@@ -126,7 +179,7 @@ void Player::Update()
 		m_Scale.z = 1.5f;
 	}
 	
-	//弾発封E
+	//蠑ｾ逋ｺ蟆・
 	if (Keyboard_IsKeyDownTrigger(KK_J))
 	{
 		Bullet* bullet = Manager::AddGameObject<Bullet>();
@@ -134,14 +187,14 @@ void Player::Update()
 		bullet->SetVelocity(GetForward() * 5.0f);
 	}
 
-	//移動アニメーション
+	//遘ｻ蜍輔い繝九Γ繝ｼ繧ｷ繝ｧ繝ｳ
 	if(GetOnGround())
 	{
 		m_MoveAnimation += m_Velocity.length() * dt;
 		m_Scale.y = 1.0f + sinf(m_MoveAnimation*3.0f)*0.03f;
 	}
 
-	//木との衝突判宁E
+	//譛ｨ縺ｨ縺ｮ陦晉ｪ∝愛螳・
 	auto trees = Manager::GetGameObjects<Tree>();
 	for (Tree* tree : trees)
 	{
@@ -156,12 +209,12 @@ void Player::Update()
 
 		if (length < 1.5f)
 		{
-			direction /= length;;//正規化
-			direction *= 1.5f-length;//重なり�Eだけ押し�EぁE
-			m_Position += direction;//プレイヤーの位置を修正
+			direction /= length;;//豁｣隕丞喧
+			direction *= 1.5f-length;//驥阪↑繧雁・縺縺第款縺怜・縺・
+			m_Position += direction;//繝励Ξ繧､繝､繝ｼ縺ｮ菴咲ｽｮ繧剃ｿｮ豁｣
 		}
 	}
-	//ボックスとの衝突判宁E
+	//繝懊ャ繧ｯ繧ｹ縺ｨ縺ｮ陦晉ｪ∝愛螳・
 	auto boxes = Manager::GetGameObjects<Box>();
 	for (Box* box : boxes)
 	{
@@ -176,7 +229,7 @@ void Player::Update()
 			if (boxPos.y + boxScale.y < m_Position.y &&
 				m_Position.y < boxPos.y + boxScale.y * 2.0f)
 			{
-				//上面
+				//荳企擇
 				m_Position.y = boxPos.y + boxScale.y * 2.0f;
 				m_Velocity.y = 0.0f;
 				m_OnGround = true;
@@ -184,7 +237,7 @@ void Player::Update()
 			else if (boxPos.y - boxScale.y < m_Position.y &&
 				m_Position.y < boxPos.y+boxScale.y)
 			{
-				//側面
+				//蛛ｴ髱｢
 				m_Position.x = oldPosition.x;
 				m_Position.z = oldPosition.z;
 				m_Velocity.x = 0.0f;
@@ -193,21 +246,21 @@ void Player::Update()
 			
 		}
 	}
-	//継承允E�EUpdateを呼び出ぁE
+	//邯呎価蜈・・Update繧貞他縺ｳ蜃ｺ縺・
 	GameObject::Update();
 }
 
 void Player::Draw()
 {
-	//入力レイアウト設宁E
+	//蜈･蜉帙Ξ繧､繧｢繧ｦ繝郁ｨｭ螳・
 	Renderer::GetDeviceContext()->IASetInputLayout(m_VertexLayout);
 
-	//シェーダー設宁E
+	//繧ｷ繧ｧ繝ｼ繝繝ｼ險ｭ螳・
 	Renderer::GetDeviceContext()->VSSetShader(m_VertexShader, NULL, 0);
 	Renderer::GetDeviceContext()->PSSetShader(m_PixelShader, NULL, 0);
 
 
-	//マトリクス設宁E
+	//繝槭ヨ繝ｪ繧ｯ繧ｹ險ｭ螳・
 	XMMATRIX world, scale, rot, trans;
 	scale = XMMatrixScaling(m_Scale.x, m_Scale.y, m_Scale.z);
 	rot = XMMatrixRotationRollPitchYaw(m_Rotation.x, m_Rotation.y + XM_PI, m_Rotation.z);
@@ -216,7 +269,7 @@ void Player::Draw()
 
 	Renderer::SetWorldMatrix(world);
 
-	//継承允E�EDrawを呼び出ぁE
+	//邯呎価蜈・・Draw繧貞他縺ｳ蜃ｺ縺・
 	GameObject::Draw();
 }
 

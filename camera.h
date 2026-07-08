@@ -6,6 +6,8 @@ class Camera : public GameObject
 private:
 	Vector3 m_Target{ 0.0f, 0.0f, 0.0f };
 	XMMATRIX m_ViewMatrix;
+	float m_Distance = 11.0f;
+	float m_MouseSensitivity = 0.0035f;
 public:
 	void Init()override;
 	void Uninit()override;
