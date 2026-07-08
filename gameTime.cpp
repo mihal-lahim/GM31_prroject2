@@ -23,16 +23,7 @@ void GameTime::Init()
 void GameTime::Update()
 {
 	DWORD currentTime = timeGetTime();
-
-	if (m_FirstFrame)
-	{
-		m_DeltaTime = 1.0f / 60.0f;
-		m_FirstFrame = false;
-	}
-	else
-	{
-		m_DeltaTime = static_cast<float>(currentTime - m_LastTime) * 0.001f;
-	}
+	const float fixedDeltaTime = 1.0f / 60.0f;
 
 	if (m_Paused)
 	{
@@ -40,11 +31,14 @@ void GameTime::Update()
 	}
 	else
 	{
+		// Use a fixed timestep so gameplay feels frame-consistent.
+		m_DeltaTime = fixedDeltaTime;
 		m_DeltaTime *= m_TimeScale;
 		m_ElapsedTime += m_DeltaTime;
 	}
 
 	m_LastTime = currentTime;
+	m_FirstFrame = false;
 	m_FrameCount++;
 }
 

@@ -27,19 +27,14 @@ static float WrapAngle(float angle)
 	return angle;
 }
 
-static float ApproachAngle(float current, float target, float maxDelta)
+static float LerpAngle(float current, float target, float t)
 {
 	float delta = WrapAngle(target - current);
-	if (delta > maxDelta)
-	{
-		delta = maxDelta;
-	}
-	if (delta < -maxDelta)
-	{
-		delta = -maxDelta;
-	}
-	return current + delta;
+	return WrapAngle(current + delta * t);
 }
+
+// Turn response. 0.0f = no change, 1.0f = instant snap.
+static constexpr float kTurnLerp = 0.22f;
 
 
 void Player::Init()
@@ -89,7 +84,7 @@ void Player::Update()
 
 	Vector3 moveDirection{ 0.0f, 0.0f, 0.0f };
 
-	// Movement input is camera-relative, and the player turns first.
+	// Movement input is camera-relative.
 	if (Keyboard_IsKeyDown(KK_W))
 	{
 		moveDirection += cameraForward;
@@ -113,19 +108,10 @@ void Player::Update()
 		moveDirection.y = 0.0f;
 		moveDirection /= moveLength;
 
+		// Rotate toward the movement direction with linear interpolation.
 		float targetYaw = atan2f(moveDirection.x, moveDirection.z);
-		m_Rotation.y = ApproachAngle(m_Rotation.y, targetYaw, 3.0f * dt);
-
-		float yawDiff = fabsf(WrapAngle(targetYaw - m_Rotation.y));
-		if (yawDiff < XMConvertToRadians(5.0f))
-		{
-			m_Velocity += moveDirection * 50.0f * dt;
-		}
-		else
-		{
-			m_Velocity.x = 0.0f;
-			m_Velocity.z = 0.0f;
-		}
+		m_Rotation.y = LerpAngle(m_Rotation.y, targetYaw, kTurnLerp);
+		m_Velocity += moveDirection * 50.0f * dt;
 	}
 	else
 	{
