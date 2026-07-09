@@ -1,14 +1,8 @@
 #include "game.h"
-#include "polygon2D.h"
 #include "field.h"
 #include "camera.h"
-#include "gameObject.h"
 #include "player.h"
 #include "baseballBat.h"
-#include "enemy.h"
-#include "bullet.h"
-#include "tree.h"
-#include "explosion.h"
 #include "sky.h"
 #include "box.h"
 #include "firework.h"
@@ -16,7 +10,6 @@
 #include "battingWall.h"
 #include "battingTarget.h"
 #include "manager.h"
-#include "result.h"
 #include "score.h"
 #include "keyboard_utf8.h"
 #include "collider.h"
@@ -140,4 +133,6 @@ void Game::Update()
 }
 
 void Game::Draw()
-{}
+{
+
+}

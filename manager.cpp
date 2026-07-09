@@ -5,9 +5,7 @@
 #include "audio.h"
 #include "gameObject.h"
 #include "camera.h"
-#include "game.h"
 #include "title.h"
-#include "result.h"
 std::list<std::unique_ptr<GameObject>> Manager::m_GameObjects;
 std::unique_ptr<Scene> Manager::m_Scene = nullptr;
 std::unique_ptr<Scene> Manager::m_NextScene = nullptr;
@@ -99,22 +97,23 @@ void Manager::Draw()
 	{
 		Vector3 forward = camera->GetForward();
 		Vector3 position = camera->GetPosition();
-	for (auto& gameObject : m_GameObjects)
-	{
-		gameObject->CalcCameraZ(position, forward);
-	}
-	// カメラからの奥行きでソートする。
-	m_GameObjects.sort([](const auto& a, const auto& b)
+
+		for (auto& gameObject : m_GameObjects)
 		{
-			return a->GetCameraZ() > b->GetCameraZ();
-		});
+			gameObject->CalcCameraZ(position, forward);
+		}
+
+		m_GameObjects.sort([](const auto& a, const auto& b)
+			{
+				return a->GetCameraZ() > b->GetCameraZ();
+			});
 	}
-	// レイヤー順に描画する。
-	for (int layer = 0; layer < static_cast<int>(Layer::Count); layer++)// レイヤー0から順番に描画する。
+
+	for (int layer = 0; layer < static_cast<int>(Layer::Count); layer++)
 	{
 		for (auto& gameObject : m_GameObjects)
 		{
-			if (static_cast<int>(gameObject->GetLayer()) == layer)// 同じレイヤーのオブジェクトだけ描画する。
+			if (static_cast<int>(gameObject->GetLayer()) == layer)
 			{
 				gameObject->Draw();
 			}
@@ -123,7 +122,3 @@ void Manager::Draw()
 	
 	Renderer::End();
 }
-
-
-
-

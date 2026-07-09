@@ -18,8 +18,6 @@ private:
 	bool m_TargetScored = false;
 
 	void Explode();
-	void EmitSparkleTrail();
-	void EmitTargetHitSparkles();
 
 public:
 	void Init()override;

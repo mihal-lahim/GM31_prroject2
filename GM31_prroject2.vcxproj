@@ -138,6 +138,7 @@
     <ClInclude Include="audio.h" />
     <ClInclude Include="baseballBat.h" />
     <ClInclude Include="baseballBall.h" />
+    <ClInclude Include="baseballEffects.h" />
     <ClInclude Include="battingTarget.h" />
     <ClInclude Include="battingWall.h" />
     <ClInclude Include="box.h" />
@@ -179,6 +180,7 @@
     <ClCompile Include="audio.cpp" />
     <ClCompile Include="baseballBat.cpp" />
     <ClCompile Include="baseballBall.cpp" />
+    <ClCompile Include="baseballEffects.cpp" />
     <ClCompile Include="battingTarget.cpp" />
     <ClCompile Include="battingWall.cpp" />
     <ClCompile Include="box.cpp" />
