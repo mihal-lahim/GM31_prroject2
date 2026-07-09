@@ -26,7 +26,7 @@ using Microsoft::WRL::ComPtr;
 #if _DEBUG
 #pragma comment (lib, "DirectXTex_Debug.lib")
 #else
-#pragma comment (lib, "DirectXTex.lib")
+#pragma comment (lib, "DirectXTex_Release.lib")
 #endif
 
 #pragma comment (lib, "winmm.lib")

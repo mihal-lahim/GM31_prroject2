@@ -89,6 +89,12 @@ namespace
 			return buffer;
 		}
 
+		std::string compiledShaderPath = std::string("shaders\\compiled\\") + fileName;
+		if (LoadBinaryFile(compiledShaderPath.c_str(), buffer))
+		{
+			return buffer;
+		}
+
 		assert(false && "Failed to load shader binary.");
 		return {};
 	}

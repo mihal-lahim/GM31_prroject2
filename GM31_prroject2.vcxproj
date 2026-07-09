@@ -79,10 +79,12 @@
       <LanguageStandard>stdcpp20</LanguageStandard>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
       <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
+      <AdditionalIncludeDirectories>$(ProjectDir)include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
+      <AdditionalLibraryDirectories>$(ProjectDir)lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
@@ -96,10 +98,12 @@
       <LanguageStandard>stdcpp20</LanguageStandard>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
       <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
+      <AdditionalIncludeDirectories>$(ProjectDir)include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
+      <AdditionalLibraryDirectories>$(ProjectDir)lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
@@ -111,10 +115,12 @@
       <LanguageStandard>stdcpp20</LanguageStandard>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
       <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
+      <AdditionalIncludeDirectories>$(ProjectDir)include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
+      <AdditionalLibraryDirectories>$(ProjectDir)lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -128,109 +134,111 @@
       <LanguageStandard>stdcpp20</LanguageStandard>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
       <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
+      <AdditionalIncludeDirectories>$(ProjectDir)include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
+      <AdditionalLibraryDirectories>$(ProjectDir)lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClInclude Include="audio.h" />
-    <ClInclude Include="baseballBat.h" />
-    <ClInclude Include="baseballBall.h" />
-    <ClInclude Include="baseballEffects.h" />
-    <ClInclude Include="battingTarget.h" />
-    <ClInclude Include="battingWall.h" />
-    <ClInclude Include="box.h" />
-    <ClInclude Include="bullet.h" />
-    <ClInclude Include="camera.h" />
-    <ClInclude Include="collider.h" />
-    <ClInclude Include="component.h" />
-    <ClInclude Include="DirectXTex.h" />
-    <ClInclude Include="enemy.h" />
-    <ClInclude Include="explosion.h" />
-    <ClInclude Include="field.h" />
-    <ClInclude Include="firework.h" />
-    <ClInclude Include="game.h" />
-    <ClInclude Include="gameplayInputController.h" />
-    <ClInclude Include="gameSettings.h" />
-    <ClInclude Include="gameSetup.h" />
-    <ClInclude Include="gameTime.h" />
-    <ClInclude Include="gameObject.h" />
-    <ClInclude Include="jumpEffect.h" />
-    <ClInclude Include="keyboard_utf8.h" />
-    <ClInclude Include="main.h" />
-    <ClInclude Include="manager.h" />
-    <ClInclude Include="modelRenderer.h" />
-    <ClInclude Include="particle.h" />
-    <ClInclude Include="particleSystem.h" />
-    <ClInclude Include="pauseMenu.h" />
-    <ClInclude Include="pitchingMachine.h" />
-    <ClInclude Include="playerMoveParticle.h" />
-    <ClInclude Include="player.h" />
-    <ClInclude Include="polygon2D.h" />
-    <ClInclude Include="renderer.h" />
-    <ClInclude Include="result.h" />
-    <ClInclude Include="scene.h" />
-    <ClInclude Include="score.h" />
-    <ClInclude Include="sky.h" />
-    <ClInclude Include="spriteRenderer.h" />
-    <ClInclude Include="title.h" />
-    <ClInclude Include="tree.h" />
-    <ClInclude Include="Vector3.h" />
+    <ClInclude Include="include\audio.h" />
+    <ClInclude Include="include\baseballBat.h" />
+    <ClInclude Include="include\baseballBall.h" />
+    <ClInclude Include="include\baseballEffects.h" />
+    <ClInclude Include="include\battingTarget.h" />
+    <ClInclude Include="include\battingWall.h" />
+    <ClInclude Include="include\box.h" />
+    <ClInclude Include="include\bullet.h" />
+    <ClInclude Include="include\camera.h" />
+    <ClInclude Include="include\collider.h" />
+    <ClInclude Include="include\component.h" />
+    <ClInclude Include="include\DirectXTex.h" />
+    <ClInclude Include="include\enemy.h" />
+    <ClInclude Include="include\explosion.h" />
+    <ClInclude Include="include\field.h" />
+    <ClInclude Include="include\firework.h" />
+    <ClInclude Include="include\game.h" />
+    <ClInclude Include="include\gameplayInputController.h" />
+    <ClInclude Include="include\gameSettings.h" />
+    <ClInclude Include="include\gameSetup.h" />
+    <ClInclude Include="include\gameTime.h" />
+    <ClInclude Include="include\gameObject.h" />
+    <ClInclude Include="include\jumpEffect.h" />
+    <ClInclude Include="include\keyboard_utf8.h" />
+    <ClInclude Include="include\main.h" />
+    <ClInclude Include="include\manager.h" />
+    <ClInclude Include="include\modelRenderer.h" />
+    <ClInclude Include="include\particle.h" />
+    <ClInclude Include="include\particleSystem.h" />
+    <ClInclude Include="include\pauseMenu.h" />
+    <ClInclude Include="include\pitchingMachine.h" />
+    <ClInclude Include="include\playerMoveParticle.h" />
+    <ClInclude Include="include\player.h" />
+    <ClInclude Include="include\polygon2D.h" />
+    <ClInclude Include="include\renderer.h" />
+    <ClInclude Include="include\result.h" />
+    <ClInclude Include="include\scene.h" />
+    <ClInclude Include="include\score.h" />
+    <ClInclude Include="include\sky.h" />
+    <ClInclude Include="include\spriteRenderer.h" />
+    <ClInclude Include="include\title.h" />
+    <ClInclude Include="include\tree.h" />
+    <ClInclude Include="include\Vector3.h" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="audio.cpp" />
-    <ClCompile Include="baseballBat.cpp" />
-    <ClCompile Include="baseballBall.cpp" />
-    <ClCompile Include="baseballEffects.cpp" />
-    <ClCompile Include="battingTarget.cpp" />
-    <ClCompile Include="battingWall.cpp" />
-    <ClCompile Include="box.cpp" />
-    <ClCompile Include="bullet.cpp" />
-    <ClCompile Include="camera.cpp" />
-    <ClCompile Include="collider.cpp" />
-    <ClCompile Include="colliderDebugDraw.cpp" />
-    <ClCompile Include="colliderMath.cpp" />
-    <ClCompile Include="enemy.cpp" />
-    <ClCompile Include="explosion.cpp" />
-    <ClCompile Include="field.cpp" />
-    <ClCompile Include="firework.cpp" />
-    <ClCompile Include="game.cpp" />
-    <ClCompile Include="gameplayInputController.cpp" />
-    <ClCompile Include="gameSettings.cpp" />
-    <ClCompile Include="gameSetup.cpp" />
-    <ClCompile Include="gameTime.cpp" />
-    <ClCompile Include="jumpEffect.cpp" />
-    <ClCompile Include="keyboard_utf8.cpp" />
-    <ClCompile Include="main.cpp" />
-    <ClCompile Include="manager.cpp" />
-    <ClCompile Include="modelRenderer.cpp" />
-    <ClCompile Include="particle.cpp" />
-    <ClCompile Include="particleSystem.cpp" />
-    <ClCompile Include="pauseMenu.cpp" />
-    <ClCompile Include="pitchingMachine.cpp" />
-    <ClCompile Include="playerCollision.cpp" />
-    <ClCompile Include="playerCombat.cpp" />
-    <ClCompile Include="playerMoveParticle.cpp" />
-    <ClCompile Include="playerMovement.cpp" />
-    <ClCompile Include="player.cpp" />
-    <ClCompile Include="polygon2D.cpp" />
-    <ClCompile Include="renderer.cpp" />
-    <ClCompile Include="result.cpp" />
-    <ClCompile Include="score.cpp" />
-    <ClCompile Include="sky.cpp" />
-    <ClCompile Include="title.cpp" />
-    <ClCompile Include="tree.cpp" />
+    <ClCompile Include="src\audio.cpp" />
+    <ClCompile Include="src\baseballBat.cpp" />
+    <ClCompile Include="src\baseballBall.cpp" />
+    <ClCompile Include="src\baseballEffects.cpp" />
+    <ClCompile Include="src\battingTarget.cpp" />
+    <ClCompile Include="src\battingWall.cpp" />
+    <ClCompile Include="src\box.cpp" />
+    <ClCompile Include="src\bullet.cpp" />
+    <ClCompile Include="src\camera.cpp" />
+    <ClCompile Include="src\collider.cpp" />
+    <ClCompile Include="src\colliderDebugDraw.cpp" />
+    <ClCompile Include="src\colliderMath.cpp" />
+    <ClCompile Include="src\enemy.cpp" />
+    <ClCompile Include="src\explosion.cpp" />
+    <ClCompile Include="src\field.cpp" />
+    <ClCompile Include="src\firework.cpp" />
+    <ClCompile Include="src\game.cpp" />
+    <ClCompile Include="src\gameplayInputController.cpp" />
+    <ClCompile Include="src\gameSettings.cpp" />
+    <ClCompile Include="src\gameSetup.cpp" />
+    <ClCompile Include="src\gameTime.cpp" />
+    <ClCompile Include="src\jumpEffect.cpp" />
+    <ClCompile Include="src\keyboard_utf8.cpp" />
+    <ClCompile Include="src\main.cpp" />
+    <ClCompile Include="src\manager.cpp" />
+    <ClCompile Include="src\modelRenderer.cpp" />
+    <ClCompile Include="src\particle.cpp" />
+    <ClCompile Include="src\particleSystem.cpp" />
+    <ClCompile Include="src\pauseMenu.cpp" />
+    <ClCompile Include="src\pitchingMachine.cpp" />
+    <ClCompile Include="src\playerCollision.cpp" />
+    <ClCompile Include="src\playerCombat.cpp" />
+    <ClCompile Include="src\playerMoveParticle.cpp" />
+    <ClCompile Include="src\playerMovement.cpp" />
+    <ClCompile Include="src\player.cpp" />
+    <ClCompile Include="src\polygon2D.cpp" />
+    <ClCompile Include="src\renderer.cpp" />
+    <ClCompile Include="src\result.cpp" />
+    <ClCompile Include="src\score.cpp" />
+    <ClCompile Include="src\sky.cpp" />
+    <ClCompile Include="src\title.cpp" />
+    <ClCompile Include="src\tree.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <FxCompile Include="common.hlsl">
+    <FxCompile Include="shaders\common.hlsl">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
     </FxCompile>
-    <FxCompile Include="unlitTexturePS.hlsl">
+    <FxCompile Include="shaders\unlitTexturePS.hlsl">
       <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Pixel</ShaderType>
       <ShaderModel Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">5.0</ShaderModel>
       <ObjectFileOutput Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">$(OutDir)%(Filename).cso</ObjectFileOutput>
@@ -244,7 +252,7 @@
       <ShaderModel Condition="'$(Configuration)|$(Platform)'=='Release|x64'">5.0</ShaderModel>
       <ObjectFileOutput Condition="'$(Configuration)|$(Platform)'=='Release|x64'">$(OutDir)%(Filename).cso</ObjectFileOutput>
     </FxCompile>
-    <FxCompile Include="unlitTextureVS.hlsl">
+    <FxCompile Include="shaders\unlitTextureVS.hlsl">
       <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Vertex</ShaderType>
       <ShaderModel Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">5.0</ShaderModel>
       <ObjectFileOutput Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">$(OutDir)%(Filename).cso</ObjectFileOutput>
