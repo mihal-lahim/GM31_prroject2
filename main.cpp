@@ -4,7 +4,7 @@
 #include "manager.h"
 #include "gameTime.h"
 #include <thread>
-#include "keyboard.h"
+#include "keyboard_utf8.h"
 
 const char* CLASS_NAME = "AppClass";
 const char* WINDOW_NAME = "DX11 Game";
@@ -24,6 +24,8 @@ static LONG g_MouseDeltaX = 0;
 static LONG g_MouseDeltaY = 0;
 static bool g_MouseLeftButtonDown = false;
 static bool g_MouseLeftButtonPressed = false;
+static bool g_MouseRightButtonDown = false;
+static bool g_MouseRightButtonPressed = false;
 
 void Mouse_Reset()
 {
@@ -31,11 +33,14 @@ void Mouse_Reset()
 	g_MouseDeltaY = 0;
 	g_MouseLeftButtonDown = false;
 	g_MouseLeftButtonPressed = false;
+	g_MouseRightButtonDown = false;
+	g_MouseRightButtonPressed = false;
 }
 
 void Mouse_EndFrame()
 {
 	g_MouseLeftButtonPressed = false;
+	g_MouseRightButtonPressed = false;
 }
 
 void Mouse_Initialize(HWND hWnd)
@@ -67,6 +72,28 @@ bool Mouse_ConsumeDelta(float* deltaX, float* deltaY)
 	return moved;
 }
 
+bool Mouse_GetPosition(float* x, float* y)
+{
+	if (x == nullptr || y == nullptr || g_Window == nullptr)
+	{
+		return false;
+	}
+
+	POINT point{};
+	if (!GetCursorPos(&point))
+	{
+		return false;
+	}
+	if (!ScreenToClient(g_Window, &point))
+	{
+		return false;
+	}
+
+	*x = static_cast<float>(point.x);
+	*y = static_cast<float>(point.y);
+	return true;
+}
+
 bool Mouse_IsLeftButtonDown()
 {
 	return g_MouseLeftButtonDown;
@@ -75,6 +102,16 @@ bool Mouse_IsLeftButtonDown()
 bool Mouse_IsLeftButtonDownTrigger()
 {
 	return g_MouseLeftButtonPressed;
+}
+
+bool Mouse_IsRightButtonDown()
+{
+	return g_MouseRightButtonDown;
+}
+
+bool Mouse_IsRightButtonDownTrigger()
+{
+	return g_MouseRightButtonPressed;
 }
 
 bool Mouse_ProcessMessage(UINT message, WPARAM wParam, LPARAM lParam)
@@ -115,6 +152,15 @@ bool Mouse_ProcessMessage(UINT message, WPARAM wParam, LPARAM lParam)
 	case WM_LBUTTONUP:
 		g_MouseLeftButtonDown = false;
 		return true;
+
+	case WM_RBUTTONDOWN:
+		g_MouseRightButtonDown = true;
+		g_MouseRightButtonPressed = true;
+		return true;
+
+	case WM_RBUTTONUP:
+		g_MouseRightButtonDown = false;
+		return true;
 	}
 
 	return false;
@@ -123,6 +169,8 @@ bool Mouse_ProcessMessage(UINT message, WPARAM wParam, LPARAM lParam)
 
 int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow)
 {
+	(void)hPrevInstance;
+	(void)lpCmdLine;
 
 
 	WNDCLASSEX wcex;

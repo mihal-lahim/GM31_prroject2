@@ -9,79 +9,77 @@
 #include "enemy.h"
 #include "explosion.h"
 #include "score.h"
+#include "collider.h"
 
 
 void Bullet::Init()
 {
 	m_Layer = Layer::World;
 	AddComponent<ModelRenderer>(this)->Load("assets\\model\\bullet.obj");
-	//シェーダー読み込み
-	Renderer::CreateVertexShader(&m_VertexShader, &m_VertexLayout, "unlitTextureVS.cso");
+	// モデル描画用のシェーダーを読み込む。
+	Renderer::CreateVertexShader(m_VertexShader, m_VertexLayout, "unlitTextureVS.cso");
 
-	Renderer::CreatePixelShader(&m_PixelShader, "unlitTexturePS.cso");
+	Renderer::CreatePixelShader(m_PixelShader, "unlitTexturePS.cso");
+
+	m_Collider = AddComponent<Collider>(this);
+	m_Collider->SetSphere(0.35f)
+		->SetTag(Collider::Tag::Bullet)
+		->SetDebugColor(XMFLOAT4(1.0f, 1.0f, 0.0f, 1.0f));
 
 }
 
 void Bullet::Uninit()
 {
-	m_VertexLayout->Release();
-	m_VertexShader->Release();
-	m_PixelShader->Release();
+	GameObject::Uninit();
 }
 
 void Bullet::Update()
 {
-	float dt = GameTime::GetDeltaTime();//1/60秒に動く数値を指定するためE
-	float speed = 1.5f;//そ�E数値
-	//摩擦
+	float dt = GameTime::GetDeltaTime();// 1フレーム分の経過時間
 	float friction = 0.9f;
-	//減送E
+	// 速度を減衰させる。
 	m_Velocity *= friction;
-	//移動値適用
+	// 速度を座標に反映する。
 	m_Position += m_Velocity;
 
-	//敵との衝突判宁E
-	auto enemies = Manager::GetGameObjects<Enemy>();
-	for (auto* enemy : enemies)
+	// 敵との衝突判定。
+	auto hitColliders = Collider::GetOverlaps(*m_Collider, Collider::Tag::Enemy);
+	for (Collider* collider : hitColliders)
 	{
-		Vector3 direction = enemy->GetPosition() - m_Position;
-		float length = direction.length();
-
-		if (length < 1.0f)//衝突判定　距離ぁE.0f未満なら衝突とみなぁE
+		Enemy* enemy = dynamic_cast<Enemy*>(collider->GetOwner());
+		if (enemy != nullptr)
 		{
-			enemy->SetDestroy();//敵を削除予紁E
-			SetDestroy();//自刁E�E身を削除予紁E
+			enemy->SetDestroy();// 敵を削除予約する。
+			SetDestroy();// 弾自身を削除予約する。
 
-			Manager::AddGameObject<Explosion>()->SetPosition(enemy->GetPosition()+Vector3(0.0f, 1.0f, 0.0f));//爁E��エフェクト生戁E
-			Manager::GetGameObject<Score>()->Add(1); // スコアを追加
+			Manager::AddGameObject<Explosion>()->SetPosition(enemy->GetPosition()+Vector3(0.0f, 1.0f, 0.0f));// 爆発エフェクトを生成する。
+			Manager::GetGameObject<Score>()->Add(1); // スコアを加算する。
 
-			break;//ループから抜ける
+			break;// 1体に当たったら判定を抜ける。
 		}
-
 	}
 
-	//寿命減封E
+	// 寿命を減らす。
 	m_Lifetime -= dt;
 	if (m_Lifetime <= 0.0f)
 	{
-		//自刁E�E身を削除予紁E
+		// 寿命が切れたら自身を削除予約する。
 		SetDestroy();
 	}
-	//継承允E�EUpdateを呼び出ぁE
 	GameObject::Update();
 }
 
 void Bullet::Draw()
 {
-	//入力レイアウト設宁E
-	Renderer::GetDeviceContext()->IASetInputLayout(m_VertexLayout);
+	// 入力レイアウトを設定する。
+	Renderer::GetDeviceContext()->IASetInputLayout(m_VertexLayout.Get());
 
-	//シェーダー設宁E
-	Renderer::GetDeviceContext()->VSSetShader(m_VertexShader, NULL, 0);
-	Renderer::GetDeviceContext()->PSSetShader(m_PixelShader, NULL, 0);
+	// シェーダーを設定する。
+	Renderer::GetDeviceContext()->VSSetShader(m_VertexShader.Get(), NULL, 0);
+	Renderer::GetDeviceContext()->PSSetShader(m_PixelShader.Get(), NULL, 0);
 
 
-	//マトリクス設宁E
+	// ワールド行列を作成する。
 	XMMATRIX world, scale, rot, trans;
 	scale = XMMatrixScaling(m_Scale.x, m_Scale.y, m_Scale.z);
 	rot = XMMatrixRotationRollPitchYaw(m_Rotation.x, m_Rotation.y, m_Rotation.z);
@@ -90,7 +88,6 @@ void Bullet::Draw()
 
 	Renderer::SetWorldMatrix(world);
 
-	//継承允E�EDrawを呼び出ぁE
 	GameObject::Draw();
 }
 

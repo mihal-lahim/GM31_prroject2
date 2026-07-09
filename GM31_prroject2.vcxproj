@@ -78,6 +78,7 @@
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp20</LanguageStandard>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
+      <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -94,6 +95,7 @@
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp20</LanguageStandard>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
+      <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -108,6 +110,7 @@
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp20</LanguageStandard>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
+      <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -124,6 +127,7 @@
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp20</LanguageStandard>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
+      <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -132,22 +136,32 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="audio.h" />
+    <ClInclude Include="baseballBat.h" />
+    <ClInclude Include="baseballBall.h" />
+    <ClInclude Include="battingTarget.h" />
+    <ClInclude Include="battingWall.h" />
     <ClInclude Include="box.h" />
     <ClInclude Include="bullet.h" />
     <ClInclude Include="camera.h" />
+    <ClInclude Include="collider.h" />
     <ClInclude Include="component.h" />
     <ClInclude Include="DirectXTex.h" />
     <ClInclude Include="enemy.h" />
     <ClInclude Include="explosion.h" />
     <ClInclude Include="field.h" />
+    <ClInclude Include="firework.h" />
     <ClInclude Include="game.h" />
+    <ClInclude Include="gameSettings.h" />
     <ClInclude Include="gameTime.h" />
     <ClInclude Include="gameObject.h" />
-    <ClInclude Include="keyboard.h" />
+    <ClInclude Include="jumpEffect.h" />
+    <ClInclude Include="keyboard_utf8.h" />
     <ClInclude Include="main.h" />
     <ClInclude Include="manager.h" />
     <ClInclude Include="modelRenderer.h" />
     <ClInclude Include="particle.h" />
+    <ClInclude Include="pauseMenu.h" />
+    <ClInclude Include="pitchingMachine.h" />
     <ClInclude Include="playerMoveParticle.h" />
     <ClInclude Include="player.h" />
     <ClInclude Include="polygon2D.h" />
@@ -163,19 +177,29 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="audio.cpp" />
+    <ClCompile Include="baseballBat.cpp" />
+    <ClCompile Include="baseballBall.cpp" />
+    <ClCompile Include="battingTarget.cpp" />
+    <ClCompile Include="battingWall.cpp" />
     <ClCompile Include="box.cpp" />
     <ClCompile Include="bullet.cpp" />
     <ClCompile Include="camera.cpp" />
+    <ClCompile Include="collider.cpp" />
     <ClCompile Include="enemy.cpp" />
     <ClCompile Include="explosion.cpp" />
     <ClCompile Include="field.cpp" />
+    <ClCompile Include="firework.cpp" />
     <ClCompile Include="game.cpp" />
+    <ClCompile Include="gameSettings.cpp" />
     <ClCompile Include="gameTime.cpp" />
-    <ClCompile Include="keyboard.cpp" />
+    <ClCompile Include="jumpEffect.cpp" />
+    <ClCompile Include="keyboard_utf8.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="manager.cpp" />
     <ClCompile Include="modelRenderer.cpp" />
     <ClCompile Include="particle.cpp" />
+    <ClCompile Include="pauseMenu.cpp" />
+    <ClCompile Include="pitchingMachine.cpp" />
     <ClCompile Include="playerMoveParticle.cpp" />
     <ClCompile Include="player.cpp" />
     <ClCompile Include="polygon2D.cpp" />

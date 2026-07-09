@@ -32,7 +32,7 @@ void Explosion::Init()
 	vertex[3].Diffuse = XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f);
 	vertex[3].TexCoord = XMFLOAT2(1.0f, 1.0f);
 
-	//頂点バッファ生�E
+	// 爆発用の頂点バッファを生成する。
 	D3D11_BUFFER_DESC bd{};
 	bd.Usage = D3D11_USAGE_DYNAMIC;
 	bd.ByteWidth = sizeof(VERTEX_3D) * 4;
@@ -42,37 +42,32 @@ void Explosion::Init()
 	D3D11_SUBRESOURCE_DATA sd{};
 	sd.pSysMem = vertex;
 
-	Renderer::GetDevice()->CreateBuffer(&bd, &sd, &m_VertexBuffer);
+	Renderer::GetDevice()->CreateBuffer(&bd, &sd, m_VertexBuffer.GetAddressOf());
 
-	//チE��スチャ読み込み
+	// 爆発テクスチャを読み込む。
 	TexMetadata metadata{};
 	ScratchImage image{};
 	LoadFromWICFile(L"assets/texture/explosion.png", WIC_FLAGS_NONE, &metadata, image);
-	CreateShaderResourceView(Renderer::GetDevice(), image.GetImage(0, 0, 0), 1, metadata, &m_pTexture);
+	CreateShaderResourceView(Renderer::GetDevice(), image.GetImage(0, 0, 0), 1, metadata, m_pTexture.GetAddressOf());
 	assert(m_pTexture);
 
-	//シェーダー読み込み
-	Renderer::CreateVertexShader(&m_VertexShader, &m_VertexLayout, "unlitTextureVS.cso");
+	// シェーダーを読み込む。
+	Renderer::CreateVertexShader(m_VertexShader, m_VertexLayout, "unlitTextureVS.cso");
 
-	Renderer::CreatePixelShader(&m_PixelShader, "unlitTexturePS.cso");
+	Renderer::CreatePixelShader(m_PixelShader, "unlitTexturePS.cso");
 
 	m_Frame = 0;
 }
 
 void Explosion::Uninit()
 {
-	m_VertexBuffer->Release();
-
-	m_VertexLayout->Release();
-	m_VertexShader->Release();
-	m_PixelShader->Release();
-	m_pTexture->Release();
+	GameObject::Uninit();
 }
 
 void Explosion::Update()
 {
 	m_Frame++;
-	if (m_Frame >= 16) // 16フレームで消えめE
+	if (m_Frame >= 16) // 16フレームで消える。
 	{
 		SetDestroy();
 	}
@@ -80,16 +75,16 @@ void Explosion::Update()
 
 void Explosion::Draw()
 {
-	//入力レイアウト設宁E
-	Renderer::GetDeviceContext()->IASetInputLayout(m_VertexLayout);
+	// 入力レイアウトを設定する。
+	Renderer::GetDeviceContext()->IASetInputLayout(m_VertexLayout.Get());
 
-	//シェーダー設宁E
-	Renderer::GetDeviceContext()->VSSetShader(m_VertexShader, NULL, 0);
-	Renderer::GetDeviceContext()->PSSetShader(m_PixelShader, NULL, 0);
+	// シェーダーを設定する。
+	Renderer::GetDeviceContext()->VSSetShader(m_VertexShader.Get(), NULL, 0);
+	Renderer::GetDeviceContext()->PSSetShader(m_PixelShader.Get(), NULL, 0);
 
-	//頂点バッファにチE�Eタ転送E
+	// 頂点バッファへアニメーション用UVを転送する。
 	D3D11_MAPPED_SUBRESOURCE msr;
-	Renderer::GetDeviceContext()->Map(m_VertexBuffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &msr);
+	Renderer::GetDeviceContext()->Map(m_VertexBuffer.Get(), 0, D3D11_MAP_WRITE_DISCARD, 0, &msr);
 
 	VERTEX_3D* vertex = (VERTEX_3D*)msr.pData;
 	float tx = 1.0f / 4.0f * (m_Frame % 4);
@@ -118,27 +113,26 @@ void Explosion::Draw()
 	vertex[3].Diffuse = XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f);
 	vertex[3].TexCoord = XMFLOAT2(tx + tw, ty + th);
 
-	//確宁E
-	Renderer::GetDeviceContext()->Unmap(m_VertexBuffer, 0);
+	// 頂点バッファの更新を確定する。
+	Renderer::GetDeviceContext()->Unmap(m_VertexBuffer.Get(), 0);
 
-	//ビルボ�Eド用マトリクス
+	// ビルボード用の行列を作成する。
 	Camera* camera = Manager::GetGameObject<Camera>();
 	XMMATRIX view = camera->GetViewMatrix();
-	XMMATRIX invView = XMMatrixInverse(NULL, view);//送E���E(計算負荷高い)
-	invView.r[3].m128_f32[0] = 0.0f;//平行移動�E刁E��0にする
+	XMMATRIX invView = XMMatrixInverse(NULL, view);// ビュー行列の逆行列を使ってカメラへ向ける。
+	invView.r[3].m128_f32[0] = 0.0f;// 平行移動成分を消して回転だけ使う。
 	invView.r[3].m128_f32[1] = 0.0f;
 	invView.r[3].m128_f32[2] = 0.0f;
 
-	//マトリクス設宁E
-	XMMATRIX world, scale, rot, trans;
+	// ビルボード用のワールド行列を作成する。
+	XMMATRIX world, scale, trans;
 	scale = XMMatrixScaling(m_Scale.x, m_Scale.y, m_Scale.z);
-	//rot = XMMatrixRotationRollPitchYaw(m_Rotation.x, m_Rotation.y, m_Rotation.z);
 	trans = XMMatrixTranslation(m_Position.x, m_Position.y, m_Position.z);
 	world = scale * invView * trans;
 
 	Renderer::SetWorldMatrix(world);
 
-	//マテリアルの設宁E
+	// マテリアルを設定する。
 	MATERIAL material{};
 	material.Diffuse = XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f);
 	material.TextureEnable = true;
@@ -146,16 +140,16 @@ void Explosion::Draw()
 
 	
 
-	//頂点バッファ設宁E
+	// 頂点バッファを設定する。
 	UINT stride = sizeof(VERTEX_3D);
 	UINT offset = 0;
-	Renderer::GetDeviceContext()->IASetVertexBuffers(0, 1, &m_VertexBuffer, &stride, &offset);
-	//チE��スチャの設宁E
-	Renderer::GetDeviceContext()->PSSetShaderResources(0, 1, &m_pTexture);
-	//プリミティブトポロジ設宁E
+	Renderer::GetDeviceContext()->IASetVertexBuffers(0, 1, m_VertexBuffer.GetAddressOf(), &stride, &offset);
+	// テクスチャを設定する。
+	Renderer::GetDeviceContext()->PSSetShaderResources(0, 1, m_pTexture.GetAddressOf());
+	// プリミティブトポロジを設定する。
 	Renderer::GetDeviceContext()->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
 
-	//ポリゴン描画
+	// ポリゴンを描画する。
 	Renderer::GetDeviceContext()->Draw(4, 0);
 }
 

@@ -5,11 +5,11 @@
 #include "camera.h"
 #include "particle.h"
 
-ID3D11Buffer* Particle::s_VertexBuffer = nullptr;
-ID3D11InputLayout* Particle::s_VertexLayout = nullptr;
-ID3D11VertexShader* Particle::s_VertexShader = nullptr;
-ID3D11PixelShader* Particle::s_PixelShader = nullptr;
-ID3D11ShaderResourceView* Particle::s_pTexture = nullptr;
+ComPtr<ID3D11Buffer> Particle::s_VertexBuffer = nullptr;
+ComPtr<ID3D11InputLayout> Particle::s_VertexLayout = nullptr;
+ComPtr<ID3D11VertexShader> Particle::s_VertexShader = nullptr;
+ComPtr<ID3D11PixelShader> Particle::s_PixelShader = nullptr;
+ComPtr<ID3D11ShaderResourceView> Particle::s_pTexture = nullptr;
 int Particle::s_RefCount = 0;
 
 void Particle::Init()
@@ -48,15 +48,15 @@ void Particle::Init()
 
 		D3D11_SUBRESOURCE_DATA sd{};
 		sd.pSysMem = vertex;
-		Renderer::GetDevice()->CreateBuffer(&bd, &sd, &s_VertexBuffer);
+		Renderer::GetDevice()->CreateBuffer(&bd, &sd, s_VertexBuffer.GetAddressOf());
 
-		Renderer::CreateVertexShader(&s_VertexShader, &s_VertexLayout, "unlitTextureVS.cso");
-		Renderer::CreatePixelShader(&s_PixelShader, "unlitTexturePS.cso");
+		Renderer::CreateVertexShader(s_VertexShader, s_VertexLayout, "unlitTextureVS.cso");
+		Renderer::CreatePixelShader(s_PixelShader, "unlitTexturePS.cso");
 
 		TexMetadata metadata{};
 		ScratchImage image{};
 		LoadFromWICFile(L"assets/texture/particle.png", WIC_FLAGS_NONE, &metadata, image);
-		CreateShaderResourceView(Renderer::GetDevice(), image.GetImage(0, 0, 0), 1, metadata, &s_pTexture);
+		CreateShaderResourceView(Renderer::GetDevice(), image.GetImage(0, 0, 0), 1, metadata, s_pTexture.GetAddressOf());
 		assert(s_pTexture);
 	}
 
@@ -70,17 +70,11 @@ void Particle::Uninit()
 	{
 		s_RefCount = 0;
 
-		s_VertexBuffer->Release();
-		s_VertexLayout->Release();
-		s_VertexShader->Release();
-		s_PixelShader->Release();
-		s_pTexture->Release();
-
-		s_VertexBuffer = nullptr;
-		s_VertexLayout = nullptr;
-		s_VertexShader = nullptr;
-		s_PixelShader = nullptr;
-		s_pTexture = nullptr;
+		s_VertexBuffer.Reset();
+		s_VertexLayout.Reset();
+		s_VertexShader.Reset();
+		s_PixelShader.Reset();
+		s_pTexture.Reset();
 	}
 }
 
@@ -109,9 +103,9 @@ void Particle::Update()
 
 void Particle::Draw()
 {
-	Renderer::GetDeviceContext()->IASetInputLayout(s_VertexLayout);
-	Renderer::GetDeviceContext()->VSSetShader(s_VertexShader, NULL, 0);
-	Renderer::GetDeviceContext()->PSSetShader(s_PixelShader, NULL, 0);
+	Renderer::GetDeviceContext()->IASetInputLayout(s_VertexLayout.Get());
+	Renderer::GetDeviceContext()->VSSetShader(s_VertexShader.Get(), NULL, 0);
+	Renderer::GetDeviceContext()->PSSetShader(s_PixelShader.Get(), NULL, 0);
 
 	Camera* camera = Manager::GetGameObject<Camera>();
 	if (camera == nullptr)
@@ -134,15 +128,15 @@ void Particle::Draw()
 	{
 		alpha = 0.0f;
 	}
-	material.Diffuse = XMFLOAT4(0.85f, 0.90f, 1.0f, alpha);
+	material.Diffuse = XMFLOAT4(m_Color.x, m_Color.y, m_Color.z, m_Color.w * alpha);
 	material.TextureEnable = TRUE;
 	Renderer::SetMaterial(material);
 
-	Renderer::GetDeviceContext()->PSSetShaderResources(0, 1, &s_pTexture);
+	Renderer::GetDeviceContext()->PSSetShaderResources(0, 1, s_pTexture.GetAddressOf());
 
 	UINT stride = sizeof(VERTEX_3D);
 	UINT offset = 0;
-	Renderer::GetDeviceContext()->IASetVertexBuffers(0, 1, &s_VertexBuffer, &stride, &offset);
+	Renderer::GetDeviceContext()->IASetVertexBuffers(0, 1, s_VertexBuffer.GetAddressOf(), &stride, &offset);
 	Renderer::GetDeviceContext()->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
 
 	XMMATRIX world, scale, trans;

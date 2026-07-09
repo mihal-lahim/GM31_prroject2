@@ -3,7 +3,7 @@
 #include "main.h"
 #include "renderer.h"
 #include "modelRenderer.h"
-#include "keyboard.h"
+#include "keyboard_utf8.h"
 #include "player.h"
 #include "bullet.h"
 #include "manager.h"
@@ -13,6 +13,9 @@
 #include "box.h"
 #include "audio.h"
 #include "playerMoveParticle.h"
+#include "jumpEffect.h"
+#include "collider.h"
+#include "baseballBat.h"
 
 static float WrapAngle(float angle)
 {
@@ -46,29 +49,31 @@ void Player::Init()
 
 	AddComponent<ModelRenderer>(this)->Load("assets\\model\\player.obj");
 	
-	//繧ｷ繧ｧ繝ｼ繝繝ｼ隱ｭ縺ｿ霎ｼ縺ｿ
-	Renderer::CreateVertexShader(&m_VertexShader, &m_VertexLayout, "unlitTextureVS.cso");
+	// モデル描画用のシェーダーを読み込む。
+	Renderer::CreateVertexShader(m_VertexShader, m_VertexLayout, "unlitTextureVS.cso");
 
-	Renderer::CreatePixelShader(&m_PixelShader, "unlitTexturePS.cso");
-	//SE隱ｭ縺ｿ霎ｼ縺ｿ
+	Renderer::CreatePixelShader(m_PixelShader, "unlitTexturePS.cso");
+	// ジャンプ時のSEを読み込む。
 	m_JumpSE = AddComponent<Audio>(this);
 	m_JumpSE->Load("assets/audio/wan.wav");
 	AddComponent<PlayerMoveParticle>(this);
+	AddComponent<Collider>(this)
+		->SetCapsule(0.45f, 1.8f)
+		->SetOffset({ 0.0f, 0.9f, 0.0f })
+		->SetTag(Collider::Tag::Player)
+		->SetDebugColor(XMFLOAT4(0.2f, 0.8f, 1.0f, 1.0f));
 }
 
 void Player::Uninit()
 {
-	m_VertexLayout->Release();
-	m_VertexShader->Release();
-	m_PixelShader->Release();
 	GameObject::Uninit();
 }
 
 void Player::Update()
 {
-	Vector3 oldPosition = m_Position;//蜑阪・繝輔Ξ繝ｼ繝縺ｮ菴咲ｽｮ繧剃ｿ晏ｭ倥☆繧九◆繧・
+	Vector3 oldPosition = m_Position;// 衝突時に戻すため、移動前の座標を保存する。
 
-	float dt = GameTime::GetDeltaTime();//1/60遘偵↓蜍輔￥謨ｰ蛟､繧呈欠螳壹☆繧九◆繧・
+	float dt = GameTime::GetDeltaTime();// 1フレーム分の経過時間
 	
 	if (m_ShotCoolTime > 0.0f)
 	{
@@ -129,34 +134,40 @@ void Player::Update()
 		
 	}
 
-	//繧ｸ繝｣繝ｳ繝・
+	// 地面にいるときだけジャンプできる。
 	if (Keyboard_IsKeyDownTrigger(KK_SPACE)&&GetOnGround())
 	{
-		m_Velocity.y +=20.0f;//豼蜉・
+		m_Velocity.y +=20.0f;// 上方向へ速度を加える。
 
-		m_Scale.y = 2.0f;//繧ｸ繝｣繝ｳ繝嶺ｸｭ縺ｯ
+		m_Scale.y = 2.0f;// ジャンプ時の伸び縮み演出。
 		m_Scale.x = 0.5f;
 		m_Scale.z = 0.5f;
 		m_JumpSE->Play();
+
+		Vector3 effectPosition = m_Position;
+		effectPosition.y = 0.0f;
+		JumpEffect* jumpEffect = Manager::AddGameObject<JumpEffect>();
+		jumpEffect->SetPosition(effectPosition);
+		jumpEffect->EmitSparkles();
 	}
 
-	//繧ｹ繧ｱ繝ｼ繝ｫ繧呈綾縺・
+	// 変形したスケールを少しずつ元に戻す。
 	m_Scale.x += (1.0f - m_Scale.x) * 0.07f;
 	m_Scale.y += (1.0f - m_Scale.y) * 0.07f;
 	m_Scale.z += (1.0f - m_Scale.z) * 0.07f;
 
-	//驥榊鴨驕ｩ逕ｨ
+	// 重力を加える。
 	m_Velocity.y += -50.0f * dt;
-	//謚ｵ謚怜鴨
+	// 水平方向の速度を減衰させる。
 	m_Velocity.x += -m_Velocity.x * 5.0f * dt;
 	m_Velocity.z += -m_Velocity.z * 5.0f * dt;
 
-	//遘ｻ蜍募､驕ｩ逕ｨ
+	// 速度を座標に反映する。
 	m_Position += m_Velocity * dt;
 
 	bool oldOnGround = GetOnGround();
 
-	//陦晉ｪ∝愛螳・
+	// 地面との衝突判定。
 	if (m_Position.y < 0.0f)
 	{
 		m_Position.y = 0.0f;
@@ -168,7 +179,7 @@ void Player::Update()
 		SetOnGround(false);
 	}
 
-	//縺､縺ｶ縺吶い繝九Γ繝ｼ繧ｷ繝ｧ繝ｳ
+	// 着地した瞬間に押しつぶれたような演出を入れる。
 	if (!oldOnGround && GetOnGround())
 	{
 		m_Scale.y = 0.8f;
@@ -176,8 +187,8 @@ void Player::Update()
 		m_Scale.z = 1.5f;
 	}
 	
-	//蠑ｾ逋ｺ蟆・
-	if (Mouse_IsLeftButtonDownTrigger() && m_ShotCoolTime <= 0.0f)
+	// 右クリックで弾を発射する。
+	if (Mouse_IsRightButtonDownTrigger() && m_ShotCoolTime <= 0.0f)
 	{
 		Bullet* bullet = Manager::AddGameObject<Bullet>();
 		bullet->SetPosition(m_Position);
@@ -185,14 +196,22 @@ void Player::Update()
 		m_ShotCoolTime = kShotCoolTime;
 	}
 
-	//遘ｻ蜍輔い繝九Γ繝ｼ繧ｷ繝ｧ繝ｳ
+	// 左クリックでバットを振る。
+	if (Mouse_IsLeftButtonDownTrigger() && m_Bat != nullptr)
+	{
+		m_Bat->StartSwing();
+		m_Scale.x = 1.18f;
+		m_Scale.z = 1.18f;
+	}
+
+	// 移動中の上下揺れアニメーション。
 	if(GetOnGround())
 	{
 		m_MoveAnimation += m_Velocity.length() * dt;
 		m_Scale.y = 1.0f + sinf(m_MoveAnimation*3.0f)*0.03f;
 	}
 
-	//譛ｨ縺ｨ縺ｮ陦晉ｪ∝愛螳・
+	// 木との円形衝突判定。
 	auto trees = Manager::GetGameObjects<Tree>();
 	for (Tree* tree : trees)
 	{
@@ -207,12 +226,12 @@ void Player::Update()
 
 		if (length < 1.5f)
 		{
-			direction /= length;;//豁｣隕丞喧
-			direction *= 1.5f-length;//驥阪↑繧雁・縺縺第款縺怜・縺・
-			m_Position += direction;//繝励Ξ繧､繝､繝ｼ縺ｮ菴咲ｽｮ繧剃ｿｮ豁｣
+			direction /= length;;// 押し戻し方向を正規化する。
+			direction *= 1.5f-length;// めり込んだ分だけ押し戻す。
+			m_Position += direction;// 補正後の座標を反映する。
 		}
 	}
-	//繝懊ャ繧ｯ繧ｹ縺ｨ縺ｮ陦晉ｪ∝愛螳・
+	// 箱との簡易AABB衝突判定。
 	auto boxes = Manager::GetGameObjects<Box>();
 	for (Box* box : boxes)
 	{
@@ -227,7 +246,7 @@ void Player::Update()
 			if (boxPos.y + boxScale.y < m_Position.y &&
 				m_Position.y < boxPos.y + boxScale.y * 2.0f)
 			{
-				//荳企擇
+				// 箱の上に着地した場合。
 				m_Position.y = boxPos.y + boxScale.y * 2.0f;
 				m_Velocity.y = 0.0f;
 				m_OnGround = true;
@@ -235,7 +254,7 @@ void Player::Update()
 			else if (boxPos.y - boxScale.y < m_Position.y &&
 				m_Position.y < boxPos.y+boxScale.y)
 			{
-				//蛛ｴ髱｢
+				// 側面に当たった場合は横移動を戻す。
 				m_Position.x = oldPosition.x;
 				m_Position.z = oldPosition.z;
 				m_Velocity.x = 0.0f;
@@ -244,21 +263,20 @@ void Player::Update()
 			
 		}
 	}
-	//邯呎価蜈・・Update繧貞他縺ｳ蜃ｺ縺・
 	GameObject::Update();
 }
 
 void Player::Draw()
 {
-	//蜈･蜉帙Ξ繧､繧｢繧ｦ繝郁ｨｭ螳・
-	Renderer::GetDeviceContext()->IASetInputLayout(m_VertexLayout);
+	// 入力レイアウトを設定する。
+	Renderer::GetDeviceContext()->IASetInputLayout(m_VertexLayout.Get());
 
-	//繧ｷ繧ｧ繝ｼ繝繝ｼ險ｭ螳・
-	Renderer::GetDeviceContext()->VSSetShader(m_VertexShader, NULL, 0);
-	Renderer::GetDeviceContext()->PSSetShader(m_PixelShader, NULL, 0);
+	// シェーダーを設定する。
+	Renderer::GetDeviceContext()->VSSetShader(m_VertexShader.Get(), NULL, 0);
+	Renderer::GetDeviceContext()->PSSetShader(m_PixelShader.Get(), NULL, 0);
 
 
-	//繝槭ヨ繝ｪ繧ｯ繧ｹ險ｭ螳・
+	// ワールド行列を作成する。
 	XMMATRIX world, scale, rot, trans;
 	scale = XMMatrixScaling(m_Scale.x, m_Scale.y, m_Scale.z);
 	rot = XMMatrixRotationRollPitchYaw(m_Rotation.x, m_Rotation.y + XM_PI, m_Rotation.z);
@@ -267,7 +285,6 @@ void Player::Draw()
 
 	Renderer::SetWorldMatrix(world);
 
-	//邯呎価蜈・・Draw繧貞他縺ｳ蜃ｺ縺・
 	GameObject::Draw();
 }
 

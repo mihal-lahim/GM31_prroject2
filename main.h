@@ -7,16 +7,19 @@
 #include <windows.h>
 #include <assert.h>
 #include <functional>
+#include <memory>
 
 #include <list>
 #include <vector>
 
 #include <d3d11.h>
 #pragma comment (lib, "d3d11.lib")
+#include <wrl/client.h>
 
 
 #include <DirectXMath.h>
 using namespace DirectX;
+using Microsoft::WRL::ComPtr;
 
 #include "DirectXTex.h"
 
@@ -39,9 +42,12 @@ void Invoke(std::function<void()> Function, int Time);
 void Mouse_Initialize(HWND hWnd);
 bool Mouse_ProcessMessage(UINT message, WPARAM wParam, LPARAM lParam);
 bool Mouse_ConsumeDelta(float* deltaX, float* deltaY);
+bool Mouse_GetPosition(float* x, float* y);
 void Mouse_EndFrame();
 bool Mouse_IsLeftButtonDown();
 bool Mouse_IsLeftButtonDownTrigger();
+bool Mouse_IsRightButtonDown();
+bool Mouse_IsRightButtonDownTrigger();
 void Mouse_Reset();
 
 #include "Vector3.h"

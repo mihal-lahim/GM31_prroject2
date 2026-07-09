@@ -10,19 +10,17 @@ void Sky::Init()
 {
 	m_Layer = Layer::World;
 	AddComponent<ModelRenderer>(this)->Load("assets\\model\\sky.obj");
-	//シェーダー読み込み
-	Renderer::CreateVertexShader(&m_VertexShader, &m_VertexLayout, "unlitTextureVS.cso");
+	// モデル描画用のシェーダーを読み込む。
+	Renderer::CreateVertexShader(m_VertexShader, m_VertexLayout, "unlitTextureVS.cso");
 
-	Renderer::CreatePixelShader(&m_PixelShader, "unlitTexturePS.cso");
+	Renderer::CreatePixelShader(m_PixelShader, "unlitTexturePS.cso");
 
 	m_Scale = { 100.0f, 100.0f, 100.0f };
 }
 
 void Sky::Uninit()
 {
-	m_VertexLayout->Release();
-	m_VertexShader->Release();
-	m_PixelShader->Release();
+	GameObject::Uninit();
 }
 
 void Sky::Update()
@@ -30,21 +28,20 @@ void Sky::Update()
 	Camera* camera = Manager::GetGameObject<Camera>();
 	m_Position = camera->GetPosition();
 
-	//継承允E�EUpdateを呼び出ぁE
 	GameObject::Update();
 }
 
 void Sky::Draw()
 {
-	//入力レイアウト設宁E
-	Renderer::GetDeviceContext()->IASetInputLayout(m_VertexLayout);
+	// 入力レイアウトを設定する。
+	Renderer::GetDeviceContext()->IASetInputLayout(m_VertexLayout.Get());
 
-	//シェーダー設宁E
-	Renderer::GetDeviceContext()->VSSetShader(m_VertexShader, NULL, 0);
-	Renderer::GetDeviceContext()->PSSetShader(m_PixelShader, NULL, 0);
+	// シェーダーを設定する。
+	Renderer::GetDeviceContext()->VSSetShader(m_VertexShader.Get(), NULL, 0);
+	Renderer::GetDeviceContext()->PSSetShader(m_PixelShader.Get(), NULL, 0);
 
 
-	//マトリクス設宁E
+	// ワールド行列を作成する。
 	XMMATRIX world, scale, rot, trans;
 	scale = XMMatrixScaling(m_Scale.x, m_Scale.y, m_Scale.z);
 	rot = XMMatrixRotationRollPitchYaw(m_Rotation.x, m_Rotation.y, m_Rotation.z);
@@ -53,7 +50,6 @@ void Sky::Draw()
 
 	Renderer::SetWorldMatrix(world);
 
-	//継承允E�EDrawを呼び出ぁE
 	GameObject::Draw();
 }
 

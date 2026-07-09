@@ -8,26 +8,33 @@
 #include "game.h"
 #include "title.h"
 #include "result.h"
-std::list<GameObject*> Manager::m_GameObjects;
-Scene* Manager::m_Scene = nullptr;
-Scene* Manager::m_NextScene = nullptr;
+std::list<std::unique_ptr<GameObject>> Manager::m_GameObjects;
+std::unique_ptr<Scene> Manager::m_Scene = nullptr;
+std::unique_ptr<Scene> Manager::m_NextScene = nullptr;
 
 void Manager::Init()
 {
 	Renderer::Init();
 	Audio::InitMaster();
-	m_Scene = new Title();
+	m_Scene = std::make_unique<Title>();
 	m_Scene->Init();
 }
 
 void Manager::Uninit()
 {
 
-	for (GameObject* gameObject : m_GameObjects)
+	for (auto& gameObject : m_GameObjects)
 	{
 		gameObject->Uninit();
-		delete gameObject;
 	}
+	m_GameObjects.clear();
+
+	if (m_Scene != nullptr)
+	{
+		m_Scene->Uninit();
+		m_Scene.reset();
+	}
+	m_NextScene.reset();
 
 	Audio::UninitMaster();
 	Renderer::Uninit();
@@ -44,31 +51,39 @@ void Manager::Update()
 		m_Scene->Update();
 	}
 
-	for (GameObject* gameObject : m_GameObjects)
+	for (auto& gameObject : m_GameObjects)
 	{
+		if (GameTime::IsPaused() && gameObject->GetLayer() != Layer::UI)
+		{
+			continue;
+		}
 		gameObject->Update();
 	}
 
-	//ゲームオブジェクト削除　ラムダ弁E
-	m_GameObjects.remove_if([](GameObject* gameObject) 
+	// 削除予約されたゲームオブジェクトを破棄する。
+	m_GameObjects.remove_if([](auto& gameObject) 
 	{
-			return gameObject->Destroy();
+		if (gameObject->Destroy())
+		{
+			gameObject->Uninit();
+			return true;
+		}
+
+		return false;
 	});
-	//シーン刁E��替ぁE
+	// 次のシーンが予約されていれば切り替える。
 	if (m_NextScene != nullptr)
 	{
 		if(m_Scene!=nullptr)
 		{
 			m_Scene->Uninit();
-			delete m_Scene;
 		}
-		for (GameObject* gameObject : m_GameObjects)
+		for (auto& gameObject : m_GameObjects)
 		{
 			gameObject->Uninit();
-			delete gameObject;
 		}
 		m_GameObjects.clear();
-		m_Scene = m_NextScene;
+		m_Scene = std::move(m_NextScene);
 		m_Scene->Init();
 
 		m_NextScene = nullptr;
@@ -84,22 +99,22 @@ void Manager::Draw()
 	{
 		Vector3 forward = camera->GetForward();
 		Vector3 position = camera->GetPosition();
-	for (GameObject* gameObject : m_GameObjects)
+	for (auto& gameObject : m_GameObjects)
 	{
 		gameObject->CalcCameraZ(position, forward);
 	}
-	//Zソート　ラムダ弁E
-	m_GameObjects.sort([](GameObject* a, GameObject* b)
+	// カメラからの奥行きでソートする。
+	m_GameObjects.sort([](const auto& a, const auto& b)
 		{
 			return a->GetCameraZ() > b->GetCameraZ();
 		});
 	}
-	//レイヤー頁E��描画
-	for (int layer = 0; layer < static_cast<int>(Layer::Count); layer++)//レイヤー0�E�Eまで描画する
+	// レイヤー順に描画する。
+	for (int layer = 0; layer < static_cast<int>(Layer::Count); layer++)// レイヤー0から順番に描画する。
 	{
-		for (GameObject* gameObject : m_GameObjects)
+		for (auto& gameObject : m_GameObjects)
 		{
-			if (static_cast<int>(gameObject->GetLayer()) == layer)//レイヤーが同じなら描画する
+			if (static_cast<int>(gameObject->GetLayer()) == layer)// 同じレイヤーのオブジェクトだけ描画する。
 			{
 				gameObject->Draw();
 			}

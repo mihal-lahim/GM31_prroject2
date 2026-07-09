@@ -5,12 +5,12 @@
 class Score :public GameObject
 {
 private:
-	ID3D11Buffer* m_VertexBuffer;
+	ComPtr<ID3D11Buffer> m_VertexBuffer;
 
-	ID3D11InputLayout* m_VertexLayout;
-	ID3D11VertexShader* m_VertexShader;
-	ID3D11PixelShader* m_PixelShader;
-	ID3D11ShaderResourceView* m_pTexture;
+	ComPtr<ID3D11InputLayout> m_VertexLayout;
+	ComPtr<ID3D11VertexShader> m_VertexShader;
+	ComPtr<ID3D11PixelShader> m_PixelShader;
+	ComPtr<ID3D11ShaderResourceView> m_pTexture;
 	
 	int m_value = 0;
 public:

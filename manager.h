@@ -1,15 +1,19 @@
 #pragma once
 
+#include <list>
+#include <memory>
+#include <vector>
+
 class GameObject;
 class Scene;
 
 class Manager
 {
 private:
-	static std::list<GameObject*> m_GameObjects;
+	static std::list<std::unique_ptr<GameObject>> m_GameObjects;
 
-	static Scene* m_Scene;
-	static Scene* m_NextScene;
+	static std::unique_ptr<Scene> m_Scene;
+	static std::unique_ptr<Scene> m_NextScene;
 	static float m_ChangeTime;
 
 public:
@@ -18,27 +22,28 @@ public:
 	static void Update();
 	static void Draw();
 
-	template<typename T>//テンプレート関数
+	template<typename T>// テンプレート関数
 	static void ChangeScene()
 	{
-		m_NextScene = new T();
+		m_NextScene = std::make_unique<T>();
 	}
 
-	template<typename T>//テンプレート関数
+	template<typename T>// テンプレート関数
 	static T* AddGameObject()
 	{
-		T* gameObject = new T();
+		auto gameObject = std::make_unique<T>();
+		T* gameObjectPtr = gameObject.get();
 		gameObject->Init();
-		m_GameObjects.push_back(gameObject);
-		return gameObject;
+		m_GameObjects.push_back(std::move(gameObject));
+		return gameObjectPtr;
 	}
 
-	template<typename T>//テンプレート関数
+	template<typename T>// テンプレート関数
 	static T* GetGameObject()
 	{
-		for (GameObject* gameObject : m_GameObjects)
+		for (auto& gameObject : m_GameObjects)
 		{
-			T* find = dynamic_cast<T*>(gameObject);
+			T* find = dynamic_cast<T*>(gameObject.get());
 			if(find!=nullptr)
 			{
 				return find;
@@ -47,13 +52,13 @@ public:
 		return nullptr;
 	}
 
-	template<typename T>//テンプレート関数
+	template<typename T>// テンプレート関数
 	static std::vector<T*> GetGameObjects()
 	{
 		std::vector<T*> gameObjects;
-		for (GameObject* gameObject : m_GameObjects)
+		for (auto& gameObject : m_GameObjects)
 		{
-			T* find = dynamic_cast<T*>(gameObject);
+			T* find = dynamic_cast<T*>(gameObject.get());
 			if (find != nullptr)
 			{
 				gameObjects.push_back(find);

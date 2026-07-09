@@ -44,25 +44,25 @@ private:
 
 	static D3D_FEATURE_LEVEL       m_FeatureLevel;
 
-	static ID3D11Device*           m_Device;
-	static ID3D11DeviceContext*    m_DeviceContext;
-	static IDXGISwapChain*         m_SwapChain;
-	static ID3D11RenderTargetView* m_RenderTargetView;
-	static ID3D11DepthStencilView* m_DepthStencilView;
+	static ComPtr<ID3D11Device>           m_Device;
+	static ComPtr<ID3D11DeviceContext>    m_DeviceContext;
+	static ComPtr<IDXGISwapChain>         m_SwapChain;
+	static ComPtr<ID3D11RenderTargetView> m_RenderTargetView;
+	static ComPtr<ID3D11DepthStencilView> m_DepthStencilView;
 
-	static ID3D11Buffer*			m_WorldBuffer;
-	static ID3D11Buffer*			m_ViewBuffer;
-	static ID3D11Buffer*			m_ProjectionBuffer;
-	static ID3D11Buffer*			m_MaterialBuffer;
-	static ID3D11Buffer*			m_LightBuffer;
+	static ComPtr<ID3D11Buffer>			m_WorldBuffer;
+	static ComPtr<ID3D11Buffer>			m_ViewBuffer;
+	static ComPtr<ID3D11Buffer>			m_ProjectionBuffer;
+	static ComPtr<ID3D11Buffer>			m_MaterialBuffer;
+	static ComPtr<ID3D11Buffer>			m_LightBuffer;
 
 
-	static ID3D11DepthStencilState* m_DepthStateEnable;
-	static ID3D11DepthStencilState* m_DepthStateDisable;
+	static ComPtr<ID3D11DepthStencilState> m_DepthStateEnable;
+	static ComPtr<ID3D11DepthStencilState> m_DepthStateDisable;
 
-	static ID3D11BlendState*		m_BlendState;
-	static ID3D11BlendState*		m_BlendStateAdd;
-	static ID3D11BlendState*		m_BlendStateATC;
+	static ComPtr<ID3D11BlendState>		m_BlendState;
+	static ComPtr<ID3D11BlendState>		m_BlendStateAdd;
+	static ComPtr<ID3D11BlendState>		m_BlendStateATC;
 
 
 
@@ -82,13 +82,13 @@ public:
 	static void SetLight(LIGHT Light);
 	static void SetAddBlendEnable(bool Enable);
 
-	static ID3D11Device* GetDevice( void ){ return m_Device; }
-	static ID3D11DeviceContext* GetDeviceContext( void ){ return m_DeviceContext; }
+	static ID3D11Device* GetDevice( void ){ return m_Device.Get(); }
+	static ID3D11DeviceContext* GetDeviceContext( void ){ return m_DeviceContext.Get(); }
 
 
 
-	static void CreateVertexShader(ID3D11VertexShader** VertexShader, ID3D11InputLayout** VertexLayout, const char* FileName);
-	static void CreatePixelShader(ID3D11PixelShader** PixelShader, const char* FileName);
+	static void CreateVertexShader(ComPtr<ID3D11VertexShader>& VertexShader, ComPtr<ID3D11InputLayout>& VertexLayout, const char* FileName);
+	static void CreatePixelShader(ComPtr<ID3D11PixelShader>& PixelShader, const char* FileName);
 
 
 };

@@ -6,28 +6,50 @@
 
 
 
-IXAudio2*				Audio::m_Xaudio = NULL;
-IXAudio2MasteringVoice*	Audio::m_MasteringVoice = NULL;
+ComPtr<IXAudio2> Audio::m_Xaudio = nullptr;
+std::unique_ptr<IXAudio2MasteringVoice, XAudioVoiceDeleter> Audio::m_MasteringVoice = nullptr;
+float Audio::m_MasterVolume = 0.8f;
 
 
 void Audio::InitMaster()
 {
-	// COM‰Šú‰»
+	// COMåˆæœŸåŒ–
 	CoInitializeEx(NULL, COINIT_MULTITHREADED);
 
-	// XAudio¶¬
-	XAudio2Create(&m_Xaudio, 0);
+	// XAudioç”Ÿæˆ
+	XAudio2Create(m_Xaudio.GetAddressOf(), 0);
 
-	// ƒ}ƒXƒ^ƒŠƒ“ƒOƒ{ƒCƒX¶¬
-	m_Xaudio->CreateMasteringVoice(&m_MasteringVoice);
+	// ãƒžã‚¹ã‚¿ãƒªãƒ³ã‚°ãƒœã‚¤ã‚¹ç”Ÿæˆ
+	IXAudio2MasteringVoice* masteringVoice = nullptr;
+	m_Xaudio->CreateMasteringVoice(&masteringVoice);
+	m_MasteringVoice.reset(masteringVoice);
+	SetMasterVolume(m_MasterVolume);
 }
 
 
 void Audio::UninitMaster()
 {
-	m_MasteringVoice->DestroyVoice();
-	m_Xaudio->Release();
+	m_MasteringVoice.reset();
+	m_Xaudio.Reset();
 	CoUninitialize();
+}
+
+void Audio::SetMasterVolume(float volume)
+{
+	if (volume < 0.0f)
+	{
+		volume = 0.0f;
+	}
+	if (volume > 1.0f)
+	{
+		volume = 1.0f;
+	}
+
+	m_MasterVolume = volume;
+	if (m_MasteringVoice)
+	{
+		m_MasteringVoice->SetVolume(m_MasterVolume);
+	}
 }
 
 
@@ -41,7 +63,7 @@ void Audio::UninitMaster()
 void Audio::Load(const char *FileName)
 {
 
-	// ƒTƒEƒ“ƒhƒf[ƒ^“Çž
+	// ã‚µã‚¦ãƒ³ãƒ‰ãƒ‡ãƒ¼ã‚¿èª­è¾¼
 	WAVEFORMATEX wfx = { 0 };
 
 	{
@@ -83,8 +105,8 @@ void Audio::Load(const char *FileName)
 
 
 		buflen = datachunkinfo.cksize;
-		m_SoundData = new unsigned char[buflen];
-		readlen = mmioRead(hmmio, (HPSTR)m_SoundData, buflen);
+		m_SoundData.resize(buflen);
+		readlen = mmioRead(hmmio, (HPSTR)m_SoundData.data(), buflen);
 
 
 		m_Length = readlen;
@@ -95,18 +117,23 @@ void Audio::Load(const char *FileName)
 	}
 
 
-	// ƒTƒEƒ“ƒhƒ\[ƒX¶¬
-	m_Xaudio->CreateSourceVoice(&m_SourceVoice, &wfx);
+	// ã‚µã‚¦ãƒ³ãƒ‰ã‚½ãƒ¼ã‚¹ç”Ÿæˆ
+	IXAudio2SourceVoice* sourceVoice = nullptr;
+	m_Xaudio->CreateSourceVoice(&sourceVoice, &wfx);
+	m_SourceVoice.reset(sourceVoice);
 	assert(m_SourceVoice);
 }
 
 
 void Audio::Uninit()
 {
-	m_SourceVoice->Stop();
-	m_SourceVoice->DestroyVoice();
+	if (m_SourceVoice)
+	{
+		m_SourceVoice->Stop();
+		m_SourceVoice.reset();
+	}
 
-	delete[] m_SoundData;
+	m_SoundData.clear();
 }
 
 
@@ -119,16 +146,16 @@ void Audio::Play(bool Loop)
 	m_SourceVoice->FlushSourceBuffers();
 
 
-	// ƒoƒbƒtƒ@Ý’è
+	// ãƒãƒƒãƒ•ã‚¡è¨­å®š
 	XAUDIO2_BUFFER bufinfo;
 
 	memset(&bufinfo, 0x00, sizeof(bufinfo));
 	bufinfo.AudioBytes = m_Length;
-	bufinfo.pAudioData = m_SoundData;
+	bufinfo.pAudioData = m_SoundData.data();
 	bufinfo.PlayBegin = 0;
 	bufinfo.PlayLength = m_PlayLength;
 
-	// ƒ‹[ƒvÝ’è
+	// ãƒ«ãƒ¼ãƒ—è¨­å®š
 	if (Loop)
 	{
 		bufinfo.LoopBegin = 0;
@@ -145,7 +172,7 @@ void Audio::Play(bool Loop)
 */
 
 
-	// Ä¶
+	// å†ç”Ÿ
 	m_SourceVoice->Start();
 
 }

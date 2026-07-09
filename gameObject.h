@@ -19,15 +19,15 @@ protected:
 	bool m_Destroy = false;
 	Layer m_Layer = Layer::World;
 
-	float m_CameraZ;//ソート用Z値
+	float m_CameraZ;// ソート用のカメラ奥行き値
 
 	Vector3 m_Position{ 0.0f, 0.0f, 0.0f };
 	Vector3 m_Rotation{ 0.0f, 0.0f, 0.0f };
 	Vector3 m_Scale{ 1.0f, 1.0f, 1.0f };
 
-	 std::list<Component*> m_Components;
+	std::list<std::unique_ptr<Component>> m_Components;
 public:
-	virtual ~GameObject() {}
+	virtual ~GameObject() { Uninit(); }
 
 	Layer GetLayer() const { return m_Layer; }
 
@@ -49,46 +49,38 @@ public:
 	void SetDestroy() { m_Destroy = true; }
 	bool Destroy()
 	{
-		if(m_Destroy)
-		{ 
-			Uninit();
-			delete this;
-			return true;
-		}
-		else
-		{
-			return false;
-		}
+		return m_Destroy;
 	}
 
 	virtual void Init() {}
 	virtual void Uninit() {
-		for (Component* component : m_Components)
+		for (auto& component : m_Components)
 		{
 			component->Uninit();
-			delete component;
 		}
+		m_Components.clear();
 	}
 	virtual void Update() {
-		for (Component* component : m_Components)
+		for (auto& component : m_Components)
 		{
 			component->Update();
 		}
 	}
 	virtual void Draw() {
-		for (Component* component : m_Components)
+		for (auto& component : m_Components)
 		{
 			component->Draw();
 		}
 	}
 
-	template<typename T>//チE��プレート関数
+	template<typename T>// テンプレート関数
 	T* AddComponent(GameObject* Object)
 	{
-		T* component = new T(Object);
+		auto component = std::make_unique<T>(Object);
+		T* componentPtr = component.get();
 		component->Init();
-		m_Components.push_back(component);
-		return component;
+		m_Components.push_back(std::move(component));
+		return componentPtr;
 	}
 	virtual Vector3 GetForward()
 	{

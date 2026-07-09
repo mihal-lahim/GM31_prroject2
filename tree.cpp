@@ -5,6 +5,7 @@
 #include"renderer.h"
 #include "tree.h"
 #include "camera.h"
+#include "collider.h"
 
 void Tree::Init()
 {
@@ -31,7 +32,7 @@ void Tree::Init()
 	vertex[3].Diffuse = XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f);
 	vertex[3].TexCoord = XMFLOAT2(1.0f, 1.0f);
 
-	//頂点バッファ生�E
+	// 木のビルボード用頂点バッファを生成する。
 	D3D11_BUFFER_DESC bd{};
 	bd.Usage = D3D11_USAGE_DEFAULT;
 	bd.ByteWidth = sizeof(VERTEX_3D) * 4;
@@ -41,30 +42,31 @@ void Tree::Init()
 	D3D11_SUBRESOURCE_DATA sd{};
 	sd.pSysMem = vertex;
 
-	Renderer::GetDevice()->CreateBuffer(&bd, &sd, &m_VertexBuffer);
+	Renderer::GetDevice()->CreateBuffer(&bd, &sd, m_VertexBuffer.GetAddressOf());
 
-	//シェーダー読み込み
-	Renderer::CreateVertexShader(&m_VertexShader, &m_VertexLayout, "unlitTextureVS.cso");
+	// シェーダーを読み込む。
+	Renderer::CreateVertexShader(m_VertexShader, m_VertexLayout, "unlitTextureVS.cso");
 
-	Renderer::CreatePixelShader(&m_PixelShader, "unlitTexturePS.cso");
+	Renderer::CreatePixelShader(m_PixelShader, "unlitTexturePS.cso");
 
-	//チE��スチャ読み込み
+	// 木のテクスチャを読み込む。
 	TexMetadata metadata{};
 	ScratchImage image{};
 	LoadFromWICFile(L"assets/texture/tree.png", WIC_FLAGS_NONE, &metadata, image);
-	CreateShaderResourceView(Renderer::GetDevice(), image.GetImage(0, 0, 0), 1, metadata, &m_pTexture);
+	CreateShaderResourceView(Renderer::GetDevice(), image.GetImage(0, 0, 0), 1, metadata, m_pTexture.GetAddressOf());
 	assert(m_pTexture);
+
+	AddComponent<Collider>(this)
+		->SetSphere(1.5f)
+		->SetOffset({ 0.0f, 0.75f, 0.0f })
+		->SetTag(Collider::Tag::Tree)
+		->SetDebugColor(XMFLOAT4(0.2f, 1.0f, 0.25f, 1.0f));
 
 }
 
 void Tree::Uninit()
 {
-	m_VertexBuffer->Release();
-
-	m_VertexLayout->Release();
-	m_VertexShader->Release();
-	m_PixelShader->Release();
-	m_pTexture->Release();
+	GameObject::Uninit();
 }
 
 void Tree::Update()
@@ -74,47 +76,46 @@ void Tree::Update()
 
 void Tree::Draw()
 {
-	//入力レイアウト設宁E
-	Renderer::GetDeviceContext()->IASetInputLayout(m_VertexLayout);
+	// 入力レイアウトを設定する。
+	Renderer::GetDeviceContext()->IASetInputLayout(m_VertexLayout.Get());
 
-	//シェーダー設宁E
-	Renderer::GetDeviceContext()->VSSetShader(m_VertexShader, NULL, 0);
-	Renderer::GetDeviceContext()->PSSetShader(m_PixelShader, NULL, 0);
+	// シェーダーを設定する。
+	Renderer::GetDeviceContext()->VSSetShader(m_VertexShader.Get(), NULL, 0);
+	Renderer::GetDeviceContext()->PSSetShader(m_PixelShader.Get(), NULL, 0);
 
 	Camera* camera = Manager::GetGameObject<Camera>();
 	XMMATRIX view = camera->GetViewMatrix();
-	XMMATRIX invView = XMMatrixInverse(NULL, view);//送E���E(計算負荷高い)
-	invView.r[3].m128_f32[0] = 0.0f;//平行移動�E刁E��0にする
+	XMMATRIX invView = XMMatrixInverse(NULL, view);// ビュー行列の逆行列を使ってカメラへ向ける。
+	invView.r[3].m128_f32[0] = 0.0f;// 平行移動成分を消して回転だけ使う。
 	invView.r[3].m128_f32[1] = 0.0f;
 	invView.r[3].m128_f32[2] = 0.0f;
 
-	//マトリクス設宁E
-	XMMATRIX world, scale, rot, trans;
+	// ビルボード用のワールド行列を作成する。
+	XMMATRIX world, scale, trans;
 	scale = XMMatrixScaling(m_Scale.x, m_Scale.y, m_Scale.z);
-	//rot = XMMatrixRotationRollPitchYaw(m_Rotation.x, m_Rotation.y, m_Rotation.z);
 	trans = XMMatrixTranslation(m_Position.x, m_Position.y, m_Position.z);
 	world = scale * invView * trans;
 
 	Renderer::SetWorldMatrix(world);
 
-	//マテリアルの設宁E
+	// マテリアルを設定する。
 	MATERIAL material{};
 	material.Diffuse = XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f);
 	material.TextureEnable = TRUE;
 	Renderer::SetMaterial(material);
 
-	//チE��スチャの設宁E
-	Renderer::GetDeviceContext()->PSSetShaderResources(0, 1, &m_pTexture);
+	// テクスチャを設定する。
+	Renderer::GetDeviceContext()->PSSetShaderResources(0, 1, m_pTexture.GetAddressOf());
 
-	//頂点バッファ設宁E
+	// 頂点バッファを設定する。
 	UINT stride = sizeof(VERTEX_3D);
 	UINT offset = 0;
-	Renderer::GetDeviceContext()->IASetVertexBuffers(0, 1, &m_VertexBuffer, &stride, &offset);
+	Renderer::GetDeviceContext()->IASetVertexBuffers(0, 1, m_VertexBuffer.GetAddressOf(), &stride, &offset);
 
-	//プリミティブトポロジ設宁E
+	// プリミティブトポロジを設定する。
 	Renderer::GetDeviceContext()->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
 
-	// ポリゴン描画
+	// ポリゴンを描画する。
 	Renderer::GetDeviceContext()->Draw(4, 0);
 }
 

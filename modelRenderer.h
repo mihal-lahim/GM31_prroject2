@@ -2,18 +2,18 @@
 
 
 
-// ƒ}ƒeƒŠƒAƒ‹\‘¢‘Ì
+// ãƒãƒ†ãƒªã‚¢ãƒ«æ§‹é€ ä½“
 struct MODEL_MATERIAL
 {
 	char						Name[256];
 	MATERIAL					Material;
 	char						TextureName[256];
-	ID3D11ShaderResourceView*	Texture;
+	ComPtr<ID3D11ShaderResourceView>	Texture;
 
 };
 
 
-// •`‰æƒTƒuƒZƒbƒg\‘¢‘Ì
+// æç”»ã‚µãƒ–ã‚»ãƒƒãƒˆæ§‹é€ ä½“
 struct SUBSET
 {
 	unsigned int	StartIndex;
@@ -22,25 +22,25 @@ struct SUBSET
 };
 
 
-// ƒ‚ƒfƒ‹\‘¢‘Ì
+// ãƒ¢ãƒ‡ãƒ«æ§‹é€ ä½“
 struct MODEL_OBJ
 {
-	VERTEX_3D		*VertexArray;
+	std::vector<VERTEX_3D> VertexArray;
 	unsigned int	VertexNum;
 
-	unsigned int	*IndexArray;
+	std::vector<unsigned int> IndexArray;
 	unsigned int	IndexNum;
 
-	SUBSET			*SubsetArray;
+	std::vector<SUBSET> SubsetArray;
 	unsigned int	SubsetNum;
 };
 
 struct MODEL
 {
-	ID3D11Buffer*	VertexBuffer;
-	ID3D11Buffer*	IndexBuffer;
+	ComPtr<ID3D11Buffer>	VertexBuffer;
+	ComPtr<ID3D11Buffer>	IndexBuffer;
 
-	SUBSET*			SubsetArray;
+	std::vector<SUBSET> SubsetArray;
 	unsigned int	SubsetNum;
 };
 
@@ -54,11 +54,11 @@ class ModelRenderer : public Component
 {
 private:
 
-	static std::unordered_map<std::string, MODEL*> m_ModelPool;
+	static std::unordered_map<std::string, std::unique_ptr<MODEL>> m_ModelPool;
 
 	static void LoadModel(const char *FileName, MODEL *Model);
 	static void LoadObj( const char *FileName, MODEL_OBJ *ModelObj );
-	static void LoadMaterial( const char *FileName, MODEL_MATERIAL **MaterialArray, unsigned int *MaterialNum );
+	static void LoadMaterial( const char *FileName, std::vector<MODEL_MATERIAL>& MaterialArray );
 
 	MODEL* m_Model{};
 

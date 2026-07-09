@@ -28,7 +28,7 @@ void Score::Init()
 	vertex[3].Diffuse = XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f);
 	vertex[3].TexCoord = XMFLOAT2(1.0f, 1.0f);
 
-	//頂点バッファ生�E
+	// 数字描画用の頂点バッファを生成する。
 	D3D11_BUFFER_DESC bd{};
 	bd.Usage = D3D11_USAGE_DYNAMIC;
 	bd.ByteWidth = sizeof(VERTEX_3D) * 4;
@@ -38,18 +38,18 @@ void Score::Init()
 	D3D11_SUBRESOURCE_DATA sd{};
 	sd.pSysMem = vertex;
 
-	Renderer::GetDevice()->CreateBuffer(&bd, &sd, &m_VertexBuffer);
+	Renderer::GetDevice()->CreateBuffer(&bd, &sd, m_VertexBuffer.GetAddressOf());
 
-	//シェーダー読み込み
-	Renderer::CreateVertexShader(&m_VertexShader, &m_VertexLayout, "unlitTextureVS.cso");
+	// シェーダーを読み込む。
+	Renderer::CreateVertexShader(m_VertexShader, m_VertexLayout, "unlitTextureVS.cso");
 
-	Renderer::CreatePixelShader(&m_PixelShader, "unlitTexturePS.cso");
+	Renderer::CreatePixelShader(m_PixelShader, "unlitTexturePS.cso");
 
-	//チE��スチャ読み込み
+	// 数字テクスチャを読み込む。
 	TexMetadata metadata{};
 	ScratchImage image{};
 	LoadFromWICFile(L"assets/texture/number.png", WIC_FLAGS_NONE, &metadata, image);
-	CreateShaderResourceView(Renderer::GetDevice(), image.GetImage(0, 0, 0), 1, metadata, &m_pTexture);
+	CreateShaderResourceView(Renderer::GetDevice(), image.GetImage(0, 0, 0), 1, metadata, m_pTexture.GetAddressOf());
 	assert(m_pTexture);
 	m_value = 0;
 
@@ -57,12 +57,7 @@ void Score::Init()
 
 void Score::Uninit()
 {
-	m_VertexBuffer->Release();
-
-	m_VertexLayout->Release();
-	m_VertexShader->Release();
-	m_PixelShader->Release();
-	m_pTexture->Release();
+	GameObject::Uninit();
 }
 
 void Score::Update()
@@ -72,17 +67,17 @@ void Score::Update()
 
 void Score::Draw()
 {
-	//入力レイアウト設宁E
-	Renderer::GetDeviceContext()->IASetInputLayout(m_VertexLayout);
+	// 入力レイアウトを設定する。
+	Renderer::GetDeviceContext()->IASetInputLayout(m_VertexLayout.Get());
 
-	//シェーダー設宁E
-	Renderer::GetDeviceContext()->VSSetShader(m_VertexShader, NULL, 0);
-	Renderer::GetDeviceContext()->PSSetShader(m_PixelShader, NULL, 0);
+	// シェーダーを設定する。
+	Renderer::GetDeviceContext()->VSSetShader(m_VertexShader.Get(), NULL, 0);
+	Renderer::GetDeviceContext()->PSSetShader(m_PixelShader.Get(), NULL, 0);
 
-	//マトリクス設宁E
+	// 2D描画用の行列を設定する。
 	Renderer::SetWorldViewProjection2D();
 
-	//マトリクス設宁E
+	// ワールド行列を作成する。
 	XMMATRIX world, scale, rot, trans;
 	scale = XMMatrixScaling(m_Scale.x, m_Scale.y, m_Scale.z);
 	rot = XMMatrixRotationRollPitchYaw(m_Rotation.x, m_Rotation.y, m_Rotation.z);
@@ -91,34 +86,34 @@ void Score::Draw()
 
 	Renderer::SetWorldMatrix(world);
 
-	//マテリアルの設宁E
+	// マテリアルを設定する。
 	MATERIAL material{};
 	material.Diffuse = XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f);
 	material.TextureEnable = TRUE;
 	Renderer::SetMaterial(material);
 
-	//チE��スチャの設宁E
-	Renderer::GetDeviceContext()->PSSetShaderResources(0, 1, &m_pTexture);
+	// テクスチャを設定する。
+	Renderer::GetDeviceContext()->PSSetShaderResources(0, 1, m_pTexture.GetAddressOf());
 
-	//頂点バッファ設宁E
+	// 頂点バッファを設定する。
 	UINT stride = sizeof(VERTEX_3D);
 	UINT offset = 0;
-	Renderer::GetDeviceContext()->IASetVertexBuffers(0, 1, &m_VertexBuffer, &stride, &offset);
+	Renderer::GetDeviceContext()->IASetVertexBuffers(0, 1, m_VertexBuffer.GetAddressOf(), &stride, &offset);
 
-	//プリミティブトポロジ設宁E
+	// プリミティブトポロジを設定する。
 	Renderer::GetDeviceContext()->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
 
 	int number = m_value;
 
 	for (int i = 0; i < 4; i++)
 	{
-		//頂点チE�Eタ変更
+		// 表示する桁の数字を取り出す。
 		int num = number % 10;
 		number /= 10;
 
-		//頂点バッファにチE�Eタ転送E
+		// 頂点バッファへ数字のUVを転送する。
 		D3D11_MAPPED_SUBRESOURCE msr;
-		Renderer::GetDeviceContext()->Map(m_VertexBuffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &msr);
+		Renderer::GetDeviceContext()->Map(m_VertexBuffer.Get(), 0, D3D11_MAP_WRITE_DISCARD, 0, &msr);
 
 		VERTEX_3D* vertex = (VERTEX_3D*)msr.pData;
 		float x = -30.0f * i;
@@ -149,10 +144,10 @@ void Score::Draw()
 		vertex[3].Diffuse = XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f);
 		vertex[3].TexCoord = XMFLOAT2(tx + tw, ty + th);
 
-		//確宁E
-		Renderer::GetDeviceContext()->Unmap(m_VertexBuffer, 0);
+		// 頂点バッファの更新を確定する。
+		Renderer::GetDeviceContext()->Unmap(m_VertexBuffer.Get(), 0);
 
-		//ポリゴン描画
+		// ポリゴンを描画する。
 		Renderer::GetDeviceContext()->Draw(4, 0);
 	}
 }

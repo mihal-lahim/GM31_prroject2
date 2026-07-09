@@ -3,6 +3,7 @@
 #include "renderer.h"
 #include "camera.h"
 #include "player.h"
+#include "gameSettings.h"
 void Camera::Init()
 {
 	m_Layer = Layer::Camera;
@@ -29,8 +30,9 @@ void Camera::Update()
 	float mouseY = 0.0f;
 	if (Mouse_ConsumeDelta(&mouseX, &mouseY))
 	{
-		m_Rotation.y += mouseX * m_MouseSensitivity;
-		m_Rotation.x -= mouseY * m_MouseSensitivity;
+		const float sensitivity = GameSettings::GetMouseSensitivity();
+		m_Rotation.y += mouseX * sensitivity;
+		m_Rotation.x -= mouseY * sensitivity;
 
 		const float pitchLimit = XMConvertToRadians(80.0f);
 		if (m_Rotation.x > pitchLimit)
@@ -58,13 +60,13 @@ void Camera::Update()
 
 void Camera::Draw()
 {
-	//繝励Ο繧ｸ繧ｧ繧ｯ繧ｷ繝ｧ繝ｳ繝槭ヨ繝ｪ繧ｯ繧ｹ
+	// プロジェクション行列を設定する。
 	XMMATRIX projection = XMMatrixPerspectiveFovLH(1.0f,
 		(float)SCREEN_WIDTH / SCREEN_HEIGHT, 1.0f, 1000.0f);
 
 	Renderer::SetProjectionMatrix(projection);
 
-	//繝薙Η繝ｼ繝槭ヨ繝ｪ繧ｯ繧ｹ
+	// ビュー行列を設定する。
 	XMFLOAT3 up = { 0.0f, 1.0f, 0.0f };
 	m_ViewMatrix = XMMatrixLookAtLH(XMLoadFloat3((XMFLOAT3*)&m_Position),
 									XMLoadFloat3((XMFLOAT3*)&m_Target), 

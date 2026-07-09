@@ -28,7 +28,7 @@ void Polygon2D::Init(float x, float y, float width, float height,const WCHAR* te
 	vertex[3].Diffuse = XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f);
 	vertex[3].TexCoord = XMFLOAT2(1.0f, 1.0f);
 
-	//頂点バッファ生�E
+	// 2Dポリゴン用の頂点バッファを生成する。
 	D3D11_BUFFER_DESC bd{};
 	bd.Usage = D3D11_USAGE_DEFAULT;
 	bd.ByteWidth = sizeof(VERTEX_3D) * 4;
@@ -38,30 +38,25 @@ void Polygon2D::Init(float x, float y, float width, float height,const WCHAR* te
 	D3D11_SUBRESOURCE_DATA sd{};
 	sd.pSysMem = vertex;
 
-	Renderer::GetDevice()->CreateBuffer(&bd, &sd, &m_VertexBuffer);
+	Renderer::GetDevice()->CreateBuffer(&bd, &sd, m_VertexBuffer.GetAddressOf());
 
-	//シェーダー読み込み
-	Renderer::CreateVertexShader(&m_VertexShader, &m_VertexLayout, "unlitTextureVS.cso");
+	// シェーダーを読み込む。
+	Renderer::CreateVertexShader(m_VertexShader, m_VertexLayout, "unlitTextureVS.cso");
 
-	Renderer::CreatePixelShader(&m_PixelShader, "unlitTexturePS.cso");
+	Renderer::CreatePixelShader(m_PixelShader, "unlitTexturePS.cso");
 
-	//チE��スチャ読み込み
+	// テクスチャを読み込む。
 	TexMetadata metadata{};
 	ScratchImage image{};
 	LoadFromWICFile(texturePath, WIC_FLAGS_NONE, &metadata, image);
-	CreateShaderResourceView(Renderer::GetDevice(), image.GetImage(0, 0, 0), 1, metadata, &m_pTexture);
+	CreateShaderResourceView(Renderer::GetDevice(), image.GetImage(0, 0, 0), 1, metadata, m_pTexture.GetAddressOf());
 	assert(m_pTexture);
 
 }
 
 void Polygon2D::Uninit()
 {
-	m_VertexBuffer->Release();
-
-	m_VertexLayout->Release();
-	m_VertexShader->Release();
-	m_PixelShader->Release();
-	m_pTexture->Release();
+	GameObject::Uninit();
 }
 
 void Polygon2D::Update()
@@ -71,17 +66,17 @@ void Polygon2D::Update()
 
 void Polygon2D::Draw()
 {
-	//入力レイアウト設宁E
-	Renderer::GetDeviceContext()->IASetInputLayout(m_VertexLayout);
+	// 入力レイアウトを設定する。
+	Renderer::GetDeviceContext()->IASetInputLayout(m_VertexLayout.Get());
 
-	//シェーダー設宁E
-	Renderer::GetDeviceContext()->VSSetShader(m_VertexShader, NULL, 0);
-	Renderer::GetDeviceContext()->PSSetShader(m_PixelShader, NULL, 0);
+	// シェーダーを設定する。
+	Renderer::GetDeviceContext()->VSSetShader(m_VertexShader.Get(), NULL, 0);
+	Renderer::GetDeviceContext()->PSSetShader(m_PixelShader.Get(), NULL, 0);
 
-	//マトリクス設宁E
+	// 2D描画用の行列を設定する。
 	Renderer::SetWorldViewProjection2D();
 
-	//マトリクス設宁E
+	// ワールド行列を作成する。
 	XMMATRIX world, scale, rot, trans;
 	scale = XMMatrixScaling(1.0f, 1.0f, 1.0f);
 	rot = XMMatrixRotationRollPitchYaw(0.0f, 0.0f, 0.0f);
@@ -90,24 +85,24 @@ void Polygon2D::Draw()
 
 	Renderer::SetWorldMatrix(world);
 
-	//マテリアルの設宁E
+	// マテリアルを設定する。
 	MATERIAL material{};
 	material.Diffuse = XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f);
 	material.TextureEnable = TRUE;
 	Renderer::SetMaterial(material);
 
-	//チE��スチャの設宁E
-	Renderer::GetDeviceContext()->PSSetShaderResources(0, 1, &m_pTexture);
+	// テクスチャを設定する。
+	Renderer::GetDeviceContext()->PSSetShaderResources(0, 1, m_pTexture.GetAddressOf());
 
-	//頂点バッファ設宁E
+	// 頂点バッファを設定する。
 	UINT stride = sizeof(VERTEX_3D);
 	UINT offset = 0;
-	Renderer::GetDeviceContext()->IASetVertexBuffers(0, 1, &m_VertexBuffer, &stride, &offset);
+	Renderer::GetDeviceContext()->IASetVertexBuffers(0, 1, m_VertexBuffer.GetAddressOf(), &stride, &offset);
 
-	//プリミティブトポロジ設宁E
+	// プリミティブトポロジを設定する。
 	Renderer::GetDeviceContext()->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
 
-	//ポリゴン描画
+	// ポリゴンを描画する。
 	Renderer::GetDeviceContext()->Draw(4, 0);
 }
 
