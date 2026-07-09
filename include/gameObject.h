@@ -17,17 +17,39 @@ class GameObject
 protected:
 
 	bool m_Destroy = false;
+	bool m_Uninitialized = false;
 	Layer m_Layer = Layer::World;
 
-	float m_CameraZ;// ソート用のカメラ奥行き値
+	float m_CameraZ = 0.0f; // ソート用のカメラ奥行き値
 
 	Vector3 m_Position{ 0.0f, 0.0f, 0.0f };
 	Vector3 m_Rotation{ 0.0f, 0.0f, 0.0f };
 	Vector3 m_Scale{ 1.0f, 1.0f, 1.0f };
 
 	std::list<std::unique_ptr<Component>> m_Components;
+
+	// Managerからの明示破棄とデストラクタの両方で呼ばれても、一度だけ後片付けする。
+	bool BeginUninit()
+	{
+		if (m_Uninitialized)
+		{
+			return false;
+		}
+
+		m_Uninitialized = true;
+		return true;
+	}
+
+	void UninitComponents()
+	{
+		for (auto& component : m_Components)
+		{
+			component->Uninit();
+		}
+		m_Components.clear();
+	}
 public:
-	virtual ~GameObject() { Uninit(); }
+	virtual ~GameObject() { GameObject::Uninit(); }
 
 	Layer GetLayer() const { return m_Layer; }
 
@@ -54,11 +76,12 @@ public:
 
 	virtual void Init() {}
 	virtual void Uninit() {
-		for (auto& component : m_Components)
+		if (!BeginUninit())
 		{
-			component->Uninit();
+			return;
 		}
-		m_Components.clear();
+
+		UninitComponents();
 	}
 	virtual void Update() {
 		for (auto& component : m_Components)
@@ -80,6 +103,7 @@ public:
 		T* componentPtr = component.get();
 		component->Init();
 		m_Components.push_back(std::move(component));
+		m_Uninitialized = false;
 		return componentPtr;
 	}
 	virtual Vector3 GetForward()

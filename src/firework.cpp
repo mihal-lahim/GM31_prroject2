@@ -95,6 +95,11 @@ void Firework::Init()
 
 void Firework::Uninit()
 {
+	if (!BeginUninit())
+	{
+		return;
+	}
+
 	m_Sparks.clear();
 
 	s_RefCount--;
@@ -107,6 +112,8 @@ void Firework::Uninit()
 		s_PixelShader.Reset();
 		s_Texture.Reset();
 	}
+
+	UninitComponents();
 }
 
 void Firework::AddSpark(const Vector3& position, const Vector3& velocity, float scale, int life, const XMFLOAT4& color, float gravity, float shrink)

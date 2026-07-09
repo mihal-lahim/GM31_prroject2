@@ -56,13 +56,18 @@ void ParticleSystem::Init()
 
 void ParticleSystem::Uninit()
 {
+	if (!BeginUninit())
+	{
+		return;
+	}
+
 	if (s_Instance == this)
 	{
 		s_Instance = nullptr;
 	}
 
 	m_Sparks.clear();
-	GameObject::Uninit();
+	UninitComponents();
 }
 
 void ParticleSystem::UnloadSharedResources()

@@ -65,6 +65,11 @@ void Particle::Init()
 
 void Particle::Uninit()
 {
+	if (!BeginUninit())
+	{
+		return;
+	}
+
 	s_RefCount--;
 	if (s_RefCount <= 0)
 	{
@@ -76,6 +81,8 @@ void Particle::Uninit()
 		s_PixelShader.Reset();
 		s_pTexture.Reset();
 	}
+
+	UninitComponents();
 }
 
 void Particle::Update()

@@ -136,6 +136,11 @@ void Manager::Draw()
 			}
 		}
 	}
+
+	if (m_Scene != nullptr)
+	{
+		m_Scene->Draw();
+	}
 	
 	Renderer::End();
 }

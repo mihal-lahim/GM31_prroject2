@@ -20,6 +20,36 @@ HWND GetWindow()
 	return g_Window;
 }
 
+namespace
+{
+	class ComInitializer
+	{
+	public:
+		ComInitializer()
+		{
+			HRESULT hr = CoInitializeEx(nullptr, COINIT_MULTITHREADED);
+			m_Initialized = SUCCEEDED(hr);
+			if (!m_Initialized)
+			{
+				OutputDebugStringA("WinMain: CoInitializeEx failed.\n");
+			}
+		}
+
+		~ComInitializer()
+		{
+			if (m_Initialized)
+			{
+				CoUninitialize();
+			}
+		}
+
+		bool IsInitialized() const { return m_Initialized; }
+
+	private:
+		bool m_Initialized = false;
+	};
+}
+
 static LONG g_MouseDeltaX = 0;
 static LONG g_MouseDeltaY = 0;
 static bool g_MouseLeftButtonDown = false;
@@ -172,6 +202,12 @@ int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLi
 	(void)hPrevInstance;
 	(void)lpCmdLine;
 
+	ComInitializer comInitializer;
+	if (!comInitializer.IsInitialized())
+	{
+		MessageBoxW(nullptr, L"COMの初期化に失敗しました。", L"DX11 Game", MB_OK | MB_ICONERROR);
+		return -1;
+	}
 
 	WNDCLASSEX wcex;
 	{
@@ -197,9 +233,6 @@ int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLi
 		g_Window = CreateWindowEx(0, CLASS_NAME, WINDOW_NAME, WS_OVERLAPPEDWINDOW, CW_USEDEFAULT, CW_USEDEFAULT,
 			rc.right - rc.left, rc.bottom - rc.top, nullptr, nullptr, hInstance, nullptr);
 	}
-
-	CoInitializeEx(nullptr, COINITBASE_MULTITHREADED);
-
 
 	Manager::Init();
 	Keyboard_Initialize();
@@ -259,8 +292,6 @@ int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLi
 	UnregisterClass(CLASS_NAME, wcex.hInstance);
 
 	Manager::Uninit();
-
-	CoUninitialize();
 
 	return (int)msg.wParam;
 }

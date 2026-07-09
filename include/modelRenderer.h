@@ -1,13 +1,17 @@
 #pragma once
 
+#include "component.h"
+#include <string>
+#include <unordered_map>
+
 
 
 // マテリアル構造体
 struct MODEL_MATERIAL
 {
-	char						Name[256];
-	MATERIAL					Material;
-	char						TextureName[256];
+	std::string					Name;
+	MATERIAL					Material{};
+	std::string					TextureName;
 	ComPtr<ID3D11ShaderResourceView>	Texture;
 
 };
@@ -16,8 +20,8 @@ struct MODEL_MATERIAL
 // 描画サブセット構造体
 struct SUBSET
 {
-	unsigned int	StartIndex;
-	unsigned int	IndexNum;
+	unsigned int	StartIndex = 0;
+	unsigned int	IndexNum = 0;
 	MODEL_MATERIAL	Material;
 };
 
@@ -26,13 +30,13 @@ struct SUBSET
 struct MODEL_OBJ
 {
 	std::vector<VERTEX_3D> VertexArray;
-	unsigned int	VertexNum;
+	unsigned int	VertexNum = 0;
 
 	std::vector<unsigned int> IndexArray;
-	unsigned int	IndexNum;
+	unsigned int	IndexNum = 0;
 
 	std::vector<SUBSET> SubsetArray;
-	unsigned int	SubsetNum;
+	unsigned int	SubsetNum = 0;
 };
 
 struct MODEL
@@ -41,14 +45,8 @@ struct MODEL
 	ComPtr<ID3D11Buffer>	IndexBuffer;
 
 	std::vector<SUBSET> SubsetArray;
-	unsigned int	SubsetNum;
+	unsigned int	SubsetNum = 0;
 };
-
-
-#include "component.h"
-#include <string>
-#include <unordered_map>
-
 
 class ModelRenderer : public Component
 {
@@ -61,7 +59,7 @@ private:
 
 	static void LoadModel(const char *FileName, MODEL *Model);
 	static void LoadObj( const char *FileName, MODEL_OBJ *ModelObj );
-	static void LoadMaterial( const char *FileName, std::vector<MODEL_MATERIAL>& MaterialArray );
+	static void LoadMaterial( const char *FileName, std::unordered_map<std::string, MODEL_MATERIAL>& MaterialMap );
 	static void EnsureDefaultShader();
 
 	MODEL* m_Model{};

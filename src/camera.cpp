@@ -13,7 +13,9 @@ void Camera::Init()
 }
 
 void Camera::Uninit()
-{}
+{
+	GameObject::Uninit();
+}
 
 void Camera::Update()
 {
