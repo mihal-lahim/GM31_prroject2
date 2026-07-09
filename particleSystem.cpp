@@ -65,6 +65,16 @@ void ParticleSystem::Uninit()
 	GameObject::Uninit();
 }
 
+void ParticleSystem::UnloadSharedResources()
+{
+	s_Instance = nullptr;
+	s_VertexBuffer.Reset();
+	s_VertexLayout.Reset();
+	s_VertexShader.Reset();
+	s_PixelShader.Reset();
+	s_Texture.Reset();
+}
+
 void ParticleSystem::Emit(const Vector3& position, const Vector3& velocity, float scale, int life, const XMFLOAT4& color, float gravity, float shrink)
 {
 	if (s_Instance == nullptr)

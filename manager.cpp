@@ -6,6 +6,9 @@
 #include "gameObject.h"
 #include "camera.h"
 #include "title.h"
+#include "modelRenderer.h"
+#include "particleSystem.h"
+#include <algorithm>
 std::list<std::unique_ptr<GameObject>> Manager::m_GameObjects;
 std::unique_ptr<Scene> Manager::m_Scene = nullptr;
 std::unique_ptr<Scene> Manager::m_NextScene = nullptr;
@@ -33,6 +36,9 @@ void Manager::Uninit()
 		m_Scene.reset();
 	}
 	m_NextScene.reset();
+
+	ModelRenderer::UnloadAll();
+	ParticleSystem::UnloadSharedResources();
 
 	Audio::UninitMaster();
 	Renderer::Uninit();
@@ -93,6 +99,9 @@ void Manager::Draw()
 	Renderer::Begin();
 	Camera* camera = GetGameObject<Camera>();
 
+	std::vector<GameObject*> drawObjects;
+	drawObjects.reserve(m_GameObjects.size());
+
 	if (camera)
 	{
 		Vector3 forward = camera->GetForward();
@@ -102,8 +111,16 @@ void Manager::Draw()
 		{
 			gameObject->CalcCameraZ(position, forward);
 		}
+	}
 
-		m_GameObjects.sort([](const auto& a, const auto& b)
+	for (auto& gameObject : m_GameObjects)
+	{
+		drawObjects.push_back(gameObject.get());
+	}
+
+	if (camera)
+	{
+		std::sort(drawObjects.begin(), drawObjects.end(), [](const GameObject* a, const GameObject* b)
 			{
 				return a->GetCameraZ() > b->GetCameraZ();
 			});
@@ -111,7 +128,7 @@ void Manager::Draw()
 
 	for (int layer = 0; layer < static_cast<int>(Layer::Count); layer++)
 	{
-		for (auto& gameObject : m_GameObjects)
+		for (GameObject* gameObject : drawObjects)
 		{
 			if (static_cast<int>(gameObject->GetLayer()) == layer)
 			{

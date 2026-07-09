@@ -1,7 +1,8 @@
 
 #include "main.h"
 #include "renderer.h"
-#include <io.h>
+#include <cstring>
+#include <string>
 
 
 D3D_FEATURE_LEVEL       Renderer::m_FeatureLevel = D3D_FEATURE_LEVEL_11_0;
@@ -29,6 +30,69 @@ ComPtr<ID3D11BlendState>		Renderer::m_BlendStateAdd{};
 
 
 
+
+namespace
+{
+	bool LoadBinaryFile(const char* fileName, std::vector<unsigned char>& buffer)
+	{
+		FILE* file = fopen(fileName, "rb");
+		if (file == nullptr)
+		{
+			return false;
+		}
+
+		fseek(file, 0, SEEK_END);
+		long fileSize = ftell(file);
+		fseek(file, 0, SEEK_SET);
+
+		if (fileSize <= 0)
+		{
+			fclose(file);
+			return false;
+		}
+
+		buffer.resize(static_cast<size_t>(fileSize));
+		size_t readSize = fread(buffer.data(), 1, buffer.size(), file);
+		fclose(file);
+
+		return readSize == buffer.size();
+	}
+
+	std::vector<unsigned char> LoadShaderBinary(const char* fileName)
+	{
+		std::vector<unsigned char> buffer;
+
+		char modulePath[MAX_PATH]{};
+		DWORD modulePathLength = GetModuleFileNameA(nullptr, modulePath, MAX_PATH);
+		if (modulePathLength > 0 && modulePathLength < MAX_PATH)
+		{
+			char* lastBackslash = strrchr(modulePath, '\\');
+			char* lastSlash = strrchr(modulePath, '/');
+			char* lastSeparator = lastBackslash;
+			if (lastSlash != nullptr && (lastSeparator == nullptr || lastSlash > lastSeparator))
+			{
+				lastSeparator = lastSlash;
+			}
+			if (lastSeparator != nullptr)
+			{
+				*(lastSeparator + 1) = '\0';
+				std::string executableDirectoryPath = std::string(modulePath) + fileName;
+				if (LoadBinaryFile(executableDirectoryPath.c_str(), buffer))
+				{
+					return buffer;
+				}
+			}
+		}
+
+		if (LoadBinaryFile(fileName, buffer))
+		{
+			return buffer;
+		}
+
+		assert(false && "Failed to load shader binary.");
+		return {};
+	}
+}
 
 void Renderer::Init()
 {
@@ -389,18 +453,13 @@ void Renderer::SetAddBlendEnable(bool Enable)
 void Renderer::CreateVertexShader( ComPtr<ID3D11VertexShader>& VertexShader, ComPtr<ID3D11InputLayout>& VertexLayout, const char* FileName )
 {
 
-	FILE* file;
-	long int fsize;
+	std::vector<unsigned char> buffer = LoadShaderBinary(FileName);
+	if (buffer.empty())
+	{
+		return;
+	}
 
-	file = fopen(FileName, "rb");
-	assert(file);
-
-	fsize = _filelength(_fileno(file));
-	std::vector<unsigned char> buffer(fsize);
-	fread(buffer.data(), fsize, 1, file);
-	fclose(file);
-
-	m_Device->CreateVertexShader(buffer.data(), fsize, NULL, VertexShader.ReleaseAndGetAddressOf());
+	m_Device->CreateVertexShader(buffer.data(), buffer.size(), NULL, VertexShader.ReleaseAndGetAddressOf());
 
 
 	D3D11_INPUT_ELEMENT_DESC layout[] =
@@ -415,7 +474,7 @@ void Renderer::CreateVertexShader( ComPtr<ID3D11VertexShader>& VertexShader, Com
 	m_Device->CreateInputLayout(layout,
 		numElements,
 		buffer.data(),
-		fsize,
+		buffer.size(),
 		VertexLayout.ReleaseAndGetAddressOf());
 }
 
@@ -423,18 +482,13 @@ void Renderer::CreateVertexShader( ComPtr<ID3D11VertexShader>& VertexShader, Com
 
 void Renderer::CreatePixelShader( ComPtr<ID3D11PixelShader>& PixelShader, const char* FileName )
 {
-	FILE* file;
-	long int fsize;
+	std::vector<unsigned char> buffer = LoadShaderBinary(FileName);
+	if (buffer.empty())
+	{
+		return;
+	}
 
-	file = fopen(FileName, "rb");
-	assert(file);
-
-	fsize = _filelength(_fileno(file));
-	std::vector<unsigned char> buffer(fsize);
-	fread(buffer.data(), fsize, 1, file);
-	fclose(file);
-
-	m_Device->CreatePixelShader(buffer.data(), fsize, NULL, PixelShader.ReleaseAndGetAddressOf());
+	m_Device->CreatePixelShader(buffer.data(), buffer.size(), NULL, PixelShader.ReleaseAndGetAddressOf());
 }
 
 

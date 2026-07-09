@@ -35,4 +35,5 @@ public:
 	void Draw() override;
 
 	static void Emit(const Vector3& position, const Vector3& velocity, float scale, int life, const XMFLOAT4& color, float gravity = -8.5f, float shrink = 0.985f);
+	static void UnloadSharedResources();
 };
