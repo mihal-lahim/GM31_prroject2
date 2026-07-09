@@ -6,17 +6,52 @@
 
 #include "main.h"
 #include "renderer.h"
+#include "gameObject.h"
 #include "modelRenderer.h"
 
 
 
 std::unordered_map<std::string, std::unique_ptr<MODEL>> ModelRenderer::m_ModelPool;
+ComPtr<ID3D11InputLayout> ModelRenderer::m_DefaultVertexLayout = nullptr;
+ComPtr<ID3D11VertexShader> ModelRenderer::m_DefaultVertexShader = nullptr;
+ComPtr<ID3D11PixelShader> ModelRenderer::m_DefaultPixelShader = nullptr;
 
+
+void ModelRenderer::EnsureDefaultShader()
+{
+	if (m_DefaultVertexShader == nullptr || m_DefaultPixelShader == nullptr)
+	{
+		Renderer::CreateVertexShader(m_DefaultVertexShader, m_DefaultVertexLayout, "unlitTextureVS.cso");
+		Renderer::CreatePixelShader(m_DefaultPixelShader, "unlitTexturePS.cso");
+	}
+}
 
 void ModelRenderer::Draw()
 {
 
 	// 頂点バッファ設定
+	if (m_Model == nullptr)
+	{
+		return;
+	}
+
+	EnsureDefaultShader();
+	Renderer::GetDeviceContext()->IASetInputLayout(m_DefaultVertexLayout.Get());
+	Renderer::GetDeviceContext()->VSSetShader(m_DefaultVertexShader.Get(), NULL, 0);
+	Renderer::GetDeviceContext()->PSSetShader(m_DefaultPixelShader.Get(), NULL, 0);
+
+	if (m_UseOwnerTransform && m_GameObject != nullptr)
+	{
+		Vector3 scaleValue = m_GameObject->GetScale();
+		Vector3 rotationValue = m_GameObject->GetRotation() + m_RotationOffset;
+		Vector3 positionValue = m_GameObject->GetPosition();
+
+		XMMATRIX scale = XMMatrixScaling(scaleValue.x, scaleValue.y, scaleValue.z);
+		XMMATRIX rot = XMMatrixRotationRollPitchYaw(rotationValue.x, rotationValue.y, rotationValue.z);
+		XMMATRIX trans = XMMatrixTranslation(positionValue.x, positionValue.y, positionValue.z);
+		Renderer::SetWorldMatrix(scale * rot * trans);
+	}
+
 	UINT stride = sizeof(VERTEX_3D);
 	UINT offset = 0;
 	Renderer::GetDeviceContext()->IASetVertexBuffers(0, 1, m_Model->VertexBuffer.GetAddressOf(), &stride, &offset);
@@ -61,6 +96,9 @@ void ModelRenderer::Preload(const char *FileName)
 void ModelRenderer::UnloadAll()
 {
 	m_ModelPool.clear();
+	m_DefaultVertexLayout.Reset();
+	m_DefaultVertexShader.Reset();
+	m_DefaultPixelShader.Reset();
 }
 
 
@@ -78,6 +116,18 @@ void ModelRenderer::Load(const char *FileName)
 
 	m_ModelPool[FileName] = std::move(model);
 
+}
+
+ModelRenderer* ModelRenderer::SetUseOwnerTransform(bool enabled)
+{
+	m_UseOwnerTransform = enabled;
+	return this;
+}
+
+ModelRenderer* ModelRenderer::SetRotationOffset(const Vector3& offset)
+{
+	m_RotationOffset = offset;
+	return this;
 }
 
 void ModelRenderer::LoadModel( const char *FileName, MODEL *Model)
@@ -186,7 +236,7 @@ void ModelRenderer::LoadObj( const char *FileName, MODEL_OBJ *ModelObj )
 
 	char str[256];
 	char *s;
-	char c;
+	int c;
 
 
 	FILE *file;

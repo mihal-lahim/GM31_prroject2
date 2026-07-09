@@ -60,10 +60,9 @@ void BaseballBat::Init()
 	m_Layer = Layer::World;
 	m_Scale = { 0.09f, 0.09f, 1.0f };
 
-	AddComponent<ModelRenderer>(this)->Load("assets\\model\\baseball_bat.obj");
-	Renderer::CreateVertexShader(m_VertexShader, m_VertexLayout, "unlitTextureVS.cso");
-	Renderer::CreatePixelShader(m_PixelShader, "unlitTexturePS.cso");
-
+	AddComponent<ModelRenderer>(this)
+		->SetUseOwnerTransform()
+		->Load("assets\\model\\baseball_bat.obj");
 	m_Collider = AddComponent<Collider>(this);
 	m_Collider->SetAABB({ 0.45f, 0.25f, 0.45f })
 		->SetDebugColor(XMFLOAT4(0.55f, 0.35f, 0.12f, 1.0f));
@@ -218,14 +217,5 @@ void BaseballBat::Update()
 
 void BaseballBat::Draw()
 {
-	Renderer::GetDeviceContext()->IASetInputLayout(m_VertexLayout.Get());
-	Renderer::GetDeviceContext()->VSSetShader(m_VertexShader.Get(), NULL, 0);
-	Renderer::GetDeviceContext()->PSSetShader(m_PixelShader.Get(), NULL, 0);
-
-	XMMATRIX scale = XMMatrixScaling(m_Scale.x, m_Scale.y, m_Scale.z);
-	XMMATRIX rot = XMMatrixRotationRollPitchYaw(m_Rotation.x, m_Rotation.y, m_Rotation.z);
-	XMMATRIX trans = XMMatrixTranslation(m_Position.x, m_Position.y, m_Position.z);
-	Renderer::SetWorldMatrix(scale * rot * trans);
-
 	GameObject::Draw();
 }

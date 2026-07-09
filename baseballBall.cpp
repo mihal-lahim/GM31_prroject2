@@ -14,10 +14,9 @@ void BaseballBall::Init()
 	m_Layer = Layer::World;
 	m_Scale = { 0.35f, 0.35f, 0.35f };
 
-	AddComponent<ModelRenderer>(this)->Load("assets\\model\\bullet.obj");
-	Renderer::CreateVertexShader(m_VertexShader, m_VertexLayout, "unlitTextureVS.cso");
-	Renderer::CreatePixelShader(m_PixelShader, "unlitTexturePS.cso");
-
+	AddComponent<ModelRenderer>(this)
+		->SetUseOwnerTransform()
+		->Load("assets\\model\\bullet.obj");
 	m_Collider = AddComponent<Collider>(this);
 	m_Collider->SetSphere(0.55f)
 		->SetTag(Collider::Tag::Baseball)
@@ -131,14 +130,5 @@ void BaseballBall::Update()
 
 void BaseballBall::Draw()
 {
-	Renderer::GetDeviceContext()->IASetInputLayout(m_VertexLayout.Get());
-	Renderer::GetDeviceContext()->VSSetShader(m_VertexShader.Get(), NULL, 0);
-	Renderer::GetDeviceContext()->PSSetShader(m_PixelShader.Get(), NULL, 0);
-
-	XMMATRIX scale = XMMatrixScaling(m_Scale.x, m_Scale.y, m_Scale.z);
-	XMMATRIX rot = XMMatrixRotationRollPitchYaw(m_Rotation.x, m_Rotation.y, m_Rotation.z);
-	XMMATRIX trans = XMMatrixTranslation(m_Position.x, m_Position.y, m_Position.z);
-	Renderer::SetWorldMatrix(scale * rot * trans);
-
 	GameObject::Draw();
 }

@@ -55,12 +55,18 @@ class ModelRenderer : public Component
 private:
 
 	static std::unordered_map<std::string, std::unique_ptr<MODEL>> m_ModelPool;
+	static ComPtr<ID3D11InputLayout> m_DefaultVertexLayout;
+	static ComPtr<ID3D11VertexShader> m_DefaultVertexShader;
+	static ComPtr<ID3D11PixelShader> m_DefaultPixelShader;
 
 	static void LoadModel(const char *FileName, MODEL *Model);
 	static void LoadObj( const char *FileName, MODEL_OBJ *ModelObj );
 	static void LoadMaterial( const char *FileName, std::vector<MODEL_MATERIAL>& MaterialArray );
+	static void EnsureDefaultShader();
 
 	MODEL* m_Model{};
+	bool m_UseOwnerTransform = false;
+	Vector3 m_RotationOffset{ 0.0f, 0.0f, 0.0f };
 
 public:
 
@@ -71,6 +77,8 @@ public:
 	using Component::Component;
 
 	void Load( const char *FileName );
+	ModelRenderer* SetUseOwnerTransform(bool enabled = true);
+	ModelRenderer* SetRotationOffset(const Vector3& offset);
 	void Draw() override;
 
 };

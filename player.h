@@ -17,6 +17,10 @@ private:
 
 	class Audio* m_JumpSE;
 	BaseballBat* m_Bat = nullptr;
+
+	void UpdateMovement(float dt);
+	void UpdateCombat(float dt);
+	void ResolveLegacyCollisions(const Vector3& oldPosition);
 public:
 	void Init()override;
 	void Uninit()override;

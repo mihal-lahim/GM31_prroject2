@@ -1,4 +1,6 @@
 #include "game.h"
+#include "gameSetup.h"
+#include "gameplayInputController.h"
 #include "field.h"
 #include "camera.h"
 #include "player.h"
@@ -16,6 +18,7 @@
 #include "gameTime.h"
 #include "pauseMenu.h"
 
+#if 0
 namespace
 {
 	struct FireworkPreset
@@ -130,6 +133,27 @@ void Game::Update()
 
 	// バッティングセンター中は敵の全滅でリザルトへ遷移しない。
 	
+}
+
+#endif
+
+void Game::Init()
+{
+	GameSetup::AddCoreObjects();
+	GameSetup::AddBattingCenter();
+	GameSetup::AddTestObjects();
+	Manager::AddGameObject<GameplayInputController>();
+}
+
+void Game::Uninit()
+{}
+
+void Game::Update()
+{
+	if (Keyboard_IsKeyDownTrigger(KK_TAB))
+	{
+		GameTime::SetPaused(!GameTime::IsPaused());
+	}
 }
 
 void Game::Draw()

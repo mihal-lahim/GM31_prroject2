@@ -1,6 +1,5 @@
 #include "baseballEffects.h"
-#include "manager.h"
-#include "particle.h"
+#include "particleSystem.h"
 
 namespace
 {
@@ -50,12 +49,7 @@ namespace
 
 	void SpawnSparkle(const Vector3& position, const Vector3& velocity, float scale, int life, const XMFLOAT4& color)
 	{
-		Particle* particle = Manager::AddGameObject<Particle>();
-		particle->SetPosition(position);
-		particle->SetVelocity(velocity);
-		particle->SetScale({ scale, scale, scale });
-		particle->SetLife(life);
-		particle->SetColor(color);
+		ParticleSystem::Emit(position, velocity, scale, life, color);
 	}
 }
 
