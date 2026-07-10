@@ -6,6 +6,7 @@
 
 class GameObject;
 class Scene;
+struct GameDefinition;
 
 class Manager
 {
@@ -17,15 +18,16 @@ private:
 	static float m_ChangeTime;
 
 public:
-	static void Init();
+	static void Init(const GameDefinition& gameDefinition);
 	static void Uninit();
 	static void Update();
 	static void Draw();
+	static void ChangeScene(std::unique_ptr<Scene> nextScene);
 
 	template<typename T>// テンプレート関数
 	static void ChangeScene()
 	{
-		m_NextScene = std::make_unique<T>();
+		ChangeScene(std::make_unique<T>());
 	}
 
 	template<typename T>// テンプレート関数

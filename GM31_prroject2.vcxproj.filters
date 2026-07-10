@@ -1,290 +1,323 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
-    <Filter Include="ソース ファイル">
-      <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
-      <Extensions>cpp;c;cc;cxx;c++;cppm;ixx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
+    <Filter Include="Framework">
+      <UniqueIdentifier>{e7f3b414-cd8b-4a1e-b21d-07c07aaf6a01}</UniqueIdentifier>
     </Filter>
-    <Filter Include="ヘッダー ファイル">
-      <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
-      <Extensions>h;hh;hpp;hxx;h++;hm;inl;inc;ipp;xsd</Extensions>
+    <Filter Include="Framework\Core">
+      <UniqueIdentifier>{dfcd909a-5c15-4bfe-bda5-9ec02f2b195f}</UniqueIdentifier>
     </Filter>
-    <Filter Include="リソース ファイル">
-      <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
-      <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
+    <Filter Include="Framework\Rendering">
+      <UniqueIdentifier>{7408ca17-289e-45a0-9b90-e482ff6c54aa}</UniqueIdentifier>
     </Filter>
-    <Filter Include="shader">
+    <Filter Include="Framework\Input">
+      <UniqueIdentifier>{57d17a92-068b-4928-9a89-b7607a833afe}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Framework\Audio">
+      <UniqueIdentifier>{cdbfdbaa-0d17-4adb-bda9-7e74eb405ffb}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Framework\Physics">
+      <UniqueIdentifier>{9562d5e0-33a2-4356-9c2f-06b374ca4587}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Framework\Effects">
+      <UniqueIdentifier>{70d4bdde-dd41-4a80-9987-26f778046bc5}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Game">
+      <UniqueIdentifier>{68d4b347-3b69-4634-b684-ad7c28057c10}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Game\BattingCenter">
+      <UniqueIdentifier>{d9a70a6f-1612-4680-a7dc-6990c6d10d9b}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Game\BattingCenter\Bootstrap">
+      <UniqueIdentifier>{60d4f8c7-07a9-4f8c-b678-99f2d5d9b2e0}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Game\BattingCenter\Scenes">
+      <UniqueIdentifier>{57133fd9-1164-4c4c-8a33-84fb5e04b04f}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Game\BattingCenter\Actors">
+      <UniqueIdentifier>{2d37a90c-07fb-445b-a17d-4f4dd7b91ebb}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Game\BattingCenter\World">
+      <UniqueIdentifier>{b1527fbc-389e-4d67-b8f6-35146c6c58d7}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Shaders">
       <UniqueIdentifier>{41a17e24-91fb-431f-beea-7d80f4671fe0}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="include\renderer.h">
-      <Filter>ヘッダー ファイル</Filter>
-    </ClInclude>
-    <ClInclude Include="include\Vector3.h">
-      <Filter>ヘッダー ファイル</Filter>
-    </ClInclude>
-    <ClInclude Include="include\DirectXTex.h">
-      <Filter>ヘッダー ファイル</Filter>
-    </ClInclude>
     <ClInclude Include="include\main.h">
-      <Filter>ヘッダー ファイル</Filter>
+      <Filter>Framework\Core</Filter>
     </ClInclude>
     <ClInclude Include="include\manager.h">
-      <Filter>ヘッダー ファイル</Filter>
-    </ClInclude>
-    <ClInclude Include="include\polygon2D.h">
-      <Filter>ヘッダー ファイル</Filter>
-    </ClInclude>
-    <ClInclude Include="include\field.h">
-      <Filter>ヘッダー ファイル</Filter>
-    </ClInclude>
-    <ClInclude Include="include\firework.h">
-      <Filter>ヘッダー ファイル</Filter>
-    </ClInclude>
-    <ClInclude Include="include\camera.h">
-      <Filter>ヘッダー ファイル</Filter>
-    </ClInclude>
-    <ClInclude Include="include\collider.h">
-      <Filter>ヘッダー ファイル</Filter>
-    </ClInclude>
-    <ClInclude Include="include\gameObject.h">
-      <Filter>ヘッダー ファイル</Filter>
-    </ClInclude>
-    <ClInclude Include="include\jumpEffect.h">
-      <Filter>ヘッダー ファイル</Filter>
-    </ClInclude>
-    <ClInclude Include="include\component.h">
-      <Filter>ヘッダー ファイル</Filter>
-    </ClInclude>
-    <ClInclude Include="include\modelRenderer.h">
-      <Filter>ヘッダー ファイル</Filter>
-    </ClInclude>
-    <ClInclude Include="include\player.h">
-      <Filter>ヘッダー ファイル</Filter>
-    </ClInclude>
-    <ClInclude Include="include\keyboard_utf8.h">
-      <Filter>ヘッダー ファイル</Filter>
-    </ClInclude>
-    <ClInclude Include="include\enemy.h">
-      <Filter>ヘッダー ファイル</Filter>
-    </ClInclude>
-    <ClInclude Include="include\spriteRenderer.h">
-      <Filter>ヘッダー ファイル</Filter>
-    </ClInclude>
-    <ClInclude Include="include\bullet.h">
-      <Filter>ヘッダー ファイル</Filter>
-    </ClInclude>
-    <ClInclude Include="include\tree.h">
-      <Filter>ヘッダー ファイル</Filter>
-    </ClInclude>
-    <ClInclude Include="include\explosion.h">
-      <Filter>ヘッダー ファイル</Filter>
-    </ClInclude>
-    <ClInclude Include="include\sky.h">
-      <Filter>ヘッダー ファイル</Filter>
-    </ClInclude>
-    <ClInclude Include="include\box.h">
-      <Filter>ヘッダー ファイル</Filter>
-    </ClInclude>
-    <ClInclude Include="include\particle.h">
-      <Filter>ヘッダー ファイル</Filter>
-    </ClInclude>
-    <ClInclude Include="include\particleSystem.h">
-      <Filter>ヘッダー ファイル</Filter>
-    </ClInclude>
-    <ClInclude Include="include\playerMoveParticle.h">
-      <Filter>ヘッダー ファイル</Filter>
-    </ClInclude>
-    <ClInclude Include="include\game.h">
-      <Filter>ヘッダー ファイル</Filter>
-    </ClInclude>
-    <ClInclude Include="include\gameplayInputController.h">
-      <Filter>ヘッダー ファイル</Filter>
-    </ClInclude>
-    <ClInclude Include="include\gameSetup.h">
-      <Filter>ヘッダー ファイル</Filter>
-    </ClInclude>
-    <ClInclude Include="include\gameSettings.h">
-      <Filter>ヘッダー ファイル</Filter>
-    </ClInclude>
-    <ClInclude Include="include\gameTime.h">
-      <Filter>ヘッダー ファイル</Filter>
+      <Filter>Framework\Core</Filter>
     </ClInclude>
     <ClInclude Include="include\scene.h">
-      <Filter>ヘッダー ファイル</Filter>
+      <Filter>Framework\Core</Filter>
     </ClInclude>
-    <ClInclude Include="include\title.h">
-      <Filter>ヘッダー ファイル</Filter>
+    <ClInclude Include="include\gameObject.h">
+      <Filter>Framework\Core</Filter>
     </ClInclude>
-    <ClInclude Include="include\result.h">
-      <Filter>ヘッダー ファイル</Filter>
+    <ClInclude Include="include\component.h">
+      <Filter>Framework\Core</Filter>
     </ClInclude>
-    <ClInclude Include="include\score.h">
-      <Filter>ヘッダー ファイル</Filter>
+    <ClInclude Include="include\gameTime.h">
+      <Filter>Framework\Core</Filter>
+    </ClInclude>
+    <ClInclude Include="include\Vector3.h">
+      <Filter>Framework\Core</Filter>
+    </ClInclude>
+    <ClInclude Include="include\renderer.h">
+      <Filter>Framework\Rendering</Filter>
+    </ClInclude>
+    <ClInclude Include="include\modelRenderer.h">
+      <Filter>Framework\Rendering</Filter>
+    </ClInclude>
+    <ClInclude Include="include\polygon2D.h">
+      <Filter>Framework\Rendering</Filter>
+    </ClInclude>
+    <ClInclude Include="include\spriteRenderer.h">
+      <Filter>Framework\Rendering</Filter>
+    </ClInclude>
+    <ClInclude Include="include\DirectXTex.h">
+      <Filter>Framework\Rendering</Filter>
+    </ClInclude>
+    <ClInclude Include="include\keyboard_utf8.h">
+      <Filter>Framework\Input</Filter>
     </ClInclude>
     <ClInclude Include="include\audio.h">
-      <Filter>ヘッダー ファイル</Filter>
+      <Filter>Framework\Audio</Filter>
+    </ClInclude>
+    <ClInclude Include="include\collider.h">
+      <Filter>Framework\Physics</Filter>
+    </ClInclude>
+    <ClInclude Include="include\particle.h">
+      <Filter>Framework\Effects</Filter>
+    </ClInclude>
+    <ClInclude Include="include\particleSystem.h">
+      <Filter>Framework\Effects</Filter>
+    </ClInclude>
+    <ClInclude Include="include\gameDefinition.h">
+      <Filter>Game\BattingCenter\Bootstrap</Filter>
+    </ClInclude>
+    <ClInclude Include="include\gameSetup.h">
+      <Filter>Game\BattingCenter\Bootstrap</Filter>
+    </ClInclude>
+    <ClInclude Include="include\gameSettings.h">
+      <Filter>Game\BattingCenter\Bootstrap</Filter>
+    </ClInclude>
+    <ClInclude Include="include\gameplayInputController.h">
+      <Filter>Game\BattingCenter\Bootstrap</Filter>
+    </ClInclude>
+    <ClInclude Include="include\title.h">
+      <Filter>Game\BattingCenter\Scenes</Filter>
+    </ClInclude>
+    <ClInclude Include="include\game.h">
+      <Filter>Game\BattingCenter\Scenes</Filter>
+    </ClInclude>
+    <ClInclude Include="include\result.h">
+      <Filter>Game\BattingCenter\Scenes</Filter>
+    </ClInclude>
+    <ClInclude Include="include\player.h">
+      <Filter>Game\BattingCenter\Actors</Filter>
+    </ClInclude>
+    <ClInclude Include="include\playerMoveParticle.h">
+      <Filter>Game\BattingCenter\Actors</Filter>
     </ClInclude>
     <ClInclude Include="include\baseballBat.h">
-      <Filter>ヘッダー ファイル</Filter>
+      <Filter>Game\BattingCenter\Actors</Filter>
     </ClInclude>
     <ClInclude Include="include\baseballBall.h">
-      <Filter>ヘッダー ファイル</Filter>
+      <Filter>Game\BattingCenter\Actors</Filter>
     </ClInclude>
     <ClInclude Include="include\baseballEffects.h">
-      <Filter>ヘッダー ファイル</Filter>
-    </ClInclude>
-    <ClInclude Include="include\battingTarget.h">
-      <Filter>ヘッダー ファイル</Filter>
-    </ClInclude>
-    <ClInclude Include="include\battingWall.h">
-      <Filter>ヘッダー ファイル</Filter>
+      <Filter>Game\BattingCenter\Actors</Filter>
     </ClInclude>
     <ClInclude Include="include\pitchingMachine.h">
-      <Filter>ヘッダー ファイル</Filter>
+      <Filter>Game\BattingCenter\Actors</Filter>
+    </ClInclude>
+    <ClInclude Include="include\battingTarget.h">
+      <Filter>Game\BattingCenter\Actors</Filter>
+    </ClInclude>
+    <ClInclude Include="include\battingWall.h">
+      <Filter>Game\BattingCenter\Actors</Filter>
+    </ClInclude>
+    <ClInclude Include="include\score.h">
+      <Filter>Game\BattingCenter\Actors</Filter>
     </ClInclude>
     <ClInclude Include="include\pauseMenu.h">
-      <Filter>ヘッダー ファイル</Filter>
+      <Filter>Game\BattingCenter\Actors</Filter>
+    </ClInclude>
+    <ClInclude Include="include\camera.h">
+      <Filter>Game\BattingCenter\World</Filter>
+    </ClInclude>
+    <ClInclude Include="include\field.h">
+      <Filter>Game\BattingCenter\World</Filter>
+    </ClInclude>
+    <ClInclude Include="include\sky.h">
+      <Filter>Game\BattingCenter\World</Filter>
+    </ClInclude>
+    <ClInclude Include="include\box.h">
+      <Filter>Game\BattingCenter\World</Filter>
+    </ClInclude>
+    <ClInclude Include="include\bullet.h">
+      <Filter>Game\BattingCenter\World</Filter>
+    </ClInclude>
+    <ClInclude Include="include\enemy.h">
+      <Filter>Game\BattingCenter\World</Filter>
+    </ClInclude>
+    <ClInclude Include="include\explosion.h">
+      <Filter>Game\BattingCenter\World</Filter>
+    </ClInclude>
+    <ClInclude Include="include\firework.h">
+      <Filter>Game\BattingCenter\World</Filter>
+    </ClInclude>
+    <ClInclude Include="include\jumpEffect.h">
+      <Filter>Game\BattingCenter\World</Filter>
+    </ClInclude>
+    <ClInclude Include="include\tree.h">
+      <Filter>Game\BattingCenter\World</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\main.cpp">
-      <Filter>ソース ファイル</Filter>
+      <Filter>Framework\Core</Filter>
     </ClCompile>
     <ClCompile Include="src\manager.cpp">
-      <Filter>ソース ファイル</Filter>
-    </ClCompile>
-    <ClCompile Include="src\renderer.cpp">
-      <Filter>ソース ファイル</Filter>
-    </ClCompile>
-    <ClCompile Include="src\polygon2D.cpp">
-      <Filter>ソース ファイル</Filter>
-    </ClCompile>
-    <ClCompile Include="src\field.cpp">
-      <Filter>ソース ファイル</Filter>
-    </ClCompile>
-    <ClCompile Include="src\firework.cpp">
-      <Filter>ソース ファイル</Filter>
-    </ClCompile>
-    <ClCompile Include="src\camera.cpp">
-      <Filter>ソース ファイル</Filter>
-    </ClCompile>
-    <ClCompile Include="src\collider.cpp">
-      <Filter>ソース ファイル</Filter>
-    </ClCompile>
-    <ClCompile Include="src\colliderDebugDraw.cpp">
-      <Filter>ソース ファイル</Filter>
-    </ClCompile>
-    <ClCompile Include="src\colliderMath.cpp">
-      <Filter>ソース ファイル</Filter>
-    </ClCompile>
-    <ClCompile Include="src\modelRenderer.cpp">
-      <Filter>ソース ファイル</Filter>
-    </ClCompile>
-    <ClCompile Include="src\player.cpp">
-      <Filter>ソース ファイル</Filter>
-    </ClCompile>
-    <ClCompile Include="src\keyboard_utf8.cpp">
-      <Filter>ソース ファイル</Filter>
-    </ClCompile>
-    <ClCompile Include="src\enemy.cpp">
-      <Filter>ソース ファイル</Filter>
-    </ClCompile>
-    <ClCompile Include="src\bullet.cpp">
-      <Filter>ソース ファイル</Filter>
-    </ClCompile>
-    <ClCompile Include="src\tree.cpp">
-      <Filter>ソース ファイル</Filter>
-    </ClCompile>
-    <ClCompile Include="src\explosion.cpp">
-      <Filter>ソース ファイル</Filter>
-    </ClCompile>
-    <ClCompile Include="src\sky.cpp">
-      <Filter>ソース ファイル</Filter>
-    </ClCompile>
-    <ClCompile Include="src\box.cpp">
-      <Filter>ソース ファイル</Filter>
-    </ClCompile>
-    <ClCompile Include="src\particle.cpp">
-      <Filter>ソース ファイル</Filter>
-    </ClCompile>
-    <ClCompile Include="src\particleSystem.cpp">
-      <Filter>ソース ファイル</Filter>
-    </ClCompile>
-    <ClCompile Include="src\playerMoveParticle.cpp">
-      <Filter>ソース ファイル</Filter>
-    </ClCompile>
-    <ClCompile Include="src\game.cpp">
-      <Filter>ソース ファイル</Filter>
-    </ClCompile>
-    <ClCompile Include="src\gameplayInputController.cpp">
-      <Filter>ソース ファイル</Filter>
-    </ClCompile>
-    <ClCompile Include="src\gameSetup.cpp">
-      <Filter>ソース ファイル</Filter>
-    </ClCompile>
-    <ClCompile Include="src\gameSettings.cpp">
-      <Filter>ソース ファイル</Filter>
+      <Filter>Framework\Core</Filter>
     </ClCompile>
     <ClCompile Include="src\gameTime.cpp">
-      <Filter>ソース ファイル</Filter>
+      <Filter>Framework\Core</Filter>
     </ClCompile>
-    <ClCompile Include="src\jumpEffect.cpp">
-      <Filter>ソース ファイル</Filter>
+    <ClCompile Include="src\renderer.cpp">
+      <Filter>Framework\Rendering</Filter>
     </ClCompile>
-    <ClCompile Include="src\title.cpp">
-      <Filter>ソース ファイル</Filter>
+    <ClCompile Include="src\modelRenderer.cpp">
+      <Filter>Framework\Rendering</Filter>
     </ClCompile>
-    <ClCompile Include="src\result.cpp">
-      <Filter>ソース ファイル</Filter>
+    <ClCompile Include="src\polygon2D.cpp">
+      <Filter>Framework\Rendering</Filter>
     </ClCompile>
-    <ClCompile Include="src\score.cpp">
-      <Filter>ソース ファイル</Filter>
+    <ClCompile Include="src\keyboard_utf8.cpp">
+      <Filter>Framework\Input</Filter>
     </ClCompile>
     <ClCompile Include="src\audio.cpp">
-      <Filter>ソース ファイル</Filter>
+      <Filter>Framework\Audio</Filter>
     </ClCompile>
-    <ClCompile Include="src\baseballBat.cpp">
-      <Filter>ソース ファイル</Filter>
+    <ClCompile Include="src\collider.cpp">
+      <Filter>Framework\Physics</Filter>
     </ClCompile>
-    <ClCompile Include="src\baseballBall.cpp">
-      <Filter>ソース ファイル</Filter>
+    <ClCompile Include="src\colliderDebugDraw.cpp">
+      <Filter>Framework\Physics</Filter>
     </ClCompile>
-    <ClCompile Include="src\baseballEffects.cpp">
-      <Filter>ソース ファイル</Filter>
+    <ClCompile Include="src\colliderMath.cpp">
+      <Filter>Framework\Physics</Filter>
     </ClCompile>
-    <ClCompile Include="src\battingTarget.cpp">
-      <Filter>ソース ファイル</Filter>
+    <ClCompile Include="src\particle.cpp">
+      <Filter>Framework\Effects</Filter>
     </ClCompile>
-    <ClCompile Include="src\battingWall.cpp">
-      <Filter>ソース ファイル</Filter>
+    <ClCompile Include="src\particleSystem.cpp">
+      <Filter>Framework\Effects</Filter>
     </ClCompile>
-    <ClCompile Include="src\pitchingMachine.cpp">
-      <Filter>ソース ファイル</Filter>
+    <ClCompile Include="src\gameDefinition.cpp">
+      <Filter>Game\BattingCenter\Bootstrap</Filter>
     </ClCompile>
-    <ClCompile Include="src\pauseMenu.cpp">
-      <Filter>ソース ファイル</Filter>
+    <ClCompile Include="src\gameSetup.cpp">
+      <Filter>Game\BattingCenter\Bootstrap</Filter>
+    </ClCompile>
+    <ClCompile Include="src\gameSettings.cpp">
+      <Filter>Game\BattingCenter\Bootstrap</Filter>
+    </ClCompile>
+    <ClCompile Include="src\gameplayInputController.cpp">
+      <Filter>Game\BattingCenter\Bootstrap</Filter>
+    </ClCompile>
+    <ClCompile Include="src\title.cpp">
+      <Filter>Game\BattingCenter\Scenes</Filter>
+    </ClCompile>
+    <ClCompile Include="src\game.cpp">
+      <Filter>Game\BattingCenter\Scenes</Filter>
+    </ClCompile>
+    <ClCompile Include="src\result.cpp">
+      <Filter>Game\BattingCenter\Scenes</Filter>
+    </ClCompile>
+    <ClCompile Include="src\player.cpp">
+      <Filter>Game\BattingCenter\Actors</Filter>
     </ClCompile>
     <ClCompile Include="src\playerCollision.cpp">
-      <Filter>ソース ファイル</Filter>
+      <Filter>Game\BattingCenter\Actors</Filter>
     </ClCompile>
     <ClCompile Include="src\playerCombat.cpp">
-      <Filter>ソース ファイル</Filter>
+      <Filter>Game\BattingCenter\Actors</Filter>
     </ClCompile>
     <ClCompile Include="src\playerMovement.cpp">
-      <Filter>ソース ファイル</Filter>
+      <Filter>Game\BattingCenter\Actors</Filter>
+    </ClCompile>
+    <ClCompile Include="src\playerMoveParticle.cpp">
+      <Filter>Game\BattingCenter\Actors</Filter>
+    </ClCompile>
+    <ClCompile Include="src\baseballBat.cpp">
+      <Filter>Game\BattingCenter\Actors</Filter>
+    </ClCompile>
+    <ClCompile Include="src\baseballBall.cpp">
+      <Filter>Game\BattingCenter\Actors</Filter>
+    </ClCompile>
+    <ClCompile Include="src\baseballEffects.cpp">
+      <Filter>Game\BattingCenter\Actors</Filter>
+    </ClCompile>
+    <ClCompile Include="src\pitchingMachine.cpp">
+      <Filter>Game\BattingCenter\Actors</Filter>
+    </ClCompile>
+    <ClCompile Include="src\battingTarget.cpp">
+      <Filter>Game\BattingCenter\Actors</Filter>
+    </ClCompile>
+    <ClCompile Include="src\battingWall.cpp">
+      <Filter>Game\BattingCenter\Actors</Filter>
+    </ClCompile>
+    <ClCompile Include="src\score.cpp">
+      <Filter>Game\BattingCenter\Actors</Filter>
+    </ClCompile>
+    <ClCompile Include="src\pauseMenu.cpp">
+      <Filter>Game\BattingCenter\Actors</Filter>
+    </ClCompile>
+    <ClCompile Include="src\camera.cpp">
+      <Filter>Game\BattingCenter\World</Filter>
+    </ClCompile>
+    <ClCompile Include="src\field.cpp">
+      <Filter>Game\BattingCenter\World</Filter>
+    </ClCompile>
+    <ClCompile Include="src\sky.cpp">
+      <Filter>Game\BattingCenter\World</Filter>
+    </ClCompile>
+    <ClCompile Include="src\box.cpp">
+      <Filter>Game\BattingCenter\World</Filter>
+    </ClCompile>
+    <ClCompile Include="src\bullet.cpp">
+      <Filter>Game\BattingCenter\World</Filter>
+    </ClCompile>
+    <ClCompile Include="src\enemy.cpp">
+      <Filter>Game\BattingCenter\World</Filter>
+    </ClCompile>
+    <ClCompile Include="src\explosion.cpp">
+      <Filter>Game\BattingCenter\World</Filter>
+    </ClCompile>
+    <ClCompile Include="src\firework.cpp">
+      <Filter>Game\BattingCenter\World</Filter>
+    </ClCompile>
+    <ClCompile Include="src\jumpEffect.cpp">
+      <Filter>Game\BattingCenter\World</Filter>
+    </ClCompile>
+    <ClCompile Include="src\tree.cpp">
+      <Filter>Game\BattingCenter\World</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <FxCompile Include="shaders\common.hlsl">
-      <Filter>shader</Filter>
+      <Filter>Shaders</Filter>
     </FxCompile>
     <FxCompile Include="shaders\unlitTexturePS.hlsl">
-      <Filter>shader</Filter>
+      <Filter>Shaders</Filter>
     </FxCompile>
     <FxCompile Include="shaders\unlitTextureVS.hlsl">
-      <Filter>shader</Filter>
+      <Filter>Shaders</Filter>
     </FxCompile>
   </ItemGroup>
 </Project>

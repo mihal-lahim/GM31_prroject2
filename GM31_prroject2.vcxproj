@@ -160,6 +160,7 @@
     <ClInclude Include="include\field.h" />
     <ClInclude Include="include\firework.h" />
     <ClInclude Include="include\game.h" />
+    <ClInclude Include="include\gameDefinition.h" />
     <ClInclude Include="include\gameplayInputController.h" />
     <ClInclude Include="include\gameSettings.h" />
     <ClInclude Include="include\gameSetup.h" />
@@ -205,6 +206,7 @@
     <ClCompile Include="src\field.cpp" />
     <ClCompile Include="src\firework.cpp" />
     <ClCompile Include="src\game.cpp" />
+    <ClCompile Include="src\gameDefinition.cpp" />
     <ClCompile Include="src\gameplayInputController.cpp" />
     <ClCompile Include="src\gameSettings.cpp" />
     <ClCompile Include="src\gameSetup.cpp" />

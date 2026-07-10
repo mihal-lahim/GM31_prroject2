@@ -1,11 +1,12 @@
 #include "main.h"
 #include "manager.h"
+#include "gameDefinition.h"
 #include "gameTime.h"
 #include "renderer.h"
 #include "audio.h"
 #include "gameObject.h"
+#include "scene.h"
 #include "camera.h"
-#include "title.h"
 #include "modelRenderer.h"
 #include "particleSystem.h"
 #include <algorithm>
@@ -13,12 +14,20 @@ std::list<std::unique_ptr<GameObject>> Manager::m_GameObjects;
 std::unique_ptr<Scene> Manager::m_Scene = nullptr;
 std::unique_ptr<Scene> Manager::m_NextScene = nullptr;
 
-void Manager::Init()
+void Manager::Init(const GameDefinition& gameDefinition)
 {
 	Renderer::Init();
 	Audio::InitMaster();
-	m_Scene = std::make_unique<Title>();
-	m_Scene->Init();
+
+	if (gameDefinition.CreateInitialScene != nullptr)
+	{
+		m_Scene = gameDefinition.CreateInitialScene();
+	}
+
+	if (m_Scene != nullptr)
+	{
+		m_Scene->Init();
+	}
 }
 
 void Manager::Uninit()
@@ -43,6 +52,11 @@ void Manager::Uninit()
 	Audio::UninitMaster();
 	Renderer::Uninit();
 	
+}
+
+void Manager::ChangeScene(std::unique_ptr<Scene> nextScene)
+{
+	m_NextScene = std::move(nextScene);
 }
 
 void Manager::Update()

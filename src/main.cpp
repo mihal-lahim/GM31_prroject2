@@ -2,6 +2,7 @@
 
 #include "main.h"
 #include "manager.h"
+#include "gameDefinition.h"
 #include "gameTime.h"
 #include <thread>
 #include "keyboard_utf8.h"
@@ -202,6 +203,9 @@ int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLi
 	(void)hPrevInstance;
 	(void)lpCmdLine;
 
+	const GameDefinition& gameDefinition = GetGameDefinition();
+	const char* windowName = gameDefinition.WindowTitle != nullptr ? gameDefinition.WindowTitle : WINDOW_NAME;
+
 	ComInitializer comInitializer;
 	if (!comInitializer.IsInitialized())
 	{
@@ -230,11 +234,11 @@ int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLi
 		RECT rc = { 0, 0, (LONG)SCREEN_WIDTH, (LONG)SCREEN_HEIGHT };
 		AdjustWindowRect(&rc, WS_OVERLAPPEDWINDOW, FALSE);
 
-		g_Window = CreateWindowEx(0, CLASS_NAME, WINDOW_NAME, WS_OVERLAPPEDWINDOW, CW_USEDEFAULT, CW_USEDEFAULT,
+		g_Window = CreateWindowEx(0, CLASS_NAME, windowName, WS_OVERLAPPEDWINDOW, CW_USEDEFAULT, CW_USEDEFAULT,
 			rc.right - rc.left, rc.bottom - rc.top, nullptr, nullptr, hInstance, nullptr);
 	}
 
-	Manager::Init();
+	Manager::Init(gameDefinition);
 	Keyboard_Initialize();
 
 
