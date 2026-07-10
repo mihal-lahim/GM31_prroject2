@@ -5,11 +5,17 @@
 class WireTpsCamera : public GameObject
 {
 private:
-	Vector3 m_Target{ 0.0f, 1.4f, 0.0f };
+	static constexpr float kDefaultTargetHeight = 1.4f;
+	static constexpr float kDefaultPitch = -0.18f;
+	static constexpr float kDefaultDistance = 9.0f;
+	static constexpr float kDefaultFov = 1.0f;
+
+	Vector3 m_Target{ 0.0f, kDefaultTargetHeight, 0.0f };
 	XMMATRIX m_ViewMatrix{};
 	float m_Yaw = 0.0f;
-	float m_Pitch = -0.18f;
-	float m_Distance = 9.0f;
+	float m_Pitch = kDefaultPitch;
+	float m_Distance = kDefaultDistance;
+	float m_CurrentFov = kDefaultFov;
 
 public:
 	void Init() override;

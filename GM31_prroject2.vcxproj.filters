@@ -222,6 +222,9 @@
     <ClInclude Include="include\wireReticle.h">
       <Filter>Game\WireAction\UI</Filter>
     </ClInclude>
+    <ClInclude Include="include\wireSlashEffect.h">
+      <Filter>Game\WireAction\Actors</Filter>
+    </ClInclude>
     <ClInclude Include="include\wireSword.h">
       <Filter>Game\WireAction\Actors</Filter>
     </ClInclude>
@@ -379,6 +382,9 @@
     </ClCompile>
     <ClCompile Include="src\wireReticle.cpp">
       <Filter>Game\WireAction\UI</Filter>
+    </ClCompile>
+    <ClCompile Include="src\wireSlashEffect.cpp">
+      <Filter>Game\WireAction\Actors</Filter>
     </ClCompile>
     <ClCompile Include="src\wireSword.cpp">
       <Filter>Game\WireAction\Actors</Filter>

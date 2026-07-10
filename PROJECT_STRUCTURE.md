@@ -24,6 +24,7 @@ The current active game is registered through:
 - `wireSword.*`: visible energy-sword model that follows the player hand and reacts to sword charge/swing state.
 - `wireTpsCamera.*`: over-the-shoulder TPS camera used by the wire-action game.
 - `wireEnemy.*`: immortal sandbag enemies for testing sword damage and hit reaction.
+- `wireSlashEffect.*`: short-lived hit slash visuals spawned by sword attacks.
 - `wireAnchor.*`, `wirePlatform.*`, `wireStage.*`, `wireReticle.*`: grapple targets, elevated platforms, floor, and aiming UI.
 - `score.*`: shared numeric UI reused by the wire-action game to show total dealt damage.
 - `assets/model/wire_saber.*`: original glowing energy-sword model used by `WireSword`.

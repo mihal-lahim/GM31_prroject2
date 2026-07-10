@@ -193,6 +193,7 @@
     <ClInclude Include="include\wirePlatform.h" />
     <ClInclude Include="include\wirePlayer.h" />
     <ClInclude Include="include\wireReticle.h" />
+    <ClInclude Include="include\wireSlashEffect.h" />
     <ClInclude Include="include\wireStage.h" />
     <ClInclude Include="include\wireSword.h" />
     <ClInclude Include="include\wireTpsCamera.h" />
@@ -247,6 +248,7 @@
     <ClCompile Include="src\wirePlatform.cpp" />
     <ClCompile Include="src\wirePlayer.cpp" />
     <ClCompile Include="src\wireReticle.cpp" />
+    <ClCompile Include="src\wireSlashEffect.cpp" />
     <ClCompile Include="src\wireStage.cpp" />
     <ClCompile Include="src\wireSword.cpp" />
     <ClCompile Include="src\wireTpsCamera.cpp" />

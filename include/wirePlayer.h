@@ -7,13 +7,15 @@ class WireTpsCamera;
 class WirePlayer : public GameObject
 {
 private:
+	static constexpr float kDefaultAimTimeRemaining = 2.0f;
+
 	Vector3 m_Velocity{ 0.0f, 0.0f, 0.0f };
 	Vector3 m_WireAnchor{ 0.0f, 0.0f, 0.0f };
 	bool m_OnGround = false;
 	bool m_Aiming = false;
 	bool m_WireActive = false;
 	bool m_AimingAtAnchor = false;
-	float m_AimTimeRemaining = 2.0f;
+	float m_AimTimeRemaining = kDefaultAimTimeRemaining;
 	float m_MoveAnimation = 0.0f;
 	float m_WireCooldown = 0.0f;
 	bool m_SwordCharging = false;
@@ -57,5 +59,6 @@ public:
 	float GetAimTimeRatio() const;
 	float GetSwordChargeRatio() const;
 	float GetSwordSwingRatio() const;
+	float GetSpeed() const { return m_Velocity.length(); }
 	Vector3 GetWireAnchor() const { return m_WireAnchor; }
 };

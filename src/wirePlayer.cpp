@@ -10,6 +10,7 @@
 #include "wireAnchor.h"
 #include "wireEnemy.h"
 #include "wirePlatform.h"
+#include "wireSlashEffect.h"
 #include "wireTpsCamera.h"
 
 #include <algorithm>
@@ -17,6 +18,13 @@
 
 namespace
 {
+	constexpr float kVectorEpsilon = 0.0001f;
+	constexpr float kReleaseDirectionEpsilon = 0.001f;
+	constexpr float kGroundY = 0.0f;
+	constexpr float kWorldBoundsX = 52.0f;
+	constexpr float kWorldBoundsZ = 52.0f;
+	constexpr float kPlayerStartZ = -8.0f;
+	constexpr float kPlayerModelYawOffset = XM_PI;
 	constexpr float kGravity = -42.0f;
 	constexpr float kGroundAccel = 66.0f;
 	constexpr float kAirAccel = 24.0f;
@@ -44,6 +52,63 @@ namespace
 	constexpr float kSwordRangeBonus = 1.2f;
 	constexpr float kSwordHitRadius = 1.15f;
 	constexpr float kSwordSwingDuration = 0.18f;
+	constexpr int kSwordHitStopBaseFrames = 4;
+	constexpr int kSwordHitStopChargeFrames = 3;
+	constexpr float kSwordHitStopScale = 0.10f;
+	constexpr float kMoveTurnLerp = 0.22f;
+	constexpr float kWireTurnLerp = 0.30f;
+	constexpr float kSwordChargeTurnLerp = 0.18f;
+	constexpr float kSwordReleaseTurnLerp = 0.80f;
+	constexpr float kScaleRecoverLerp = 0.08f;
+	constexpr float kGroundBobFrequency = 4.0f;
+	constexpr float kGroundBobAmount = 0.015f;
+	constexpr float kJumpSquashXz = 0.75f;
+	constexpr float kJumpStretchY = 1.35f;
+	constexpr float kWireReleaseSquashXz = 0.78f;
+	constexpr float kWireReleaseStretchY = 1.28f;
+	constexpr float kSwordChargeScaleXz = 0.90f;
+	constexpr float kSwordChargeScaleY = 1.0f;
+	constexpr float kSwordChargeScaleYBonus = 0.18f;
+	constexpr float kSwordChargeScaleLerp = 0.05f;
+	constexpr float kSwordSwingScaleXz = 1.22f;
+	constexpr float kSwordSwingScaleY = 0.88f;
+	constexpr float kPlayerFootMargin = 0.45f;
+	constexpr float kPlatformLandingGrace = 0.15f;
+	constexpr float kWireOriginHeight = 1.0f;
+	constexpr float kWireLineStartHeight = 1.2f;
+	constexpr float kWireAnchorMinDistance = 0.1f;
+	constexpr float kAnchorDistanceScorePenalty = 0.012f;
+	constexpr float kAnchorRadiusScoreBonus = 0.05f;
+	constexpr float kNoAnchorCooldown = 0.10f;
+	constexpr float kWireStartCooldown = 0.16f;
+	constexpr float kWireLaunchImpulse = 9.0f;
+	constexpr float kSwordAttackOriginHeight = 1.15f;
+	constexpr float kSwordHitProjectionMin = 0.05f;
+	constexpr float kSlashEffectBackstep = 0.25f;
+	constexpr float kSwordHitBoostBase = 2.0f;
+	constexpr float kSwordHitBoostCharge = 3.5f;
+	constexpr float kDamageRoundOffset = 0.5f;
+	constexpr float kHitStopFrameRoundOffset = 0.5f;
+	constexpr float kAnchorAimScoreWeight = 2.0f;
+	constexpr float kSwordBladeBaseLength = 1.7f;
+	constexpr float kSwordBladeChargeLength = 0.85f;
+	constexpr float kSwordIdleSide = -0.28f;
+	constexpr float kSwordSwingStartSide = 0.85f;
+	constexpr float kSwordSwingSideRange = 1.7f;
+	constexpr float kSwordHandRightOffset = 0.42f;
+	constexpr float kSwordTipHeight = 0.45f;
+	constexpr float kSwordTipChargeHeight = 0.22f;
+	constexpr float kSwordTrailRightOffset = 0.55f;
+	constexpr float kSwordTrailChargeRightOffset = 0.35f;
+	constexpr float kSwordTrailBackOffset = 0.25f;
+	constexpr XMFLOAT4 kWireStartColor{ 0.25f, 0.95f, 1.0f, 1.0f };
+	constexpr XMFLOAT4 kWireEndColor{ 0.85f, 1.0f, 1.0f, 1.0f };
+	constexpr XMFLOAT4 kSwordChargeBladeColorBase{ 0.4f, 0.75f, 1.0f, 1.0f };
+	constexpr XMFLOAT4 kSwordChargeBladeColorBonus{ 0.6f, 0.0f, 0.0f, 0.0f };
+	constexpr XMFLOAT4 kSwordSwingBladeColor{ 1.0f, 0.82f, 0.28f, 1.0f };
+	constexpr XMFLOAT4 kSwordChargeTrailColorBase{ 0.25f, 0.55f, 1.0f, 1.0f };
+	constexpr XMFLOAT4 kSwordChargeTrailColorBonus{ 0.0f, 0.35f, 0.0f, 0.0f };
+	constexpr XMFLOAT4 kSwordSwingTrailColor{ 1.0f, 0.45f, 0.18f, 1.0f };
 
 	float WrapAngle(float angle)
 	{
@@ -66,7 +131,7 @@ namespace
 	Vector3 Flatten(Vector3 value)
 	{
 		value.y = 0.0f;
-		if (value.length() > 0.0001f)
+		if (value.length() > kVectorEpsilon)
 		{
 			value.normalize();
 		}
@@ -76,25 +141,34 @@ namespace
 	Vector3 ClampLength(Vector3 value, float maxLength)
 	{
 		const float length = value.length();
-		if (length > maxLength && length > 0.0001f)
+		if (length > maxLength && length > kVectorEpsilon)
 		{
 			value *= maxLength / length;
 		}
 		return value;
+	}
+
+	XMFLOAT4 AddScaledColor(const XMFLOAT4& base, const XMFLOAT4& add, float scale)
+	{
+		return XMFLOAT4(
+			base.x + add.x * scale,
+			base.y + add.y * scale,
+			base.z + add.z * scale,
+			base.w + add.w * scale);
 	}
 }
 
 void WirePlayer::Init()
 {
 	m_Layer = Layer::World;
-	m_Position = { 0.0f, 0.0f, -8.0f };
+	m_Position = { 0.0f, kGroundY, kPlayerStartZ };
 	m_Rotation = { 0.0f, 0.0f, 0.0f };
 	m_Scale = { 1.0f, 1.0f, 1.0f };
 
 	ModelRenderer* renderer = AddComponent<ModelRenderer>(this);
 	renderer->Load("assets\\model\\player.obj");
 	renderer->SetUseOwnerTransform(true);
-	renderer->SetRotationOffset({ 0.0f, XM_PI, 0.0f });
+	renderer->SetRotationOffset({ 0.0f, kPlayerModelYawOffset, 0.0f });
 
 	Renderer::CreateVertexShader(m_LineVertexShader, m_LineVertexLayout, "unlitTextureVS.cso");
 	Renderer::CreatePixelShader(m_LinePixelShader, "unlitTexturePS.cso");
@@ -159,12 +233,12 @@ void WirePlayer::Update()
 
 	const Vector3 previousPosition = m_Position;
 	m_Position += m_Velocity * dt;
-	if (m_Position.y <= 0.0f)
+	if (m_Position.y <= kGroundY)
 	{
-		m_Position.y = 0.0f;
-		if (m_Velocity.y < 0.0f)
+		m_Position.y = kGroundY;
+		if (m_Velocity.y < kGroundY)
 		{
-			m_Velocity.y = 0.0f;
+			m_Velocity.y = kGroundY;
 		}
 		m_OnGround = true;
 	}
@@ -174,8 +248,8 @@ void WirePlayer::Update()
 	}
 	ResolvePlatformLanding(previousPosition);
 
-	m_Position.x = std::clamp(m_Position.x, -52.0f, 52.0f);
-	m_Position.z = std::clamp(m_Position.z, -52.0f, 52.0f);
+	m_Position.x = std::clamp(m_Position.x, -kWorldBoundsX, kWorldBoundsX);
+	m_Position.z = std::clamp(m_Position.z, -kWorldBoundsZ, kWorldBoundsZ);
 
 	GameObject::Update();
 }
@@ -209,7 +283,7 @@ void WirePlayer::UpdateMovement(float dt, const WireTpsCamera* camera)
 		moveDirection += cameraRight;
 	}
 
-	if (moveDirection.length() > 0.0001f)
+	if (moveDirection.length() > kVectorEpsilon)
 	{
 		moveDirection.normalize();
 		const float accel = m_OnGround ? kGroundAccel : kAirAccel;
@@ -218,14 +292,14 @@ void WirePlayer::UpdateMovement(float dt, const WireTpsCamera* camera)
 
 		if (!m_WireActive)
 		{
-			m_Rotation.y = LerpAngle(m_Rotation.y, atan2f(moveDirection.x, moveDirection.z), 0.22f);
+			m_Rotation.y = LerpAngle(m_Rotation.y, atan2f(moveDirection.x, moveDirection.z), kMoveTurnLerp);
 		}
 	}
 
 	if (Keyboard_IsKeyDownTrigger(KK_SPACE) && m_OnGround)
 	{
 		m_Velocity.y = kJumpVelocity;
-		m_Scale = { 0.75f, 1.35f, 0.75f };
+		m_Scale = { kJumpSquashXz, kJumpStretchY, kJumpSquashXz };
 	}
 
 	const float damping = m_OnGround ? kGroundDamping : kAirDamping;
@@ -238,14 +312,14 @@ void WirePlayer::UpdateMovement(float dt, const WireTpsCamera* camera)
 		m_Velocity.y = kAimFallSpeedLimit;
 	}
 
-	m_Scale.x += (1.0f - m_Scale.x) * 0.08f;
-	m_Scale.y += (1.0f - m_Scale.y) * 0.08f;
-	m_Scale.z += (1.0f - m_Scale.z) * 0.08f;
+	m_Scale.x += (1.0f - m_Scale.x) * kScaleRecoverLerp;
+	m_Scale.y += (1.0f - m_Scale.y) * kScaleRecoverLerp;
+	m_Scale.z += (1.0f - m_Scale.z) * kScaleRecoverLerp;
 
 	if (m_OnGround)
 	{
 		m_MoveAnimation += Vector3(m_Velocity.x, 0.0f, m_Velocity.z).length() * dt;
-		m_Scale.y += sinf(m_MoveAnimation * 4.0f) * 0.015f;
+		m_Scale.y += sinf(m_MoveAnimation * kGroundBobFrequency) * kGroundBobAmount;
 	}
 }
 
@@ -256,16 +330,15 @@ void WirePlayer::ResolvePlatformLanding(const Vector3& previousPosition)
 		return;
 	}
 
-	constexpr float playerFootMargin = 0.45f;
 	for (WirePlatform* platform : Manager::GetGameObjects<WirePlatform>())
 	{
 		const float topY = platform->GetTopY();
-		if (previousPosition.y < topY - 0.15f || m_Position.y > topY)
+		if (previousPosition.y < topY - kPlatformLandingGrace || m_Position.y > topY)
 		{
 			continue;
 		}
 
-		if (!platform->ContainsXZ(m_Position, playerFootMargin))
+		if (!platform->ContainsXZ(m_Position, kPlayerFootMargin))
 		{
 			continue;
 		}
@@ -294,7 +367,7 @@ void WirePlayer::UpdateWire(float dt, const WireTpsCamera* camera)
 		return;
 	}
 
-	Vector3 toAnchor = m_WireAnchor - (m_Position + Vector3(0.0f, 1.0f, 0.0f));
+	Vector3 toAnchor = m_WireAnchor - (m_Position + Vector3(0.0f, kWireOriginHeight, 0.0f));
 	const float distance = toAnchor.length();
 	if (distance <= kWireStopDistance)
 	{
@@ -307,9 +380,9 @@ void WirePlayer::UpdateWire(float dt, const WireTpsCamera* camera)
 	m_Velocity = ClampLength(m_Velocity, kWireMaxSpeed);
 
 	const Vector3 flatDirection = Flatten(toAnchor);
-	if (flatDirection.length() > 0.0001f)
+	if (flatDirection.length() > kVectorEpsilon)
 	{
-		m_Rotation.y = LerpAngle(m_Rotation.y, atan2f(flatDirection.x, flatDirection.z), 0.3f);
+		m_Rotation.y = LerpAngle(m_Rotation.y, atan2f(flatDirection.x, flatDirection.z), kWireTurnLerp);
 	}
 }
 
@@ -344,15 +417,15 @@ void WirePlayer::UpdateSword(float dt, const WireTpsCamera* camera)
 		m_SwordChargePeakHeight = std::max(m_SwordChargePeakHeight, m_Position.y);
 
 		const Vector3 forward = GetSwordForward(camera);
-		if (forward.length() > 0.0001f)
+		if (forward.length() > kVectorEpsilon)
 		{
-			m_Rotation.y = LerpAngle(m_Rotation.y, atan2f(forward.x, forward.z), 0.18f);
+			m_Rotation.y = LerpAngle(m_Rotation.y, atan2f(forward.x, forward.z), kSwordChargeTurnLerp);
 		}
 
 		const float chargeRatio = std::clamp(m_SwordChargeTime / kSwordMaxChargeTime, 0.0f, 1.0f);
-		m_Scale.x += (0.9f - m_Scale.x) * 0.05f;
-		m_Scale.y += (1.0f + chargeRatio * 0.18f - m_Scale.y) * 0.05f;
-		m_Scale.z += (0.9f - m_Scale.z) * 0.05f;
+		m_Scale.x += (kSwordChargeScaleXz - m_Scale.x) * kSwordChargeScaleLerp;
+		m_Scale.y += (kSwordChargeScaleY + chargeRatio * kSwordChargeScaleYBonus - m_Scale.y) * kSwordChargeScaleLerp;
+		m_Scale.z += (kSwordChargeScaleXz - m_Scale.z) * kSwordChargeScaleLerp;
 		return;
 	}
 
@@ -398,7 +471,7 @@ bool WirePlayer::FindWireAnchor(const WireTpsCamera* camera, Vector3& anchorPosi
 		Vector3 hookPosition = anchor->GetHookPosition();
 		Vector3 toAnchor = hookPosition - origin;
 		const float distance = toAnchor.length();
-		if (distance < 0.1f || distance > kWireMaxDistance)
+		if (distance < kWireAnchorMinDistance || distance > kWireMaxDistance)
 		{
 			continue;
 		}
@@ -410,7 +483,7 @@ bool WirePlayer::FindWireAnchor(const WireTpsCamera* camera, Vector3& anchorPosi
 			continue;
 		}
 
-		const float score = aimDot * 2.0f - distance * 0.012f + anchor->GetRadius() * 0.05f;
+		const float score = aimDot * kAnchorAimScoreWeight - distance * kAnchorDistanceScorePenalty + anchor->GetRadius() * kAnchorRadiusScoreBonus;
 		if (score > bestScore)
 		{
 			bestScore = score;
@@ -433,19 +506,19 @@ void WirePlayer::StartWire(const WireTpsCamera* camera)
 	if (!FindWireAnchor(camera, anchor))
 	{
 		ReleaseWire(false);
-		m_WireCooldown = 0.10f;
+		m_WireCooldown = kNoAnchorCooldown;
 		return;
 	}
 
 	m_WireAnchor = anchor;
 	m_WireActive = true;
-	m_WireCooldown = 0.16f;
+	m_WireCooldown = kWireStartCooldown;
 
-	Vector3 launchDirection = m_WireAnchor - (m_Position + Vector3(0.0f, 1.0f, 0.0f));
-	if (launchDirection.length() > 0.0001f)
+	Vector3 launchDirection = m_WireAnchor - (m_Position + Vector3(0.0f, kWireOriginHeight, 0.0f));
+	if (launchDirection.length() > kVectorEpsilon)
 	{
 		launchDirection.normalize();
-		m_Velocity += launchDirection * 9.0f;
+		m_Velocity += launchDirection * kWireLaunchImpulse;
 	}
 }
 
@@ -459,18 +532,18 @@ void WirePlayer::ReleaseWire(bool addBoost)
 	if (addBoost)
 	{
 		Vector3 boostDirection = m_Velocity;
-		if (boostDirection.length() < 0.001f)
+		if (boostDirection.length() < kReleaseDirectionEpsilon)
 		{
-			boostDirection = m_WireAnchor - (m_Position + Vector3(0.0f, 1.0f, 0.0f));
+			boostDirection = m_WireAnchor - (m_Position + Vector3(0.0f, kWireOriginHeight, 0.0f));
 		}
 
-		if (boostDirection.length() > 0.001f)
+		if (boostDirection.length() > kReleaseDirectionEpsilon)
 		{
 			boostDirection.normalize();
 			m_Velocity += boostDirection * kWireReleaseBoost;
 			m_Velocity.y += kWireReleaseUpBoost;
 			m_Velocity = ClampLength(m_Velocity, kWireReleaseMaxSpeed);
-			m_Scale = { 0.78f, 1.28f, 0.78f };
+			m_Scale = { kWireReleaseSquashXz, kWireReleaseStretchY, kWireReleaseSquashXz };
 		}
 	}
 
@@ -482,7 +555,7 @@ Vector3 WirePlayer::GetSwordForward(const WireTpsCamera* camera) const
 	if (camera != nullptr)
 	{
 		Vector3 forward = Flatten(camera->GetAimDirection());
-		if (forward.length() > 0.0001f)
+		if (forward.length() > kVectorEpsilon)
 		{
 			return forward;
 		}
@@ -506,7 +579,7 @@ void WirePlayer::ReleaseSwordAttack(const WireTpsCamera* camera)
 	const int damage = CalculateSwordDamage();
 	const float chargeRatio = std::clamp(m_SwordChargeTime / kSwordMaxChargeTime, 0.0f, 1.0f);
 	const float range = kSwordBaseRange + kSwordRangeBonus * chargeRatio;
-	const Vector3 attackOrigin = m_Position + Vector3(0.0f, 1.15f, 0.0f);
+	const Vector3 attackOrigin = m_Position + Vector3(0.0f, kSwordAttackOriginHeight, 0.0f);
 
 	int totalDamage = 0;
 	for (WireEnemy* enemy : Manager::GetGameObjects<WireEnemy>())
@@ -517,12 +590,14 @@ void WirePlayer::ReleaseSwordAttack(const WireTpsCamera* camera)
 		const Vector3 nearest = attackOrigin + forward * projected;
 		const float distanceToSwing = (enemyCenter - nearest).length();
 
-		if (projected <= 0.05f || distanceToSwing > kSwordHitRadius + enemy->GetHitRadius())
+		if (projected <= kSwordHitProjectionMin || distanceToSwing > kSwordHitRadius + enemy->GetHitRadius())
 		{
 			continue;
 		}
 
 		enemy->OnSwordHit(damage, forward);
+		WireSlashEffect* effect = Manager::AddGameObject<WireSlashEffect>();
+		effect->Setup(enemyCenter - forward * kSlashEffectBackstep, forward, chargeRatio);
 		totalDamage += damage;
 	}
 
@@ -532,15 +607,16 @@ void WirePlayer::ReleaseSwordAttack(const WireTpsCamera* camera)
 		{
 			score->Add(totalDamage);
 		}
-		m_Velocity += forward * (2.0f + chargeRatio * 3.5f);
+		m_Velocity += forward * (kSwordHitBoostBase + chargeRatio * kSwordHitBoostCharge);
+		GameTime::StartHitStop(kSwordHitStopBaseFrames + static_cast<int>(chargeRatio * kSwordHitStopChargeFrames + kHitStopFrameRoundOffset), kSwordHitStopScale);
 	}
 
 	m_SwordCharging = false;
 	m_SwordChargeTime = 0.0f;
 	m_SwordSwingChargeRatio = chargeRatio;
 	m_SwordSwingTimer = kSwordSwingDuration;
-	m_Rotation.y = LerpAngle(m_Rotation.y, atan2f(forward.x, forward.z), 0.8f);
-	m_Scale = { 1.22f, 0.88f, 1.22f };
+	m_Rotation.y = LerpAngle(m_Rotation.y, atan2f(forward.x, forward.z), kSwordReleaseTurnLerp);
+	m_Scale = { kSwordSwingScaleXz, kSwordSwingScaleY, kSwordSwingScaleXz };
 }
 
 int WirePlayer::CalculateSwordDamage() const
@@ -548,7 +624,7 @@ int WirePlayer::CalculateSwordDamage() const
 	const float chargeRatio = std::clamp(m_SwordChargeTime / kSwordMaxChargeTime, 0.0f, 1.0f);
 	const float heightDamage = std::min(kSwordMaxHeightDamage, std::max(0.0f, m_SwordChargePeakHeight) * kSwordHeightDamageScale);
 	const float damage = kSwordBaseDamage + kSwordChargeDamage * chargeRatio + heightDamage;
-	return static_cast<int>(damage + 0.5f);
+	return static_cast<int>(damage + kDamageRoundOffset);
 }
 
 void WirePlayer::Draw()
@@ -566,13 +642,13 @@ void WirePlayer::DrawWire()
 	}
 
 	VERTEX_3D vertex[2]{};
-	vertex[0].Position = XMFLOAT3(m_Position.x, m_Position.y + 1.2f, m_Position.z);
+	vertex[0].Position = XMFLOAT3(m_Position.x, m_Position.y + kWireLineStartHeight, m_Position.z);
 	vertex[0].Normal = XMFLOAT3(0.0f, 1.0f, 0.0f);
-	vertex[0].Diffuse = XMFLOAT4(0.25f, 0.95f, 1.0f, 1.0f);
+	vertex[0].Diffuse = kWireStartColor;
 	vertex[0].TexCoord = XMFLOAT2(0.0f, 0.0f);
 	vertex[1].Position = XMFLOAT3(m_WireAnchor.x, m_WireAnchor.y, m_WireAnchor.z);
 	vertex[1].Normal = XMFLOAT3(0.0f, 1.0f, 0.0f);
-	vertex[1].Diffuse = XMFLOAT4(0.85f, 1.0f, 1.0f, 1.0f);
+	vertex[1].Diffuse = kWireEndColor;
 	vertex[1].TexCoord = XMFLOAT2(1.0f, 0.0f);
 
 	Renderer::GetDeviceContext()->UpdateSubresource(m_WireVertexBuffer.Get(), 0, nullptr, vertex, 0, 0);
@@ -614,18 +690,18 @@ void WirePlayer::DrawSword()
 	Vector3 right{ cosf(m_Rotation.y), 0.0f, -sinf(m_Rotation.y) };
 	right.normalize();
 
-	const Vector3 hand = m_Position + Vector3(0.0f, 1.15f, 0.0f) + right * 0.42f;
-	const float bladeLength = 1.7f + chargeRatio * 0.85f;
-	const float swingSide = m_SwordSwingTimer > 0.0f ? (0.85f - swingRatio * 1.7f) : -0.28f;
-	const Vector3 tip = hand + forward * bladeLength + right * swingSide + Vector3(0.0f, 0.45f + chargeRatio * 0.22f, 0.0f);
-	const Vector3 trail = tip - right * (0.55f + chargeRatio * 0.35f) - forward * 0.25f;
+	const Vector3 hand = m_Position + Vector3(0.0f, kSwordAttackOriginHeight, 0.0f) + right * kSwordHandRightOffset;
+	const float bladeLength = kSwordBladeBaseLength + chargeRatio * kSwordBladeChargeLength;
+	const float swingSide = m_SwordSwingTimer > 0.0f ? (kSwordSwingStartSide - swingRatio * kSwordSwingSideRange) : kSwordIdleSide;
+	const Vector3 tip = hand + forward * bladeLength + right * swingSide + Vector3(0.0f, kSwordTipHeight + chargeRatio * kSwordTipChargeHeight, 0.0f);
+	const Vector3 trail = tip - right * (kSwordTrailRightOffset + chargeRatio * kSwordTrailChargeRightOffset) - forward * kSwordTrailBackOffset;
 
 	const XMFLOAT4 bladeColor = m_SwordCharging
-		? XMFLOAT4(0.4f + chargeRatio * 0.6f, 0.75f, 1.0f, 1.0f)
-		: XMFLOAT4(1.0f, 0.82f, 0.28f, 1.0f);
+		? AddScaledColor(kSwordChargeBladeColorBase, kSwordChargeBladeColorBonus, chargeRatio)
+		: kSwordSwingBladeColor;
 	const XMFLOAT4 trailColor = m_SwordCharging
-		? XMFLOAT4(0.25f, 0.55f + chargeRatio * 0.35f, 1.0f, 1.0f)
-		: XMFLOAT4(1.0f, 0.45f, 0.18f, 1.0f);
+		? AddScaledColor(kSwordChargeTrailColorBase, kSwordChargeTrailColorBonus, chargeRatio)
+		: kSwordSwingTrailColor;
 
 	VERTEX_3D vertex[4]{};
 	vertex[0].Position = XMFLOAT3(hand.x, hand.y, hand.z);

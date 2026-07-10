@@ -9,6 +9,32 @@
 
 #include <algorithm>
 
+namespace
+{
+	constexpr float kIdleBobFrequency = 8.0f;
+	constexpr float kIdleBobAmplitude = 0.025f;
+	constexpr float kSwingStartSide = 0.72f;
+	constexpr float kSwingSideRange = 1.44f;
+	constexpr float kIdleSide = -0.22f;
+	constexpr float kHandRightOffset = 0.54f;
+	constexpr float kSwingRightOffsetScale = 0.10f;
+	constexpr float kHandForwardOffset = 0.16f;
+	constexpr float kChargeForwardOffset = 0.08f;
+	constexpr float kHandHeight = 1.02f;
+	constexpr float kChargeHeightOffset = 0.08f;
+	constexpr float kBasePitch = -0.34f;
+	constexpr float kChargePitchOffset = 0.20f;
+	constexpr float kSwingPitchOffset = 0.28f;
+	constexpr float kBaseRoll = 0.88f;
+	constexpr float kChargeRollOffset = 0.32f;
+	constexpr float kSwingRollOffset = 1.25f;
+	constexpr float kBladePulseFrequency = 18.0f;
+	constexpr float kBladePulseAmplitude = 0.015f;
+	constexpr float kBaseScale = 0.92f;
+	constexpr float kChargeScaleOffset = 0.08f;
+	constexpr float kChargeBladeLengthOffset = 0.18f;
+}
+
 void WireSword::Init()
 {
 	m_Layer = Layer::World;
@@ -45,25 +71,25 @@ void WireSword::Update()
 	const float chargeRatio = player->GetSwordChargeRatio();
 	const float swingRatio = player->GetSwordSwingRatio();
 	const bool swinging = player->IsSwordSwinging();
-	const float idleBob = sinf(m_IdleTimer * 8.0f) * 0.025f;
-	const float swingSide = swinging ? (0.72f - swingRatio * 1.44f) : -0.22f;
+	const float idleBob = sinf(m_IdleTimer * kIdleBobFrequency) * kIdleBobAmplitude;
+	const float swingSide = swinging ? (kSwingStartSide - swingRatio * kSwingSideRange) : kIdleSide;
 
 	m_Position = playerPosition
-		+ right * (0.54f + swingSide * 0.10f)
-		+ forward * (0.16f + chargeRatio * 0.08f)
-		+ Vector3(0.0f, 1.02f + idleBob + chargeRatio * 0.08f, 0.0f);
+		+ right * (kHandRightOffset + swingSide * kSwingRightOffsetScale)
+		+ forward * (kHandForwardOffset + chargeRatio * kChargeForwardOffset)
+		+ Vector3(0.0f, kHandHeight + idleBob + chargeRatio * kChargeHeightOffset, 0.0f);
 
 	m_Rotation = {
-		-0.34f - chargeRatio * 0.20f + (swinging ? swingRatio * 0.28f : 0.0f),
+		kBasePitch - chargeRatio * kChargePitchOffset + (swinging ? swingRatio * kSwingPitchOffset : 0.0f),
 		yaw + swingSide,
-		0.88f - chargeRatio * 0.32f - (swinging ? swingRatio * 1.25f : 0.0f)
+		kBaseRoll - chargeRatio * kChargeRollOffset - (swinging ? swingRatio * kSwingRollOffset : 0.0f)
 	};
 
-	const float bladePulse = 1.0f + sinf(m_IdleTimer * 18.0f) * 0.015f;
+	const float bladePulse = 1.0f + sinf(m_IdleTimer * kBladePulseFrequency) * kBladePulseAmplitude;
 	m_Scale = {
-		0.92f + chargeRatio * 0.08f,
-		0.92f + chargeRatio * 0.08f,
-		bladePulse + chargeRatio * 0.18f
+		kBaseScale + chargeRatio * kChargeScaleOffset,
+		kBaseScale + chargeRatio * kChargeScaleOffset,
+		bladePulse + chargeRatio * kChargeBladeLengthOffset
 	};
 
 	GameObject::Update();

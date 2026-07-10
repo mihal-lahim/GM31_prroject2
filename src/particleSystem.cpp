@@ -164,10 +164,12 @@ void ParticleSystem::Draw()
 	}
 
 	XMMATRIX invView = XMMatrixInverse(nullptr, camera->GetViewMatrix());
-	Vector3 right;
-	Vector3 up;
-	XMStoreFloat3(reinterpret_cast<XMFLOAT3*>(&right), invView.r[0]);
-	XMStoreFloat3(reinterpret_cast<XMFLOAT3*>(&up), invView.r[1]);
+	XMFLOAT3 rightValue{};
+	XMFLOAT3 upValue{};
+	XMStoreFloat3(&rightValue, invView.r[0]);
+	XMStoreFloat3(&upValue, invView.r[1]);
+	Vector3 right{ rightValue.x, rightValue.y, rightValue.z };
+	Vector3 up{ upValue.x, upValue.y, upValue.z };
 
 	std::vector<VERTEX_3D> vertices;
 	vertices.reserve(kMaxSparks * kVerticesPerSpark);
