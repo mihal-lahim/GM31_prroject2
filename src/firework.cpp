@@ -11,7 +11,7 @@ ComPtr<ID3D11Buffer> Firework::s_VertexBuffer = nullptr;
 ComPtr<ID3D11InputLayout> Firework::s_VertexLayout = nullptr;
 ComPtr<ID3D11VertexShader> Firework::s_VertexShader = nullptr;
 ComPtr<ID3D11PixelShader> Firework::s_PixelShader = nullptr;
-ComPtr<ID3D11ShaderResourceView> Firework::s_Texture = nullptr;
+TextureHandle Firework::s_Texture;
 int Firework::s_RefCount = 0;
 
 namespace
@@ -82,10 +82,7 @@ void Firework::Init()
 		Renderer::CreateVertexShader(s_VertexShader, s_VertexLayout, "unlitTextureVS.cso");
 		Renderer::CreatePixelShader(s_PixelShader, "unlitTexturePS.cso");
 
-		TexMetadata metadata{};
-		ScratchImage image{};
-		LoadFromWICFile(L"assets/texture/particle.png", WIC_FLAGS_NONE, &metadata, image);
-		CreateShaderResourceView(Renderer::GetDevice(), image.GetImage(0, 0, 0), 1, metadata, s_Texture.GetAddressOf());
+		s_Texture = ResourceManager::LoadTexture(L"assets/texture/particle.png");
 		assert(s_Texture);
 	}
 
@@ -110,7 +107,7 @@ void Firework::Uninit()
 		s_VertexLayout.Reset();
 		s_VertexShader.Reset();
 		s_PixelShader.Reset();
-		s_Texture.Reset();
+		s_Texture.reset();
 	}
 
 	UninitComponents();
@@ -351,7 +348,8 @@ void Firework::Draw()
 	Renderer::GetDeviceContext()->IASetInputLayout(s_VertexLayout.Get());
 	Renderer::GetDeviceContext()->VSSetShader(s_VertexShader.Get(), NULL, 0);
 	Renderer::GetDeviceContext()->PSSetShader(s_PixelShader.Get(), NULL, 0);
-	Renderer::GetDeviceContext()->PSSetShaderResources(0, 1, s_Texture.GetAddressOf());
+	ID3D11ShaderResourceView* texture = s_Texture != nullptr ? s_Texture->Get() : nullptr;
+	Renderer::GetDeviceContext()->PSSetShaderResources(0, 1, &texture);
 
 	UINT stride = sizeof(VERTEX_3D);
 	UINT offset = 0;

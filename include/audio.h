@@ -2,6 +2,7 @@
 
 #include <xaudio2.h>
 #include "component.h"
+#include "resourceManager.h"
 
 struct XAudioVoiceDeleter
 {
@@ -23,10 +24,7 @@ private:
 	static float m_MasterVolume;
 
 	std::unique_ptr<IXAudio2SourceVoice, XAudioVoiceDeleter> m_SourceVoice{};
-	std::vector<BYTE>		m_SoundData{};
-
-	int						m_Length{};
-	int						m_PlayLength{};
+	WaveHandle m_Wave;
 
 
 public:

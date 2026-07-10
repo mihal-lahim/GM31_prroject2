@@ -2,6 +2,7 @@
 
 
 #include "gameObject.h"
+#include "resourceManager.h"
 class Explosion : public GameObject
 {
 private:
@@ -11,7 +12,7 @@ private:
 	ComPtr<ID3D11VertexShader> m_VertexShader;
 	ComPtr<ID3D11PixelShader> m_PixelShader;
 
-	ComPtr<ID3D11ShaderResourceView> m_pTexture;
+	TextureHandle m_Texture;
 	int m_Frame = 0; // アニメーションのフレーム番号
 public:
 	void Init()override;

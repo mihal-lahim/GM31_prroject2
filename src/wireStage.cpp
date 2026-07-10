@@ -40,12 +40,7 @@ void WireStage::Init()
 	Renderer::CreateVertexShader(m_VertexShader, m_VertexLayout, "unlitTextureVS.cso");
 	Renderer::CreatePixelShader(m_PixelShader, "unlitTexturePS.cso");
 
-	TexMetadata metadata{};
-	ScratchImage image{};
-	if (SUCCEEDED(LoadFromWICFile(L"assets/texture/ground.png", WIC_FLAGS_NONE, &metadata, image)))
-	{
-		CreateShaderResourceView(Renderer::GetDevice(), image.GetImage(0, 0, 0), 1, metadata, m_Texture.GetAddressOf());
-	}
+	m_Texture = ResourceManager::LoadTexture(L"assets/texture/ground.png");
 }
 
 void WireStage::Uninit()
@@ -71,7 +66,7 @@ void WireStage::Draw()
 	material.TextureEnable = m_Texture != nullptr;
 	Renderer::SetMaterial(material);
 
-	ID3D11ShaderResourceView* texture = m_Texture.Get();
+	ID3D11ShaderResourceView* texture = m_Texture != nullptr ? m_Texture->Get() : nullptr;
 	Renderer::GetDeviceContext()->PSSetShaderResources(0, 1, &texture);
 
 	UINT stride = sizeof(VERTEX_3D);

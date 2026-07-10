@@ -1,6 +1,7 @@
 #pragma once
 
 #include "gameObject.h"
+#include "resourceManager.h"
 
 class Firework : public GameObject
 {
@@ -21,7 +22,7 @@ private:
 	static ComPtr<ID3D11InputLayout> s_VertexLayout;
 	static ComPtr<ID3D11VertexShader> s_VertexShader;
 	static ComPtr<ID3D11PixelShader> s_PixelShader;
-	static ComPtr<ID3D11ShaderResourceView> s_Texture;
+	static TextureHandle s_Texture;
 	static int s_RefCount;
 
 	std::vector<Spark> m_Sparks;

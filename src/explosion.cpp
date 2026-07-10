@@ -45,11 +45,8 @@ void Explosion::Init()
 	Renderer::GetDevice()->CreateBuffer(&bd, &sd, m_VertexBuffer.GetAddressOf());
 
 	// 爆発テクスチャを読み込む。
-	TexMetadata metadata{};
-	ScratchImage image{};
-	LoadFromWICFile(L"assets/texture/explosion.png", WIC_FLAGS_NONE, &metadata, image);
-	CreateShaderResourceView(Renderer::GetDevice(), image.GetImage(0, 0, 0), 1, metadata, m_pTexture.GetAddressOf());
-	assert(m_pTexture);
+	m_Texture = ResourceManager::LoadTexture(L"assets/texture/explosion.png");
+	assert(m_Texture);
 
 	// シェーダーを読み込む。
 	Renderer::CreateVertexShader(m_VertexShader, m_VertexLayout, "unlitTextureVS.cso");
@@ -149,7 +146,8 @@ void Explosion::Draw()
 	UINT offset = 0;
 	Renderer::GetDeviceContext()->IASetVertexBuffers(0, 1, m_VertexBuffer.GetAddressOf(), &stride, &offset);
 	// テクスチャを設定する。
-	Renderer::GetDeviceContext()->PSSetShaderResources(0, 1, m_pTexture.GetAddressOf());
+	ID3D11ShaderResourceView* texture = m_Texture != nullptr ? m_Texture->Get() : nullptr;
+	Renderer::GetDeviceContext()->PSSetShaderResources(0, 1, &texture);
 	// プリミティブトポロジを設定する。
 	Renderer::GetDeviceContext()->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
 

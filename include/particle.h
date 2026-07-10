@@ -1,6 +1,7 @@
 #pragma once
 
 #include "gameObject.h"
+#include "resourceManager.h"
 
 class Particle : public GameObject
 {
@@ -9,7 +10,7 @@ private:
 	static ComPtr<ID3D11InputLayout> s_VertexLayout;
 	static ComPtr<ID3D11VertexShader> s_VertexShader;
 	static ComPtr<ID3D11PixelShader> s_PixelShader;
-	static ComPtr<ID3D11ShaderResourceView> s_pTexture;
+	static TextureHandle s_Texture;
 	static int s_RefCount;
 
 	Vector3 m_Velocity{ 0.0f, 0.0f, 0.0f };

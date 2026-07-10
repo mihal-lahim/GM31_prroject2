@@ -10,6 +10,7 @@
 #include "modelRenderer.h"
 #include "particleSystem.h"
 #include "renderQueue.h"
+#include "resourceManager.h"
 std::unique_ptr<Scene> Manager::m_Scene = nullptr;
 std::unique_ptr<Scene> Manager::m_NextScene = nullptr;
 
@@ -45,6 +46,7 @@ void Manager::Uninit()
 
 	ModelRenderer::UnloadAll();
 	ParticleSystem::UnloadSharedResources();
+	ResourceManager::Clear();
 
 	Audio::UninitMaster();
 	Renderer::Uninit();

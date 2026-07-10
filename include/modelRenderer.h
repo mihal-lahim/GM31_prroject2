@@ -2,6 +2,7 @@
 
 #include "component.h"
 #include "renderer.h"
+#include "resourceManager.h"
 #include <string>
 #include <unordered_map>
 
@@ -13,7 +14,7 @@ struct MODEL_MATERIAL
 	std::string					Name;
 	MATERIAL					Material{};
 	std::string					TextureName;
-	ComPtr<ID3D11ShaderResourceView>	Texture;
+	TextureHandle Texture;
 
 };
 

@@ -278,7 +278,9 @@ void ModelRenderer::Draw()
 	{
 		Renderer::SetMaterial(m_Model->SubsetArray[i].Material.Material);
 
-		ID3D11ShaderResourceView* texture = m_Model->SubsetArray[i].Material.Texture.Get();
+		ID3D11ShaderResourceView* texture = m_Model->SubsetArray[i].Material.Texture != nullptr
+			? m_Model->SubsetArray[i].Material.Texture->Get()
+			: nullptr;
 		Renderer::GetDeviceContext()->PSSetShaderResources(0, 1, &texture);
 
 		Renderer::GetDeviceContext()->DrawIndexed(m_Model->SubsetArray[i].IndexNum, m_Model->SubsetArray[i].StartIndex, 0);
@@ -392,7 +394,7 @@ void ModelRenderer::LoadModel(const char* FileName, MODEL* Model)
 
 	for (SUBSET& subset : Model->SubsetArray)
 	{
-		subset.Material.Texture.Reset();
+		subset.Material.Texture.reset();
 		subset.Material.Material.TextureEnable = FALSE;
 
 		if (subset.Material.TextureName.empty())
@@ -400,18 +402,8 @@ void ModelRenderer::LoadModel(const char* FileName, MODEL* Model)
 			continue;
 		}
 
-		std::filesystem::path texturePath(subset.Material.TextureName);
-		TexMetadata metadata{};
-		ScratchImage image{};
-		hr = LoadFromWICFile(texturePath.wstring().c_str(), WIC_FLAGS_NONE, &metadata, image);
-		if (FAILED(hr))
-		{
-			DebugLog(std::string("ModelRenderer: failed to load texture ") + subset.Material.TextureName);
-			continue;
-		}
-
-		hr = CreateShaderResourceView(Renderer::GetDevice(), image.GetImages(), image.GetImageCount(), metadata, subset.Material.Texture.GetAddressOf());
-		if (SUCCEEDED(hr) && subset.Material.Texture)
+		subset.Material.Texture = ResourceManager::LoadTexture(subset.Material.TextureName);
+		if (subset.Material.Texture != nullptr)
 		{
 			subset.Material.Material.TextureEnable = TRUE;
 		}

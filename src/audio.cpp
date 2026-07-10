@@ -82,106 +82,15 @@ void Audio::Load(const char* FileName)
 		return;
 	}
 
-	// WAVファイルを読み込み、fmtチャンクとdataチャンクから再生用データを作る。
-	WAVEFORMATEX wfx{};
-	HMMIO hmmio = mmioOpenA(const_cast<LPSTR>(FileName), nullptr, MMIO_READ);
-	if (hmmio == nullptr)
+	m_Wave = ResourceManager::LoadWave(FileName);
+	if (m_Wave == nullptr || m_Wave->GetFormat() == nullptr)
 	{
-		DebugLog("Audio::Load: failed to open wave file.\n");
-		return;
-	}
-
-	auto closeFile = [&hmmio]()
-		{
-			if (hmmio != nullptr)
-			{
-				mmioClose(hmmio, 0);
-				hmmio = nullptr;
-			}
-		};
-
-	MMCKINFO riffChunk{};
-	riffChunk.fccType = mmioFOURCC('W', 'A', 'V', 'E');
-	if (mmioDescend(hmmio, &riffChunk, nullptr, MMIO_FINDRIFF) != MMSYSERR_NOERROR)
-	{
-		DebugLog("Audio::Load: RIFF WAVE chunk was not found.\n");
-		closeFile();
-		return;
-	}
-
-	MMCKINFO formatChunk{};
-	formatChunk.ckid = mmioFOURCC('f', 'm', 't', ' ');
-	if (mmioDescend(hmmio, &formatChunk, &riffChunk, MMIO_FINDCHUNK) != MMSYSERR_NOERROR)
-	{
-		DebugLog("Audio::Load: fmt chunk was not found.\n");
-		closeFile();
-		return;
-	}
-
-	if (formatChunk.cksize >= sizeof(WAVEFORMATEX))
-	{
-		if (mmioRead(hmmio, reinterpret_cast<HPSTR>(&wfx), sizeof(wfx)) != sizeof(wfx))
-		{
-			DebugLog("Audio::Load: failed to read WAVEFORMATEX.\n");
-			closeFile();
-			return;
-		}
-	}
-	else
-	{
-		PCMWAVEFORMAT pcmwf{};
-		if (mmioRead(hmmio, reinterpret_cast<HPSTR>(&pcmwf), sizeof(pcmwf)) != sizeof(pcmwf))
-		{
-			DebugLog("Audio::Load: failed to read PCMWAVEFORMAT.\n");
-			closeFile();
-			return;
-		}
-
-		memcpy(&wfx, &pcmwf, sizeof(pcmwf));
-		wfx.cbSize = 0;
-	}
-
-	mmioAscend(hmmio, &formatChunk, 0);
-
-	if (wfx.nBlockAlign == 0)
-	{
-		DebugLog("Audio::Load: invalid block alignment.\n");
-		closeFile();
-		return;
-	}
-
-	MMCKINFO dataChunk{};
-	dataChunk.ckid = mmioFOURCC('d', 'a', 't', 'a');
-	if (mmioDescend(hmmio, &dataChunk, &riffChunk, MMIO_FINDCHUNK) != MMSYSERR_NOERROR || dataChunk.cksize == 0)
-	{
-		DebugLog("Audio::Load: data chunk was not found.\n");
-		closeFile();
-		return;
-	}
-
-	m_SoundData.resize(dataChunk.cksize);
-	const LONG readLength = mmioRead(hmmio, reinterpret_cast<HPSTR>(m_SoundData.data()), dataChunk.cksize);
-	closeFile();
-
-	if (readLength <= 0)
-	{
-		DebugLog("Audio::Load: failed to read audio data.\n");
-		m_SoundData.clear();
-		return;
-	}
-
-	m_SoundData.resize(static_cast<size_t>(readLength));
-	m_Length = static_cast<int>(readLength);
-	m_PlayLength = m_Length / wfx.nBlockAlign;
-	if (m_PlayLength <= 0)
-	{
-		DebugLog("Audio::Load: audio data is too short.\n");
-		Uninit();
+		DebugLog("Audio::Load: shared wave resource load failed.\n");
 		return;
 	}
 
 	IXAudio2SourceVoice* sourceVoice = nullptr;
-	HRESULT hr = m_Xaudio->CreateSourceVoice(&sourceVoice, &wfx);
+	HRESULT hr = m_Xaudio->CreateSourceVoice(&sourceVoice, m_Wave->GetFormat());
 	if (FAILED(hr))
 	{
 		DebugLog("Audio::Load: CreateSourceVoice failed.\n");
@@ -200,14 +109,12 @@ void Audio::Uninit()
 		m_SourceVoice.reset();
 	}
 
-	m_SoundData.clear();
-	m_Length = 0;
-	m_PlayLength = 0;
+	m_Wave.reset();
 }
 
 void Audio::Play(bool Loop)
 {
-	if (m_SourceVoice == nullptr || m_SoundData.empty() || m_Length <= 0 || m_PlayLength <= 0)
+	if (m_SourceVoice == nullptr || m_Wave == nullptr || m_Wave->AudioData.empty() || m_Wave->PlayLength == 0)
 	{
 		return;
 	}
@@ -217,15 +124,15 @@ void Audio::Play(bool Loop)
 
 	// 読み込んだWAVバッファをXAudio2へ渡す。
 	XAUDIO2_BUFFER buffer{};
-	buffer.AudioBytes = static_cast<UINT32>(m_Length);
-	buffer.pAudioData = m_SoundData.data();
+	buffer.AudioBytes = static_cast<UINT32>(m_Wave->AudioData.size());
+	buffer.pAudioData = m_Wave->AudioData.data();
 	buffer.PlayBegin = 0;
-	buffer.PlayLength = m_PlayLength;
+	buffer.PlayLength = m_Wave->PlayLength;
 
 	if (Loop)
 	{
 		buffer.LoopBegin = 0;
-		buffer.LoopLength = m_PlayLength;
+		buffer.LoopLength = m_Wave->PlayLength;
 		buffer.LoopCount = XAUDIO2_LOOP_INFINITE;
 	}
 

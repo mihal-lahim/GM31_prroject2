@@ -37,7 +37,7 @@ ComPtr<ID3D11Buffer> ParticleSystem::s_VertexBuffer = nullptr;
 ComPtr<ID3D11InputLayout> ParticleSystem::s_VertexLayout = nullptr;
 ComPtr<ID3D11VertexShader> ParticleSystem::s_VertexShader = nullptr;
 ComPtr<ID3D11PixelShader> ParticleSystem::s_PixelShader = nullptr;
-ComPtr<ID3D11ShaderResourceView> ParticleSystem::s_Texture = nullptr;
+TextureHandle ParticleSystem::s_Texture;
 
 void ParticleSystem::Init()
 {
@@ -57,10 +57,7 @@ void ParticleSystem::Init()
 		Renderer::CreateVertexShader(s_VertexShader, s_VertexLayout, "unlitTextureVS.cso");
 		Renderer::CreatePixelShader(s_PixelShader, "unlitTexturePS.cso");
 
-		TexMetadata metadata{};
-		ScratchImage image{};
-		LoadFromWICFile(L"assets/texture/particle.png", WIC_FLAGS_NONE, &metadata, image);
-		CreateShaderResourceView(Renderer::GetDevice(), image.GetImage(0, 0, 0), 1, metadata, s_Texture.GetAddressOf());
+		s_Texture = ResourceManager::LoadTexture(L"assets/texture/particle.png");
 		assert(s_Texture);
 	}
 }
@@ -88,7 +85,7 @@ void ParticleSystem::UnloadSharedResources()
 	s_VertexLayout.Reset();
 	s_VertexShader.Reset();
 	s_PixelShader.Reset();
-	s_Texture.Reset();
+	s_Texture.reset();
 }
 
 void ParticleSystem::Emit(const Vector3& position, const Vector3& velocity, float scale, int life, const XMFLOAT4& color, float gravity, float shrink)
@@ -238,7 +235,8 @@ void ParticleSystem::Draw()
 	Renderer::SetWorldMatrix(XMMatrixIdentity());
 	Renderer::SetAddBlendEnable(true);
 	Renderer::SetDepthEnable(false);
-	Renderer::GetDeviceContext()->PSSetShaderResources(0, 1, s_Texture.GetAddressOf());
+	ID3D11ShaderResourceView* texture = s_Texture->Get();
+	Renderer::GetDeviceContext()->PSSetShaderResources(0, 1, &texture);
 
 	UINT stride = sizeof(VERTEX_3D);
 	UINT offset = 0;

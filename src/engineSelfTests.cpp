@@ -2,9 +2,11 @@
 
 #include "gameTime.h"
 #include "renderQueue.h"
+#include "resourceManager.h"
 #include "world.h"
 
 #include <cmath>
+#include <filesystem>
 
 namespace
 {
@@ -105,11 +107,31 @@ namespace
 		GameTime::Update(0.02f);
 		return NearlyEqual(GameTime::GetDeltaTime(), 0.002f);
 	}
+
+	bool TestWaveResourceCache()
+	{
+		ResourceManager::Clear();
+		const WaveHandle first = ResourceManager::LoadWave("assets/audio/wan.wav");
+		const WaveHandle second = ResourceManager::LoadWave(
+			std::filesystem::absolute("assets\\audio\\..\\audio\\wan.wav"));
+		if (first == nullptr || first != second || first->AudioData.empty()
+			|| ResourceManager::GetWaveCount() != 1)
+		{
+			ResourceManager::Clear();
+			return false;
+		}
+
+		ResourceManager::Clear();
+		return ResourceManager::GetWaveCount() == 0 && !first->AudioData.empty();
+	}
 }
 
 bool RunEngineSelfTests()
 {
-	const bool passed = TestWorldLifecycle() && TestRenderOrdering() && TestGameTime();
+	const bool passed = TestWorldLifecycle()
+		&& TestRenderOrdering()
+		&& TestGameTime()
+		&& TestWaveResourceCache();
 	OutputDebugStringA(passed ? "Engine self-tests passed.\n" : "Engine self-tests failed.\n");
 	return passed;
 }

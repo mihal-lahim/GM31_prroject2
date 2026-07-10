@@ -46,11 +46,8 @@ void Polygon2D::Init(float x, float y, float width, float height,const WCHAR* te
 	Renderer::CreatePixelShader(m_PixelShader, "unlitTexturePS.cso");
 
 	// テクスチャを読み込む。
-	TexMetadata metadata{};
-	ScratchImage image{};
-	LoadFromWICFile(texturePath, WIC_FLAGS_NONE, &metadata, image);
-	CreateShaderResourceView(Renderer::GetDevice(), image.GetImage(0, 0, 0), 1, metadata, m_pTexture.GetAddressOf());
-	assert(m_pTexture);
+	m_Texture = ResourceManager::LoadTexture(texturePath);
+	assert(m_Texture);
 
 }
 
@@ -92,7 +89,8 @@ void Polygon2D::Draw()
 	Renderer::SetMaterial(material);
 
 	// テクスチャを設定する。
-	Renderer::GetDeviceContext()->PSSetShaderResources(0, 1, m_pTexture.GetAddressOf());
+	ID3D11ShaderResourceView* texture = m_Texture != nullptr ? m_Texture->Get() : nullptr;
+	Renderer::GetDeviceContext()->PSSetShaderResources(0, 1, &texture);
 
 	// 頂点バッファを設定する。
 	UINT stride = sizeof(VERTEX_3D);

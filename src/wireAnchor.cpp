@@ -59,7 +59,7 @@ ComPtr<ID3D11Buffer> WireAnchor::s_VertexBuffer = nullptr;
 ComPtr<ID3D11InputLayout> WireAnchor::s_VertexLayout = nullptr;
 ComPtr<ID3D11VertexShader> WireAnchor::s_VertexShader = nullptr;
 ComPtr<ID3D11PixelShader> WireAnchor::s_PixelShader = nullptr;
-ComPtr<ID3D11ShaderResourceView> WireAnchor::s_Texture = nullptr;
+TextureHandle WireAnchor::s_Texture;
 int WireAnchor::s_RefCount = 0;
 
 void WireAnchor::Init()
@@ -102,10 +102,7 @@ void WireAnchor::Init()
 		Renderer::CreateVertexShader(s_VertexShader, s_VertexLayout, "unlitTextureVS.cso");
 		Renderer::CreatePixelShader(s_PixelShader, "unlitTexturePS.cso");
 
-		TexMetadata metadata{};
-		ScratchImage image{};
-		LoadFromWICFile(L"assets/texture/particle.png", WIC_FLAGS_NONE, &metadata, image);
-		CreateShaderResourceView(Renderer::GetDevice(), image.GetImage(0, 0, 0), 1, metadata, s_Texture.GetAddressOf());
+		s_Texture = ResourceManager::LoadTexture(L"assets/texture/particle.png");
 		assert(s_Texture);
 	}
 
@@ -127,7 +124,7 @@ void WireAnchor::Uninit()
 		s_VertexLayout.Reset();
 		s_VertexShader.Reset();
 		s_PixelShader.Reset();
-		s_Texture.Reset();
+		s_Texture.reset();
 	}
 
 	UninitComponents();
@@ -160,7 +157,8 @@ void WireAnchor::Draw()
 	Renderer::GetDeviceContext()->IASetInputLayout(s_VertexLayout.Get());
 	Renderer::GetDeviceContext()->VSSetShader(s_VertexShader.Get(), nullptr, 0);
 	Renderer::GetDeviceContext()->PSSetShader(s_PixelShader.Get(), nullptr, 0);
-	Renderer::GetDeviceContext()->PSSetShaderResources(0, 1, s_Texture.GetAddressOf());
+	ID3D11ShaderResourceView* texture = s_Texture->Get();
+	Renderer::GetDeviceContext()->PSSetShaderResources(0, 1, &texture);
 
 	const float anchorScale = std::max(1.0f, LargestScaleComponent(m_Scale));
 	const float pulse = 0.5f + 0.5f * sinf(m_Pulse);

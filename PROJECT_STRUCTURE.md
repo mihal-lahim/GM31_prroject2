@@ -13,6 +13,7 @@ concepts and the DirectX 11 backend used by both applications:
 - rendering, model loading, numeric UI, audio, input, and time
 - collision queries and shared particle systems
 - the `ICameraView` contract used by rendering and shared effects
+- typed `TextureHandle` and `WaveHandle` resources managed by `ResourceManager`
 
 Engine source files must not include Wire Action or Batting Center headers.
 Every `Scene` owns an independently constructible `World`. `World::Spawn`
@@ -64,6 +65,18 @@ restores depth and blend state even when a draw implementation returns early.
 The application loop uses a 60 Hz accumulator with capped catch-up work. This
 preserves fractional elapsed time without allowing an unbounded update spiral.
 
+## Resource ownership
+
+`ResourceManager` normalizes asset paths and caches each texture or WAV file
+once. Callers retain typed shared handles instead of owning duplicate decoded
+data or Direct3D texture views. Model material textures use the same cache as
+sprites, particles, UI, and stage geometry. Each `Audio` component still owns
+its XAudio source voice, while immutable WAV format and sample data are shared.
+
+The cache is cleared after all scene objects and model resources are released,
+and before XAudio and Direct3D are shut down. A handle may safely outlive a
+cache clear; its resource remains alive until the last handle is released.
+
 ## Assets and output
 
 Both application projects compile their shaders and copy `assets/` into their
@@ -88,7 +101,7 @@ bin\x64\Debug\BattingCenter\BattingCenter.exe --self-test
 ```
 
 The command creates no window and returns `0` when World deferred spawning,
-render ordering, and GameTime behavior pass.
+render ordering, GameTime behavior, and WAV cache reuse pass.
 
 ## Adding another game
 

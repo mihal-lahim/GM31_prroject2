@@ -9,7 +9,7 @@ ComPtr<ID3D11Buffer> Particle::s_VertexBuffer = nullptr;
 ComPtr<ID3D11InputLayout> Particle::s_VertexLayout = nullptr;
 ComPtr<ID3D11VertexShader> Particle::s_VertexShader = nullptr;
 ComPtr<ID3D11PixelShader> Particle::s_PixelShader = nullptr;
-ComPtr<ID3D11ShaderResourceView> Particle::s_pTexture = nullptr;
+TextureHandle Particle::s_Texture;
 int Particle::s_RefCount = 0;
 
 void Particle::Init()
@@ -53,11 +53,8 @@ void Particle::Init()
 		Renderer::CreateVertexShader(s_VertexShader, s_VertexLayout, "unlitTextureVS.cso");
 		Renderer::CreatePixelShader(s_PixelShader, "unlitTexturePS.cso");
 
-		TexMetadata metadata{};
-		ScratchImage image{};
-		LoadFromWICFile(L"assets/texture/particle.png", WIC_FLAGS_NONE, &metadata, image);
-		CreateShaderResourceView(Renderer::GetDevice(), image.GetImage(0, 0, 0), 1, metadata, s_pTexture.GetAddressOf());
-		assert(s_pTexture);
+		s_Texture = ResourceManager::LoadTexture(L"assets/texture/particle.png");
+		assert(s_Texture);
 	}
 
 	s_RefCount++;
@@ -79,7 +76,7 @@ void Particle::Uninit()
 		s_VertexLayout.Reset();
 		s_VertexShader.Reset();
 		s_PixelShader.Reset();
-		s_pTexture.Reset();
+		s_Texture.reset();
 	}
 
 	UninitComponents();
@@ -139,7 +136,8 @@ void Particle::Draw()
 	material.TextureEnable = TRUE;
 	Renderer::SetMaterial(material);
 
-	Renderer::GetDeviceContext()->PSSetShaderResources(0, 1, s_pTexture.GetAddressOf());
+	ID3D11ShaderResourceView* texture = s_Texture != nullptr ? s_Texture->Get() : nullptr;
+	Renderer::GetDeviceContext()->PSSetShaderResources(0, 1, &texture);
 
 	UINT stride = sizeof(VERTEX_3D);
 	UINT offset = 0;

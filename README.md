@@ -27,7 +27,8 @@ bin\x64\Debug\BattingCenter\BattingCenter.exe --self-test
 ```
 
 The self-test mode does not create a game window. It validates World lifecycle,
-deferred spawning, render-queue ordering, and GameTime scaling/pause behavior.
+deferred spawning, render-queue ordering, GameTime scaling/pause behavior, and
+shared WAV resource caching.
 
 ## Wire Action controls
 
