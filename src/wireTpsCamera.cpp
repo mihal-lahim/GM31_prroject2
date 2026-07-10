@@ -11,25 +11,32 @@
 namespace
 {
 	constexpr float kBaseFov = 1.0f;
-	constexpr float kMaxWireFov = 1.18f;
+	constexpr float kMaxWireFov = 1.14f;
 	constexpr float kFovBoostStartSpeed = 16.0f;
 	constexpr float kFovBoostFullSpeed = 42.0f;
 	constexpr float kFovWireActiveBias = 0.035f;
 	constexpr float kFovFollowLerp = 0.12f;
+	constexpr float kAimFov = 0.82f;
 	constexpr float kNearClip = 0.1f;
 	constexpr float kFarClip = 1000.0f;
-	constexpr float kInitialCameraHeight = 5.0f;
-	constexpr float kInitialCameraDistance = -9.0f;
-	constexpr float kMinPitch = XMConvertToRadians(-55.0f);
-	constexpr float kMaxPitch = XMConvertToRadians(72.0f);
-	constexpr float kAimCameraDistance = 6.4f;
-	constexpr float kNormalCameraDistance = 9.0f;
-	constexpr float kDistanceFollowLerp = 0.18f;
-	constexpr float kAimTargetHeight = 1.45f;
-	constexpr float kNormalTargetHeight = 1.25f;
-	constexpr float kAimTargetRightOffset = 1.65f;
-	constexpr float kAimShoulderOffset = 1.10f;
-	constexpr float kNormalShoulderOffset = 0.25f;
+	constexpr float kInitialCameraHeight = 7.6f;
+	constexpr float kInitialCameraDistance = -9.2f;
+	constexpr float kNormalMinPitch = XMConvertToRadians(-55.0f);
+	constexpr float kNormalMaxPitch = XMConvertToRadians(-10.0f);
+	constexpr float kAimMinPitch = XMConvertToRadians(-50.0f);
+	constexpr float kAimMaxPitch = XMConvertToRadians(28.0f);
+	constexpr float kNormalPitchMouseScale = 0.45f;
+	constexpr float kAimPitchMouseScale = 0.85f;
+	constexpr float kNormalCameraDistance = 11.8f;
+	constexpr float kDistanceFollowLerp = 0.12f;
+	constexpr float kNormalFollowLerp = 0.18f;
+	constexpr float kAimFollowLerp = 0.34f;
+	constexpr float kNormalTargetHeight = 1.2f;
+	constexpr float kNormalLookAhead = 1.8f;
+	constexpr float kAimCameraHeight = 1.65f;
+	constexpr float kAimBackDistance = 0.85f;
+	constexpr float kAimShoulderOffset = 0.42f;
+	constexpr float kAimFocusDistance = 24.0f;
 
 	Vector3 MakeCameraForward(float yaw, float pitch)
 	{
@@ -44,6 +51,20 @@ namespace
 		return forward;
 	}
 
+	Vector3 MakeFlatForward(float yaw)
+	{
+		Vector3 forward{ sinf(yaw), 0.0f, cosf(yaw) };
+		forward.normalize();
+		return forward;
+	}
+
+	Vector3 MakeFlatRight(const Vector3& flatForward)
+	{
+		Vector3 right = Vector3::cross({ 0.0f, 1.0f, 0.0f }, flatForward);
+		right.normalize();
+		return right;
+	}
+
 	XMFLOAT3 ToXMFLOAT3(const Vector3& value)
 	{
 		return XMFLOAT3(value.x, value.y, value.z);
@@ -54,6 +75,11 @@ void WireTpsCamera::Init()
 {
 	m_Layer = Layer::Camera;
 	m_Position = { 0.0f, kInitialCameraHeight, kInitialCameraDistance };
+	m_Target = { 0.0f, kDefaultTargetHeight, 0.0f };
+	m_Distance = kDefaultDistance;
+	m_Pitch = kDefaultPitch;
+	m_CurrentFov = kDefaultFov;
+	m_TargetInitialized = false;
 	Mouse_Reset();
 }
 
@@ -70,34 +96,64 @@ void WireTpsCamera::Update()
 		return;
 	}
 
+	const bool aiming = player->IsAiming();
 	float mouseX = 0.0f;
 	float mouseY = 0.0f;
 	if (Mouse_ConsumeDelta(&mouseX, &mouseY))
 	{
 		const float sensitivity = GameSettings::GetMouseSensitivity();
+		const float pitchScale = aiming ? kAimPitchMouseScale : kNormalPitchMouseScale;
 		m_Yaw += mouseX * sensitivity;
-		m_Pitch -= mouseY * sensitivity;
-		m_Pitch = std::clamp(m_Pitch, kMinPitch, kMaxPitch);
+		m_Pitch -= mouseY * sensitivity * pitchScale;
 	}
 
-	const bool aiming = player->IsAiming();
+	const float minPitch = aiming ? kAimMinPitch : kNormalMinPitch;
+	const float maxPitch = aiming ? kAimMaxPitch : kNormalMaxPitch;
+	m_Pitch = std::clamp(m_Pitch, minPitch, maxPitch);
+
 	const Vector3 playerPosition = player->GetPosition();
 	const Vector3 forward = MakeCameraForward(m_Yaw, m_Pitch);
-	Vector3 right = Vector3::cross({ 0.0f, 1.0f, 0.0f }, forward);
-	right.normalize();
+	const Vector3 flatForward = MakeFlatForward(m_Yaw);
+	const Vector3 flatRight = MakeFlatRight(flatForward);
 
-	const float desiredDistance = aiming ? kAimCameraDistance : kNormalCameraDistance;
+	const float desiredDistance = kNormalCameraDistance;
 	m_Distance += (desiredDistance - m_Distance) * kDistanceFollowLerp;
 
-	const Vector3 aimTargetOffset = aiming ? right * kAimTargetRightOffset : Vector3(0.0f, 0.0f, 0.0f);
-	m_Target = playerPosition + Vector3(0.0f, aiming ? kAimTargetHeight : kNormalTargetHeight, 0.0f) + aimTargetOffset;
+	Vector3 desiredPosition;
+	Vector3 desiredTarget;
+	if (aiming)
+	{
+		desiredPosition = playerPosition
+			+ Vector3(0.0f, kAimCameraHeight, 0.0f)
+			- flatForward * kAimBackDistance
+			+ flatRight * kAimShoulderOffset;
+		desiredTarget = desiredPosition + forward * kAimFocusDistance;
+	}
+	else
+	{
+		desiredTarget = playerPosition
+			+ Vector3(0.0f, kNormalTargetHeight, 0.0f)
+			+ flatForward * kNormalLookAhead;
+		desiredPosition = desiredTarget - forward * m_Distance;
+	}
 
-	const Vector3 shoulderOffset = aiming ? right * kAimShoulderOffset : right * kNormalShoulderOffset;
-	m_Position = m_Target - forward * m_Distance + shoulderOffset;
+	if (!m_TargetInitialized)
+	{
+		m_Position = desiredPosition;
+		m_Target = desiredTarget;
+		m_TargetInitialized = true;
+	}
+	else
+	{
+		const float followLerp = aiming ? kAimFollowLerp : kNormalFollowLerp;
+		m_Position += (desiredPosition - m_Position) * followLerp;
+		m_Target += (desiredTarget - m_Target) * followLerp;
+	}
 
 	const float speedRatio = std::clamp((player->GetSpeed() - kFovBoostStartSpeed) / (kFovBoostFullSpeed - kFovBoostStartSpeed), 0.0f, 1.0f);
 	const float wireBias = player->IsWireActive() ? kFovWireActiveBias : 0.0f;
-	const float targetFov = std::min(kMaxWireFov, kBaseFov + speedRatio * (kMaxWireFov - kBaseFov) + wireBias);
+	const float normalFov = std::min(kMaxWireFov, kBaseFov + speedRatio * (kMaxWireFov - kBaseFov) + wireBias);
+	const float targetFov = aiming ? kAimFov : normalFov;
 	m_CurrentFov += (targetFov - m_CurrentFov) * kFovFollowLerp;
 }
 
@@ -122,6 +178,13 @@ Vector3 WireTpsCamera::GetForward()
 	Vector3 forward = m_Target - m_Position;
 	forward.normalize();
 	return forward;
+}
+
+Vector3 WireTpsCamera::GetAimDirection() const
+{
+	Vector3 direction = m_Target - m_Position;
+	direction.normalize();
+	return direction;
 }
 
 Vector3 WireTpsCamera::GetRight()

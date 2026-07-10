@@ -4,6 +4,7 @@
 #include "renderer.h"
 #include "camera.h"
 #include "gameTime.h"
+#include "wireTpsCamera.h"
 
 namespace
 {
@@ -18,6 +19,23 @@ namespace
 		vertex.Diffuse = color;
 		vertex.TexCoord = XMFLOAT2(u, v);
 		return vertex;
+	}
+
+	bool TryGetViewMatrix(XMMATRIX& viewMatrix)
+	{
+		if (Camera* camera = Manager::GetGameObject<Camera>())
+		{
+			viewMatrix = camera->GetViewMatrix();
+			return true;
+		}
+
+		if (WireTpsCamera* camera = Manager::GetGameObject<WireTpsCamera>())
+		{
+			viewMatrix = camera->GetViewMatrix();
+			return true;
+		}
+
+		return false;
 	}
 }
 
@@ -157,13 +175,13 @@ void ParticleSystem::Update()
 
 void ParticleSystem::Draw()
 {
-	Camera* camera = Manager::GetGameObject<Camera>();
-	if (camera == nullptr || s_Texture == nullptr)
+	XMMATRIX view{};
+	if (s_Texture == nullptr || !TryGetViewMatrix(view))
 	{
 		return;
 	}
 
-	XMMATRIX invView = XMMatrixInverse(nullptr, camera->GetViewMatrix());
+	XMMATRIX invView = XMMatrixInverse(nullptr, view);
 	XMFLOAT3 rightValue{};
 	XMFLOAT3 upValue{};
 	XMStoreFloat3(&rightValue, invView.r[0]);

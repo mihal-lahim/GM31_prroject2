@@ -49,6 +49,20 @@ namespace
 	private:
 		bool m_Initialized = false;
 	};
+
+	RECT GetFullscreenWindowRect()
+	{
+		const POINT primaryPoint{ 0, 0 };
+		HMONITOR monitor = MonitorFromPoint(primaryPoint, MONITOR_DEFAULTTOPRIMARY);
+		MONITORINFO monitorInfo{};
+		monitorInfo.cbSize = sizeof(monitorInfo);
+		if (monitor != nullptr && GetMonitorInfo(monitor, &monitorInfo))
+		{
+			return monitorInfo.rcMonitor;
+		}
+
+		return RECT{ 0, 0, GetSystemMetrics(SM_CXSCREEN), GetSystemMetrics(SM_CYSCREEN) };
+	}
 }
 
 static LONG g_MouseDeltaX = 0;
@@ -58,6 +72,8 @@ static bool g_MouseLeftButtonPressed = false;
 static bool g_MouseRightButtonDown = false;
 static bool g_MouseRightButtonPressed = false;
 static bool g_MouseCursorCaptured = false;
+static bool g_MouseWindowActive = false;
+static bool g_MouseSuppressUntilButtonsReleased = false;
 
 namespace
 {
@@ -99,6 +115,64 @@ namespace
 		RECT screenRect{ topLeft.x, topLeft.y, bottomRight.x, bottomRight.y };
 		ClipCursor(&screenRect);
 	}
+
+	bool IsAnyMouseButtonDown()
+	{
+		return (GetAsyncKeyState(VK_LBUTTON) & 0x8000) != 0
+			|| (GetAsyncKeyState(VK_RBUTTON) & 0x8000) != 0
+			|| (GetAsyncKeyState(VK_MBUTTON) & 0x8000) != 0;
+	}
+
+	bool IsClientPointInside(HWND hWnd, LPARAM lParam)
+	{
+		RECT rect{};
+		if (hWnd == nullptr || !GetClientRect(hWnd, &rect))
+		{
+			return false;
+		}
+
+		const int x = static_cast<short>(LOWORD(lParam));
+		const int y = static_cast<short>(HIWORD(lParam));
+		return x >= rect.left && x < rect.right && y >= rect.top && y < rect.bottom;
+	}
+
+	void ReleaseMouseButtonCapture()
+	{
+		if (GetCapture() == g_Window)
+		{
+			ReleaseCapture();
+		}
+	}
+
+	void UpdateMouseSuppression()
+	{
+		if (g_MouseSuppressUntilButtonsReleased)
+		{
+			g_MouseDeltaX = 0;
+			g_MouseDeltaY = 0;
+			g_MouseLeftButtonDown = false;
+			g_MouseLeftButtonPressed = false;
+			g_MouseRightButtonDown = false;
+			g_MouseRightButtonPressed = false;
+
+			if (!IsAnyMouseButtonDown())
+			{
+				g_MouseSuppressUntilButtonsReleased = false;
+			}
+		}
+	}
+
+	void SuppressMouseUntilButtonsReleased()
+	{
+		Mouse_Reset();
+		g_MouseSuppressUntilButtonsReleased = true;
+	}
+
+	bool CanAcceptMouseInput()
+	{
+		UpdateMouseSuppression();
+		return g_MouseWindowActive && g_MouseCursorCaptured && !g_MouseSuppressUntilButtonsReleased;
+	}
 }
 
 void Mouse_Reset()
@@ -113,6 +187,7 @@ void Mouse_Reset()
 
 void Mouse_EndFrame()
 {
+	UpdateMouseSuppression();
 	g_MouseLeftButtonPressed = false;
 	g_MouseRightButtonPressed = false;
 }
@@ -127,6 +202,7 @@ void Mouse_Initialize(HWND hWnd)
 
 	RegisterRawInputDevices(&rid, 1, sizeof(rid));
 	Mouse_Reset();
+	g_MouseWindowActive = GetActiveWindow() == hWnd;
 	Mouse_SetCursorCaptured(true);
 }
 
@@ -141,6 +217,7 @@ void Mouse_SetCursorCaptured(bool captured)
 	}
 
 	g_MouseCursorCaptured = false;
+	ReleaseMouseButtonCapture();
 	ClipCursor(nullptr);
 	SetSystemCursorVisible(true);
 }
@@ -149,6 +226,15 @@ bool Mouse_ConsumeDelta(float* deltaX, float* deltaY)
 {
 	if (deltaX == nullptr || deltaY == nullptr)
 	{
+		return false;
+	}
+
+	if (!CanAcceptMouseInput())
+	{
+		g_MouseDeltaX = 0;
+		g_MouseDeltaY = 0;
+		*deltaX = 0.0f;
+		*deltaY = 0.0f;
 		return false;
 	}
 
@@ -168,6 +254,10 @@ bool Mouse_GetPosition(float* x, float* y)
 	{
 		return false;
 	}
+	if (!g_MouseWindowActive)
+	{
+		return false;
+	}
 
 	POINT point{};
 	if (!GetCursorPos(&point))
@@ -178,29 +268,45 @@ bool Mouse_GetPosition(float* x, float* y)
 	{
 		return false;
 	}
+	RECT rect{};
+	if (!GetClientRect(g_Window, &rect) || point.x < rect.left || point.x >= rect.right || point.y < rect.top || point.y >= rect.bottom)
+	{
+		return false;
+	}
 
-	*x = static_cast<float>(point.x);
-	*y = static_cast<float>(point.y);
+	const int clientWidth = rect.right - rect.left;
+	const int clientHeight = rect.bottom - rect.top;
+	if (clientWidth <= 0 || clientHeight <= 0)
+	{
+		return false;
+	}
+
+	*x = static_cast<float>(point.x - rect.left) * static_cast<float>(SCREEN_WIDTH) / static_cast<float>(clientWidth);
+	*y = static_cast<float>(point.y - rect.top) * static_cast<float>(SCREEN_HEIGHT) / static_cast<float>(clientHeight);
 	return true;
 }
 
 bool Mouse_IsLeftButtonDown()
 {
+	UpdateMouseSuppression();
 	return g_MouseLeftButtonDown;
 }
 
 bool Mouse_IsLeftButtonDownTrigger()
 {
+	UpdateMouseSuppression();
 	return g_MouseLeftButtonPressed;
 }
 
 bool Mouse_IsRightButtonDown()
 {
+	UpdateMouseSuppression();
 	return g_MouseRightButtonDown;
 }
 
 bool Mouse_IsRightButtonDownTrigger()
 {
+	UpdateMouseSuppression();
 	return g_MouseRightButtonPressed;
 }
 
@@ -211,26 +317,49 @@ bool Mouse_ProcessMessage(UINT message, WPARAM wParam, LPARAM lParam)
 	case WM_ACTIVATEAPP:
 		if (wParam)
 		{
+			g_MouseWindowActive = true;
+			SuppressMouseUntilButtonsReleased();
 			Mouse_SetCursorCaptured(true);
 		}
 		else
 		{
+			g_MouseWindowActive = false;
 			Mouse_Reset();
+			g_MouseSuppressUntilButtonsReleased = false;
 			Mouse_SetCursorCaptured(false);
 		}
 		break;
 
 	case WM_DESTROY:
+		g_MouseWindowActive = false;
 		Mouse_SetCursorCaptured(false);
 		break;
 
 	case WM_SETFOCUS:
+		g_MouseWindowActive = true;
+		SuppressMouseUntilButtonsReleased();
 		Mouse_SetCursorCaptured(true);
 		break;
 
 	case WM_KILLFOCUS:
+		g_MouseWindowActive = false;
 		Mouse_Reset();
+		g_MouseSuppressUntilButtonsReleased = false;
 		Mouse_SetCursorCaptured(false);
+		break;
+
+	case WM_CANCELMODE:
+	case WM_ENTERSIZEMOVE:
+		SuppressMouseUntilButtonsReleased();
+		Mouse_SetCursorCaptured(false);
+		break;
+
+	case WM_EXITSIZEMOVE:
+		if (g_MouseWindowActive)
+		{
+			SuppressMouseUntilButtonsReleased();
+			Mouse_SetCursorCaptured(true);
+		}
 		break;
 
 	case WM_MOVE:
@@ -251,6 +380,11 @@ bool Mouse_ProcessMessage(UINT message, WPARAM wParam, LPARAM lParam)
 
 	case WM_INPUT:
 		{
+			if (!CanAcceptMouseInput())
+			{
+				return true;
+			}
+
 			RAWINPUT rawInput = {};
 			UINT size = sizeof(rawInput);
 
@@ -269,21 +403,39 @@ bool Mouse_ProcessMessage(UINT message, WPARAM wParam, LPARAM lParam)
 		}
 
 	case WM_LBUTTONDOWN:
+		if (!CanAcceptMouseInput() || !IsClientPointInside(g_Window, lParam))
+		{
+			return true;
+		}
+		SetCapture(g_Window);
 		g_MouseLeftButtonDown = true;
 		g_MouseLeftButtonPressed = true;
 		return true;
 
 	case WM_LBUTTONUP:
 		g_MouseLeftButtonDown = false;
+		if (!g_MouseRightButtonDown)
+		{
+			ReleaseMouseButtonCapture();
+		}
 		return true;
 
 	case WM_RBUTTONDOWN:
+		if (!CanAcceptMouseInput() || !IsClientPointInside(g_Window, lParam))
+		{
+			return true;
+		}
+		SetCapture(g_Window);
 		g_MouseRightButtonDown = true;
 		g_MouseRightButtonPressed = true;
 		return true;
 
 	case WM_RBUTTONUP:
 		g_MouseRightButtonDown = false;
+		if (!g_MouseLeftButtonDown)
+		{
+			ReleaseMouseButtonCapture();
+		}
 		return true;
 	}
 
@@ -323,11 +475,8 @@ int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLi
 
 		RegisterClassEx(&wcex);
 
-
-		RECT rc = { 0, 0, (LONG)SCREEN_WIDTH, (LONG)SCREEN_HEIGHT };
-		AdjustWindowRect(&rc, WS_OVERLAPPEDWINDOW, FALSE);
-
-		g_Window = CreateWindowEx(0, CLASS_NAME, windowName, WS_OVERLAPPEDWINDOW, CW_USEDEFAULT, CW_USEDEFAULT,
+		RECT rc = GetFullscreenWindowRect();
+		g_Window = CreateWindowEx(WS_EX_APPWINDOW, CLASS_NAME, windowName, WS_POPUP, rc.left, rc.top,
 			rc.right - rc.left, rc.bottom - rc.top, nullptr, nullptr, hInstance, nullptr);
 	}
 
@@ -399,6 +548,12 @@ int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLi
 
 LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
+	if (uMsg == WM_MOUSEACTIVATE)
+	{
+		SuppressMouseUntilButtonsReleased();
+		return MA_ACTIVATEANDEAT;
+	}
+
 	if (Mouse_ProcessMessage(uMsg, wParam, lParam))
 	{
 		return 0;

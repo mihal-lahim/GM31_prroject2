@@ -1,64 +1,85 @@
 #include "main.h"
 #include "wireSlashEffect.h"
 
-#include "gameTime.h"
-#include "renderer.h"
+#include "particleSystem.h"
 
 #include <algorithm>
+#include <cmath>
+#include <cstdlib>
 
 namespace
 {
-	constexpr int kVertexCount = 12;
-	constexpr int kMainSlashVertexOffset = 0;
-	constexpr int kSparkVertexOffset = 6;
 	constexpr float kDirectionEpsilon = 0.0001f;
 	constexpr float kAxisLift = 0.55f;
-	constexpr float kBaseSlashLength = 1.15f;
-	constexpr float kChargeSlashLength = 1.0f;
-	constexpr float kBaseSlashWidth = 0.12f;
-	constexpr float kChargeSlashWidth = 0.08f;
-	constexpr float kBaseSparkLength = 0.48f;
-	constexpr float kChargeSparkLength = 0.35f;
-	constexpr float kEffectTravel = 0.18f;
-	constexpr float kSparkWidthScale = 0.65f;
-	constexpr XMFLOAT4 kSlashColorStart{ 0.18f, 0.78f, 1.0f, 1.0f };
-	constexpr XMFLOAT4 kSlashColorFadeAdd{ 0.62f, 0.22f, 0.0f, 0.0f };
-	constexpr XMFLOAT4 kSparkColorStart{ 1.0f, 0.55f, 0.18f, 1.0f };
-	constexpr XMFLOAT4 kSparkColorFadeAdd{ 0.0f, 0.35f, 0.0f, 0.0f };
+	constexpr float kBaseSlashLength = 1.35f;
+	constexpr float kChargeSlashLength = 1.25f;
+	constexpr float kEffectTravel = 0.34f;
+	constexpr int kBaseCoreParticleCount = 78;
+	constexpr int kChargeCoreParticleCount = 48;
+	constexpr int kBaseSparkParticleCount = 42;
+	constexpr int kChargeSparkParticleCount = 34;
+	constexpr int kBaseFlashParticleCount = 14;
+	constexpr int kChargeFlashParticleCount = 12;
 
-	void WriteQuad(VERTEX_3D* vertex, int offset, const Vector3& start, const Vector3& end, const Vector3& width, const XMFLOAT4& color)
+	float RandomFloat(float minValue, float maxValue)
 	{
-		const Vector3 p0 = start - width;
-		const Vector3 p1 = start + width;
-		const Vector3 p2 = end - width;
-		const Vector3 p3 = end + width;
-		const XMFLOAT3 normal{ 0.0f, 1.0f, 0.0f };
+		const float t = static_cast<float>(rand()) / static_cast<float>(RAND_MAX);
+		return minValue + (maxValue - minValue) * t;
+	}
 
-		vertex[offset + 0] = { XMFLOAT3(p0.x, p0.y, p0.z), normal, color, XMFLOAT2(0.0f, 0.0f) };
-		vertex[offset + 1] = { XMFLOAT3(p1.x, p1.y, p1.z), normal, color, XMFLOAT2(0.0f, 1.0f) };
-		vertex[offset + 2] = { XMFLOAT3(p2.x, p2.y, p2.z), normal, color, XMFLOAT2(1.0f, 0.0f) };
-		vertex[offset + 3] = { XMFLOAT3(p2.x, p2.y, p2.z), normal, color, XMFLOAT2(1.0f, 0.0f) };
-		vertex[offset + 4] = { XMFLOAT3(p1.x, p1.y, p1.z), normal, color, XMFLOAT2(0.0f, 1.0f) };
-		vertex[offset + 5] = { XMFLOAT3(p3.x, p3.y, p3.z), normal, color, XMFLOAT2(1.0f, 1.0f) };
+	Vector3 NormalizedOrFallback(Vector3 vector, const Vector3& fallback)
+	{
+		if (vector.length() < kDirectionEpsilon)
+		{
+			return fallback;
+		}
+
+		vector.normalize();
+		return vector;
+	}
+
+	void BuildSlashBasis(const Vector3& inputDirection, Vector3& direction, Vector3& axis, Vector3& widthDirection)
+	{
+		direction = NormalizedOrFallback(inputDirection, { 0.0f, 0.0f, 1.0f });
+
+		axis = Vector3::cross({ 0.0f, 1.0f, 0.0f }, direction);
+		axis = NormalizedOrFallback(axis, { 1.0f, 0.0f, 0.0f });
+		axis += Vector3(0.0f, kAxisLift, 0.0f);
+		axis.normalize();
+
+		widthDirection = Vector3::cross(direction, axis);
+		widthDirection = NormalizedOrFallback(widthDirection, { 0.0f, 1.0f, 0.0f });
+	}
+
+	XMFLOAT4 SlashColor(float density, int index)
+	{
+		if (index % 7 == 0)
+		{
+			return XMFLOAT4(1.0f, 1.0f, 1.0f, 0.92f);
+		}
+
+		return XMFLOAT4(
+			0.30f + 0.48f * density,
+			0.82f + 0.18f * density,
+			1.0f,
+			0.82f + 0.16f * density);
+	}
+
+	XMFLOAT4 SparkColor(int index)
+	{
+		switch (index % 4)
+		{
+		case 0: return XMFLOAT4(1.0f, 0.96f, 0.42f, 0.95f);
+		case 1: return XMFLOAT4(1.0f, 0.56f, 0.16f, 0.92f);
+		case 2: return XMFLOAT4(1.0f, 0.78f, 0.28f, 0.88f);
+		default: return XMFLOAT4(1.0f, 1.0f, 1.0f, 0.82f);
+		}
 	}
 }
 
 void WireSlashEffect::Init()
 {
 	m_Layer = Layer::Effect;
-
-	VERTEX_3D vertex[kVertexCount]{};
-	D3D11_BUFFER_DESC bufferDesc{};
-	bufferDesc.Usage = D3D11_USAGE_DEFAULT;
-	bufferDesc.ByteWidth = sizeof(vertex);
-	bufferDesc.BindFlags = D3D11_BIND_VERTEX_BUFFER;
-
-	D3D11_SUBRESOURCE_DATA initData{};
-	initData.pSysMem = vertex;
-	Renderer::GetDevice()->CreateBuffer(&bufferDesc, &initData, m_VertexBuffer.GetAddressOf());
-
-	Renderer::CreateVertexShader(m_VertexShader, m_VertexLayout, "unlitTextureVS.cso");
-	Renderer::CreatePixelShader(m_PixelShader, "unlitTexturePS.cso");
 }
 
 void WireSlashEffect::Uninit()
@@ -68,93 +89,17 @@ void WireSlashEffect::Uninit()
 
 void WireSlashEffect::Update()
 {
-	m_Age += GameTime::GetDeltaTime();
-	if (m_Age >= m_Lifetime)
+	if (!m_Emitted)
 	{
-		SetDestroy();
-		return;
+		EmitSlashParticles();
 	}
 
+	SetDestroy();
 	GameObject::Update();
 }
 
 void WireSlashEffect::Draw()
 {
-	if (m_VertexBuffer == nullptr)
-	{
-		return;
-	}
-
-	Vector3 direction = m_Direction;
-	if (direction.length() < kDirectionEpsilon)
-	{
-		direction = { 0.0f, 0.0f, 1.0f };
-	}
-	direction.normalize();
-
-	Vector3 axis = Vector3::cross({ 0.0f, 1.0f, 0.0f }, direction);
-	if (axis.length() < kDirectionEpsilon)
-	{
-		axis = { 1.0f, 0.0f, 0.0f };
-	}
-	axis.normalize();
-	axis += Vector3(0.0f, kAxisLift, 0.0f);
-	axis.normalize();
-
-	Vector3 widthDirection = Vector3::cross(direction, axis);
-	if (widthDirection.length() < kDirectionEpsilon)
-	{
-		widthDirection = { 0.0f, 1.0f, 0.0f };
-	}
-	widthDirection.normalize();
-
-	const float lifeRatio = std::clamp(m_Age / m_Lifetime, 0.0f, 1.0f);
-	const float fade = 1.0f - lifeRatio;
-	const float length = kBaseSlashLength + m_ChargeRatio * kChargeSlashLength;
-	const float width = (kBaseSlashWidth + m_ChargeRatio * kChargeSlashWidth) * fade;
-	const float sparkLength = (kBaseSparkLength + m_ChargeRatio * kChargeSparkLength) * fade;
-
-	const Vector3 center = m_Position + direction * (lifeRatio * kEffectTravel);
-	const Vector3 start = center - axis * length;
-	const Vector3 end = center + axis * length;
-	const Vector3 sparkAxis = Vector3::cross(axis, widthDirection);
-	const Vector3 sparkStart = center - sparkAxis * sparkLength;
-	const Vector3 sparkEnd = center + sparkAxis * sparkLength;
-
-	const XMFLOAT4 slashColor{
-		kSlashColorStart.x + kSlashColorFadeAdd.x * fade,
-		kSlashColorStart.y + kSlashColorFadeAdd.y * fade,
-		kSlashColorStart.z + kSlashColorFadeAdd.z * fade,
-		kSlashColorStart.w + kSlashColorFadeAdd.w * fade
-	};
-	const XMFLOAT4 sparkColor{
-		kSparkColorStart.x + kSparkColorFadeAdd.x * fade,
-		kSparkColorStart.y + kSparkColorFadeAdd.y * fade,
-		kSparkColorStart.z + kSparkColorFadeAdd.z * fade,
-		kSparkColorStart.w + kSparkColorFadeAdd.w * fade
-	};
-
-	VERTEX_3D vertex[kVertexCount]{};
-	WriteQuad(vertex, kMainSlashVertexOffset, start, end, widthDirection * width, slashColor);
-	WriteQuad(vertex, kSparkVertexOffset, sparkStart, sparkEnd, axis * (width * kSparkWidthScale), sparkColor);
-	Renderer::GetDeviceContext()->UpdateSubresource(m_VertexBuffer.Get(), 0, nullptr, vertex, 0, 0);
-
-	Renderer::GetDeviceContext()->IASetInputLayout(m_VertexLayout.Get());
-	Renderer::GetDeviceContext()->VSSetShader(m_VertexShader.Get(), nullptr, 0);
-	Renderer::GetDeviceContext()->PSSetShader(m_PixelShader.Get(), nullptr, 0);
-	Renderer::SetWorldMatrix(XMMatrixIdentity());
-
-	MATERIAL material{};
-	material.Diffuse = XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f);
-	material.Ambient = material.Diffuse;
-	material.TextureEnable = FALSE;
-	Renderer::SetMaterial(material);
-
-	UINT stride = sizeof(VERTEX_3D);
-	UINT offset = 0;
-	Renderer::GetDeviceContext()->IASetVertexBuffers(0, 1, m_VertexBuffer.GetAddressOf(), &stride, &offset);
-	Renderer::GetDeviceContext()->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-	Renderer::GetDeviceContext()->Draw(kVertexCount, 0);
 }
 
 void WireSlashEffect::Setup(const Vector3& position, const Vector3& direction, float chargeRatio)
@@ -162,5 +107,132 @@ void WireSlashEffect::Setup(const Vector3& position, const Vector3& direction, f
 	m_Position = position;
 	m_Direction = direction;
 	m_ChargeRatio = std::clamp(chargeRatio, 0.0f, 1.0f);
-	m_Age = 0.0f;
+	m_Emitted = false;
+
+	EmitSlashParticles();
+	SetDestroy();
+}
+
+void WireSlashEffect::EmitSlashParticles()
+{
+	if (m_Emitted)
+	{
+		return;
+	}
+
+	m_Emitted = true;
+
+	Vector3 direction;
+	Vector3 axis;
+	Vector3 widthDirection;
+	BuildSlashBasis(m_Direction, direction, axis, widthDirection);
+
+	const float slashLength = kBaseSlashLength + m_ChargeRatio * kChargeSlashLength;
+	const int coreParticleCount = kBaseCoreParticleCount + static_cast<int>(m_ChargeRatio * kChargeCoreParticleCount);
+	const int sparkParticleCount = kBaseSparkParticleCount + static_cast<int>(m_ChargeRatio * kChargeSparkParticleCount);
+	const int flashParticleCount = kBaseFlashParticleCount + static_cast<int>(m_ChargeRatio * kChargeFlashParticleCount);
+
+	for (int i = 0; i < coreParticleCount; i++)
+	{
+		const float t = (coreParticleCount > 1)
+			? static_cast<float>(i) / static_cast<float>(coreParticleCount - 1)
+			: 0.5f;
+		const float centered = t * 2.0f - 1.0f;
+		const float density = 1.0f - std::abs(centered);
+		const float sweep = centered * kEffectTravel * (0.75f + m_ChargeRatio * 0.45f);
+
+		Vector3 spawnPosition = m_Position;
+		spawnPosition += axis * (centered * slashLength);
+		spawnPosition += direction * sweep;
+		spawnPosition += widthDirection * RandomFloat(-0.075f, 0.075f) * (0.5f + density);
+
+		Vector3 velocity = direction * RandomFloat(1.0f, 2.4f + m_ChargeRatio * 2.4f);
+		velocity += axis * (centered * RandomFloat(0.28f, 1.15f));
+		velocity += widthDirection * RandomFloat(-1.25f, 1.25f);
+
+		const float scale = RandomFloat(0.82f, 1.16f)
+			* (0.105f + density * (0.24f + m_ChargeRatio * 0.11f));
+		const int life = 17 + static_cast<int>(RandomFloat(0.0f, 12.0f + m_ChargeRatio * 8.0f));
+
+		ParticleSystem::Emit(
+			spawnPosition,
+			velocity,
+			scale,
+			life,
+			SlashColor(density, i),
+			RandomFloat(-0.1f, 0.12f),
+			RandomFloat(0.855f, 0.91f));
+	}
+
+	for (int i = 0; i < flashParticleCount; i++)
+	{
+		const float centered = RandomFloat(-0.22f, 0.22f);
+		Vector3 spawnPosition = m_Position;
+		spawnPosition += axis * (centered * slashLength);
+		spawnPosition += direction * RandomFloat(-0.08f, 0.18f);
+		spawnPosition += widthDirection * RandomFloat(-0.08f, 0.08f);
+
+		Vector3 velocity = direction * RandomFloat(0.3f, 1.4f);
+		velocity += axis * RandomFloat(-0.9f, 0.9f);
+		velocity += widthDirection * RandomFloat(-0.9f, 0.9f);
+
+		ParticleSystem::Emit(
+			spawnPosition,
+			velocity,
+			RandomFloat(0.32f, 0.62f + m_ChargeRatio * 0.16f),
+			7 + static_cast<int>(RandomFloat(0.0f, 6.0f)),
+			(i % 3 == 0) ? XMFLOAT4(1.0f, 1.0f, 1.0f, 0.78f) : XMFLOAT4(0.34f, 0.95f, 1.0f, 0.66f),
+			RandomFloat(-0.05f, 0.08f),
+			RandomFloat(0.76f, 0.84f));
+	}
+
+	for (int i = 0; i < sparkParticleCount; i++)
+	{
+		const float along = RandomFloat(-0.78f, 0.78f);
+		Vector3 spawnPosition = m_Position;
+		spawnPosition += axis * (along * slashLength);
+		spawnPosition += direction * RandomFloat(-0.14f, 0.24f);
+		spawnPosition += widthDirection * RandomFloat(-0.12f, 0.12f);
+
+		Vector3 sparkDirection = direction * RandomFloat(0.85f, 1.55f);
+		sparkDirection += axis * RandomFloat(-0.65f, 0.65f);
+		sparkDirection += widthDirection * RandomFloat(-1.45f, 1.45f);
+		sparkDirection = NormalizedOrFallback(sparkDirection, direction);
+
+		const Vector3 velocity = sparkDirection * RandomFloat(4.4f, 10.5f + m_ChargeRatio * 4.4f);
+		const float scale = RandomFloat(0.095f, 0.22f + m_ChargeRatio * 0.075f);
+		const int life = 14 + static_cast<int>(RandomFloat(0.0f, 12.0f + m_ChargeRatio * 7.0f));
+
+		ParticleSystem::Emit(
+			spawnPosition,
+			velocity,
+			scale,
+			life,
+			SparkColor(i),
+			RandomFloat(-2.2f, -0.55f),
+			RandomFloat(0.84f, 0.9f));
+	}
+
+	for (int edge = -1; edge <= 1; edge += 2)
+	{
+		for (int i = 0; i < 10; i++)
+		{
+			Vector3 spawnPosition = m_Position + axis * (static_cast<float>(edge) * slashLength * RandomFloat(0.78f, 1.0f));
+			spawnPosition += direction * RandomFloat(-0.08f, 0.18f);
+			spawnPosition += widthDirection * RandomFloat(-0.08f, 0.08f);
+
+			Vector3 velocity = direction * RandomFloat(2.0f, 5.4f + m_ChargeRatio * 2.0f);
+			velocity += axis * (static_cast<float>(edge) * RandomFloat(0.7f, 2.1f));
+			velocity += widthDirection * RandomFloat(-0.9f, 0.9f);
+
+			ParticleSystem::Emit(
+				spawnPosition,
+				velocity,
+				RandomFloat(0.12f, 0.26f),
+				12 + static_cast<int>(RandomFloat(0.0f, 10.0f)),
+				(i % 3 == 0) ? XMFLOAT4(1.0f, 1.0f, 1.0f, 0.88f) : XMFLOAT4(1.0f, 0.96f, 0.42f, 0.9f),
+				RandomFloat(-0.3f, 0.12f),
+				RandomFloat(0.8f, 0.88f));
+		}
+	}
 }

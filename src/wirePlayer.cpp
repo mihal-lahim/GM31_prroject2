@@ -4,6 +4,7 @@
 #include "gameTime.h"
 #include "keyboard_utf8.h"
 #include "manager.h"
+#include "particleSystem.h"
 #include "renderer.h"
 #include "modelRenderer.h"
 #include "score.h"
@@ -14,6 +15,7 @@
 #include "wireTpsCamera.h"
 
 #include <algorithm>
+#include <cstdlib>
 #include <limits>
 
 namespace
@@ -35,6 +37,18 @@ namespace
 	constexpr float kAimMaxTime = 2.0f;
 	constexpr float kAimGravityScale = 0.42f;
 	constexpr float kAimFallSpeedLimit = -11.5f;
+	constexpr float kBlinkStepDistance = 3.2f;
+	constexpr float kBlinkSpeed = 38.0f;
+	constexpr float kBlinkDuration = 0.14f;
+	constexpr float kBlinkCooldown = 0.34f;
+	constexpr float kBlinkTurnLerp = 0.88f;
+	constexpr float kBlinkScaleXz = 1.35f;
+	constexpr float kBlinkScaleY = 0.72f;
+	constexpr float kBlinkParticleHeight = 0.95f;
+	constexpr int kBlinkStartParticleCount = 58;
+	constexpr int kBlinkEndParticleCount = 78;
+	constexpr int kBlinkTrailParticleCount = 12;
+	constexpr int kBlinkShockParticleCount = 30;
 	constexpr float kWirePullAccel = 88.0f;
 	constexpr float kWireMaxSpeed = 42.0f;
 	constexpr float kWireReleaseBoost = 8.5f;
@@ -42,7 +56,7 @@ namespace
 	constexpr float kWireReleaseMaxSpeed = 50.0f;
 	constexpr float kWireStopDistance = 1.6f;
 	constexpr float kWireMaxDistance = 42.0f;
-	constexpr float kWireAimConeDot = 0.93f;
+	constexpr float kWireAimConeDot = 0.82f;
 	constexpr float kSwordMaxChargeTime = 2.2f;
 	constexpr float kSwordBaseDamage = 20.0f;
 	constexpr float kSwordChargeDamage = 70.0f;
@@ -146,6 +160,17 @@ namespace
 			value *= maxLength / length;
 		}
 		return value;
+	}
+
+	float RandomFloat(float minValue, float maxValue)
+	{
+		const float t = static_cast<float>(rand()) / static_cast<float>(RAND_MAX);
+		return minValue + (maxValue - minValue) * t;
+	}
+
+	bool IsBlinkKeyDown()
+	{
+		return Keyboard_IsKeyDown(KK_LEFTSHIFT) || Keyboard_IsKeyDown(KK_RIGHTSHIFT);
 	}
 
 	XMFLOAT4 AddScaledColor(const XMFLOAT4& base, const XMFLOAT4& add, float scale)
@@ -265,6 +290,16 @@ void WirePlayer::UpdateMovement(float dt, const WireTpsCamera* camera)
 		cameraRight = Flatten(cameraRight);
 	}
 
+	UpdateBlink(dt, cameraForward, cameraRight);
+	if (m_BlinkTimeRemaining > 0.0f)
+	{
+		m_BlinkTimeRemaining = std::max(0.0f, m_BlinkTimeRemaining - dt);
+		m_Velocity = m_BlinkDirection * kBlinkSpeed;
+		m_Rotation.y = LerpAngle(m_Rotation.y, atan2f(m_BlinkDirection.x, m_BlinkDirection.z), kBlinkTurnLerp);
+		EmitBlinkParticles(m_Position, -m_BlinkDirection, kBlinkTrailParticleCount);
+		return;
+	}
+
 	Vector3 moveDirection{ 0.0f, 0.0f, 0.0f };
 	if (Keyboard_IsKeyDown(KK_W))
 	{
@@ -320,6 +355,172 @@ void WirePlayer::UpdateMovement(float dt, const WireTpsCamera* camera)
 	{
 		m_MoveAnimation += Vector3(m_Velocity.x, 0.0f, m_Velocity.z).length() * dt;
 		m_Scale.y += sinf(m_MoveAnimation * kGroundBobFrequency) * kGroundBobAmount;
+	}
+}
+
+void WirePlayer::UpdateBlink(float dt, const Vector3& cameraForward, const Vector3& cameraRight)
+{
+	if (m_BlinkCooldown > 0.0f)
+	{
+		m_BlinkCooldown = std::max(0.0f, m_BlinkCooldown - dt);
+	}
+
+	const Vector3 direction = GetBlinkInputDirection(cameraForward, cameraRight);
+	const bool blinkInputHeld = IsBlinkKeyDown() && direction.length() > kVectorEpsilon;
+
+	if (blinkInputHeld && !m_BlinkInputHeld && m_BlinkCooldown <= 0.0f && m_BlinkTimeRemaining <= 0.0f)
+	{
+		StartBlink(direction);
+	}
+
+	m_BlinkInputHeld = blinkInputHeld;
+}
+
+Vector3 WirePlayer::GetBlinkInputDirection(const Vector3& cameraForward, const Vector3& cameraRight) const
+{
+	Vector3 direction{ 0.0f, 0.0f, 0.0f };
+	if (Keyboard_IsKeyDown(KK_W))
+	{
+		direction += cameraForward;
+	}
+	if (Keyboard_IsKeyDown(KK_S))
+	{
+		direction -= cameraForward;
+	}
+	if (Keyboard_IsKeyDown(KK_A))
+	{
+		direction -= cameraRight;
+	}
+	if (Keyboard_IsKeyDown(KK_D))
+	{
+		direction += cameraRight;
+	}
+
+	if (direction.length() > kVectorEpsilon)
+	{
+		direction.normalize();
+	}
+	return direction;
+}
+
+void WirePlayer::StartBlink(const Vector3& direction)
+{
+	Vector3 blinkDirection = direction;
+	if (blinkDirection.length() <= kVectorEpsilon)
+	{
+		return;
+	}
+	blinkDirection.normalize();
+
+	const Vector3 startPosition = m_Position;
+	if (m_WireActive)
+	{
+		ReleaseWire(false);
+	}
+
+	m_BlinkDirection = blinkDirection;
+	m_BlinkTimeRemaining = kBlinkDuration;
+	m_BlinkCooldown = kBlinkCooldown;
+	m_Velocity = m_BlinkDirection * kBlinkSpeed;
+	m_Position += m_BlinkDirection * kBlinkStepDistance;
+	m_Position.x = std::clamp(m_Position.x, -kWorldBoundsX, kWorldBoundsX);
+	m_Position.z = std::clamp(m_Position.z, -kWorldBoundsZ, kWorldBoundsZ);
+	m_Rotation.y = LerpAngle(m_Rotation.y, atan2f(m_BlinkDirection.x, m_BlinkDirection.z), kBlinkTurnLerp);
+	m_Scale = { kBlinkScaleXz, kBlinkScaleY, kBlinkScaleXz };
+	m_SwordCharging = false;
+	m_SwordChargeTime = 0.0f;
+
+	EmitBlinkParticles(startPosition, -m_BlinkDirection, kBlinkStartParticleCount);
+	EmitBlinkParticles(m_Position, m_BlinkDirection, kBlinkEndParticleCount);
+	EmitBlinkShockwave(startPosition, -m_BlinkDirection, kBlinkShockParticleCount);
+	EmitBlinkShockwave(m_Position, m_BlinkDirection, kBlinkShockParticleCount + 10);
+}
+
+void WirePlayer::EmitBlinkParticles(const Vector3& position, const Vector3& direction, int count)
+{
+	Vector3 sparkDirection = direction;
+	if (sparkDirection.length() <= kVectorEpsilon)
+	{
+		sparkDirection = { 0.0f, 0.0f, -1.0f };
+	}
+	sparkDirection.normalize();
+
+	Vector3 side = Vector3::cross({ 0.0f, 1.0f, 0.0f }, sparkDirection);
+	if (side.length() <= kVectorEpsilon)
+	{
+		side = { 1.0f, 0.0f, 0.0f };
+	}
+	side.normalize();
+
+	for (int i = 0; i < count; i++)
+	{
+		const float sideOffset = RandomFloat(-0.68f, 0.68f);
+		const float backOffset = RandomFloat(-0.58f, 0.34f);
+		const float heightOffset = RandomFloat(-0.46f, 0.62f);
+		Vector3 spawnPosition = position + Vector3(0.0f, kBlinkParticleHeight, 0.0f);
+		spawnPosition += side * sideOffset;
+		spawnPosition += sparkDirection * backOffset;
+		spawnPosition.y += heightOffset;
+
+		Vector3 velocity = -sparkDirection * RandomFloat(4.2f, 13.0f);
+		velocity += side * RandomFloat(-5.4f, 5.4f);
+		velocity.y += RandomFloat(-0.8f, 3.6f);
+
+		const bool hot = (i % 4) == 0;
+		const XMFLOAT4 color = hot
+			? XMFLOAT4(1.0f, 1.0f, 1.0f, 0.98f)
+			: XMFLOAT4(0.22f, 0.88f, 1.0f, 0.90f);
+		const float scale = RandomFloat(0.11f, hot ? 0.30f : 0.22f);
+		const int life = 14 + static_cast<int>(RandomFloat(0.0f, 14.0f));
+
+		ParticleSystem::Emit(
+			spawnPosition,
+			velocity,
+			scale,
+			life,
+			color,
+			RandomFloat(-0.35f, 0.15f),
+			RandomFloat(0.82f, 0.89f));
+	}
+}
+
+void WirePlayer::EmitBlinkShockwave(const Vector3& position, const Vector3& direction, int count)
+{
+	Vector3 forward = direction;
+	if (forward.length() <= kVectorEpsilon)
+	{
+		forward = { 0.0f, 0.0f, 1.0f };
+	}
+	forward.normalize();
+
+	Vector3 side = Vector3::cross({ 0.0f, 1.0f, 0.0f }, forward);
+	if (side.length() <= kVectorEpsilon)
+	{
+		side = { 1.0f, 0.0f, 0.0f };
+	}
+	side.normalize();
+
+	const Vector3 center = position + Vector3(0.0f, kBlinkParticleHeight, 0.0f);
+	for (int i = 0; i < count; i++)
+	{
+		const float angle = XM_2PI * static_cast<float>(i) / static_cast<float>(count);
+		Vector3 ringDirection = side * cosf(angle) + Vector3(0.0f, 1.0f, 0.0f) * sinf(angle) * 0.55f;
+		ringDirection += forward * RandomFloat(-0.22f, 0.34f);
+		ringDirection.normalize();
+
+		Vector3 spawnPosition = center + ringDirection * RandomFloat(0.05f, 0.36f);
+		Vector3 velocity = ringDirection * RandomFloat(4.0f, 10.5f);
+		velocity += forward * RandomFloat(1.6f, 5.6f);
+
+		const bool core = (i % 6) == 0;
+		ParticleSystem::Emit(
+			spawnPosition,
+			velocity,
+			RandomFloat(core ? 0.24f : 0.12f, core ? 0.42f : 0.24f),
+			12 + static_cast<int>(RandomFloat(0.0f, 10.0f)),
+			core ? XMFLOAT4(1.0f, 1.0f, 1.0f, 0.86f) : XMFLOAT4(0.35f, 0.95f, 1.0f, 0.78f),
+			RandomFloat(-0.25f, 0.2f),
+			RandomFloat(0.78f, 0.86f));
 	}
 }
 
@@ -631,7 +832,6 @@ void WirePlayer::Draw()
 {
 	GameObject::Draw();
 	DrawWire();
-	DrawSword();
 }
 
 void WirePlayer::DrawWire()

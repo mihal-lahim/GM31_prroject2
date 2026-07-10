@@ -5,17 +5,11 @@
 class WireSlashEffect : public GameObject
 {
 private:
-	static constexpr float kDefaultLifetime = 0.18f;
-
 	Vector3 m_Direction{ 0.0f, 0.0f, 1.0f };
-	float m_Age = 0.0f;
-	float m_Lifetime = kDefaultLifetime;
 	float m_ChargeRatio = 0.0f;
+	bool m_Emitted = false;
 
-	ComPtr<ID3D11Buffer> m_VertexBuffer;
-	ComPtr<ID3D11InputLayout> m_VertexLayout;
-	ComPtr<ID3D11VertexShader> m_VertexShader;
-	ComPtr<ID3D11PixelShader> m_PixelShader;
+	void EmitSlashParticles();
 
 public:
 	void Init() override;

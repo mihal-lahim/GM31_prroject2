@@ -23,6 +23,10 @@ private:
 	float m_SwordChargePeakHeight = 0.0f;
 	float m_SwordSwingTimer = 0.0f;
 	float m_SwordSwingChargeRatio = 0.0f;
+	Vector3 m_BlinkDirection{ 0.0f, 0.0f, 1.0f };
+	float m_BlinkCooldown = 0.0f;
+	float m_BlinkTimeRemaining = 0.0f;
+	bool m_BlinkInputHeld = false;
 
 	ComPtr<ID3D11Buffer> m_WireVertexBuffer;
 	ComPtr<ID3D11Buffer> m_SwordVertexBuffer;
@@ -31,12 +35,17 @@ private:
 	ComPtr<ID3D11PixelShader> m_LinePixelShader;
 
 	void UpdateMovement(float dt, const WireTpsCamera* camera);
+	void UpdateBlink(float dt, const Vector3& cameraForward, const Vector3& cameraRight);
 	void UpdateWire(float dt, const WireTpsCamera* camera);
 	void UpdateSword(float dt, const WireTpsCamera* camera);
 	void ResolvePlatformLanding(const Vector3& previousPosition);
 	bool FindWireAnchor(const WireTpsCamera* camera, Vector3& anchorPosition) const;
 	void StartWire(const WireTpsCamera* camera);
 	void ReleaseWire(bool addBoost);
+	Vector3 GetBlinkInputDirection(const Vector3& cameraForward, const Vector3& cameraRight) const;
+	void StartBlink(const Vector3& direction);
+	void EmitBlinkParticles(const Vector3& position, const Vector3& direction, int count);
+	void EmitBlinkShockwave(const Vector3& position, const Vector3& direction, int count);
 	Vector3 GetSwordForward(const WireTpsCamera* camera) const;
 	void StartSwordCharge();
 	void ReleaseSwordAttack(const WireTpsCamera* camera);
