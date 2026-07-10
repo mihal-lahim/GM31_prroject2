@@ -1,9 +1,9 @@
 #include "main.h"
-#include "manager.h"
 #include "gameTime.h"
 #include "renderer.h"
-#include "camera.h"
+#include "cameraView.h"
 #include "particle.h"
+#include "world.h"
 
 ComPtr<ID3D11Buffer> Particle::s_VertexBuffer = nullptr;
 ComPtr<ID3D11InputLayout> Particle::s_VertexLayout = nullptr;
@@ -114,7 +114,7 @@ void Particle::Draw()
 	Renderer::GetDeviceContext()->VSSetShader(s_VertexShader.Get(), NULL, 0);
 	Renderer::GetDeviceContext()->PSSetShader(s_PixelShader.Get(), NULL, 0);
 
-	Camera* camera = Manager::GetGameObject<Camera>();
+	ICameraView* camera = GetWorld().FindFirst<ICameraView>();
 	if (camera == nullptr)
 	{
 		return;

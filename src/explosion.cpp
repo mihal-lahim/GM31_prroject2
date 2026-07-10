@@ -1,10 +1,10 @@
 
 
 #include"main.h"
-#include "manager.h"
 #include"renderer.h"
 #include "explosion.h"
-#include "camera.h"
+#include "cameraView.h"
+#include "world.h"
 
 void Explosion::Init()
 {
@@ -117,7 +117,11 @@ void Explosion::Draw()
 	Renderer::GetDeviceContext()->Unmap(m_VertexBuffer.Get(), 0);
 
 	// ビルボード用の行列を作成する。
-	Camera* camera = Manager::GetGameObject<Camera>();
+	ICameraView* camera = GetWorld().FindFirst<ICameraView>();
+	if (camera == nullptr)
+	{
+		return;
+	}
 	XMMATRIX view = camera->GetViewMatrix();
 	XMMATRIX invView = XMMatrixInverse(NULL, view);// ビュー行列の逆行列を使ってカメラへ向ける。
 	invView.r[3].m128_f32[0] = 0.0f;// 平行移動成分を消して回転だけ使う。

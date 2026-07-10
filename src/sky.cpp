@@ -3,13 +3,13 @@
 #include"modelRenderer.h"
 #include "sky.h"
 #include "camera.h"
-#include "manager.h"
+#include "world.h"
 
 
 void Sky::Init()
 {
 	m_Layer = Layer::World;
-	AddComponent<ModelRenderer>(this)->Load("assets\\model\\sky.obj");
+	AddComponent<ModelRenderer>()->Load("assets\\model\\sky.obj");
 	// モデル描画用のシェーダーを読み込む。
 	Renderer::CreateVertexShader(m_VertexShader, m_VertexLayout, "unlitTextureVS.cso");
 
@@ -25,8 +25,11 @@ void Sky::Uninit()
 
 void Sky::Update()
 {
-	Camera* camera = Manager::GetGameObject<Camera>();
-	m_Position = camera->GetPosition();
+	Camera* camera = GetWorld().FindFirst<Camera>();
+	if (camera != nullptr)
+	{
+		m_Position = camera->GetPosition();
+	}
 
 	GameObject::Update();
 }

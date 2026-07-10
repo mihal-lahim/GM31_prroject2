@@ -11,7 +11,7 @@ public:
 
 public:
 	// コンストラクタ
-	Vector3() {}
+	Vector3() : x(0.0f), y(0.0f), z(0.0f) {}
 	// コピーコンストラクタ
 	Vector3(const Vector3& vector3) : x(vector3.x), y(vector3.y), z(vector3.z) {}
 	// 3つの値を指定するコンストラクタ
@@ -141,4 +141,3 @@ public:
 	}
 };
 
- 

@@ -1,7 +1,7 @@
 #include "main.h"
 #include "keyboard_utf8.h"
 #include "player.h"
-#include "manager.h"
+#include "world.h"
 #include "camera.h"
 #include "audio.h"
 #include "jumpEffect.h"
@@ -32,7 +32,7 @@ namespace
 
 void Player::UpdateMovement(float dt)
 {
-	Camera* camera = Manager::GetGameObject<Camera>();
+	Camera* camera = GetWorld().FindFirst<Camera>();
 	Vector3 cameraForward{ 0.0f, 0.0f, 1.0f };
 	Vector3 cameraRight{ 1.0f, 0.0f, 0.0f };
 	if (camera != nullptr)
@@ -85,7 +85,7 @@ void Player::UpdateMovement(float dt)
 
 		Vector3 effectPosition = m_Position;
 		effectPosition.y = 0.0f;
-		JumpEffect* jumpEffect = Manager::AddGameObject<JumpEffect>();
+		JumpEffect* jumpEffect = GetWorld().Spawn<JumpEffect>();
 		jumpEffect->SetPosition(effectPosition);
 		jumpEffect->EmitSparkles();
 	}

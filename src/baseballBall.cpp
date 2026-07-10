@@ -1,5 +1,5 @@
 #include "main.h"
-#include "manager.h"
+#include "world.h"
 #include "gameTime.h"
 #include "renderer.h"
 #include "modelRenderer.h"
@@ -14,10 +14,10 @@ void BaseballBall::Init()
 	m_Layer = Layer::World;
 	m_Scale = { 0.35f, 0.35f, 0.35f };
 
-	AddComponent<ModelRenderer>(this)
+	AddComponent<ModelRenderer>()
 		->SetUseOwnerTransform()
 		->Load("assets\\model\\bullet.obj");
-	m_Collider = AddComponent<Collider>(this);
+	m_Collider = AddComponent<Collider>();
 	m_Collider->SetSphere(0.55f)
 		->SetTag(Collider::Tag::Baseball)
 		->SetDebugColor(XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f));
@@ -97,7 +97,7 @@ void BaseballBall::Update()
 				addScore = target->OnHit();
 			}
 
-			if (Score* score = Manager::GetGameObject<Score>())
+			if (Score* score = GetWorld().FindFirst<Score>())
 			{
 				score->Add(addScore);
 			}

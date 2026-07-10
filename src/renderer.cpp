@@ -27,6 +27,8 @@ ComPtr<ID3D11DepthStencilState> Renderer::m_DepthStateDisable{};
 ComPtr<ID3D11BlendState>		Renderer::m_BlendState{};
 ComPtr<ID3D11BlendState>		Renderer::m_BlendStateATC{};
 ComPtr<ID3D11BlendState>		Renderer::m_BlendStateAdd{}; 
+bool Renderer::m_DepthEnabled = true;
+RenderBlendMode Renderer::m_BlendMode = RenderBlendMode::Alpha;
 
 
 
@@ -361,6 +363,8 @@ void Renderer::Uninit()
 
 void Renderer::Begin()
 {
+	SetDepthEnable(true);
+	SetBlendMode(RenderBlendMode::Alpha);
 	float clearColor[4] = { 0.42f, 0.62f, 0.82f, 1.0f };
 	m_DeviceContext->ClearRenderTargetView( m_RenderTargetView.Get(), clearColor );
 	m_DeviceContext->ClearDepthStencilView( m_DepthStencilView.Get(), D3D11_CLEAR_DEPTH, 1.0f, 0);
@@ -378,6 +382,7 @@ void Renderer::End()
 
 void Renderer::SetDepthEnable( bool Enable )
 {
+	m_DepthEnabled = Enable;
 	if( Enable )
 		m_DeviceContext->OMSetDepthStencilState( m_DepthStateEnable.Get(), NULL );
 	else
@@ -389,13 +394,7 @@ void Renderer::SetDepthEnable( bool Enable )
 
 void Renderer::SetATCEnable( bool Enable )
 {
-	float blendFactor[4] = { 0.0f, 0.0f, 0.0f, 0.0f };
-
-	if (Enable)
-		m_DeviceContext->OMSetBlendState(m_BlendStateATC.Get(), blendFactor, 0xffffffff);
-	else
-		m_DeviceContext->OMSetBlendState(m_BlendState.Get(), blendFactor, 0xffffffff);
-
+	SetBlendMode(Enable ? RenderBlendMode::AlphaToCoverage : RenderBlendMode::Alpha);
 }
 
 void Renderer::SetWorldViewProjection2D()
@@ -445,11 +444,37 @@ void Renderer::SetLight( LIGHT Light )
 
 void Renderer::SetAddBlendEnable(bool Enable)
 {
+	SetBlendMode(Enable ? RenderBlendMode::Additive : RenderBlendMode::Alpha);
+}
+
+void Renderer::SetBlendMode(RenderBlendMode mode)
+{
 	float blendFactor[4] = { 0.0f, 0.0f, 0.0f, 0.0f };
-	if (Enable)
+	m_BlendMode = mode;
+	if (mode == RenderBlendMode::Additive)
+	{
 		m_DeviceContext->OMSetBlendState(m_BlendStateAdd.Get(), blendFactor, 0xffffffff);
+	}
+	else if (mode == RenderBlendMode::AlphaToCoverage)
+	{
+		m_DeviceContext->OMSetBlendState(m_BlendStateATC.Get(), blendFactor, 0xffffffff);
+	}
 	else
+	{
 		m_DeviceContext->OMSetBlendState(m_BlendState.Get(), blendFactor, 0xffffffff);
+	}
+}
+
+RendererStateScope::RendererStateScope()
+	: m_DepthEnabled(Renderer::GetDepthEnabled()),
+	m_BlendMode(Renderer::GetBlendMode())
+{
+}
+
+RendererStateScope::~RendererStateScope()
+{
+	Renderer::SetDepthEnable(m_DepthEnabled);
+	Renderer::SetBlendMode(m_BlendMode);
 }
 
 

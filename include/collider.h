@@ -24,7 +24,9 @@ public:
 		Box,
 		Baseball,
 		Wall,
-		Target
+		Target,
+		Anchor,
+		Platform
 	};
 
 private:
@@ -44,6 +46,7 @@ private:
 	float m_CapsuleHalfHeight = 0.5f;
 	XMFLOAT4 m_DebugColor{ 0.0f, 1.0f, 0.2f, 1.0f };
 	bool m_DebugDraw = true;
+	bool m_UseOwnerScale = true;
 
 	void DrawWire(const std::vector<VERTEX_3D>& vertices);
 	void BuildSphereWire(std::vector<VERTEX_3D>& vertices) const;
@@ -64,6 +67,7 @@ public:
 	Collider* SetTag(Tag tag);
 	Collider* SetDebugColor(const XMFLOAT4& color);
 	Collider* SetDebugDraw(bool enabled);
+	Collider* SetUseOwnerScale(bool enabled);
 
 	Shape GetShape() const { return m_Shape; }
 	Tag GetTag() const { return m_Tag; }
@@ -77,6 +81,11 @@ public:
 	bool Intersects(const Collider& other) const;
 
 	static std::vector<Collider*> GetOverlaps(const Collider& collider, Tag tag = Tag::None);
+	static std::vector<Collider*> GetCapsuleOverlaps(
+		const Vector3& start,
+		const Vector3& end,
+		float radius,
+		Tag tag = Tag::None);
 	static void SetDebugDrawEnabled(bool enabled) { s_DebugDrawEnabled = enabled; }
 	static bool GetDebugDrawEnabled() { return s_DebugDrawEnabled; }
 };

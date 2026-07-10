@@ -2,9 +2,9 @@
 #include "wireTpsCamera.h"
 
 #include "gameSettings.h"
-#include "manager.h"
 #include "renderer.h"
 #include "wirePlayer.h"
+#include "world.h"
 
 #include <algorithm>
 
@@ -91,16 +91,10 @@ void WireTpsCamera::Uninit()
 	GameObject::Uninit();
 }
 
-void WireTpsCamera::Update()
+void WireTpsCamera::PreUpdate()
 {
-	WirePlayer* player = Manager::GetGameObject<WirePlayer>();
-	if (player == nullptr)
-	{
-		return;
-	}
-
-	const bool wireActive = player->IsWireActive();
-	const bool closeAim = player->IsAiming() && !wireActive;
+	WirePlayer* player = GetWorld().FindFirst<WirePlayer>();
+	const bool closeAim = player != nullptr && player->IsAiming() && !player->IsWireActive();
 	float mouseX = 0.0f;
 	float mouseY = 0.0f;
 	if (Mouse_ConsumeDelta(&mouseX, &mouseY))
@@ -114,6 +108,24 @@ void WireTpsCamera::Update()
 	const float minPitch = closeAim ? kAimMinPitch : kNormalMinPitch;
 	const float maxPitch = closeAim ? kAimMaxPitch : kNormalMaxPitch;
 	m_Pitch = std::clamp(m_Pitch, minPitch, maxPitch);
+	GameObject::PreUpdate();
+}
+
+void WireTpsCamera::Update()
+{
+	GameObject::Update();
+}
+
+void WireTpsCamera::LateUpdate()
+{
+	WirePlayer* player = GetWorld().FindFirst<WirePlayer>();
+	if (player == nullptr)
+	{
+		return;
+	}
+
+	const bool wireActive = player->IsWireActive();
+	const bool closeAim = player->IsAiming() && !wireActive;
 
 	const Vector3 playerPosition = player->GetPosition();
 	const Vector3 forward = MakeCameraForward(m_Yaw, m_Pitch);
@@ -169,6 +181,7 @@ void WireTpsCamera::Update()
 	const float targetFov = closeAim ? kAimFov : normalFov;
 	m_CurrentFov += (targetFov - m_CurrentFov) * kFovFollowLerp;
 	m_CloseAimActiveLastFrame = closeAim;
+	GameObject::LateUpdate();
 }
 
 void WireTpsCamera::Draw()
@@ -189,6 +202,11 @@ void WireTpsCamera::Draw()
 
 Vector3 WireTpsCamera::GetForward()
 {
+	return GetCameraForward();
+}
+
+Vector3 WireTpsCamera::GetCameraForward() const
+{
 	Vector3 forward = m_Target - m_Position;
 	forward.normalize();
 	return forward;
@@ -196,9 +214,7 @@ Vector3 WireTpsCamera::GetForward()
 
 Vector3 WireTpsCamera::GetAimDirection() const
 {
-	Vector3 direction = m_Target - m_Position;
-	direction.normalize();
-	return direction;
+	return MakeCameraForward(m_Yaw, m_Pitch);
 }
 
 Vector3 WireTpsCamera::GetRight()

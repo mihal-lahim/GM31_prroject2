@@ -255,3 +255,60 @@ std::vector<Collider*> Collider::GetOverlaps(const Collider& collider, Tag tag)
 
 	return overlaps;
 }
+
+std::vector<Collider*> Collider::GetCapsuleOverlaps(
+	const Vector3& start,
+	const Vector3& end,
+	float radius,
+	Tag tag)
+{
+	std::vector<Collider*> overlaps;
+	if (radius < 0.0f)
+	{
+		return overlaps;
+	}
+
+	for (Collider* other : s_Colliders)
+	{
+		if (other == nullptr || other->GetOwner() == nullptr || other->GetOwner()->Destroy())
+		{
+			continue;
+		}
+		if (tag != Tag::None && other->GetTag() != tag)
+		{
+			continue;
+		}
+
+		bool intersects = false;
+		if (other->GetShape() == Shape::Sphere)
+		{
+			const float combinedRadius = radius + other->GetRadius();
+			intersects = DistancePointSegmentSquared(other->GetCenter(), start, end)
+				<= combinedRadius * combinedRadius;
+		}
+		else if (other->GetShape() == Shape::Capsule)
+		{
+			Vector3 otherStart;
+			Vector3 otherEnd;
+			other->GetCapsuleSegment(otherStart, otherEnd);
+			const float combinedRadius = radius + other->GetRadius();
+			intersects = DistanceSegmentSegmentSquared(start, end, otherStart, otherEnd)
+				<= combinedRadius * combinedRadius;
+		}
+		else
+		{
+			Vector3 expandedHalfSize = other->GetHalfSize();
+			expandedHalfSize.x += radius;
+			expandedHalfSize.y += radius;
+			expandedHalfSize.z += radius;
+			intersects = SegmentIntersectsAABB(start, end, other->GetCenter(), expandedHalfSize);
+		}
+
+		if (intersects)
+		{
+			overlaps.push_back(other);
+		}
+	}
+
+	return overlaps;
+}

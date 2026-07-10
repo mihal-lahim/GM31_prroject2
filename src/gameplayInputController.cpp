@@ -1,7 +1,7 @@
 #include "main.h"
 #include "gameplayInputController.h"
 #include "keyboard_utf8.h"
-#include "manager.h"
+#include "world.h"
 #include "gameTime.h"
 #include "collider.h"
 #include "firework.h"
@@ -32,9 +32,9 @@ namespace
 		{ KK_D9, { 18.0f, 0.25f, 18.0f }, XMFLOAT4(0.95f, 0.95f, 1.0f, 1.0f), 32.0f, 11.4f, 160, 90 },
 	};
 
-	void LaunchFirework(const FireworkPreset& preset)
+	void LaunchFirework(World& world, const FireworkPreset& preset)
 	{
-		Firework* firework = Manager::AddGameObject<Firework>();
+		Firework* firework = world.Spawn<Firework>();
 		firework->SetPosition(preset.Position);
 		firework->SetVelocity({ (static_cast<float>(rand() % 100) / 100.0f - 0.5f) * 1.0f, 16.0f + preset.ExplosionHeight * 0.12f, 0.0f });
 		firework->SetFuseTime(3.0f);
@@ -76,7 +76,7 @@ void GameplayInputController::UpdateFireworkInput()
 	{
 		if (Keyboard_IsKeyDownTrigger(preset.Key))
 		{
-			LaunchFirework(preset);
+			LaunchFirework(GetWorld(), preset);
 		}
 	}
 }

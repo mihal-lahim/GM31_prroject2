@@ -1,8 +1,10 @@
 #pragma once
 
+class World;
+
 namespace GameSetup
 {
-	void AddCoreObjects();
-	void AddBattingCenter();
-	void AddTestObjects();
+	void AddCoreObjects(World& world);
+	void AddBattingCenter(World& world);
+	void AddTestObjects(World& world);
 }

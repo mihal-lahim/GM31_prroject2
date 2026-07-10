@@ -4,8 +4,14 @@
 #include "manager.h"
 #include "gameDefinition.h"
 #include "gameTime.h"
-#include <thread>
+#include "engineSelfTests.h"
 #include "keyboard_utf8.h"
+
+#include <algorithm>
+#include <chrono>
+#include <cmath>
+#include <cwchar>
+#include <cstring>
 
 const char* CLASS_NAME = "AppClass";
 const char* WINDOW_NAME = "DX11 Game";
@@ -49,6 +55,24 @@ namespace
 	private:
 		bool m_Initialized = false;
 	};
+
+	bool SetWorkingDirectoryToExecutable()
+	{
+		wchar_t modulePath[MAX_PATH]{};
+		const DWORD length = GetModuleFileNameW(nullptr, modulePath, MAX_PATH);
+		if (length == 0 || length >= MAX_PATH)
+		{
+			return false;
+		}
+
+		wchar_t* lastSeparator = wcsrchr(modulePath, L'\\');
+		if (lastSeparator == nullptr)
+		{
+			return false;
+		}
+		*lastSeparator = L'\0';
+		return SetCurrentDirectoryW(modulePath) != FALSE;
+	}
 
 	RECT GetFullscreenWindowRect()
 	{
@@ -446,7 +470,10 @@ bool Mouse_ProcessMessage(UINT message, WPARAM wParam, LPARAM lParam)
 int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow)
 {
 	(void)hPrevInstance;
-	(void)lpCmdLine;
+	if (lpCmdLine != nullptr && strstr(lpCmdLine, "--self-test") != nullptr)
+	{
+		return RunEngineSelfTests() ? 0 : 1;
+	}
 
 	const GameDefinition& gameDefinition = GetGameDefinition();
 	const char* windowName = gameDefinition.WindowTitle != nullptr ? gameDefinition.WindowTitle : WINDOW_NAME;
@@ -480,65 +507,87 @@ int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLi
 			rc.right - rc.left, rc.bottom - rc.top, nullptr, nullptr, hInstance, nullptr);
 	}
 
-	Manager::Init(gameDefinition);
-	Keyboard_Initialize();
-
-
+	if (g_Window == nullptr)
+	{
+		UnregisterClass(CLASS_NAME, wcex.hInstance);
+		return -1;
+	}
+	if (!SetWorkingDirectoryToExecutable())
+	{
+		MessageBoxW(nullptr, L"実行ファイルのフォルダーを取得できませんでした。", L"DX11 Game", MB_OK | MB_ICONERROR);
+		return -1;
+	}
 
 	ShowWindow(g_Window, nCmdShow);
 	UpdateWindow(g_Window);
+	Keyboard_Initialize();
 	Mouse_Initialize(g_Window);
-
-
-
-
-	DWORD dwExecLastTime;
-	DWORD dwCurrentTime;
-	timeBeginPeriod(1);
-
 	GameTime::Init();
-	dwExecLastTime = timeGetTime();
-	dwCurrentTime = 0;
+	Manager::Init(gameDefinition);
 
+	constexpr double kFixedDeltaSeconds = 1.0 / 60.0;
+	constexpr double kMaximumFrameSeconds = 0.25;
+	constexpr int kMaximumCatchUpSteps = 5;
+	using Clock = std::chrono::steady_clock;
+	auto previousTime = Clock::now();
+	double accumulator = 0.0;
 
-
-	MSG msg;
-	while(1)
+	timeBeginPeriod(1);
+	MSG msg{};
+	bool running = true;
+	while (running)
 	{
-        if(PeekMessage(&msg, NULL, 0, 0, PM_REMOVE))
+		while (PeekMessage(&msg, nullptr, 0, 0, PM_REMOVE))
 		{
-			if(msg.message == WM_QUIT)
+			if (msg.message == WM_QUIT)
 			{
+				running = false;
 				break;
 			}
-			else
-			{
-				TranslateMessage(&msg);
-				DispatchMessage(&msg);
-			}
-        }
+
+			TranslateMessage(&msg);
+			DispatchMessage(&msg);
+		}
+
+		if (!running)
+		{
+			break;
+		}
+
+		const auto currentTime = Clock::now();
+		double frameSeconds = std::chrono::duration<double>(currentTime - previousTime).count();
+		previousTime = currentTime;
+		accumulator += std::min(frameSeconds, kMaximumFrameSeconds);
+
+		int updateSteps = 0;
+		while (accumulator >= kFixedDeltaSeconds && updateSteps < kMaximumCatchUpSteps)
+		{
+			Manager::Update(static_cast<float>(kFixedDeltaSeconds));
+			keycopy();
+			Mouse_EndFrame();
+			accumulator -= kFixedDeltaSeconds;
+			updateSteps++;
+		}
+
+		if (updateSteps == kMaximumCatchUpSteps && accumulator >= kFixedDeltaSeconds)
+		{
+			accumulator = std::fmod(accumulator, kFixedDeltaSeconds);
+		}
+
+		if (updateSteps > 0)
+		{
+			Manager::Draw();
+		}
 		else
 		{
-			dwCurrentTime = timeGetTime();
-
-			if((dwCurrentTime - dwExecLastTime) >= (1000 / 60))
-			{
-				dwExecLastTime = dwCurrentTime;
-
-				Manager::Update();
-				Manager::Draw();
-				keycopy();
-				Mouse_EndFrame();
-			}
+			Sleep(1);
 		}
 	}
 
 	timeEndPeriod(1);
 	Mouse_SetCursorCaptured(false);
-
-	UnregisterClass(CLASS_NAME, wcex.hInstance);
-
 	Manager::Uninit();
+	UnregisterClass(CLASS_NAME, wcex.hInstance);
 
 	return (int)msg.wParam;
 }

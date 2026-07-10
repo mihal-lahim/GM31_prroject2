@@ -55,7 +55,7 @@ void Field::Init()
 	assert(m_pTexture);
 
 	// BGMをループ再生する。
-	Audio* bgm = AddComponent<Audio>(this);
+	Audio* bgm = AddComponent<Audio>();
 	bgm->Load("assets/audio/bgm.wav");
 	bgm->Play(true);
 

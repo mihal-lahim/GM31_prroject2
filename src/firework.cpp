@@ -1,9 +1,9 @@
 #include "main.h"
-#include "manager.h"
+#include "cameraView.h"
 #include "gameTime.h"
 #include "renderer.h"
-#include "camera.h"
 #include "firework.h"
+#include "world.h"
 
 #include <algorithm>
 
@@ -281,7 +281,7 @@ void Firework::Draw()
 		return;
 	}
 
-	Camera* camera = Manager::GetGameObject<Camera>();
+	ICameraView* camera = GetWorld().FindFirst<ICameraView>();
 	if (camera == nullptr)
 	{
 		return;

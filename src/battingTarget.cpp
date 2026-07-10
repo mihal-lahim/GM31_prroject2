@@ -9,11 +9,11 @@ void BattingTarget::Init()
 {
 	m_Layer = Layer::World;
 
-	AddComponent<ModelRenderer>(this)->Load("assets\\model\\batting_target.obj");
+	AddComponent<ModelRenderer>()->Load("assets\\model\\batting_target.obj");
 	Renderer::CreateVertexShader(m_VertexShader, m_VertexLayout, "unlitTextureVS.cso");
 	Renderer::CreatePixelShader(m_PixelShader, "unlitTexturePS.cso");
 
-	AddComponent<Collider>(this)
+	AddComponent<Collider>()
 		->SetAABB({ 1.0f, 1.0f, 0.35f })
 		->SetTag(Collider::Tag::Target)
 		->SetDebugColor(XMFLOAT4(1.0f, 0.95f, 0.10f, 1.0f));

@@ -1,7 +1,7 @@
 #include "main.h"
 #include "player.h"
 #include "bullet.h"
-#include "manager.h"
+#include "world.h"
 #include "baseballBat.h"
 
 namespace
@@ -22,7 +22,7 @@ void Player::UpdateCombat(float dt)
 
 	if (Mouse_IsRightButtonDownTrigger() && m_ShotCoolTime <= 0.0f)
 	{
-		Bullet* bullet = Manager::AddGameObject<Bullet>();
+		Bullet* bullet = GetWorld().Spawn<Bullet>();
 		bullet->SetPosition(m_Position);
 		bullet->SetVelocity(GetForward() * 5.0f);
 		m_ShotCoolTime = kShotCoolTime;

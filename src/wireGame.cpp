@@ -2,7 +2,7 @@
 
 #include "gameTime.h"
 #include "keyboard_utf8.h"
-#include "manager.h"
+#include "particleSystem.h"
 #include "score.h"
 #include "wireAnchor.h"
 #include "wireEnemy.h"
@@ -52,23 +52,23 @@ namespace
 	constexpr int kScoreDigits = 6;
 	const Vector3 kScorePosition{ 180.0f, 20.0f, 0.0f };
 
-	void AddAnchor(const Vector3& position, const Vector3& scale)
+	void AddAnchor(World& world, const Vector3& position, const Vector3& scale)
 	{
-		WireAnchor* anchor = Manager::AddGameObject<WireAnchor>();
+		WireAnchor* anchor = world.Spawn<WireAnchor>();
 		anchor->SetPosition(position);
 		anchor->SetScale(scale);
 	}
 
-	void AddPlatform(const Vector3& position, const Vector3& scale)
+	void AddPlatform(World& world, const Vector3& position, const Vector3& scale)
 	{
-		WirePlatform* platform = Manager::AddGameObject<WirePlatform>();
+		WirePlatform* platform = world.Spawn<WirePlatform>();
 		platform->SetPosition(position);
 		platform->SetScale(scale);
 	}
 
-	void AddEnemy(const Vector3& position)
+	void AddEnemy(World& world, const Vector3& position)
 	{
-		WireEnemy* enemy = Manager::AddGameObject<WireEnemy>();
+		WireEnemy* enemy = world.Spawn<WireEnemy>();
 		enemy->SetPosition(position);
 	}
 }
@@ -76,29 +76,31 @@ namespace
 void WireGame::Init()
 {
 	GameTime::SetPaused(false);
+	World& world = GetWorld();
 
-	Manager::AddGameObject<WirePlayer>();
-	Manager::AddGameObject<WireSword>();
-	Manager::AddGameObject<WireTpsCamera>();
-	Manager::AddGameObject<WireStage>();
+	world.Spawn<WirePlayer>();
+	world.Spawn<WireSword>();
+	world.Spawn<WireTpsCamera>();
+	world.Spawn<WireStage>();
+	world.Spawn<ParticleSystem>();
 
 	for (const ObjectPlacement& placement : kPlatformPlacements)
 	{
-		AddPlatform(placement.Position, placement.Scale);
+		AddPlatform(world, placement.Position, placement.Scale);
 	}
 
 	for (const ObjectPlacement& placement : kAnchorPlacements)
 	{
-		AddAnchor(placement.Position, placement.Scale);
+		AddAnchor(world, placement.Position, placement.Scale);
 	}
 
 	for (const Vector3& position : kEnemyPlacements)
 	{
-		AddEnemy(position);
+		AddEnemy(world, position);
 	}
 
-	Manager::AddGameObject<WireReticle>();
-	Score* score = Manager::AddGameObject<Score>();
+	world.Spawn<WireReticle>();
+	Score* score = world.Spawn<Score>();
 	score->SetDigitCount(kScoreDigits);
 	score->SetPosition(kScorePosition);
 }

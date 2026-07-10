@@ -1,9 +1,6 @@
 #pragma once
 
-
-
-
-
+#include "main.h"
 struct VERTEX_3D
 {
 	XMFLOAT3 Position;
@@ -36,6 +33,13 @@ struct LIGHT
 	XMFLOAT4	Ambient;
 };
 
+enum class RenderBlendMode
+{
+	Alpha,
+	Additive,
+	AlphaToCoverage
+};
+
 
 
 class Renderer
@@ -63,6 +67,8 @@ private:
 	static ComPtr<ID3D11BlendState>		m_BlendState;
 	static ComPtr<ID3D11BlendState>		m_BlendStateAdd;
 	static ComPtr<ID3D11BlendState>		m_BlendStateATC;
+	static bool m_DepthEnabled;
+	static RenderBlendMode m_BlendMode;
 
 
 
@@ -73,6 +79,7 @@ public:
 	static void End();
 
 	static void SetDepthEnable(bool Enable);
+	static bool GetDepthEnabled() { return m_DepthEnabled; }
 	static void SetATCEnable(bool Enable);
 	static void SetWorldViewProjection2D();
 	static void SetWorldMatrix(XMMATRIX WorldMatrix);
@@ -81,6 +88,8 @@ public:
 	static void SetMaterial(MATERIAL Material);
 	static void SetLight(LIGHT Light);
 	static void SetAddBlendEnable(bool Enable);
+	static void SetBlendMode(RenderBlendMode mode);
+	static RenderBlendMode GetBlendMode() { return m_BlendMode; }
 
 	static ID3D11Device* GetDevice( void ){ return m_Device.Get(); }
 	static ID3D11DeviceContext* GetDeviceContext( void ){ return m_DeviceContext.Get(); }
@@ -91,4 +100,17 @@ public:
 	static void CreatePixelShader(ComPtr<ID3D11PixelShader>& PixelShader, const char* FileName);
 
 
+};
+
+class RendererStateScope
+{
+private:
+	bool m_DepthEnabled;
+	RenderBlendMode m_BlendMode;
+
+public:
+	RendererStateScope();
+	~RendererStateScope();
+	RendererStateScope(const RendererStateScope&) = delete;
+	RendererStateScope& operator=(const RendererStateScope&) = delete;
 };

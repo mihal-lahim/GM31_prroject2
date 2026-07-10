@@ -1,11 +1,10 @@
 #include "main.h"
 #include "wireAnchor.h"
 
-#include "camera.h"
+#include "cameraView.h"
 #include "gameTime.h"
-#include "manager.h"
 #include "renderer.h"
-#include "wireTpsCamera.h"
+#include "world.h"
 
 #include <algorithm>
 
@@ -21,15 +20,9 @@ namespace
 		return std::max(scale.x, std::max(scale.y, scale.z));
 	}
 
-	bool TryGetViewMatrix(XMMATRIX& viewMatrix)
+	bool TryGetViewMatrix(World& world, XMMATRIX& viewMatrix)
 	{
-		if (WireTpsCamera* camera = Manager::GetGameObject<WireTpsCamera>())
-		{
-			viewMatrix = camera->GetViewMatrix();
-			return true;
-		}
-
-		if (Camera* camera = Manager::GetGameObject<Camera>())
+		if (ICameraView* camera = world.FindFirst<ICameraView>())
 		{
 			viewMatrix = camera->GetViewMatrix();
 			return true;
@@ -154,7 +147,7 @@ void WireAnchor::Draw()
 	}
 
 	XMMATRIX view{};
-	if (!TryGetViewMatrix(view))
+	if (!TryGetViewMatrix(GetWorld(), view))
 	{
 		return;
 	}

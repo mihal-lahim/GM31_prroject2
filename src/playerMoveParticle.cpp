@@ -1,5 +1,5 @@
 #include "main.h"
-#include "manager.h"
+#include "world.h"
 #include "gameTime.h"
 #include "player.h"
 #include "particle.h"
@@ -15,7 +15,7 @@ namespace
 
 void PlayerMoveParticle::EmitParticle(const Vector3& position, const Vector3& velocity, int life, const Vector3& scale)
 {
-	Particle* particle = Manager::AddGameObject<Particle>();
+	Particle* particle = m_GameObject->GetWorld().Spawn<Particle>();
 	particle->SetPosition(position);
 	particle->SetVelocity(velocity);
 	particle->SetLife(life);

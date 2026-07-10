@@ -1,48 +1,101 @@
 # Project Structure
 
-This project is organized so the reusable DirectX game framework can host different games.
+The solution contains one reusable engine library and two independent games.
 
-## Framework side
+## Projects
 
-Keep these files independent from any specific game rules, scenes, or assets:
+### Engine (`Engine.vcxproj`)
 
-- `main.cpp`: Windows entry point, window, message loop, input frame end.
-- `manager.*`: scene lifetime, game object lifetime, update, draw order.
-- `scene.h`, `gameObject.h`, `component.h`: common gameplay primitives.
-- `renderer.*`, `modelRenderer.*`, `polygon2D.*`, `spriteRenderer.h`: rendering.
-- `audio.*`, `keyboard_utf8.*`, `gameTime.*`, `collider.*`, `particle*`: shared systems.
+`Engine` is a static library. It owns platform-independent game runtime
+concepts and the DirectX 11 backend used by both applications:
 
-The framework should not include headers such as `title.h`, `game.h`, `baseballBat.h`, or other game-specific classes.
+- `World`, `Manager`, `Scene`, `GameObject`, and `Component`
+- rendering, model loading, numeric UI, audio, input, and time
+- collision queries and shared particle systems
+- the `ICameraView` contract used by rendering and shared effects
 
-## Current game side
+Engine source files must not include Wire Action or Batting Center headers.
+Every `Scene` owns an independently constructible `World`. `World::Spawn`
+injects that world into each `GameObject`, so gameplay code performs local
+spawn/query operations without using the global `Manager`. `Manager` is now
+limited to application lifecycle, scene transitions, and frame orchestration.
 
-The current active game is registered through:
+### WireAction (`WireAction.vcxproj`)
 
-- `gameDefinition.*`: game title and initial scene factory. It currently starts `WireGame`.
-- `wireGame.*`: scene composition for the wire-action TPS prototype.
-- `wirePlayer.*`: TPS movement, right-click aim, left-click wire launch, wire pull movement, and sword charge attacks when not aiming.
-- `wireSword.*`: visible energy-sword model that follows the player hand and reacts to sword charge/swing state.
-- `wireTpsCamera.*`: over-the-shoulder TPS camera used by the wire-action game.
-- `wireEnemy.*`: immortal sandbag enemies for testing sword damage and hit reaction.
-- `wireSlashEffect.*`: short-lived hit slash visuals spawned by sword attacks.
-- `wireAnchor.*`, `wirePlatform.*`, `wireStage.*`, `wireReticle.*`: grapple targets, elevated platforms, floor, and aiming UI.
-- `score.*`: shared numeric UI reused by the wire-action game to show total dealt damage.
-- `assets/model/wire_saber.*`: original glowing energy-sword model used by `WireSword`.
+`WireAction` builds `WireAction.exe` and contains only the wire-action game:
 
-## Previous batting center game
+- `wireGameDefinition.cpp`: window title and initial scene
+- `wireGame.*`: scene composition
+- `wirePlayer.*`: player orchestration
+- `wirePlayerInput.*`: device input sampling
+- `wirePlayerMovement.*`: movement, jump, and blink
+- `wireGrappleAbility.*`: aiming, anchor selection, and wire motion
+- `wireSwordAbility.*`: charge attacks, collision queries, and damage
+- `wirePlayerPresentation.*`: player-specific wire rendering
+- remaining `wire*` actors, world objects, camera, effects, and UI
 
-The batting center files are still kept in the project, but they are not the active startup game:
+### BattingCenter (`BattingCenter.vcxproj`)
 
-- `title.*`, `game.*`, `result.*`: scene flow for this game.
-- `gameSetup.*`: object composition for the batting center gameplay.
-- `gameplayInputController.*`, `gameSettings.*`, and baseball/world object files: batting center behavior.
+`BattingCenter` builds `BattingCenter.exe` and contains the preserved batting
+game. Its initial scene is `Title`, registered by
+`battingGameDefinition.cpp`.
+
+Building `WireAction` does not compile Batting Center sources. Building
+`BattingCenter` does not compile Wire Action sources. Both link the same
+`Engine.lib`.
+
+## Runtime lifecycle
+
+Each fixed simulation step runs in three phases:
+
+1. `PreUpdate`: input/orientation work, including camera input
+2. `Update`: gameplay simulation
+3. `LateUpdate`: camera follow and presentation work that needs final positions
+
+Objects spawned during a simulation step are initialized immediately but are
+queued by `World`; they begin updating on the next step. Scene changes and
+destroy requests are applied at the frame boundary.
+
+Rendering is submitted through `RenderQueue`. Opaque world objects are sorted
+front-to-back, transparent effects back-to-front, and overlay UI retains
+submission order. Each object draw is wrapped in `RendererStateScope`, which
+restores depth and blend state even when a draw implementation returns early.
+
+The application loop uses a 60 Hz accumulator with capped catch-up work. This
+preserves fractional elapsed time without allowing an unbounded update spiral.
+
+## Assets and output
+
+Both application projects compile their shaders and copy `assets/` into their
+own output directory using MSBuild's built-in `Copy` task. At startup the
+working directory is set to the executable directory, so runtime asset paths do
+not depend on how the executable was launched.
+
+Debug x64 outputs are:
+
+- `bin/x64/Debug/Engine/Engine.lib`
+- `bin/x64/Debug/WireAction/WireAction.exe`
+- `bin/x64/Debug/BattingCenter/BattingCenter.exe`
+
+## Self-tests
+
+Both applications expose the same Engine self-test entry point without adding
+a fourth Visual Studio project:
+
+```powershell
+bin\x64\Debug\WireAction\WireAction.exe --self-test
+bin\x64\Debug\BattingCenter\BattingCenter.exe --self-test
+```
+
+The command creates no window and returns `0` when World deferred spawning,
+render ordering, and GameTime behavior pass.
 
 ## Adding another game
 
-1. Add new scene classes that implement `Scene`.
-2. Add setup files that create that game's objects through `Manager::AddGameObject<T>()`.
-3. Change `src/gameDefinition.cpp` so `WindowTitle` and `CreateInitialScene()` point at the new game.
-4. Register new files in `GM31_prroject2.vcxproj`.
-5. Keep framework files free of game-specific includes.
-
-Visual Studio filters are grouped into `Framework`, `Game/Shared`, `Game/WireAction`, and `Game/BattingCenter` to make this boundary visible in the project tree.
+1. Add a new Application project to the solution.
+2. Reference `Engine.vcxproj`.
+3. Compile `src/main.cpp` in the application project.
+4. Provide one implementation of `GetGameDefinition()` for that application.
+5. Add only that game's sources and shaders to the application project.
+6. Reuse engine interfaces such as `ICameraView`; do not add game-specific
+   types to Engine.

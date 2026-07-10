@@ -17,7 +17,9 @@ public:
 
 	virtual void Init() {};
 	virtual void Uninit() {};
+	virtual void PreUpdate() {};
 	virtual void Update() {};
+	virtual void LateUpdate() {};
 	virtual void Draw() {};
 
 };

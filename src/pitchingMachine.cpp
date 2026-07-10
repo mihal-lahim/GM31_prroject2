@@ -1,5 +1,5 @@
 #include "main.h"
-#include "manager.h"
+#include "world.h"
 #include "gameTime.h"
 #include "renderer.h"
 #include "modelRenderer.h"
@@ -9,7 +9,7 @@
 void PitchingMachine::Init()
 {
 	m_Layer = Layer::World;
-	AddComponent<ModelRenderer>(this)
+	AddComponent<ModelRenderer>()
 		->SetUseOwnerTransform()
 		->Load("assets\\model\\box.obj");
 }
@@ -21,7 +21,7 @@ void PitchingMachine::Uninit()
 
 void PitchingMachine::FireBall()
 {
-	BaseballBall* ball = Manager::AddGameObject<BaseballBall>();
+	BaseballBall* ball = GetWorld().Spawn<BaseballBall>();
 	Vector3 pitchPosition = m_Position + Vector3(0.0f, 1.0f, -1.2f);
 	ball->SetPosition(pitchPosition);
 

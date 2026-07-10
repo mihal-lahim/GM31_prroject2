@@ -1,10 +1,9 @@
 #include "main.h"
 #include "particleSystem.h"
-#include "manager.h"
 #include "renderer.h"
-#include "camera.h"
+#include "cameraView.h"
 #include "gameTime.h"
-#include "wireTpsCamera.h"
+#include "world.h"
 
 namespace
 {
@@ -21,15 +20,9 @@ namespace
 		return vertex;
 	}
 
-	bool TryGetViewMatrix(XMMATRIX& viewMatrix)
+	bool TryGetViewMatrix(World& world, XMMATRIX& viewMatrix)
 	{
-		if (Camera* camera = Manager::GetGameObject<Camera>())
-		{
-			viewMatrix = camera->GetViewMatrix();
-			return true;
-		}
-
-		if (WireTpsCamera* camera = Manager::GetGameObject<WireTpsCamera>())
+		if (ICameraView* camera = world.FindFirst<ICameraView>())
 		{
 			viewMatrix = camera->GetViewMatrix();
 			return true;
@@ -102,7 +95,7 @@ void ParticleSystem::Emit(const Vector3& position, const Vector3& velocity, floa
 {
 	if (s_Instance == nullptr)
 	{
-		Manager::AddGameObject<ParticleSystem>();
+		return;
 	}
 
 	if (s_Instance != nullptr)
@@ -176,7 +169,7 @@ void ParticleSystem::Update()
 void ParticleSystem::Draw()
 {
 	XMMATRIX view{};
-	if (s_Texture == nullptr || !TryGetViewMatrix(view))
+	if (s_Texture == nullptr || !TryGetViewMatrix(GetWorld(), view))
 	{
 		return;
 	}

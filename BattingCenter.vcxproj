@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|Win32"><Configuration>Debug</Configuration><Platform>Win32</Platform></ProjectConfiguration>
+    <ProjectConfiguration Include="Release|Win32"><Configuration>Release</Configuration><Platform>Win32</Platform></ProjectConfiguration>
+    <ProjectConfiguration Include="Debug|x64"><Configuration>Debug</Configuration><Platform>x64</Platform></ProjectConfiguration>
+    <ProjectConfiguration Include="Release|x64"><Configuration>Release</Configuration><Platform>x64</Platform></ProjectConfiguration>
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <VCProjectVersion>18.0</VCProjectVersion>
+    <Keyword>Win32Proj</Keyword>
+    <ProjectGuid>{B755FD23-C4E4-4C69-B1BB-38AE0234B48B}</ProjectGuid>
+    <RootNamespace>BattingCenter</RootNamespace>
+    <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration"><ConfigurationType>Application</ConfigurationType><UseDebugLibraries>true</UseDebugLibraries><PlatformToolset>v143</PlatformToolset><CharacterSet>MultiByte</CharacterSet></PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration"><ConfigurationType>Application</ConfigurationType><UseDebugLibraries>false</UseDebugLibraries><PlatformToolset>v143</PlatformToolset><WholeProgramOptimization>true</WholeProgramOptimization><CharacterSet>MultiByte</CharacterSet></PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration"><ConfigurationType>Application</ConfigurationType><UseDebugLibraries>true</UseDebugLibraries><PlatformToolset>v143</PlatformToolset><CharacterSet>MultiByte</CharacterSet></PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration"><ConfigurationType>Application</ConfigurationType><UseDebugLibraries>false</UseDebugLibraries><PlatformToolset>v143</PlatformToolset><WholeProgramOptimization>true</WholeProgramOptimization><CharacterSet>MultiByte</CharacterSet></PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <ImportGroup Label="ExtensionSettings" />
+  <ImportGroup Label="Shared" />
+  <PropertyGroup>
+    <OutDir>$(ProjectDir)bin\$(Platform)\$(Configuration)\$(ProjectName)\</OutDir>
+    <IntDir>$(ProjectDir)obj\$(ProjectName)\$(Platform)\$(Configuration)\</IntDir>
+    <TargetName>BattingCenter</TargetName>
+  </PropertyGroup>
+  <Import Project="Common.props" />
+  <ItemGroup>
+    <ClInclude Include="include\baseballBat.h" /><ClInclude Include="include\baseballBall.h" /><ClInclude Include="include\baseballEffects.h" />
+    <ClInclude Include="include\battingTarget.h" /><ClInclude Include="include\battingWall.h" /><ClInclude Include="include\box.h" />
+    <ClInclude Include="include\bullet.h" /><ClInclude Include="include\camera.h" /><ClInclude Include="include\enemy.h" />
+    <ClInclude Include="include\explosion.h" /><ClInclude Include="include\field.h" /><ClInclude Include="include\firework.h" />
+    <ClInclude Include="include\game.h" /><ClInclude Include="include\gameplayInputController.h" /><ClInclude Include="include\gameSetup.h" />
+    <ClInclude Include="include\jumpEffect.h" /><ClInclude Include="include\pauseMenu.h" /><ClInclude Include="include\pitchingMachine.h" />
+    <ClInclude Include="include\player.h" /><ClInclude Include="include\playerMoveParticle.h" /><ClInclude Include="include\result.h" />
+    <ClInclude Include="include\sky.h" /><ClInclude Include="include\title.h" /><ClInclude Include="include\tree.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="src\main.cpp" /><ClCompile Include="src\battingGameDefinition.cpp" />
+    <ClCompile Include="src\baseballBat.cpp" /><ClCompile Include="src\baseballBall.cpp" /><ClCompile Include="src\baseballEffects.cpp" />
+    <ClCompile Include="src\battingTarget.cpp" /><ClCompile Include="src\battingWall.cpp" /><ClCompile Include="src\box.cpp" />
+    <ClCompile Include="src\bullet.cpp" /><ClCompile Include="src\camera.cpp" /><ClCompile Include="src\enemy.cpp" />
+    <ClCompile Include="src\explosion.cpp" /><ClCompile Include="src\field.cpp" /><ClCompile Include="src\firework.cpp" />
+    <ClCompile Include="src\game.cpp" /><ClCompile Include="src\gameplayInputController.cpp" /><ClCompile Include="src\gameSetup.cpp" />
+    <ClCompile Include="src\jumpEffect.cpp" /><ClCompile Include="src\pauseMenu.cpp" /><ClCompile Include="src\pitchingMachine.cpp" />
+    <ClCompile Include="src\player.cpp" /><ClCompile Include="src\playerCollision.cpp" /><ClCompile Include="src\playerCombat.cpp" />
+    <ClCompile Include="src\playerMovement.cpp" /><ClCompile Include="src\playerMoveParticle.cpp" /><ClCompile Include="src\result.cpp" />
+    <ClCompile Include="src\sky.cpp" /><ClCompile Include="src\title.cpp" /><ClCompile Include="src\tree.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="Engine.vcxproj"><Project>{4F1C6718-071A-4B3E-AED7-938C39C32F02}</Project></ProjectReference>
+  </ItemGroup>
+  <ItemGroup>
+    <FxCompile Include="shaders\unlitTexturePS.hlsl"><ShaderType>Pixel</ShaderType><ShaderModel>5.0</ShaderModel><ObjectFileOutput>$(OutDir)%(Filename).cso</ObjectFileOutput></FxCompile>
+    <FxCompile Include="shaders\unlitTextureVS.hlsl"><ShaderType>Vertex</ShaderType><ShaderModel>5.0</ShaderModel><ObjectFileOutput>$(OutDir)%(Filename).cso</ObjectFileOutput></FxCompile>
+  </ItemGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+  <Target Name="CopyRuntimeAssets" AfterTargets="Build">
+    <ItemGroup><RuntimeAsset Include="$(ProjectDir)assets\**\*.*" /></ItemGroup>
+    <Copy SourceFiles="@(RuntimeAsset)" DestinationFiles="@(RuntimeAsset-&gt;'$(OutDir)assets\%(RecursiveDir)%(Filename)%(Extension)')" SkipUnchangedFiles="true" />
+  </Target>
+  <ImportGroup Label="ExtensionTargets" />
+</Project>

@@ -2,10 +2,10 @@
 #include "wireSword.h"
 
 #include "gameTime.h"
-#include "manager.h"
 #include "renderer.h"
 #include "modelRenderer.h"
 #include "wirePlayer.h"
+#include "world.h"
 
 #include <algorithm>
 
@@ -40,7 +40,7 @@ void WireSword::Init()
 	m_Layer = Layer::World;
 	m_Scale = { 1.0f, 1.0f, 1.0f };
 
-	ModelRenderer* renderer = AddComponent<ModelRenderer>(this);
+	ModelRenderer* renderer = AddComponent<ModelRenderer>();
 	renderer->Load("assets\\model\\wire_saber.obj");
 	renderer->SetUseOwnerTransform(true);
 }
@@ -52,7 +52,7 @@ void WireSword::Uninit()
 
 void WireSword::Update()
 {
-	WirePlayer* player = Manager::GetGameObject<WirePlayer>();
+	WirePlayer* player = GetWorld().FindFirst<WirePlayer>();
 	m_Visible = player != nullptr && player->IsSwordReady();
 	if (!m_Visible)
 	{

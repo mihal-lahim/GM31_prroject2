@@ -108,28 +108,34 @@ Collider* Collider::SetDebugDraw(bool enabled)
 	return this;
 }
 
+Collider* Collider::SetUseOwnerScale(bool enabled)
+{
+	m_UseOwnerScale = enabled;
+	return this;
+}
+
 Vector3 Collider::GetCenter() const
 {
-	Vector3 scale = m_GameObject->GetScale();
+	Vector3 scale = m_UseOwnerScale ? m_GameObject->GetScale() : Vector3(1.0f, 1.0f, 1.0f);
 	return m_GameObject->GetPosition() + Vector3(m_Offset.x * scale.x, m_Offset.y * scale.y, m_Offset.z * scale.z);
 }
 
 Vector3 Collider::GetHalfSize() const
 {
-	Vector3 scale = m_GameObject->GetScale();
+	Vector3 scale = m_UseOwnerScale ? m_GameObject->GetScale() : Vector3(1.0f, 1.0f, 1.0f);
 	return Vector3(m_HalfSize.x * AbsFloat(scale.x), m_HalfSize.y * AbsFloat(scale.y), m_HalfSize.z * AbsFloat(scale.z));
 }
 
 float Collider::GetRadius() const
 {
-	Vector3 scale = m_GameObject->GetScale();
+	Vector3 scale = m_UseOwnerScale ? m_GameObject->GetScale() : Vector3(1.0f, 1.0f, 1.0f);
 	float maxScale = MaxFloat(AbsFloat(scale.x), MaxFloat(AbsFloat(scale.y), AbsFloat(scale.z)));
 	return m_Radius * maxScale;
 }
 
 float Collider::GetCapsuleHalfHeight() const
 {
-	Vector3 scale = m_GameObject->GetScale();
+	Vector3 scale = m_UseOwnerScale ? m_GameObject->GetScale() : Vector3(1.0f, 1.0f, 1.0f);
 	return m_CapsuleHalfHeight * AbsFloat(scale.y);
 }
 

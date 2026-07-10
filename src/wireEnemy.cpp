@@ -2,6 +2,7 @@
 #include "wireEnemy.h"
 
 #include "gameTime.h"
+#include "collider.h"
 #include "renderer.h"
 #include "modelRenderer.h"
 
@@ -23,10 +24,16 @@ void WireEnemy::Init()
 	m_Layer = Layer::World;
 	m_Scale = m_BaseScale;
 
-	ModelRenderer* renderer = AddComponent<ModelRenderer>(this);
+	ModelRenderer* renderer = AddComponent<ModelRenderer>();
 	renderer->Load("assets\\model\\player.obj");
 	renderer->SetUseOwnerTransform(true);
 	renderer->SetRotationOffset({ 0.0f, XM_PI, 0.0f });
+	AddComponent<Collider>()
+		->SetSphere(m_HitRadius)
+		->SetOffset({ 0.0f, m_BaseScale.y * kHitCenterHeightScale, 0.0f })
+		->SetTag(Collider::Tag::Enemy)
+		->SetUseOwnerScale(false)
+		->SetDebugDraw(false);
 }
 
 void WireEnemy::Uninit()

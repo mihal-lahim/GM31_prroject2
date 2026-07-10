@@ -1,5 +1,5 @@
 #include"main.h"
-#include "manager.h"
+#include "world.h"
 #include "gameTime.h"
 #include "renderer.h"
 #include"modelRenderer.h"
@@ -15,13 +15,13 @@
 void Bullet::Init()
 {
 	m_Layer = Layer::World;
-	AddComponent<ModelRenderer>(this)->Load("assets\\model\\bullet.obj");
+	AddComponent<ModelRenderer>()->Load("assets\\model\\bullet.obj");
 	// モデル描画用のシェーダーを読み込む。
 	Renderer::CreateVertexShader(m_VertexShader, m_VertexLayout, "unlitTextureVS.cso");
 
 	Renderer::CreatePixelShader(m_PixelShader, "unlitTexturePS.cso");
 
-	m_Collider = AddComponent<Collider>(this);
+	m_Collider = AddComponent<Collider>();
 	m_Collider->SetSphere(0.35f)
 		->SetTag(Collider::Tag::Bullet)
 		->SetDebugColor(XMFLOAT4(1.0f, 1.0f, 0.0f, 1.0f));
@@ -52,8 +52,11 @@ void Bullet::Update()
 			enemy->SetDestroy();// 敵を削除予約する。
 			SetDestroy();// 弾自身を削除予約する。
 
-			Manager::AddGameObject<Explosion>()->SetPosition(enemy->GetPosition()+Vector3(0.0f, 1.0f, 0.0f));// 爆発エフェクトを生成する。
-			Manager::GetGameObject<Score>()->Add(1); // スコアを加算する。
+			GetWorld().Spawn<Explosion>()->SetPosition(enemy->GetPosition()+Vector3(0.0f, 1.0f, 0.0f));// 爆発エフェクトを生成する。
+			if (Score* score = GetWorld().FindFirst<Score>())
+			{
+				score->Add(1);
+			}
 
 			break;// 1体に当たったら判定を抜ける。
 		}

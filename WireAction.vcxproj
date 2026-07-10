@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|Win32"><Configuration>Debug</Configuration><Platform>Win32</Platform></ProjectConfiguration>
+    <ProjectConfiguration Include="Release|Win32"><Configuration>Release</Configuration><Platform>Win32</Platform></ProjectConfiguration>
+    <ProjectConfiguration Include="Debug|x64"><Configuration>Debug</Configuration><Platform>x64</Platform></ProjectConfiguration>
+    <ProjectConfiguration Include="Release|x64"><Configuration>Release</Configuration><Platform>x64</Platform></ProjectConfiguration>
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <VCProjectVersion>18.0</VCProjectVersion>
+    <Keyword>Win32Proj</Keyword>
+    <ProjectGuid>{5B30E919-9494-44C5-BB6A-BAF79F6D5284}</ProjectGuid>
+    <RootNamespace>WireAction</RootNamespace>
+    <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration"><ConfigurationType>Application</ConfigurationType><UseDebugLibraries>true</UseDebugLibraries><PlatformToolset>v143</PlatformToolset><CharacterSet>MultiByte</CharacterSet></PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration"><ConfigurationType>Application</ConfigurationType><UseDebugLibraries>false</UseDebugLibraries><PlatformToolset>v143</PlatformToolset><WholeProgramOptimization>true</WholeProgramOptimization><CharacterSet>MultiByte</CharacterSet></PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration"><ConfigurationType>Application</ConfigurationType><UseDebugLibraries>true</UseDebugLibraries><PlatformToolset>v143</PlatformToolset><CharacterSet>MultiByte</CharacterSet></PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration"><ConfigurationType>Application</ConfigurationType><UseDebugLibraries>false</UseDebugLibraries><PlatformToolset>v143</PlatformToolset><WholeProgramOptimization>true</WholeProgramOptimization><CharacterSet>MultiByte</CharacterSet></PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <ImportGroup Label="ExtensionSettings" />
+  <ImportGroup Label="Shared" />
+  <PropertyGroup>
+    <OutDir>$(ProjectDir)bin\$(Platform)\$(Configuration)\$(ProjectName)\</OutDir>
+    <IntDir>$(ProjectDir)obj\$(ProjectName)\$(Platform)\$(Configuration)\</IntDir>
+    <TargetName>WireAction</TargetName>
+  </PropertyGroup>
+  <Import Project="Common.props" />
+  <ItemGroup>
+    <ClInclude Include="include\wireAnchor.h" />
+    <ClInclude Include="include\wireEnemy.h" />
+    <ClInclude Include="include\wireGame.h" />
+    <ClInclude Include="include\wireGrappleAbility.h" />
+    <ClInclude Include="include\wirePlatform.h" />
+    <ClInclude Include="include\wirePlayer.h" />
+    <ClInclude Include="include\wirePlayerInput.h" />
+    <ClInclude Include="include\wirePlayerMovement.h" />
+    <ClInclude Include="include\wirePlayerPresentation.h" />
+    <ClInclude Include="include\wireReticle.h" />
+    <ClInclude Include="include\wireSlashEffect.h" />
+    <ClInclude Include="include\wireStage.h" />
+    <ClInclude Include="include\wireSword.h" />
+    <ClInclude Include="include\wireSwordAbility.h" />
+    <ClInclude Include="include\wireTpsCamera.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="src\main.cpp" />
+    <ClCompile Include="src\wireGameDefinition.cpp" />
+    <ClCompile Include="src\wireAnchor.cpp" />
+    <ClCompile Include="src\wireEnemy.cpp" />
+    <ClCompile Include="src\wireGame.cpp" />
+    <ClCompile Include="src\wireGrappleAbility.cpp" />
+    <ClCompile Include="src\wirePlatform.cpp" />
+    <ClCompile Include="src\wirePlayer.cpp" />
+    <ClCompile Include="src\wirePlayerInput.cpp" />
+    <ClCompile Include="src\wirePlayerMovement.cpp" />
+    <ClCompile Include="src\wirePlayerPresentation.cpp" />
+    <ClCompile Include="src\wireReticle.cpp" />
+    <ClCompile Include="src\wireSlashEffect.cpp" />
+    <ClCompile Include="src\wireStage.cpp" />
+    <ClCompile Include="src\wireSword.cpp" />
+    <ClCompile Include="src\wireSwordAbility.cpp" />
+    <ClCompile Include="src\wireTpsCamera.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="Engine.vcxproj"><Project>{4F1C6718-071A-4B3E-AED7-938C39C32F02}</Project></ProjectReference>
+  </ItemGroup>
+  <ItemGroup>
+    <FxCompile Include="shaders\unlitTexturePS.hlsl"><ShaderType>Pixel</ShaderType><ShaderModel>5.0</ShaderModel><ObjectFileOutput>$(OutDir)%(Filename).cso</ObjectFileOutput></FxCompile>
+    <FxCompile Include="shaders\unlitTextureVS.hlsl"><ShaderType>Vertex</ShaderType><ShaderModel>5.0</ShaderModel><ObjectFileOutput>$(OutDir)%(Filename).cso</ObjectFileOutput></FxCompile>
+  </ItemGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+  <Target Name="CopyRuntimeAssets" AfterTargets="Build">
+    <ItemGroup><RuntimeAsset Include="$(ProjectDir)assets\**\*.*" /></ItemGroup>
+    <Copy SourceFiles="@(RuntimeAsset)" DestinationFiles="@(RuntimeAsset-&gt;'$(OutDir)assets\%(RecursiveDir)%(Filename)%(Extension)')" SkipUnchangedFiles="true" />
+  </Target>
+  <ImportGroup Label="ExtensionTargets" />
+</Project>

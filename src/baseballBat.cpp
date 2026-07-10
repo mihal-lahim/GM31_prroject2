@@ -1,7 +1,7 @@
 #include "main.h"
 #include "renderer.h"
 #include "modelRenderer.h"
-#include "manager.h"
+#include "world.h"
 #include "gameTime.h"
 #include "collider.h"
 #include "baseballBall.h"
@@ -60,10 +60,10 @@ void BaseballBat::Init()
 	m_Layer = Layer::World;
 	m_Scale = { 0.09f, 0.09f, 1.0f };
 
-	AddComponent<ModelRenderer>(this)
+	AddComponent<ModelRenderer>()
 		->SetUseOwnerTransform()
 		->Load("assets\\model\\baseball_bat.obj");
-	m_Collider = AddComponent<Collider>(this);
+	m_Collider = AddComponent<Collider>();
 	m_Collider->SetAABB({ 0.45f, 0.25f, 0.45f })
 		->SetDebugColor(XMFLOAT4(0.55f, 0.35f, 0.12f, 1.0f));
 }
@@ -166,7 +166,7 @@ void BaseballBat::TryHitBalls()
 		return;
 	}
 
-	auto balls = Manager::GetGameObjects<BaseballBall>();
+	auto balls = GetWorld().FindAll<BaseballBall>();
 	for (BaseballBall* ball : balls)
 	{
 		if (ball->HasBeenHitBack())

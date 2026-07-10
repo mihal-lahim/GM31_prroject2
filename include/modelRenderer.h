@@ -1,6 +1,7 @@
 #pragma once
 
 #include "component.h"
+#include "renderer.h"
 #include <string>
 #include <unordered_map>
 

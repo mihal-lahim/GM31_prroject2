@@ -1,7 +1,7 @@
 #include "main.h"
 #include "renderer.h"
 #include "gameTime.h"
-#include "manager.h"
+#include "world.h"
 #include "particle.h"
 #include "jumpEffect.h"
 
@@ -154,7 +154,7 @@ void JumpEffect::EmitSparkles()
 		float scale = RandomFloat(0.05f, 0.13f);
 		int life = 16 + static_cast<int>(RandomFloat(0.0f, 12.0f));
 
-		Particle* particle = Manager::AddGameObject<Particle>();
+		Particle* particle = GetWorld().Spawn<Particle>();
 		particle->SetPosition(position);
 		particle->SetVelocity(velocity);
 		particle->SetScale({ scale, scale, scale });

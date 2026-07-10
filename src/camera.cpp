@@ -1,5 +1,5 @@
 #include "main.h"
-#include"manager.h"
+#include "world.h"
 #include "renderer.h"
 #include "camera.h"
 #include "player.h"
@@ -17,17 +17,8 @@ void Camera::Uninit()
 	GameObject::Uninit();
 }
 
-void Camera::Update()
+void Camera::PreUpdate()
 {
-	Player* player = Manager::GetGameObject<Player>();
-	if (player == nullptr)
-	{
-		return;
-	}
-
-	Vector3 playerPos = player->GetPosition();
-	m_Target = playerPos;
-
 	float mouseX = 0.0f;
 	float mouseY = 0.0f;
 	if (Mouse_ConsumeDelta(&mouseX, &mouseY))
@@ -47,6 +38,24 @@ void Camera::Update()
 		}
 	}
 
+	GameObject::PreUpdate();
+}
+
+void Camera::Update()
+{
+	GameObject::Update();
+}
+
+void Camera::LateUpdate()
+{
+	Player* player = GetWorld().FindFirst<Player>();
+	if (player == nullptr)
+	{
+		return;
+	}
+
+	m_Target = player->GetPosition();
+
 	// Build a camera offset from the current yaw/pitch around the player.
 	float cosPitch = cosf(m_Rotation.x);
 	Vector3 cameraDirection
@@ -57,7 +66,7 @@ void Camera::Update()
 	};
 	
 	m_Position = m_Target - cameraDirection * m_Distance;
-
+	GameObject::LateUpdate();
 }
 
 void Camera::Draw()
@@ -70,9 +79,12 @@ void Camera::Draw()
 
 	// ビュー行列を設定する。
 	XMFLOAT3 up = { 0.0f, 1.0f, 0.0f };
-	m_ViewMatrix = XMMatrixLookAtLH(XMLoadFloat3((XMFLOAT3*)&m_Position),
-									XMLoadFloat3((XMFLOAT3*)&m_Target), 
-									XMLoadFloat3(&up));
+	const XMFLOAT3 position = { m_Position.x, m_Position.y, m_Position.z };
+	const XMFLOAT3 target = { m_Target.x, m_Target.y, m_Target.z };
+	m_ViewMatrix = XMMatrixLookAtLH(
+		XMLoadFloat3(&position),
+		XMLoadFloat3(&target),
+		XMLoadFloat3(&up));
 
 
 	Renderer::SetViewMatrix(m_ViewMatrix);

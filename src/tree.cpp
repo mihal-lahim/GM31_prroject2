@@ -1,11 +1,11 @@
 
 
 #include"main.h"
-#include "manager.h"
 #include"renderer.h"
 #include "tree.h"
-#include "camera.h"
+#include "cameraView.h"
 #include "collider.h"
+#include "world.h"
 
 void Tree::Init()
 {
@@ -56,7 +56,7 @@ void Tree::Init()
 	CreateShaderResourceView(Renderer::GetDevice(), image.GetImage(0, 0, 0), 1, metadata, m_pTexture.GetAddressOf());
 	assert(m_pTexture);
 
-	AddComponent<Collider>(this)
+	AddComponent<Collider>()
 		->SetSphere(1.5f)
 		->SetOffset({ 0.0f, 0.75f, 0.0f })
 		->SetTag(Collider::Tag::Tree)
@@ -83,7 +83,11 @@ void Tree::Draw()
 	Renderer::GetDeviceContext()->VSSetShader(m_VertexShader.Get(), NULL, 0);
 	Renderer::GetDeviceContext()->PSSetShader(m_PixelShader.Get(), NULL, 0);
 
-	Camera* camera = Manager::GetGameObject<Camera>();
+	ICameraView* camera = GetWorld().FindFirst<ICameraView>();
+	if (camera == nullptr)
+	{
+		return;
+	}
 	XMMATRIX view = camera->GetViewMatrix();
 	XMMATRIX invView = XMMatrixInverse(NULL, view);// ビュー行列の逆行列を使ってカメラへ向ける。
 	invView.r[3].m128_f32[0] = 0.0f;// 平行移動成分を消して回転だけ使う。

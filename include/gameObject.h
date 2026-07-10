@@ -2,6 +2,10 @@
 #include "main.h"
 
 #include "component.h"
+#include <type_traits>
+#include <utility>
+
+class World;
 
 enum class Layer
 {
@@ -12,13 +16,24 @@ enum class Layer
 	Count
 };
 
+enum class RenderCategory
+{
+	Auto,
+	Opaque,
+	Transparent,
+	Overlay
+};
+
 class GameObject
 {
+	friend class World;
+
 protected:
 
 	bool m_Destroy = false;
 	bool m_Uninitialized = false;
 	Layer m_Layer = Layer::World;
+	RenderCategory m_RenderCategory = RenderCategory::Auto;
 
 	float m_CameraZ = 0.0f; // ソート用のカメラ奥行き値
 
@@ -27,8 +42,11 @@ protected:
 	Vector3 m_Scale{ 1.0f, 1.0f, 1.0f };
 
 	std::list<std::unique_ptr<Component>> m_Components;
+	World* m_World = nullptr;
 
-	// Managerからの明示破棄とデストラクタの両方で呼ばれても、一度だけ後片付けする。
+	void AttachWorld(World* world) { m_World = world; }
+
+	// Worldからの明示破棄とデストラクタの両方で呼ばれても、一度だけ後片付けする。
 	bool BeginUninit()
 	{
 		if (m_Uninitialized)
@@ -52,6 +70,33 @@ public:
 	virtual ~GameObject() { GameObject::Uninit(); }
 
 	Layer GetLayer() const { return m_Layer; }
+	void SetRenderCategory(RenderCategory category) { m_RenderCategory = category; }
+	RenderCategory GetRenderCategory() const
+	{
+		if (m_RenderCategory != RenderCategory::Auto)
+		{
+			return m_RenderCategory;
+		}
+		if (m_Layer == Layer::Effect)
+		{
+			return RenderCategory::Transparent;
+		}
+		if (m_Layer == Layer::UI)
+		{
+			return RenderCategory::Overlay;
+		}
+		return RenderCategory::Opaque;
+	}
+	World& GetWorld()
+	{
+		assert(m_World != nullptr);
+		return *m_World;
+	}
+	const World& GetWorld() const
+	{
+		assert(m_World != nullptr);
+		return *m_World;
+	}
 
 	float GetCameraZ() const { return m_CameraZ; }
 	void CalcCameraZ(const Vector3& CameraPosition, const Vector3& CameraForward)
@@ -83,10 +128,22 @@ public:
 
 		UninitComponents();
 	}
+	virtual void PreUpdate() {
+		for (auto& component : m_Components)
+		{
+			component->PreUpdate();
+		}
+	}
 	virtual void Update() {
 		for (auto& component : m_Components)
 		{
 			component->Update();
+		}
+	}
+	virtual void LateUpdate() {
+		for (auto& component : m_Components)
+		{
+			component->LateUpdate();
 		}
 	}
 	virtual void Draw() {
@@ -96,47 +153,48 @@ public:
 		}
 	}
 
-	template<typename T>// テンプレート関数
-	T* AddComponent(GameObject* Object)
+	template<typename T, typename... Args>
+	T* AddComponent(Args&&... args)
 	{
-		auto component = std::make_unique<T>(Object);
+		static_assert(std::is_base_of_v<Component, T>, "T must derive from Component.");
+		auto component = std::make_unique<T>(this, std::forward<Args>(args)...);
 		T* componentPtr = component.get();
-		component->Init();
 		m_Components.push_back(std::move(component));
 		m_Uninitialized = false;
+		componentPtr->Init();
 		return componentPtr;
 	}
 	virtual Vector3 GetForward()
 	{
 		XMMATRIX rot = XMMatrixRotationRollPitchYaw(m_Rotation.x, 
-													m_Rotation.y, m_Rotation.z);
-		Vector3 forward;
-		XMStoreFloat3((XMFLOAT3*)&forward, rot.r[2]);
-		return forward;
+											m_Rotation.y, m_Rotation.z);
+		XMFLOAT3 forward;
+		XMStoreFloat3(&forward, rot.r[2]);
+		return { forward.x, forward.y, forward.z };
 	}
 	virtual Vector3 GetRight()
 	{
 		XMMATRIX rot = XMMatrixRotationRollPitchYaw(m_Rotation.x,
 			m_Rotation.y, m_Rotation.z);
-		Vector3 right;
-		XMStoreFloat3((XMFLOAT3*)&right, rot.r[0]);
-		return right;
+		XMFLOAT3 right;
+		XMStoreFloat3(&right, rot.r[0]);
+		return { right.x, right.y, right.z };
 	}
 	virtual Vector3 GetUp()
 	{
 		XMMATRIX rot = XMMatrixRotationRollPitchYaw(m_Rotation.x,
 			m_Rotation.y, m_Rotation.z);
-		Vector3 up;
-		XMStoreFloat3((XMFLOAT3*)&up, rot.r[1]);
-		return up;
+		XMFLOAT3 up;
+		XMStoreFloat3(&up, rot.r[1]);
+		return { up.x, up.y, up.z };
 	}
 	virtual Vector3 GetLeft() 
 	{
 		XMMATRIX rot = XMMatrixRotationRollPitchYaw(m_Rotation.x,
 			m_Rotation.y, m_Rotation.z);
-		Vector3 left;
-		XMStoreFloat3((XMFLOAT3*)&left, rot.r[0]);
-		return -left;
+		XMFLOAT3 left;
+		XMStoreFloat3(&left, rot.r[0]);
+		return { -left.x, -left.y, -left.z };
 	}
 };
 

@@ -7,10 +7,10 @@
 void BattingWall::Init()
 {
 	m_Layer = Layer::World;
-	AddComponent<ModelRenderer>(this)
+	AddComponent<ModelRenderer>()
 		->SetUseOwnerTransform()
 		->Load("assets\\model\\box.obj");
-	AddComponent<Collider>(this)
+	AddComponent<Collider>()
 		->SetAABB({ 1.0f, 1.0f, 1.0f })
 		->SetTag(Collider::Tag::Wall)
 		->SetDebugColor(XMFLOAT4(1.0f, 0.25f, 1.0f, 1.0f));

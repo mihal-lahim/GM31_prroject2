@@ -1,23 +1,19 @@
 #pragma once
 
-#include "main.h"
-
 class GameTime
 {
 private:
-	static DWORD m_LastTime;
 	static float m_DeltaTime;
 	static float m_ElapsedTime;
 	static float m_TimeScale;
 	static int m_HitStopFrames;
 	static float m_HitStopScale;
 	static bool m_Paused;
-	static bool m_FirstFrame;
 	static unsigned long long m_FrameCount;
 
 public:
 	static void Init();
-	static void Update();
+	static void Update(float unscaledDeltaTime);
 
 	static float GetDeltaTime() { return m_DeltaTime; }
 	static float GetElapsedTime() { return m_ElapsedTime; }

@@ -11,12 +11,12 @@ void Box::Init()
 {
 	m_Layer = Layer::World;
 
-	AddComponent<ModelRenderer>(this)->Load("assets\\model\\box.obj");
+	AddComponent<ModelRenderer>()->Load("assets\\model\\box.obj");
 	// モデル描画用のシェーダーを読み込む。
 	Renderer::CreateVertexShader(m_VertexShader, m_VertexLayout, "unlitTextureVS.cso");
 
 	Renderer::CreatePixelShader(m_PixelShader, "unlitTexturePS.cso");
-	AddComponent<Collider>(this)
+	AddComponent<Collider>()
 		->SetAABB({ 1.0f, 1.0f, 1.0f })
 		->SetTag(Collider::Tag::Box)
 		->SetDebugColor(XMFLOAT4(1.0f, 0.55f, 0.0f, 1.0f));

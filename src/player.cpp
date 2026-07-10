@@ -14,17 +14,17 @@ void Player::Init()
 	m_Layer = Layer::World;
 	m_Position = { 0.0f, 0.0f, 0.0f };
 
-	AddComponent<ModelRenderer>(this)->Load("assets\\model\\player.obj");
+	AddComponent<ModelRenderer>()->Load("assets\\model\\player.obj");
 	
 	// モデル描画用のシェーダーを読み込む。
 	Renderer::CreateVertexShader(m_VertexShader, m_VertexLayout, "unlitTextureVS.cso");
 
 	Renderer::CreatePixelShader(m_PixelShader, "unlitTexturePS.cso");
 	// ジャンプ時のSEを読み込む。
-	m_JumpSE = AddComponent<Audio>(this);
+	m_JumpSE = AddComponent<Audio>();
 	m_JumpSE->Load("assets/audio/wan.wav");
-	AddComponent<PlayerMoveParticle>(this);
-	AddComponent<Collider>(this)
+	AddComponent<PlayerMoveParticle>();
+	AddComponent<Collider>()
 		->SetCapsule(0.45f, 1.8f)
 		->SetOffset({ 0.0f, 0.9f, 0.0f })
 		->SetTag(Collider::Tag::Player)

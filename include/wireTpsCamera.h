@@ -1,8 +1,9 @@
 #pragma once
 
+#include "cameraView.h"
 #include "gameObject.h"
 
-class WireTpsCamera : public GameObject
+class WireTpsCamera : public GameObject, public ICameraView
 {
 private:
 	static constexpr float kDefaultTargetHeight = 1.2f;
@@ -22,10 +23,14 @@ private:
 public:
 	void Init() override;
 	void Uninit() override;
+	void PreUpdate() override;
 	void Update() override;
+	void LateUpdate() override;
 	void Draw() override;
 
-	XMMATRIX GetViewMatrix() const { return m_ViewMatrix; }
+	XMMATRIX GetViewMatrix() const override { return m_ViewMatrix; }
+	Vector3 GetCameraPosition() const override { return m_Position; }
+	Vector3 GetCameraForward() const override;
 	Vector3 GetAimOrigin() const { return m_Position; }
 	Vector3 GetAimDirection() const;
 

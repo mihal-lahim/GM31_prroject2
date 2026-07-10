@@ -1,9 +1,9 @@
 #include "main.h"
 #include "wireReticle.h"
 
-#include "manager.h"
 #include "renderer.h"
 #include "wirePlayer.h"
+#include "world.h"
 
 #include <algorithm>
 
@@ -78,7 +78,7 @@ void WireReticle::Update()
 
 void WireReticle::Draw()
 {
-	WirePlayer* player = Manager::GetGameObject<WirePlayer>();
+	WirePlayer* player = GetWorld().FindFirst<WirePlayer>();
 	if (player == nullptr || !player->IsAiming() || player->IsWireActive())
 	{
 		return;

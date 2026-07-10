@@ -1,12 +1,12 @@
 #include "main.h"
 #include "player.h"
-#include "manager.h"
+#include "world.h"
 #include "tree.h"
 #include "box.h"
 
 void Player::ResolveLegacyCollisions(const Vector3& oldPosition)
 {
-	auto trees = Manager::GetGameObjects<Tree>();
+	auto trees = GetWorld().FindAll<Tree>();
 	for (Tree* tree : trees)
 	{
 		Vector3 treePos = tree->GetPosition();
@@ -26,7 +26,7 @@ void Player::ResolveLegacyCollisions(const Vector3& oldPosition)
 		}
 	}
 
-	auto boxes = Manager::GetGameObjects<Box>();
+	auto boxes = GetWorld().FindAll<Box>();
 	for (Box* box : boxes)
 	{
 		Vector3 boxPos = box->GetPosition();
