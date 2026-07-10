@@ -9,7 +9,6 @@
 #include <fstream>
 #include <sstream>
 
-std::unordered_map<std::string, std::unique_ptr<MODEL>> ModelRenderer::m_ModelPool;
 ComPtr<ID3D11InputLayout> ModelRenderer::m_DefaultVertexLayout = nullptr;
 ComPtr<ID3D11VertexShader> ModelRenderer::m_DefaultVertexShader = nullptr;
 ComPtr<ID3D11PixelShader> ModelRenderer::m_DefaultPixelShader = nullptr;
@@ -237,7 +236,9 @@ namespace
 
 void ModelRenderer::EnsureDefaultShader()
 {
-	if (m_DefaultVertexShader == nullptr || m_DefaultPixelShader == nullptr)
+	if (m_DefaultVertexLayout == nullptr
+		|| m_DefaultVertexShader == nullptr
+		|| m_DefaultPixelShader == nullptr)
 	{
 		Renderer::CreateVertexShader(m_DefaultVertexShader, m_DefaultVertexLayout, "unlitTextureVS.cso");
 		Renderer::CreatePixelShader(m_DefaultPixelShader, "unlitTexturePS.cso");
@@ -252,6 +253,12 @@ void ModelRenderer::Draw()
 	}
 
 	EnsureDefaultShader();
+	if (m_DefaultVertexLayout == nullptr
+		|| m_DefaultVertexShader == nullptr
+		|| m_DefaultPixelShader == nullptr)
+	{
+		return;
+	}
 	Renderer::GetDeviceContext()->IASetInputLayout(m_DefaultVertexLayout.Get());
 	Renderer::GetDeviceContext()->VSSetShader(m_DefaultVertexShader.Get(), nullptr, 0);
 	Renderer::GetDeviceContext()->PSSetShader(m_DefaultPixelShader.Get(), nullptr, 0);
@@ -289,19 +296,11 @@ void ModelRenderer::Draw()
 
 void ModelRenderer::Preload(const char* FileName)
 {
-	if (FileName == nullptr || m_ModelPool.count(FileName) > 0)
-	{
-		return;
-	}
-
-	auto model = std::make_unique<MODEL>();
-	LoadModel(FileName, model.get());
-	m_ModelPool[FileName] = std::move(model);
+	(void)AcquireModel(FileName);
 }
 
-void ModelRenderer::UnloadAll()
+void ModelRenderer::ReleaseSharedResources()
 {
-	m_ModelPool.clear();
 	m_DefaultVertexLayout.Reset();
 	m_DefaultVertexShader.Reset();
 	m_DefaultPixelShader.Reset();
@@ -311,20 +310,28 @@ void ModelRenderer::Load(const char* FileName)
 {
 	if (FileName == nullptr)
 	{
-		m_Model = nullptr;
+		m_Model.reset();
 		return;
 	}
 
-	if (m_ModelPool.count(FileName) > 0)
+	m_Model = AcquireModel(FileName);
+}
+
+ModelHandle ModelRenderer::AcquireModel(const char* FileName)
+{
+	if (FileName == nullptr || FileName[0] == '\0')
 	{
-		m_Model = m_ModelPool[FileName].get();
-		return;
+		return {};
 	}
 
-	auto model = std::make_unique<MODEL>();
-	m_Model = model.get();
-	LoadModel(FileName, m_Model);
-	m_ModelPool[FileName] = std::move(model);
+	const std::string path(FileName);
+	return ResourceManager::LoadModel(path, [path]()
+	{
+		auto model = std::make_shared<MODEL>();
+		return ModelRenderer::LoadModel(path.c_str(), model.get())
+			? model
+			: std::shared_ptr<MODEL>{};
+	});
 }
 
 ModelRenderer* ModelRenderer::SetUseOwnerTransform(bool enabled)
@@ -339,11 +346,11 @@ ModelRenderer* ModelRenderer::SetRotationOffset(const Vector3& offset)
 	return this;
 }
 
-void ModelRenderer::LoadModel(const char* FileName, MODEL* Model)
+bool ModelRenderer::LoadModel(const char* FileName, MODEL* Model)
 {
 	if (Model == nullptr)
 	{
-		return;
+		return false;
 	}
 
 	MODEL_OBJ modelObj;
@@ -353,7 +360,7 @@ void ModelRenderer::LoadModel(const char* FileName, MODEL* Model)
 		DebugLog(std::string("ModelRenderer: no drawable geometry in ") + (FileName != nullptr ? FileName : "(null)"));
 		Model->SubsetArray.clear();
 		Model->SubsetNum = 0;
-		return;
+		return false;
 	}
 
 	D3D11_BUFFER_DESC vertexBufferDesc{};
@@ -369,7 +376,7 @@ void ModelRenderer::LoadModel(const char* FileName, MODEL* Model)
 		DebugLog(std::string("ModelRenderer: failed to create vertex buffer for ") + FileName);
 		Model->SubsetArray.clear();
 		Model->SubsetNum = 0;
-		return;
+		return false;
 	}
 
 	D3D11_BUFFER_DESC indexBufferDesc{};
@@ -386,7 +393,7 @@ void ModelRenderer::LoadModel(const char* FileName, MODEL* Model)
 		Model->VertexBuffer.Reset();
 		Model->SubsetArray.clear();
 		Model->SubsetNum = 0;
-		return;
+		return false;
 	}
 
 	Model->SubsetArray = modelObj.SubsetArray;
@@ -408,6 +415,8 @@ void ModelRenderer::LoadModel(const char* FileName, MODEL* Model)
 			subset.Material.Material.TextureEnable = TRUE;
 		}
 	}
+
+	return true;
 }
 
 void ModelRenderer::LoadObj(const char* FileName, MODEL_OBJ* ModelObj)

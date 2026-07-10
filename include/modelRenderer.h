@@ -54,24 +54,24 @@ class ModelRenderer : public Component
 {
 private:
 
-	static std::unordered_map<std::string, std::unique_ptr<MODEL>> m_ModelPool;
 	static ComPtr<ID3D11InputLayout> m_DefaultVertexLayout;
 	static ComPtr<ID3D11VertexShader> m_DefaultVertexShader;
 	static ComPtr<ID3D11PixelShader> m_DefaultPixelShader;
 
-	static void LoadModel(const char *FileName, MODEL *Model);
+	static bool LoadModel(const char *FileName, MODEL *Model);
 	static void LoadObj( const char *FileName, MODEL_OBJ *ModelObj );
 	static void LoadMaterial( const char *FileName, std::unordered_map<std::string, MODEL_MATERIAL>& MaterialMap );
 	static void EnsureDefaultShader();
+	static ModelHandle AcquireModel(const char* FileName);
 
-	MODEL* m_Model{};
+	ModelHandle m_Model;
 	bool m_UseOwnerTransform = false;
 	Vector3 m_RotationOffset{ 0.0f, 0.0f, 0.0f };
 
 public:
 
 	static void Preload( const char *FileName );
-	static void UnloadAll();
+	static void ReleaseSharedResources();
 
 
 	using Component::Component;

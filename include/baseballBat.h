@@ -9,9 +9,6 @@ class BaseballBat : public GameObject
 private:
 	Player* m_Player = nullptr;
 	class Collider* m_Collider = nullptr;
-	ComPtr<ID3D11InputLayout> m_VertexLayout;
-	ComPtr<ID3D11VertexShader> m_VertexShader;
-	ComPtr<ID3D11PixelShader> m_PixelShader;
 	Vector3 m_SegmentStart{ 0.0f, 0.0f, 0.0f };
 	Vector3 m_SegmentEnd{ 0.0f, 0.0f, 0.0f };
 	Vector3 m_HitDirection{ 0.0f, 0.15f, 1.0f };

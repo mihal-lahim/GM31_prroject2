@@ -12,10 +12,6 @@ void Box::Init()
 	m_Layer = Layer::World;
 
 	AddComponent<ModelRenderer>()->Load("assets\\model\\box.obj");
-	// モデル描画用のシェーダーを読み込む。
-	Renderer::CreateVertexShader(m_VertexShader, m_VertexLayout, "unlitTextureVS.cso");
-
-	Renderer::CreatePixelShader(m_PixelShader, "unlitTexturePS.cso");
 	AddComponent<Collider>()
 		->SetAABB({ 1.0f, 1.0f, 1.0f })
 		->SetTag(Collider::Tag::Box)
@@ -41,14 +37,6 @@ void Box::Update()
 
 void Box::Draw()
 {
-	// 入力レイアウトを設定する。
-	Renderer::GetDeviceContext()->IASetInputLayout(m_VertexLayout.Get());
-
-	// シェーダーを設定する。
-	Renderer::GetDeviceContext()->VSSetShader(m_VertexShader.Get(), NULL, 0);
-	Renderer::GetDeviceContext()->PSSetShader(m_PixelShader.Get(), NULL, 0);
-
-
 	// ワールド行列を作成する。
 	XMMATRIX world, scale, rot, trans;
 	scale = XMMatrixScaling(m_Scale.x, m_Scale.y, m_Scale.z);

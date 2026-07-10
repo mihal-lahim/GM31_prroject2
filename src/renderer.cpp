@@ -1,8 +1,7 @@
 
 #include "main.h"
 #include "renderer.h"
-#include <cstring>
-#include <string>
+#include "resourceManager.h"
 
 
 D3D_FEATURE_LEVEL       Renderer::m_FeatureLevel = D3D_FEATURE_LEVEL_11_0;
@@ -32,75 +31,6 @@ RenderBlendMode Renderer::m_BlendMode = RenderBlendMode::Alpha;
 
 
 
-
-namespace
-{
-	bool LoadBinaryFile(const char* fileName, std::vector<unsigned char>& buffer)
-	{
-		FILE* file = fopen(fileName, "rb");
-		if (file == nullptr)
-		{
-			return false;
-		}
-
-		fseek(file, 0, SEEK_END);
-		long fileSize = ftell(file);
-		fseek(file, 0, SEEK_SET);
-
-		if (fileSize <= 0)
-		{
-			fclose(file);
-			return false;
-		}
-
-		buffer.resize(static_cast<size_t>(fileSize));
-		size_t readSize = fread(buffer.data(), 1, buffer.size(), file);
-		fclose(file);
-
-		return readSize == buffer.size();
-	}
-
-	std::vector<unsigned char> LoadShaderBinary(const char* fileName)
-	{
-		std::vector<unsigned char> buffer;
-
-		char modulePath[MAX_PATH]{};
-		DWORD modulePathLength = GetModuleFileNameA(nullptr, modulePath, MAX_PATH);
-		if (modulePathLength > 0 && modulePathLength < MAX_PATH)
-		{
-			char* lastBackslash = strrchr(modulePath, '\\');
-			char* lastSlash = strrchr(modulePath, '/');
-			char* lastSeparator = lastBackslash;
-			if (lastSlash != nullptr && (lastSeparator == nullptr || lastSlash > lastSeparator))
-			{
-				lastSeparator = lastSlash;
-			}
-			if (lastSeparator != nullptr)
-			{
-				*(lastSeparator + 1) = '\0';
-				std::string executableDirectoryPath = std::string(modulePath) + fileName;
-				if (LoadBinaryFile(executableDirectoryPath.c_str(), buffer))
-				{
-					return buffer;
-				}
-			}
-		}
-
-		if (LoadBinaryFile(fileName, buffer))
-		{
-			return buffer;
-		}
-
-		std::string compiledShaderPath = std::string("shaders\\compiled\\") + fileName;
-		if (LoadBinaryFile(compiledShaderPath.c_str(), buffer))
-		{
-			return buffer;
-		}
-
-		assert(false && "Failed to load shader binary.");
-		return {};
-	}
-}
 
 void Renderer::Init()
 {
@@ -483,43 +413,36 @@ RendererStateScope::~RendererStateScope()
 
 void Renderer::CreateVertexShader( ComPtr<ID3D11VertexShader>& VertexShader, ComPtr<ID3D11InputLayout>& VertexLayout, const char* FileName )
 {
-
-	std::vector<unsigned char> buffer = LoadShaderBinary(FileName);
-	if (buffer.empty())
+	VertexShader.Reset();
+	VertexLayout.Reset();
+	if (FileName == nullptr)
 	{
 		return;
 	}
 
-	m_Device->CreateVertexShader(buffer.data(), buffer.size(), NULL, VertexShader.ReleaseAndGetAddressOf());
-
-
-	D3D11_INPUT_ELEMENT_DESC layout[] =
+	const VertexShaderHandle resource = ResourceManager::LoadVertexShader(FileName);
+	if (resource != nullptr)
 	{
-		{ "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D11_INPUT_PER_VERTEX_DATA, 0 },
-		{ "NORMAL",   0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 4 * 3, D3D11_INPUT_PER_VERTEX_DATA, 0 },
-		{ "COLOR",    0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, 4 * 6, D3D11_INPUT_PER_VERTEX_DATA, 0 },
-		{ "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, 4 * 10, D3D11_INPUT_PER_VERTEX_DATA, 0 }
-	};
-	UINT numElements = ARRAYSIZE(layout);
-
-	m_Device->CreateInputLayout(layout,
-		numElements,
-		buffer.data(),
-		buffer.size(),
-		VertexLayout.ReleaseAndGetAddressOf());
+		VertexShader = resource->Shader;
+		VertexLayout = resource->InputLayout;
+	}
 }
 
 
 
 void Renderer::CreatePixelShader( ComPtr<ID3D11PixelShader>& PixelShader, const char* FileName )
 {
-	std::vector<unsigned char> buffer = LoadShaderBinary(FileName);
-	if (buffer.empty())
+	PixelShader.Reset();
+	if (FileName == nullptr)
 	{
 		return;
 	}
 
-	m_Device->CreatePixelShader(buffer.data(), buffer.size(), NULL, PixelShader.ReleaseAndGetAddressOf());
+	const PixelShaderHandle resource = ResourceManager::LoadPixelShader(FileName);
+	if (resource != nullptr)
+	{
+		PixelShader = resource->Shader;
+	}
 }
 
 

@@ -13,7 +13,7 @@ concepts and the DirectX 11 backend used by both applications:
 - rendering, model loading, numeric UI, audio, input, and time
 - collision queries and shared particle systems
 - the `ICameraView` contract used by rendering and shared effects
-- typed `TextureHandle` and `WaveHandle` resources managed by `ResourceManager`
+- typed texture, WAV, shader, and model handles managed by `ResourceManager`
 
 Engine source files must not include Wire Action or Batting Center headers.
 Every `Scene` owns an independently constructible `World`. `World::Spawn`
@@ -67,11 +67,18 @@ preserves fractional elapsed time without allowing an unbounded update spiral.
 
 ## Resource ownership
 
-`ResourceManager` normalizes asset paths and caches each texture or WAV file
-once. Callers retain typed shared handles instead of owning duplicate decoded
-data or Direct3D texture views. Model material textures use the same cache as
-sprites, particles, UI, and stage geometry. Each `Audio` component still owns
-its XAudio source voice, while immutable WAV format and sample data are shared.
+`ResourceManager` normalizes asset paths and caches each texture, WAV, compiled
+shader, and model once. Callers retain typed shared handles instead of owning
+duplicate decoded data or GPU objects. Model material textures use the same
+cache as sprites, particles, UI, and stage geometry. Each `Audio` component
+still owns its XAudio source voice, while immutable WAV format and sample data
+are shared.
+
+The compatibility shader creation methods on `Renderer` now delegate to this
+cache, so existing draw classes receive the same input-layout and shader COM
+objects. `ModelRenderer` stores a `ModelHandle` rather than a raw pointer; cache
+clears therefore cannot invalidate a model still referenced by a component.
+Failed model loads are not cached and may be retried after an asset is fixed.
 
 The cache is cleared after all scene objects and model resources are released,
 and before XAudio and Direct3D are shut down. A handle may safely outlive a
@@ -101,7 +108,7 @@ bin\x64\Debug\BattingCenter\BattingCenter.exe --self-test
 ```
 
 The command creates no window and returns `0` when World deferred spawning,
-render ordering, GameTime behavior, and WAV cache reuse pass.
+render ordering, GameTime behavior, and WAV/model cache reuse pass.
 
 ## Adding another game
 

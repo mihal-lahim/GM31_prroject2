@@ -44,7 +44,7 @@ void Manager::Uninit()
 	}
 	m_NextScene.reset();
 
-	ModelRenderer::UnloadAll();
+	ModelRenderer::ReleaseSharedResources();
 	ParticleSystem::UnloadSharedResources();
 	ResourceManager::Clear();
 

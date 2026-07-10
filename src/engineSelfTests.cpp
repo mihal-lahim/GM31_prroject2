@@ -1,6 +1,7 @@
 #include "engineSelfTests.h"
 
 #include "gameTime.h"
+#include "modelRenderer.h"
 #include "renderQueue.h"
 #include "resourceManager.h"
 #include "world.h"
@@ -124,6 +125,42 @@ namespace
 		ResourceManager::Clear();
 		return ResourceManager::GetWaveCount() == 0 && !first->AudioData.empty();
 	}
+
+	bool TestModelResourceCache()
+	{
+		ResourceManager::Clear();
+		const ModelHandle failed = ResourceManager::LoadModel("assets/model/missing.obj", []()
+		{
+			return std::shared_ptr<MODEL>{};
+		});
+		if (failed != nullptr || ResourceManager::GetModelCount() != 0)
+		{
+			return false;
+		}
+
+		int factoryCalls = 0;
+		const ModelHandle first = ResourceManager::LoadModel("assets/model/test.obj", [&factoryCalls]()
+		{
+			factoryCalls++;
+			return std::make_shared<MODEL>();
+		});
+		const ModelHandle second = ResourceManager::LoadModel(
+			std::filesystem::absolute("assets\\model\\..\\model\\test.obj"),
+			[&factoryCalls]()
+			{
+				factoryCalls++;
+				return std::make_shared<MODEL>();
+			});
+		if (first == nullptr || first != second || factoryCalls != 1
+			|| ResourceManager::GetModelCount() != 1)
+		{
+			ResourceManager::Clear();
+			return false;
+		}
+
+		ResourceManager::Clear();
+		return ResourceManager::GetModelCount() == 0 && first != nullptr;
+	}
 }
 
 bool RunEngineSelfTests()
@@ -131,7 +168,8 @@ bool RunEngineSelfTests()
 	const bool passed = TestWorldLifecycle()
 		&& TestRenderOrdering()
 		&& TestGameTime()
-		&& TestWaveResourceCache();
+		&& TestWaveResourceCache()
+		&& TestModelResourceCache();
 	OutputDebugStringA(passed ? "Engine self-tests passed.\n" : "Engine self-tests failed.\n");
 	return passed;
 }
