@@ -21,21 +21,23 @@ namespace
 	constexpr float kFarClip = 1000.0f;
 	constexpr float kInitialCameraHeight = 7.6f;
 	constexpr float kInitialCameraDistance = -9.2f;
-	constexpr float kNormalMinPitch = XMConvertToRadians(-55.0f);
-	constexpr float kNormalMaxPitch = XMConvertToRadians(-10.0f);
-	constexpr float kAimMinPitch = XMConvertToRadians(-50.0f);
-	constexpr float kAimMaxPitch = XMConvertToRadians(28.0f);
-	constexpr float kNormalPitchMouseScale = 0.45f;
+	constexpr float kNormalMinPitch = XMConvertToRadians(-68.0f);
+	constexpr float kNormalMaxPitch = XMConvertToRadians(6.0f);
+	constexpr float kAimMinPitch = XMConvertToRadians(-88.0f);
+	constexpr float kAimMaxPitch = XMConvertToRadians(88.0f);
+	constexpr float kNormalPitchMouseScale = 0.62f;
 	constexpr float kAimPitchMouseScale = 0.85f;
 	constexpr float kNormalCameraDistance = 11.8f;
 	constexpr float kDistanceFollowLerp = 0.12f;
 	constexpr float kNormalFollowLerp = 0.18f;
+	constexpr float kWireFollowLerp = 0.52f;
 	constexpr float kAimFollowLerp = 0.34f;
 	constexpr float kNormalTargetHeight = 1.2f;
+	constexpr float kNormalMinCameraHeight = 0.85f;
 	constexpr float kNormalLookAhead = 1.8f;
 	constexpr float kAimCameraHeight = 1.65f;
 	constexpr float kAimBackDistance = 0.85f;
-	constexpr float kAimShoulderOffset = 0.42f;
+	constexpr float kAimShoulderOffset = 1.18f;
 	constexpr float kAimFocusDistance = 24.0f;
 
 	Vector3 MakeCameraForward(float yaw, float pitch)
@@ -80,6 +82,7 @@ void WireTpsCamera::Init()
 	m_Pitch = kDefaultPitch;
 	m_CurrentFov = kDefaultFov;
 	m_TargetInitialized = false;
+	m_CloseAimActiveLastFrame = false;
 	Mouse_Reset();
 }
 
@@ -96,19 +99,20 @@ void WireTpsCamera::Update()
 		return;
 	}
 
-	const bool aiming = player->IsAiming();
+	const bool wireActive = player->IsWireActive();
+	const bool closeAim = player->IsAiming() && !wireActive;
 	float mouseX = 0.0f;
 	float mouseY = 0.0f;
 	if (Mouse_ConsumeDelta(&mouseX, &mouseY))
 	{
 		const float sensitivity = GameSettings::GetMouseSensitivity();
-		const float pitchScale = aiming ? kAimPitchMouseScale : kNormalPitchMouseScale;
+		const float pitchScale = closeAim ? kAimPitchMouseScale : kNormalPitchMouseScale;
 		m_Yaw += mouseX * sensitivity;
 		m_Pitch -= mouseY * sensitivity * pitchScale;
 	}
 
-	const float minPitch = aiming ? kAimMinPitch : kNormalMinPitch;
-	const float maxPitch = aiming ? kAimMaxPitch : kNormalMaxPitch;
+	const float minPitch = closeAim ? kAimMinPitch : kNormalMinPitch;
+	const float maxPitch = closeAim ? kAimMaxPitch : kNormalMaxPitch;
 	m_Pitch = std::clamp(m_Pitch, minPitch, maxPitch);
 
 	const Vector3 playerPosition = player->GetPosition();
@@ -121,7 +125,7 @@ void WireTpsCamera::Update()
 
 	Vector3 desiredPosition;
 	Vector3 desiredTarget;
-	if (aiming)
+	if (closeAim)
 	{
 		desiredPosition = playerPosition
 			+ Vector3(0.0f, kAimCameraHeight, 0.0f)
@@ -135,9 +139,18 @@ void WireTpsCamera::Update()
 			+ Vector3(0.0f, kNormalTargetHeight, 0.0f)
 			+ flatForward * kNormalLookAhead;
 		desiredPosition = desiredTarget - forward * m_Distance;
+
+		const float minCameraY = playerPosition.y + kNormalMinCameraHeight;
+		if (desiredPosition.y < minCameraY)
+		{
+			const float lift = minCameraY - desiredPosition.y;
+			desiredPosition.y += lift;
+			desiredTarget.y += lift;
+		}
 	}
 
-	if (!m_TargetInitialized)
+	const bool snapBackFromWireAim = wireActive && m_CloseAimActiveLastFrame;
+	if (!m_TargetInitialized || snapBackFromWireAim)
 	{
 		m_Position = desiredPosition;
 		m_Target = desiredTarget;
@@ -145,16 +158,17 @@ void WireTpsCamera::Update()
 	}
 	else
 	{
-		const float followLerp = aiming ? kAimFollowLerp : kNormalFollowLerp;
+		const float followLerp = closeAim ? kAimFollowLerp : (wireActive ? kWireFollowLerp : kNormalFollowLerp);
 		m_Position += (desiredPosition - m_Position) * followLerp;
 		m_Target += (desiredTarget - m_Target) * followLerp;
 	}
 
 	const float speedRatio = std::clamp((player->GetSpeed() - kFovBoostStartSpeed) / (kFovBoostFullSpeed - kFovBoostStartSpeed), 0.0f, 1.0f);
-	const float wireBias = player->IsWireActive() ? kFovWireActiveBias : 0.0f;
+	const float wireBias = wireActive ? kFovWireActiveBias : 0.0f;
 	const float normalFov = std::min(kMaxWireFov, kBaseFov + speedRatio * (kMaxWireFov - kBaseFov) + wireBias);
-	const float targetFov = aiming ? kAimFov : normalFov;
+	const float targetFov = closeAim ? kAimFov : normalFov;
 	m_CurrentFov += (targetFov - m_CurrentFov) * kFovFollowLerp;
+	m_CloseAimActiveLastFrame = closeAim;
 }
 
 void WireTpsCamera::Draw()

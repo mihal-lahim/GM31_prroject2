@@ -17,6 +17,7 @@ private:
 	float m_Distance = kDefaultDistance;
 	float m_CurrentFov = kDefaultFov;
 	bool m_TargetInitialized = false;
+	bool m_CloseAimActiveLastFrame = false;
 
 public:
 	void Init() override;

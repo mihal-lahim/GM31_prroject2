@@ -37,7 +37,7 @@ private:
 	void UpdateMovement(float dt, const WireTpsCamera* camera);
 	void UpdateBlink(float dt, const Vector3& cameraForward, const Vector3& cameraRight);
 	void UpdateWire(float dt, const WireTpsCamera* camera);
-	void UpdateSword(float dt, const WireTpsCamera* camera);
+	void UpdateSword(float dt);
 	void ResolvePlatformLanding(const Vector3& previousPosition);
 	bool FindWireAnchor(const WireTpsCamera* camera, Vector3& anchorPosition) const;
 	void StartWire(const WireTpsCamera* camera);
@@ -46,9 +46,9 @@ private:
 	void StartBlink(const Vector3& direction);
 	void EmitBlinkParticles(const Vector3& position, const Vector3& direction, int count);
 	void EmitBlinkShockwave(const Vector3& position, const Vector3& direction, int count);
-	Vector3 GetSwordForward(const WireTpsCamera* camera) const;
+	Vector3 GetSwordForward() const;
 	void StartSwordCharge();
-	void ReleaseSwordAttack(const WireTpsCamera* camera);
+	void ReleaseSwordAttack();
 	int CalculateSwordDamage() const;
 	void DrawWire();
 	void DrawSword();

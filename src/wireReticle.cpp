@@ -79,7 +79,7 @@ void WireReticle::Update()
 void WireReticle::Draw()
 {
 	WirePlayer* player = Manager::GetGameObject<WirePlayer>();
-	if (player == nullptr || !player->IsAiming())
+	if (player == nullptr || !player->IsAiming() || player->IsWireActive())
 	{
 		return;
 	}

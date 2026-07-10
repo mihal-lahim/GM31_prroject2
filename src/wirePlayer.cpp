@@ -71,8 +71,6 @@ namespace
 	constexpr float kSwordHitStopScale = 0.10f;
 	constexpr float kMoveTurnLerp = 0.22f;
 	constexpr float kWireTurnLerp = 0.30f;
-	constexpr float kSwordChargeTurnLerp = 0.18f;
-	constexpr float kSwordReleaseTurnLerp = 0.80f;
 	constexpr float kScaleRecoverLerp = 0.08f;
 	constexpr float kGroundBobFrequency = 4.0f;
 	constexpr float kGroundBobAmount = 0.015f;
@@ -254,7 +252,7 @@ void WirePlayer::Update()
 
 	UpdateMovement(dt, camera);
 	UpdateWire(dt, camera);
-	UpdateSword(dt, camera);
+	UpdateSword(dt);
 
 	const Vector3 previousPosition = m_Position;
 	m_Position += m_Velocity * dt;
@@ -587,7 +585,7 @@ void WirePlayer::UpdateWire(float dt, const WireTpsCamera* camera)
 	}
 }
 
-void WirePlayer::UpdateSword(float dt, const WireTpsCamera* camera)
+void WirePlayer::UpdateSword(float dt)
 {
 	if (m_SwordSwingTimer > 0.0f)
 	{
@@ -617,12 +615,6 @@ void WirePlayer::UpdateSword(float dt, const WireTpsCamera* camera)
 		m_SwordChargeTime = std::min(kSwordMaxChargeTime, m_SwordChargeTime + dt);
 		m_SwordChargePeakHeight = std::max(m_SwordChargePeakHeight, m_Position.y);
 
-		const Vector3 forward = GetSwordForward(camera);
-		if (forward.length() > kVectorEpsilon)
-		{
-			m_Rotation.y = LerpAngle(m_Rotation.y, atan2f(forward.x, forward.z), kSwordChargeTurnLerp);
-		}
-
 		const float chargeRatio = std::clamp(m_SwordChargeTime / kSwordMaxChargeTime, 0.0f, 1.0f);
 		m_Scale.x += (kSwordChargeScaleXz - m_Scale.x) * kSwordChargeScaleLerp;
 		m_Scale.y += (kSwordChargeScaleY + chargeRatio * kSwordChargeScaleYBonus - m_Scale.y) * kSwordChargeScaleLerp;
@@ -630,7 +622,7 @@ void WirePlayer::UpdateSword(float dt, const WireTpsCamera* camera)
 		return;
 	}
 
-	ReleaseSwordAttack(camera);
+	ReleaseSwordAttack();
 }
 
 float WirePlayer::GetAimTimeRatio() const
@@ -751,17 +743,8 @@ void WirePlayer::ReleaseWire(bool addBoost)
 	m_WireActive = false;
 }
 
-Vector3 WirePlayer::GetSwordForward(const WireTpsCamera* camera) const
+Vector3 WirePlayer::GetSwordForward() const
 {
-	if (camera != nullptr)
-	{
-		Vector3 forward = Flatten(camera->GetAimDirection());
-		if (forward.length() > kVectorEpsilon)
-		{
-			return forward;
-		}
-	}
-
 	Vector3 forward{ sinf(m_Rotation.y), 0.0f, cosf(m_Rotation.y) };
 	forward.normalize();
 	return forward;
@@ -774,9 +757,9 @@ void WirePlayer::StartSwordCharge()
 	m_SwordChargePeakHeight = m_Position.y;
 }
 
-void WirePlayer::ReleaseSwordAttack(const WireTpsCamera* camera)
+void WirePlayer::ReleaseSwordAttack()
 {
-	const Vector3 forward = GetSwordForward(camera);
+	const Vector3 forward = GetSwordForward();
 	const int damage = CalculateSwordDamage();
 	const float chargeRatio = std::clamp(m_SwordChargeTime / kSwordMaxChargeTime, 0.0f, 1.0f);
 	const float range = kSwordBaseRange + kSwordRangeBonus * chargeRatio;
@@ -816,7 +799,6 @@ void WirePlayer::ReleaseSwordAttack(const WireTpsCamera* camera)
 	m_SwordChargeTime = 0.0f;
 	m_SwordSwingChargeRatio = chargeRatio;
 	m_SwordSwingTimer = kSwordSwingDuration;
-	m_Rotation.y = LerpAngle(m_Rotation.y, atan2f(forward.x, forward.z), kSwordReleaseTurnLerp);
 	m_Scale = { kSwordSwingScaleXz, kSwordSwingScaleY, kSwordSwingScaleXz };
 }
 
