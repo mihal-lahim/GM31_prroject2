@@ -57,6 +57,49 @@ static bool g_MouseLeftButtonDown = false;
 static bool g_MouseLeftButtonPressed = false;
 static bool g_MouseRightButtonDown = false;
 static bool g_MouseRightButtonPressed = false;
+static bool g_MouseCursorCaptured = false;
+
+namespace
+{
+	void SetSystemCursorVisible(bool visible)
+	{
+		for (int i = 0; i < 16; i++)
+		{
+			CURSORINFO cursorInfo{};
+			cursorInfo.cbSize = sizeof(cursorInfo);
+			bool currentlyVisible = true;
+			if (GetCursorInfo(&cursorInfo))
+			{
+				currentlyVisible = (cursorInfo.flags & CURSOR_SHOWING) != 0;
+			}
+
+			if (currentlyVisible == visible)
+			{
+				break;
+			}
+
+			ShowCursor(visible ? TRUE : FALSE);
+		}
+	}
+
+	void ClipCursorToClient(HWND hWnd)
+	{
+		RECT rect{};
+		if (hWnd == nullptr || !GetClientRect(hWnd, &rect))
+		{
+			ClipCursor(nullptr);
+			return;
+		}
+
+		POINT topLeft{ rect.left, rect.top };
+		POINT bottomRight{ rect.right, rect.bottom };
+		ClientToScreen(hWnd, &topLeft);
+		ClientToScreen(hWnd, &bottomRight);
+
+		RECT screenRect{ topLeft.x, topLeft.y, bottomRight.x, bottomRight.y };
+		ClipCursor(&screenRect);
+	}
+}
 
 void Mouse_Reset()
 {
@@ -84,6 +127,22 @@ void Mouse_Initialize(HWND hWnd)
 
 	RegisterRawInputDevices(&rid, 1, sizeof(rid));
 	Mouse_Reset();
+	Mouse_SetCursorCaptured(true);
+}
+
+void Mouse_SetCursorCaptured(bool captured)
+{
+	if (captured && g_Window != nullptr)
+	{
+		g_MouseCursorCaptured = true;
+		SetSystemCursorVisible(false);
+		ClipCursorToClient(g_Window);
+		return;
+	}
+
+	g_MouseCursorCaptured = false;
+	ClipCursor(nullptr);
+	SetSystemCursorVisible(true);
 }
 
 bool Mouse_ConsumeDelta(float* deltaX, float* deltaY)
@@ -150,9 +209,43 @@ bool Mouse_ProcessMessage(UINT message, WPARAM wParam, LPARAM lParam)
 	switch (message)
 	{
 	case WM_ACTIVATEAPP:
-		if (!wParam)
+		if (wParam)
+		{
+			Mouse_SetCursorCaptured(true);
+		}
+		else
 		{
 			Mouse_Reset();
+			Mouse_SetCursorCaptured(false);
+		}
+		break;
+
+	case WM_DESTROY:
+		Mouse_SetCursorCaptured(false);
+		break;
+
+	case WM_SETFOCUS:
+		Mouse_SetCursorCaptured(true);
+		break;
+
+	case WM_KILLFOCUS:
+		Mouse_Reset();
+		Mouse_SetCursorCaptured(false);
+		break;
+
+	case WM_MOVE:
+	case WM_SIZE:
+		if (g_MouseCursorCaptured)
+		{
+			ClipCursorToClient(g_Window);
+		}
+		break;
+
+	case WM_SETCURSOR:
+		if (g_MouseCursorCaptured && LOWORD(lParam) == HTCLIENT)
+		{
+			SetCursor(nullptr);
+			return true;
 		}
 		break;
 
@@ -292,6 +385,7 @@ int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLi
 	}
 
 	timeEndPeriod(1);
+	Mouse_SetCursorCaptured(false);
 
 	UnregisterClass(CLASS_NAME, wcex.hInstance);
 

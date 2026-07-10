@@ -16,12 +16,21 @@ The framework should not include headers such as `title.h`, `game.h`, `baseballB
 
 ## Current game side
 
-The current game is registered through:
+The current active game is registered through:
 
-- `gameDefinition.*`: game title and initial scene factory.
+- `gameDefinition.*`: game title and initial scene factory. It currently starts `WireGame`.
+- `wireGame.*`: scene composition for the wire-action TPS prototype.
+- `wirePlayer.*`: TPS movement, right-click aim, left-click wire launch, and wire pull movement.
+- `wireTpsCamera.*`: over-the-shoulder TPS camera used by the wire-action game.
+- `wireAnchor.*`, `wirePlatform.*`, `wireStage.*`, `wireReticle.*`: grapple targets, elevated platforms, floor, and aiming UI.
+
+## Previous batting center game
+
+The batting center files are still kept in the project, but they are not the active startup game:
+
 - `title.*`, `game.*`, `result.*`: scene flow for this game.
 - `gameSetup.*`: object composition for the batting center gameplay.
-- `gameplayInputController.*`, `gameSettings.*`, and baseball/world object files: current game behavior.
+- `gameplayInputController.*`, `gameSettings.*`, and baseball/world object files: batting center behavior.
 
 ## Adding another game
 

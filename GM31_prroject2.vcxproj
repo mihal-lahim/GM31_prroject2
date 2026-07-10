@@ -187,6 +187,13 @@
     <ClInclude Include="include\title.h" />
     <ClInclude Include="include\tree.h" />
     <ClInclude Include="include\Vector3.h" />
+    <ClInclude Include="include\wireAnchor.h" />
+    <ClInclude Include="include\wireGame.h" />
+    <ClInclude Include="include\wirePlatform.h" />
+    <ClInclude Include="include\wirePlayer.h" />
+    <ClInclude Include="include\wireReticle.h" />
+    <ClInclude Include="include\wireStage.h" />
+    <ClInclude Include="include\wireTpsCamera.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\audio.cpp" />
@@ -232,6 +239,13 @@
     <ClCompile Include="src\sky.cpp" />
     <ClCompile Include="src\title.cpp" />
     <ClCompile Include="src\tree.cpp" />
+    <ClCompile Include="src\wireAnchor.cpp" />
+    <ClCompile Include="src\wireGame.cpp" />
+    <ClCompile Include="src\wirePlatform.cpp" />
+    <ClCompile Include="src\wirePlayer.cpp" />
+    <ClCompile Include="src\wireReticle.cpp" />
+    <ClCompile Include="src\wireStage.cpp" />
+    <ClCompile Include="src\wireTpsCamera.cpp" />
   </ItemGroup>
   <ItemGroup>
     <FxCompile Include="shaders\common.hlsl">

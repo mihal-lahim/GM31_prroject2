@@ -49,5 +49,6 @@ bool Mouse_IsLeftButtonDownTrigger();
 bool Mouse_IsRightButtonDown();
 bool Mouse_IsRightButtonDownTrigger();
 void Mouse_Reset();
+void Mouse_SetCursorCaptured(bool captured);
 
 #include "Vector3.h"
