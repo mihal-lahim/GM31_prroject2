@@ -3,6 +3,7 @@
 
 #include "gameTime.h"
 #include "collider.h"
+#include "wireCollisionLayers.h"
 #include "renderer.h"
 #include "modelRenderer.h"
 
@@ -31,7 +32,7 @@ void WireEnemy::Init()
 	AddComponent<Collider>()
 		->SetSphere(m_HitRadius)
 		->SetOffset({ 0.0f, m_BaseScale.y * kHitCenterHeightScale, 0.0f })
-		->SetTag(Collider::Tag::Enemy)
+		->SetCollisionLayer(WireCollisionLayers::Enemy)
 		->SetUseOwnerScale(false)
 		->SetDebugDraw(false);
 }

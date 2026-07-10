@@ -1,6 +1,6 @@
 #pragma once
 
-#include "main.h"
+#include "engineCommon.h"
 
 #include <xaudio2.h>
 

@@ -230,85 +230,36 @@ bool Collider::Intersects(const Collider& other) const
 	return DistanceSquared(sphereCenter, closest) <= radius * radius;
 }
 
-std::vector<Collider*> Collider::GetOverlaps(const Collider& collider, Tag tag)
-{
-	std::vector<Collider*> overlaps;
-	for (Collider* other : s_Colliders)
-	{
-		if (other == &collider)
-		{
-			continue;
-		}
-		if (other->GetOwner() == nullptr || other->GetOwner()->Destroy())
-		{
-			continue;
-		}
-		if (tag != Tag::None && other->GetTag() != tag)
-		{
-			continue;
-		}
-		if (collider.Intersects(*other))
-		{
-			overlaps.push_back(other);
-		}
-	}
-
-	return overlaps;
-}
-
-std::vector<Collider*> Collider::GetCapsuleOverlaps(
+bool Collider::IntersectsCapsule(
 	const Vector3& start,
 	const Vector3& end,
-	float radius,
-	Tag tag)
+	float radius) const
 {
-	std::vector<Collider*> overlaps;
-	if (radius < 0.0f)
+	if (radius < 0.0f || m_GameObject == nullptr)
 	{
-		return overlaps;
+		return false;
 	}
 
-	for (Collider* other : s_Colliders)
+	if (m_Shape == Shape::Sphere)
 	{
-		if (other == nullptr || other->GetOwner() == nullptr || other->GetOwner()->Destroy())
-		{
-			continue;
-		}
-		if (tag != Tag::None && other->GetTag() != tag)
-		{
-			continue;
-		}
-
-		bool intersects = false;
-		if (other->GetShape() == Shape::Sphere)
-		{
-			const float combinedRadius = radius + other->GetRadius();
-			intersects = DistancePointSegmentSquared(other->GetCenter(), start, end)
-				<= combinedRadius * combinedRadius;
-		}
-		else if (other->GetShape() == Shape::Capsule)
-		{
-			Vector3 otherStart;
-			Vector3 otherEnd;
-			other->GetCapsuleSegment(otherStart, otherEnd);
-			const float combinedRadius = radius + other->GetRadius();
-			intersects = DistanceSegmentSegmentSquared(start, end, otherStart, otherEnd)
-				<= combinedRadius * combinedRadius;
-		}
-		else
-		{
-			Vector3 expandedHalfSize = other->GetHalfSize();
-			expandedHalfSize.x += radius;
-			expandedHalfSize.y += radius;
-			expandedHalfSize.z += radius;
-			intersects = SegmentIntersectsAABB(start, end, other->GetCenter(), expandedHalfSize);
-		}
-
-		if (intersects)
-		{
-			overlaps.push_back(other);
-		}
+		const float combinedRadius = radius + GetRadius();
+		return DistancePointSegmentSquared(GetCenter(), start, end)
+			<= combinedRadius * combinedRadius;
 	}
 
-	return overlaps;
+	if (m_Shape == Shape::Capsule)
+	{
+		Vector3 otherStart;
+		Vector3 otherEnd;
+		GetCapsuleSegment(otherStart, otherEnd);
+		const float combinedRadius = radius + GetRadius();
+		return DistanceSegmentSegmentSquared(start, end, otherStart, otherEnd)
+			<= combinedRadius * combinedRadius;
+	}
+
+	Vector3 expandedHalfSize = GetHalfSize();
+	expandedHalfSize.x += radius;
+	expandedHalfSize.y += radius;
+	expandedHalfSize.z += radius;
+	return SegmentIntersectsAABB(start, end, GetCenter(), expandedHalfSize);
 }

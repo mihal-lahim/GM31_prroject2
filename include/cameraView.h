@@ -1,6 +1,6 @@
 #pragma once
 
-#include "main.h"
+#include "engineCommon.h"
 
 // Rendering and shared effects depend on this interface instead of a
 // game-specific camera implementation.

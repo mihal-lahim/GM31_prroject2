@@ -4,6 +4,7 @@
 #include "enemy.h"
 #include "player.h"
 #include "collider.h"
+#include "battingCollisionLayers.h"
 
 
 
@@ -16,7 +17,7 @@ void Enemy::Init()
 	AddComponent<Collider>()
 		->SetSphere(0.8f)
 		->SetOffset({ 0.0f, 0.8f, 0.0f })
-		->SetTag(Collider::Tag::Enemy)
+		->SetCollisionLayer(BattingCollisionLayers::Enemy)
 		->SetDebugColor(XMFLOAT4(1.0f, 0.2f, 0.2f, 1.0f));
 
 }

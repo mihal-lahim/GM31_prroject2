@@ -1,6 +1,7 @@
 #include "main.h"
 #include "manager.h"
 #include "gameDefinition.h"
+#include "gameSettings.h"
 #include "gameTime.h"
 #include "renderer.h"
 #include "audio.h"
@@ -14,14 +15,31 @@
 std::unique_ptr<Scene> Manager::m_Scene = nullptr;
 std::unique_ptr<Scene> Manager::m_NextScene = nullptr;
 
-void Manager::Init(const GameDefinition& gameDefinition)
+bool Manager::Init(const GameDefinition& gameDefinition)
 {
-	Renderer::Init();
-	Audio::InitMaster();
+	if (gameDefinition.SettingsPath != nullptr)
+	{
+		GameSettings::Load(gameDefinition.SettingsPath);
+	}
+	if (!Renderer::Init())
+	{
+		return false;
+	}
+	if (!Audio::InitMaster())
+	{
+		Renderer::Uninit();
+		return false;
+	}
 
 	if (gameDefinition.CreateInitialScene != nullptr)
 	{
 		m_Scene = gameDefinition.CreateInitialScene();
+	}
+	else
+	{
+		Audio::UninitMaster();
+		Renderer::Uninit();
+		return false;
 	}
 
 	if (m_Scene != nullptr)
@@ -31,7 +49,12 @@ void Manager::Init(const GameDefinition& gameDefinition)
 			Manager::ChangeScene(std::move(nextScene));
 		});
 		m_Scene->Init();
+		return true;
 	}
+
+	Audio::UninitMaster();
+	Renderer::Uninit();
+	return false;
 }
 
 void Manager::Uninit()
@@ -77,7 +100,7 @@ void Manager::Update(float fixedDeltaTime)
 		{
 			continue;
 		}
-		gameObject->PreUpdate();
+		gameObject->RunPreUpdate();
 	}
 
 	for (auto& gameObject : world.GetObjects())
@@ -86,7 +109,7 @@ void Manager::Update(float fixedDeltaTime)
 		{
 			continue;
 		}
-		gameObject->Update();
+		gameObject->RunUpdate();
 	}
 
 	for (auto& gameObject : world.GetObjects())
@@ -95,7 +118,7 @@ void Manager::Update(float fixedDeltaTime)
 		{
 			continue;
 		}
-		gameObject->LateUpdate();
+		gameObject->RunLateUpdate();
 	}
 	world.EndUpdate();
 

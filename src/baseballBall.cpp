@@ -8,6 +8,7 @@
 #include "collider.h"
 #include "score.h"
 #include "battingTarget.h"
+#include "battingCollisionLayers.h"
 
 void BaseballBall::Init()
 {
@@ -19,7 +20,7 @@ void BaseballBall::Init()
 		->Load("assets\\model\\bullet.obj");
 	m_Collider = AddComponent<Collider>();
 	m_Collider->SetSphere(0.55f)
-		->SetTag(Collider::Tag::Baseball)
+		->SetCollisionLayer(BattingCollisionLayers::Baseball)
 		->SetDebugColor(XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f));
 }
 
@@ -86,7 +87,7 @@ void BaseballBall::Update()
 
 	if (!m_TargetScored && m_HitBack && m_Collider != nullptr)
 	{
-		auto targets = Collider::GetOverlaps(*m_Collider, Collider::Tag::Target);
+		auto targets = m_Collider->GetOverlaps(BattingCollisionLayers::Target);
 		if (!targets.empty())
 		{
 			m_TargetScored = true;
@@ -108,7 +109,7 @@ void BaseballBall::Update()
 
 	if (!m_Bounced && m_HitBack && m_Collider != nullptr)
 	{
-		auto walls = Collider::GetOverlaps(*m_Collider, Collider::Tag::Wall);
+		auto walls = m_Collider->GetOverlaps(BattingCollisionLayers::Wall);
 		if (!walls.empty())
 		{
 			m_Bounced = true;

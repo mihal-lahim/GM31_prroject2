@@ -59,8 +59,6 @@ private:
 	static ComPtr<ID3D11PixelShader> m_DefaultPixelShader;
 
 	static bool LoadModel(const char *FileName, MODEL *Model);
-	static void LoadObj( const char *FileName, MODEL_OBJ *ModelObj );
-	static void LoadMaterial( const char *FileName, std::unordered_map<std::string, MODEL_MATERIAL>& MaterialMap );
 	static void EnsureDefaultShader();
 	static ModelHandle AcquireModel(const char* FileName);
 

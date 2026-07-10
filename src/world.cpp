@@ -14,19 +14,25 @@ void World::EndUpdate()
 {
 	m_IsUpdating = false;
 	m_GameObjects.splice(m_GameObjects.end(), m_PendingGameObjects);
+	InvalidateQueryCache();
 }
 
 void World::DestroyRequestedObjects()
 {
+	const std::size_t previousSize = m_GameObjects.size();
 	m_GameObjects.remove_if([](const std::unique_ptr<GameObject>& gameObject)
 	{
 		if (!gameObject->Destroy())
 		{
 			return false;
 		}
-		gameObject->Uninit();
+		gameObject->Shutdown();
 		return true;
 	});
+	if (m_GameObjects.size() != previousSize)
+	{
+		InvalidateQueryCache();
+	}
 }
 
 void World::Clear()
@@ -34,12 +40,14 @@ void World::Clear()
 	m_IsUpdating = false;
 	for (auto& gameObject : m_GameObjects)
 	{
-		gameObject->Uninit();
+		gameObject->Shutdown();
 	}
 	for (auto& gameObject : m_PendingGameObjects)
 	{
-		gameObject->Uninit();
+		gameObject->Shutdown();
 	}
 	m_GameObjects.clear();
 	m_PendingGameObjects.clear();
+	InvalidateQueryCache();
+	m_CollisionWorld.Clear();
 }

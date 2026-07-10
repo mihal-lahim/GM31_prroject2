@@ -28,6 +28,7 @@
   </PropertyGroup>
   <Import Project="Common.props" />
   <ItemGroup>
+	<ClInclude Include="include\wireCollisionLayers.h" />
     <ClInclude Include="include\wireAnchor.h" />
     <ClInclude Include="include\wireEnemy.h" />
     <ClInclude Include="include\wireGame.h" />
@@ -70,10 +71,24 @@
     <FxCompile Include="shaders\unlitTexturePS.hlsl"><ShaderType>Pixel</ShaderType><ShaderModel>5.0</ShaderModel><ObjectFileOutput>$(OutDir)%(Filename).cso</ObjectFileOutput></FxCompile>
     <FxCompile Include="shaders\unlitTextureVS.hlsl"><ShaderType>Vertex</ShaderType><ShaderModel>5.0</ShaderModel><ObjectFileOutput>$(OutDir)%(Filename).cso</ObjectFileOutput></FxCompile>
   </ItemGroup>
+	<ItemGroup>
+		<RuntimeAsset Include="THIRD_PARTY.md"><TargetPath>THIRD_PARTY.md</TargetPath></RuntimeAsset>
+		<RuntimeAsset Include="licenses\DirectXTex-LICENSE.txt"><TargetPath>licenses\DirectXTex-LICENSE.txt</TargetPath></RuntimeAsset>
+		<RuntimeAsset Include="assets\config\wire.cfg"><TargetPath>assets\config\wire.cfg</TargetPath></RuntimeAsset>
+		<RuntimeAsset Include="assets\model\box.obj"><TargetPath>assets\model\box.obj</TargetPath></RuntimeAsset>
+		<RuntimeAsset Include="assets\model\box.mtl"><TargetPath>assets\model\box.mtl</TargetPath></RuntimeAsset>
+		<RuntimeAsset Include="assets\model\grass.jpg"><TargetPath>assets\model\grass.jpg</TargetPath></RuntimeAsset>
+		<RuntimeAsset Include="assets\model\gravel.jpg"><TargetPath>assets\model\gravel.jpg</TargetPath></RuntimeAsset>
+		<RuntimeAsset Include="assets\model\player.obj"><TargetPath>assets\model\player.obj</TargetPath></RuntimeAsset>
+		<RuntimeAsset Include="assets\model\player.mtl"><TargetPath>assets\model\player.mtl</TargetPath></RuntimeAsset>
+		<RuntimeAsset Include="assets\model\wire_saber.obj"><TargetPath>assets\model\wire_saber.obj</TargetPath></RuntimeAsset>
+		<RuntimeAsset Include="assets\model\wire_saber.mtl"><TargetPath>assets\model\wire_saber.mtl</TargetPath></RuntimeAsset>
+		<RuntimeAsset Include="assets\texture\ground.png"><TargetPath>assets\texture\ground.png</TargetPath></RuntimeAsset>
+		<RuntimeAsset Include="assets\texture\particle.png"><TargetPath>assets\texture\particle.png</TargetPath></RuntimeAsset>
+	</ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <Target Name="CopyRuntimeAssets" AfterTargets="Build">
-    <ItemGroup><RuntimeAsset Include="$(ProjectDir)assets\**\*.*" /></ItemGroup>
-    <Copy SourceFiles="@(RuntimeAsset)" DestinationFiles="@(RuntimeAsset-&gt;'$(OutDir)assets\%(RecursiveDir)%(Filename)%(Extension)')" SkipUnchangedFiles="true" />
+	<Copy SourceFiles="@(RuntimeAsset)" DestinationFiles="@(RuntimeAsset-&gt;'$(OutDir)%(TargetPath)')" SkipUnchangedFiles="true" />
   </Target>
   <ImportGroup Label="ExtensionTargets" />
 </Project>

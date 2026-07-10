@@ -3,6 +3,7 @@
   <PropertyGroup>
     <!-- The project ships its native dependencies directly and does not need
          the globally integrated vcpkg PowerShell deployment step. -->
+	<VcpkgEnabled>false</VcpkgEnabled>
     <VcpkgApplocalDeps>false</VcpkgApplocalDeps>
   </PropertyGroup>
   <ItemDefinitionGroup>
@@ -22,6 +23,8 @@
       <SubSystem>Windows</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <AdditionalLibraryDirectories>$(MSBuildThisFileDirectory)lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+	  <AdditionalDependencies Condition="'$(Configuration)'=='Debug'">d3d11.lib;winmm.lib;DirectXTex_Debug.lib;%(AdditionalDependencies)</AdditionalDependencies>
+	  <AdditionalDependencies Condition="'$(Configuration)'=='Release'">d3d11.lib;winmm.lib;DirectXTex_Release.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalOptions>/ignore:4099 %(AdditionalOptions)</AdditionalOptions>
     </Link>
   </ItemDefinitionGroup>

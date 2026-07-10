@@ -28,6 +28,7 @@
   </PropertyGroup>
   <Import Project="Common.props" />
   <ItemGroup>
+	<ClInclude Include="include\battingCollisionLayers.h" />
     <ClInclude Include="include\baseballBat.h" /><ClInclude Include="include\baseballBall.h" /><ClInclude Include="include\baseballEffects.h" />
     <ClInclude Include="include\battingTarget.h" /><ClInclude Include="include\battingWall.h" /><ClInclude Include="include\box.h" />
     <ClInclude Include="include\bullet.h" /><ClInclude Include="include\camera.h" /><ClInclude Include="include\enemy.h" />
@@ -56,10 +57,38 @@
     <FxCompile Include="shaders\unlitTexturePS.hlsl"><ShaderType>Pixel</ShaderType><ShaderModel>5.0</ShaderModel><ObjectFileOutput>$(OutDir)%(Filename).cso</ObjectFileOutput></FxCompile>
     <FxCompile Include="shaders\unlitTextureVS.hlsl"><ShaderType>Vertex</ShaderType><ShaderModel>5.0</ShaderModel><ObjectFileOutput>$(OutDir)%(Filename).cso</ObjectFileOutput></FxCompile>
   </ItemGroup>
+	<ItemGroup>
+		<RuntimeAsset Include="THIRD_PARTY.md"><TargetPath>THIRD_PARTY.md</TargetPath></RuntimeAsset>
+		<RuntimeAsset Include="licenses\DirectXTex-LICENSE.txt"><TargetPath>licenses\DirectXTex-LICENSE.txt</TargetPath></RuntimeAsset>
+		<RuntimeAsset Include="assets\config\batting.cfg"><TargetPath>assets\config\batting.cfg</TargetPath></RuntimeAsset>
+		<RuntimeAsset Include="assets\audio\bgm.wav"><TargetPath>assets\audio\bgm.wav</TargetPath></RuntimeAsset>
+		<RuntimeAsset Include="assets\audio\wan.wav"><TargetPath>assets\audio\wan.wav</TargetPath></RuntimeAsset>
+		<RuntimeAsset Include="assets\model\baseball_bat.obj"><TargetPath>assets\model\baseball_bat.obj</TargetPath></RuntimeAsset>
+		<RuntimeAsset Include="assets\model\baseball_bat.mtl"><TargetPath>assets\model\baseball_bat.mtl</TargetPath></RuntimeAsset>
+		<RuntimeAsset Include="assets\model\batting_target.obj"><TargetPath>assets\model\batting_target.obj</TargetPath></RuntimeAsset>
+		<RuntimeAsset Include="assets\model\batting_target.mtl"><TargetPath>assets\model\batting_target.mtl</TargetPath></RuntimeAsset>
+		<RuntimeAsset Include="assets\model\box.obj"><TargetPath>assets\model\box.obj</TargetPath></RuntimeAsset>
+		<RuntimeAsset Include="assets\model\box.mtl"><TargetPath>assets\model\box.mtl</TargetPath></RuntimeAsset>
+		<RuntimeAsset Include="assets\model\grass.jpg"><TargetPath>assets\model\grass.jpg</TargetPath></RuntimeAsset>
+		<RuntimeAsset Include="assets\model\gravel.jpg"><TargetPath>assets\model\gravel.jpg</TargetPath></RuntimeAsset>
+		<RuntimeAsset Include="assets\model\bullet.obj"><TargetPath>assets\model\bullet.obj</TargetPath></RuntimeAsset>
+		<RuntimeAsset Include="assets\model\bullet.mtl"><TargetPath>assets\model\bullet.mtl</TargetPath></RuntimeAsset>
+		<RuntimeAsset Include="assets\model\player.obj"><TargetPath>assets\model\player.obj</TargetPath></RuntimeAsset>
+		<RuntimeAsset Include="assets\model\player.mtl"><TargetPath>assets\model\player.mtl</TargetPath></RuntimeAsset>
+		<RuntimeAsset Include="assets\model\sky.obj"><TargetPath>assets\model\sky.obj</TargetPath></RuntimeAsset>
+		<RuntimeAsset Include="assets\model\sky.mtl"><TargetPath>assets\model\sky.mtl</TargetPath></RuntimeAsset>
+		<RuntimeAsset Include="assets\model\sky.jpg"><TargetPath>assets\model\sky.jpg</TargetPath></RuntimeAsset>
+		<RuntimeAsset Include="assets\texture\Explosion.png"><TargetPath>assets\texture\Explosion.png</TargetPath></RuntimeAsset>
+		<RuntimeAsset Include="assets\texture\ground.png"><TargetPath>assets\texture\ground.png</TargetPath></RuntimeAsset>
+		<RuntimeAsset Include="assets\texture\number.png"><TargetPath>assets\texture\number.png</TargetPath></RuntimeAsset>
+		<RuntimeAsset Include="assets\texture\particle.png"><TargetPath>assets\texture\particle.png</TargetPath></RuntimeAsset>
+		<RuntimeAsset Include="assets\texture\result.png"><TargetPath>assets\texture\result.png</TargetPath></RuntimeAsset>
+		<RuntimeAsset Include="assets\texture\title.png"><TargetPath>assets\texture\title.png</TargetPath></RuntimeAsset>
+		<RuntimeAsset Include="assets\texture\tree.png"><TargetPath>assets\texture\tree.png</TargetPath></RuntimeAsset>
+	</ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <Target Name="CopyRuntimeAssets" AfterTargets="Build">
-    <ItemGroup><RuntimeAsset Include="$(ProjectDir)assets\**\*.*" /></ItemGroup>
-    <Copy SourceFiles="@(RuntimeAsset)" DestinationFiles="@(RuntimeAsset-&gt;'$(OutDir)assets\%(RecursiveDir)%(Filename)%(Extension)')" SkipUnchangedFiles="true" />
+	<Copy SourceFiles="@(RuntimeAsset)" DestinationFiles="@(RuntimeAsset-&gt;'$(OutDir)%(TargetPath)')" SkipUnchangedFiles="true" />
   </Target>
   <ImportGroup Label="ExtensionTargets" />
 </Project>

@@ -1,6 +1,6 @@
 #pragma once
 
-#include "main.h"
+#include "engineCommon.h"
 struct VERTEX_3D
 {
 	XMFLOAT3 Position;
@@ -73,7 +73,7 @@ private:
 
 
 public:
-	static void Init();
+	static bool Init();
 	static void Uninit();
 	static void Begin();
 	static void End();
@@ -105,6 +105,8 @@ public:
 class RendererStateScope
 {
 private:
+	struct Snapshot;
+	std::unique_ptr<Snapshot> m_Snapshot;
 	bool m_DepthEnabled;
 	RenderBlendMode m_BlendMode;
 

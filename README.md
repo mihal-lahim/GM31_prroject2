@@ -27,8 +27,13 @@ bin\x64\Debug\BattingCenter\BattingCenter.exe --self-test
 ```
 
 The self-test mode does not create a game window. It validates World lifecycle,
-deferred spawning, render-queue ordering, GameTime scaling/pause behavior, and
+component lifecycle guarantees, per-World collision isolation and spatial
+index updates, deferred spawning, render ordering, GameTime behavior, and
 shared WAV/model resource caching.
+
+Runtime defaults are data-driven in `assets/config/batting.cfg` and
+`assets/config/wire.cfg`. Each application project has an explicit runtime
+asset manifest, so building one game does not package the other game's assets.
 
 ## Wire Action controls
 

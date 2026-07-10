@@ -8,6 +8,7 @@
 #include "wirePlayer.h"
 #include "wirePlayerInput.h"
 #include "wireSlashEffect.h"
+#include "wireCollisionLayers.h"
 #include "world.h"
 
 #include <algorithm>
@@ -113,11 +114,11 @@ void WireSwordAbility::ReleaseAttack(WirePlayer& player)
 
 	int totalDamage = 0;
 	const Vector3 attackEnd = attackOrigin + forward * range;
-	for (Collider* collider : Collider::GetCapsuleOverlaps(
+	for (Collider* collider : player.GetWorld().GetCollisionWorld().QueryCapsule(
 		attackOrigin,
 		attackEnd,
 		kSwordHitRadius,
-		Collider::Tag::Enemy))
+		WireCollisionLayers::Enemy))
 	{
 		WireEnemy* enemy = dynamic_cast<WireEnemy*>(collider->GetOwner());
 		if (enemy == nullptr)

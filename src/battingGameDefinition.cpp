@@ -15,6 +15,7 @@ const GameDefinition& GetGameDefinition()
 	static const GameDefinition definition =
 	{
 		"Batting Center",
+		"assets/config/batting.cfg",
 		CreateInitialScene
 	};
 

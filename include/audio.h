@@ -28,7 +28,7 @@ private:
 
 
 public:
-	static void InitMaster();
+	static bool InitMaster();
 	static void UninitMaster();
 	static void SetMasterVolume(float volume);
 	static float GetMasterVolume() { return m_MasterVolume; }

@@ -2,6 +2,7 @@
 #include "main.h"
 #include "renderer.h"
 #include "resourceManager.h"
+#include <array>
 
 
 D3D_FEATURE_LEVEL       Renderer::m_FeatureLevel = D3D_FEATURE_LEVEL_11_0;
@@ -29,11 +30,27 @@ ComPtr<ID3D11BlendState>		Renderer::m_BlendStateAdd{};
 bool Renderer::m_DepthEnabled = true;
 RenderBlendMode Renderer::m_BlendMode = RenderBlendMode::Alpha;
 
-
-
-
-void Renderer::Init()
+namespace
 {
+	bool CheckInitializationResult(HRESULT result, const char* operation)
+	{
+		if (SUCCEEDED(result))
+		{
+			return true;
+		}
+
+		char message[256]{};
+		sprintf_s(message, "Renderer::Init: %s failed (HRESULT=0x%08X).\n", operation, static_cast<unsigned int>(result));
+		OutputDebugStringA(message);
+		return false;
+	}
+}
+
+
+
+bool Renderer::Init()
+{
+	Uninit();
 	HRESULT hr = S_OK;
 
 
@@ -65,6 +82,11 @@ void Renderer::Init()
 										m_Device.GetAddressOf(),
 										&m_FeatureLevel,
 										m_DeviceContext.GetAddressOf() );
+	if (!CheckInitializationResult(hr, "D3D11CreateDeviceAndSwapChain"))
+	{
+		Uninit();
+		return false;
+	}
 
 
 
@@ -73,8 +95,18 @@ void Renderer::Init()
 
 	// レンダーターゲットビュー作成
 	ComPtr<ID3D11Texture2D> renderTarget{};
-	m_SwapChain->GetBuffer( 0, __uuidof( ID3D11Texture2D ), ( LPVOID* )renderTarget.GetAddressOf() );
-	m_Device->CreateRenderTargetView( renderTarget.Get(), NULL, m_RenderTargetView.GetAddressOf() );
+	hr = m_SwapChain->GetBuffer(0, IID_PPV_ARGS(renderTarget.ReleaseAndGetAddressOf()));
+	if (!CheckInitializationResult(hr, "IDXGISwapChain::GetBuffer"))
+	{
+		Uninit();
+		return false;
+	}
+	hr = m_Device->CreateRenderTargetView(renderTarget.Get(), nullptr, m_RenderTargetView.ReleaseAndGetAddressOf());
+	if (!CheckInitializationResult(hr, "ID3D11Device::CreateRenderTargetView"))
+	{
+		Uninit();
+		return false;
+	}
 
 
 	// デプスステンシルバッファ作成
@@ -90,14 +122,24 @@ void Renderer::Init()
 	textureDesc.BindFlags = D3D11_BIND_DEPTH_STENCIL;
 	textureDesc.CPUAccessFlags = 0;
 	textureDesc.MiscFlags = 0;
-	m_Device->CreateTexture2D(&textureDesc, NULL, depthStencile.GetAddressOf());
+	hr = m_Device->CreateTexture2D(&textureDesc, nullptr, depthStencile.ReleaseAndGetAddressOf());
+	if (!CheckInitializationResult(hr, "ID3D11Device::CreateTexture2D(depth)"))
+	{
+		Uninit();
+		return false;
+	}
 
 	// デプスステンシルビュー作成
 	D3D11_DEPTH_STENCIL_VIEW_DESC depthStencilViewDesc{};
 	depthStencilViewDesc.Format = textureDesc.Format;
 	depthStencilViewDesc.ViewDimension = D3D11_DSV_DIMENSION_TEXTURE2D;
 	depthStencilViewDesc.Flags = 0;
-	m_Device->CreateDepthStencilView(depthStencile.Get(), &depthStencilViewDesc, m_DepthStencilView.GetAddressOf());
+	hr = m_Device->CreateDepthStencilView(depthStencile.Get(), &depthStencilViewDesc, m_DepthStencilView.ReleaseAndGetAddressOf());
+	if (!CheckInitializationResult(hr, "ID3D11Device::CreateDepthStencilView"))
+	{
+		Uninit();
+		return false;
+	}
 
 
 	ID3D11RenderTargetView* renderTargetView = m_RenderTargetView.Get();
@@ -127,7 +169,12 @@ void Renderer::Init()
 	rasterizerDesc.MultisampleEnable = FALSE; 
 
 	ComPtr<ID3D11RasterizerState> rs;
-	m_Device->CreateRasterizerState( &rasterizerDesc, rs.GetAddressOf() );
+	hr = m_Device->CreateRasterizerState(&rasterizerDesc, rs.ReleaseAndGetAddressOf());
+	if (!CheckInitializationResult(hr, "ID3D11Device::CreateRasterizerState"))
+	{
+		Uninit();
+		return false;
+	}
 
 	m_DeviceContext->RSSetState( rs.Get() );
 
@@ -147,14 +194,29 @@ void Renderer::Init()
 	blendDesc.RenderTarget[0].BlendOpAlpha = D3D11_BLEND_OP_ADD;
 	blendDesc.RenderTarget[0].RenderTargetWriteMask = D3D11_COLOR_WRITE_ENABLE_ALL;
 
-	m_Device->CreateBlendState( &blendDesc, m_BlendState.GetAddressOf() );
+	hr = m_Device->CreateBlendState(&blendDesc, m_BlendState.ReleaseAndGetAddressOf());
+	if (!CheckInitializationResult(hr, "ID3D11Device::CreateBlendState(alpha)"))
+	{
+		Uninit();
+		return false;
+	}
 
 	blendDesc.RenderTarget[0].DestBlend = D3D11_BLEND_ONE;
-	m_Device->CreateBlendState(&blendDesc, m_BlendStateAdd.GetAddressOf());
+	hr = m_Device->CreateBlendState(&blendDesc, m_BlendStateAdd.ReleaseAndGetAddressOf());
+	if (!CheckInitializationResult(hr, "ID3D11Device::CreateBlendState(additive)"))
+	{
+		Uninit();
+		return false;
+	}
 
 	blendDesc.RenderTarget[0].DestBlend = D3D11_BLEND_INV_SRC_ALPHA;
 	blendDesc.AlphaToCoverageEnable = TRUE;
-	m_Device->CreateBlendState( &blendDesc, m_BlendStateATC.GetAddressOf() );
+	hr = m_Device->CreateBlendState(&blendDesc, m_BlendStateATC.ReleaseAndGetAddressOf());
+	if (!CheckInitializationResult(hr, "ID3D11Device::CreateBlendState(alpha-to-coverage)"))
+	{
+		Uninit();
+		return false;
+	}
 
 	float blendFactor[4] = {0.0f, 0.0f, 0.0f, 0.0f};
 	m_DeviceContext->OMSetBlendState(m_BlendState.Get(), blendFactor, 0xffffffff );
@@ -170,11 +232,21 @@ void Renderer::Init()
 	depthStencilDesc.DepthFunc = D3D11_COMPARISON_LESS_EQUAL;
 	depthStencilDesc.StencilEnable = FALSE;
 
-	m_Device->CreateDepthStencilState( &depthStencilDesc, m_DepthStateEnable.GetAddressOf() );//深度有効ステート
+	hr = m_Device->CreateDepthStencilState(&depthStencilDesc, m_DepthStateEnable.ReleaseAndGetAddressOf());
+	if (!CheckInitializationResult(hr, "ID3D11Device::CreateDepthStencilState(enable)"))
+	{
+		Uninit();
+		return false;
+	}
 
-	//depthStencilDesc.DepthEnable = FALSE;
+	depthStencilDesc.DepthEnable = FALSE;
 	depthStencilDesc.DepthWriteMask	= D3D11_DEPTH_WRITE_MASK_ZERO;
-	m_Device->CreateDepthStencilState( &depthStencilDesc, m_DepthStateDisable.GetAddressOf() );//深度無効ステート
+	hr = m_Device->CreateDepthStencilState(&depthStencilDesc, m_DepthStateDisable.ReleaseAndGetAddressOf());
+	if (!CheckInitializationResult(hr, "ID3D11Device::CreateDepthStencilState(disable)"))
+	{
+		Uninit();
+		return false;
+	}
 
 	m_DeviceContext->OMSetDepthStencilState( m_DepthStateEnable.Get(), NULL );
 
@@ -191,7 +263,12 @@ void Renderer::Init()
 	samplerDesc.MaxLOD = D3D11_FLOAT32_MAX;
 
 	ComPtr<ID3D11SamplerState> samplerState{};
-	m_Device->CreateSamplerState( &samplerDesc, samplerState.GetAddressOf() );
+	hr = m_Device->CreateSamplerState(&samplerDesc, samplerState.ReleaseAndGetAddressOf());
+	if (!CheckInitializationResult(hr, "ID3D11Device::CreateSamplerState"))
+	{
+		Uninit();
+		return false;
+	}
 
 	ID3D11SamplerState* sampler = samplerState.Get();
 	m_DeviceContext->PSSetSamplers( 0, 1, &sampler );
@@ -207,22 +284,42 @@ void Renderer::Init()
 	bufferDesc.MiscFlags = 0;
 	bufferDesc.StructureByteStride = sizeof(float);
 
-	m_Device->CreateBuffer( &bufferDesc, NULL, m_WorldBuffer.GetAddressOf() );
+	hr = m_Device->CreateBuffer(&bufferDesc, nullptr, m_WorldBuffer.ReleaseAndGetAddressOf());
+	if (!CheckInitializationResult(hr, "ID3D11Device::CreateBuffer(world)"))
+	{
+		Uninit();
+		return false;
+	}
 	ID3D11Buffer* worldBuffer = m_WorldBuffer.Get();
 	m_DeviceContext->VSSetConstantBuffers( 0, 1, &worldBuffer);
 
-	m_Device->CreateBuffer( &bufferDesc, NULL, m_ViewBuffer.GetAddressOf() );
+	hr = m_Device->CreateBuffer(&bufferDesc, nullptr, m_ViewBuffer.ReleaseAndGetAddressOf());
+	if (!CheckInitializationResult(hr, "ID3D11Device::CreateBuffer(view)"))
+	{
+		Uninit();
+		return false;
+	}
 	ID3D11Buffer* viewBuffer = m_ViewBuffer.Get();
 	m_DeviceContext->VSSetConstantBuffers( 1, 1, &viewBuffer );
 
-	m_Device->CreateBuffer( &bufferDesc, NULL, m_ProjectionBuffer.GetAddressOf() );
+	hr = m_Device->CreateBuffer(&bufferDesc, nullptr, m_ProjectionBuffer.ReleaseAndGetAddressOf());
+	if (!CheckInitializationResult(hr, "ID3D11Device::CreateBuffer(projection)"))
+	{
+		Uninit();
+		return false;
+	}
 	ID3D11Buffer* projectionBuffer = m_ProjectionBuffer.Get();
 	m_DeviceContext->VSSetConstantBuffers( 2, 1, &projectionBuffer );
 
 
 	bufferDesc.ByteWidth = sizeof(MATERIAL);
 
-	m_Device->CreateBuffer( &bufferDesc, NULL, m_MaterialBuffer.GetAddressOf() );
+	hr = m_Device->CreateBuffer(&bufferDesc, nullptr, m_MaterialBuffer.ReleaseAndGetAddressOf());
+	if (!CheckInitializationResult(hr, "ID3D11Device::CreateBuffer(material)"))
+	{
+		Uninit();
+		return false;
+	}
 	ID3D11Buffer* materialBuffer = m_MaterialBuffer.Get();
 	m_DeviceContext->VSSetConstantBuffers( 3, 1, &materialBuffer );
 	m_DeviceContext->PSSetConstantBuffers( 3, 1, &materialBuffer );
@@ -230,7 +327,12 @@ void Renderer::Init()
 
 	bufferDesc.ByteWidth = sizeof(LIGHT);
 
-	m_Device->CreateBuffer( &bufferDesc, NULL, m_LightBuffer.GetAddressOf() );
+	hr = m_Device->CreateBuffer(&bufferDesc, nullptr, m_LightBuffer.ReleaseAndGetAddressOf());
+	if (!CheckInitializationResult(hr, "ID3D11Device::CreateBuffer(light)"))
+	{
+		Uninit();
+		return false;
+	}
 	ID3D11Buffer* lightBuffer = m_LightBuffer.Get();
 	m_DeviceContext->VSSetConstantBuffers( 4, 1, &lightBuffer );
 	m_DeviceContext->PSSetConstantBuffers( 4, 1, &lightBuffer );
@@ -255,9 +357,7 @@ void Renderer::Init()
 	material.Ambient = XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f);
 	SetMaterial(material);
 
-
-
-
+	return true;
 }
 
 
@@ -395,16 +495,142 @@ void Renderer::SetBlendMode(RenderBlendMode mode)
 	}
 }
 
+struct RendererStateScope::Snapshot
+{
+	static constexpr UINT ConstantBufferCount = 5;
+
+	ComPtr<ID3D11InputLayout> InputLayout;
+	D3D11_PRIMITIVE_TOPOLOGY Topology = D3D11_PRIMITIVE_TOPOLOGY_UNDEFINED;
+	ComPtr<ID3D11Buffer> VertexBuffer;
+	UINT VertexStride = 0;
+	UINT VertexOffset = 0;
+	ComPtr<ID3D11Buffer> IndexBuffer;
+	DXGI_FORMAT IndexFormat = DXGI_FORMAT_UNKNOWN;
+	UINT IndexOffset = 0;
+	ComPtr<ID3D11VertexShader> VertexShader;
+	ComPtr<ID3D11PixelShader> PixelShader;
+	std::array<ComPtr<ID3D11Buffer>, ConstantBufferCount> VSConstantBuffers;
+	std::array<ComPtr<ID3D11Buffer>, ConstantBufferCount> PSConstantBuffers;
+	ComPtr<ID3D11RasterizerState> RasterizerState;
+	std::array<D3D11_VIEWPORT, D3D11_VIEWPORT_AND_SCISSORRECT_OBJECT_COUNT_PER_PIPELINE> Viewports{};
+	UINT ViewportCount = static_cast<UINT>(Viewports.size());
+	std::array<D3D11_RECT, D3D11_VIEWPORT_AND_SCISSORRECT_OBJECT_COUNT_PER_PIPELINE> ScissorRects{};
+	UINT ScissorRectCount = static_cast<UINT>(ScissorRects.size());
+	ComPtr<ID3D11DepthStencilState> DepthStencilState;
+	UINT StencilReference = 0;
+	ComPtr<ID3D11BlendState> BlendState;
+	std::array<float, 4> BlendFactor{};
+	UINT SampleMask = 0xffffffff;
+	ComPtr<ID3D11RenderTargetView> RenderTarget;
+	ComPtr<ID3D11DepthStencilView> DepthStencilView;
+	ComPtr<ID3D11SamplerState> PixelSampler;
+	ComPtr<ID3D11ShaderResourceView> PixelResource;
+};
+
 RendererStateScope::RendererStateScope()
-	: m_DepthEnabled(Renderer::GetDepthEnabled()),
+	: m_Snapshot(std::make_unique<Snapshot>()),
+	m_DepthEnabled(Renderer::GetDepthEnabled()),
 	m_BlendMode(Renderer::GetBlendMode())
 {
+	ID3D11DeviceContext* context = Renderer::GetDeviceContext();
+	if (context == nullptr)
+	{
+		m_Snapshot.reset();
+		return;
+	}
+
+	ID3D11InputLayout* inputLayout = nullptr;
+	context->IAGetInputLayout(&inputLayout);
+	m_Snapshot->InputLayout.Attach(inputLayout);
+	context->IAGetPrimitiveTopology(&m_Snapshot->Topology);
+	ID3D11Buffer* vertexBuffer = nullptr;
+	context->IAGetVertexBuffers(0, 1, &vertexBuffer, &m_Snapshot->VertexStride, &m_Snapshot->VertexOffset);
+	m_Snapshot->VertexBuffer.Attach(vertexBuffer);
+	ID3D11Buffer* indexBuffer = nullptr;
+	context->IAGetIndexBuffer(&indexBuffer, &m_Snapshot->IndexFormat, &m_Snapshot->IndexOffset);
+	m_Snapshot->IndexBuffer.Attach(indexBuffer);
+
+	ID3D11VertexShader* vertexShader = nullptr;
+	context->VSGetShader(&vertexShader, nullptr, nullptr);
+	m_Snapshot->VertexShader.Attach(vertexShader);
+	ID3D11PixelShader* pixelShader = nullptr;
+	context->PSGetShader(&pixelShader, nullptr, nullptr);
+	m_Snapshot->PixelShader.Attach(pixelShader);
+
+	std::array<ID3D11Buffer*, Snapshot::ConstantBufferCount> vsBuffers{};
+	std::array<ID3D11Buffer*, Snapshot::ConstantBufferCount> psBuffers{};
+	context->VSGetConstantBuffers(0, Snapshot::ConstantBufferCount, vsBuffers.data());
+	context->PSGetConstantBuffers(0, Snapshot::ConstantBufferCount, psBuffers.data());
+	for (UINT index = 0; index < Snapshot::ConstantBufferCount; ++index)
+	{
+		m_Snapshot->VSConstantBuffers[index].Attach(vsBuffers[index]);
+		m_Snapshot->PSConstantBuffers[index].Attach(psBuffers[index]);
+	}
+
+	ID3D11RasterizerState* rasterizerState = nullptr;
+	context->RSGetState(&rasterizerState);
+	m_Snapshot->RasterizerState.Attach(rasterizerState);
+	context->RSGetViewports(&m_Snapshot->ViewportCount, m_Snapshot->Viewports.data());
+	context->RSGetScissorRects(&m_Snapshot->ScissorRectCount, m_Snapshot->ScissorRects.data());
+
+	ID3D11DepthStencilState* depthStencilState = nullptr;
+	context->OMGetDepthStencilState(&depthStencilState, &m_Snapshot->StencilReference);
+	m_Snapshot->DepthStencilState.Attach(depthStencilState);
+	ID3D11BlendState* blendState = nullptr;
+	context->OMGetBlendState(&blendState, m_Snapshot->BlendFactor.data(), &m_Snapshot->SampleMask);
+	m_Snapshot->BlendState.Attach(blendState);
+	ID3D11RenderTargetView* renderTarget = nullptr;
+	ID3D11DepthStencilView* depthStencilView = nullptr;
+	context->OMGetRenderTargets(1, &renderTarget, &depthStencilView);
+	m_Snapshot->RenderTarget.Attach(renderTarget);
+	m_Snapshot->DepthStencilView.Attach(depthStencilView);
+
+	ID3D11SamplerState* pixelSampler = nullptr;
+	context->PSGetSamplers(0, 1, &pixelSampler);
+	m_Snapshot->PixelSampler.Attach(pixelSampler);
+	ID3D11ShaderResourceView* pixelResource = nullptr;
+	context->PSGetShaderResources(0, 1, &pixelResource);
+	m_Snapshot->PixelResource.Attach(pixelResource);
 }
 
 RendererStateScope::~RendererStateScope()
 {
+	ID3D11DeviceContext* context = Renderer::GetDeviceContext();
+	if (context == nullptr || m_Snapshot == nullptr)
+	{
+		return;
+	}
+
 	Renderer::SetDepthEnable(m_DepthEnabled);
 	Renderer::SetBlendMode(m_BlendMode);
+	context->IASetInputLayout(m_Snapshot->InputLayout.Get());
+	context->IASetPrimitiveTopology(m_Snapshot->Topology);
+	ID3D11Buffer* vertexBuffer = m_Snapshot->VertexBuffer.Get();
+	context->IASetVertexBuffers(0, 1, &vertexBuffer, &m_Snapshot->VertexStride, &m_Snapshot->VertexOffset);
+	context->IASetIndexBuffer(m_Snapshot->IndexBuffer.Get(), m_Snapshot->IndexFormat, m_Snapshot->IndexOffset);
+	context->VSSetShader(m_Snapshot->VertexShader.Get(), nullptr, 0);
+	context->PSSetShader(m_Snapshot->PixelShader.Get(), nullptr, 0);
+
+	std::array<ID3D11Buffer*, Snapshot::ConstantBufferCount> vsBuffers{};
+	std::array<ID3D11Buffer*, Snapshot::ConstantBufferCount> psBuffers{};
+	for (UINT index = 0; index < Snapshot::ConstantBufferCount; ++index)
+	{
+		vsBuffers[index] = m_Snapshot->VSConstantBuffers[index].Get();
+		psBuffers[index] = m_Snapshot->PSConstantBuffers[index].Get();
+	}
+	context->VSSetConstantBuffers(0, Snapshot::ConstantBufferCount, vsBuffers.data());
+	context->PSSetConstantBuffers(0, Snapshot::ConstantBufferCount, psBuffers.data());
+	context->RSSetState(m_Snapshot->RasterizerState.Get());
+	context->RSSetViewports(m_Snapshot->ViewportCount, m_Snapshot->Viewports.data());
+	context->RSSetScissorRects(m_Snapshot->ScissorRectCount, m_Snapshot->ScissorRects.data());
+	context->OMSetDepthStencilState(m_Snapshot->DepthStencilState.Get(), m_Snapshot->StencilReference);
+	context->OMSetBlendState(m_Snapshot->BlendState.Get(), m_Snapshot->BlendFactor.data(), m_Snapshot->SampleMask);
+	ID3D11RenderTargetView* renderTarget = m_Snapshot->RenderTarget.Get();
+	context->OMSetRenderTargets(1, &renderTarget, m_Snapshot->DepthStencilView.Get());
+	ID3D11SamplerState* pixelSampler = m_Snapshot->PixelSampler.Get();
+	context->PSSetSamplers(0, 1, &pixelSampler);
+	ID3D11ShaderResourceView* pixelResource = m_Snapshot->PixelResource.Get();
+	context->PSSetShaderResources(0, 1, &pixelResource);
 }
 
 

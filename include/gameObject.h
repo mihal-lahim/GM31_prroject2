@@ -1,5 +1,5 @@
 #pragma once
-#include "main.h"
+#include "engineCommon.h"
 
 #include "component.h"
 #include <type_traits>
@@ -66,8 +66,15 @@ protected:
 		}
 		m_Components.clear();
 	}
+	void NotifyTransformChanged()
+	{
+		for (auto& component : m_Components)
+		{
+			component->OnOwnerTransformChanged();
+		}
+	}
 public:
-	virtual ~GameObject() { GameObject::Uninit(); }
+	virtual ~GameObject() { Shutdown(); }
 
 	Layer GetLayer() const { return m_Layer; }
 	void SetRenderCategory(RenderCategory category) { m_RenderCategory = category; }
@@ -105,9 +112,9 @@ public:
 		m_CameraZ = Vector3::dot(direction, CameraForward);
 	}
 
-	void SetPosition(const Vector3& Position) { m_Position = Position; }
-	void SetRotation(const Vector3& Rotation) { m_Rotation = Rotation; }
-	void SetScale(const Vector3& Scale) { m_Scale = Scale; }
+	void SetPosition(const Vector3& Position) { m_Position = Position; NotifyTransformChanged(); }
+	void SetRotation(const Vector3& Rotation) { m_Rotation = Rotation; NotifyTransformChanged(); }
+	void SetScale(const Vector3& Scale) { m_Scale = Scale; NotifyTransformChanged(); }
 
 	Vector3 GetPosition() const { return m_Position; }
 	Vector3 GetRotation() const { return m_Rotation; }
@@ -119,39 +126,62 @@ public:
 		return m_Destroy;
 	}
 
-	virtual void Init() {}
-	virtual void Uninit() {
+	// These non-virtual entry points guarantee component lifecycle execution.
+	// Derived lifecycle functions remain virtual for source compatibility, but
+	// must only contain object-specific behavior.
+	void Initialize()
+	{
+		m_Uninitialized = false;
+		Init();
+	}
+	void Shutdown()
+	{
 		if (!BeginUninit())
 		{
 			return;
 		}
-
+		Uninit();
 		UninitComponents();
 	}
-	virtual void PreUpdate() {
+	void RunPreUpdate()
+	{
+		PreUpdate();
 		for (auto& component : m_Components)
 		{
 			component->PreUpdate();
 		}
 	}
-	virtual void Update() {
+	void RunUpdate()
+	{
+		Update();
 		for (auto& component : m_Components)
 		{
 			component->Update();
 		}
 	}
-	virtual void LateUpdate() {
+	void RunLateUpdate()
+	{
+		LateUpdate();
 		for (auto& component : m_Components)
 		{
 			component->LateUpdate();
 		}
 	}
-	virtual void Draw() {
+	void RunDraw()
+	{
+		Draw();
 		for (auto& component : m_Components)
 		{
 			component->Draw();
 		}
 	}
+
+	virtual void Init() {}
+	virtual void Uninit() {}
+	virtual void PreUpdate() {}
+	virtual void Update() {}
+	virtual void LateUpdate() {}
+	virtual void Draw() {}
 
 	template<typename T, typename... Args>
 	T* AddComponent(Args&&... args)

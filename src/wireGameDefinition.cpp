@@ -15,6 +15,7 @@ const GameDefinition& GetGameDefinition()
 	static const GameDefinition definition =
 	{
 		"Wire Action TPS",
+		"assets/config/wire.cfg",
 		CreateInitialScene
 	};
 

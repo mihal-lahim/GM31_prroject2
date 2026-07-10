@@ -1,6 +1,7 @@
 #include "resourceManager.h"
 
 #include "renderer.h"
+#include "DirectXTex.h"
 
 #include <algorithm>
 #include <cctype>

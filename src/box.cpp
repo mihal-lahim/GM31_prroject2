@@ -4,6 +4,7 @@
 #include"modelRenderer.h"
 #include "player.h"
 #include "collider.h"
+#include "battingCollisionLayers.h"
 
 
 
@@ -14,7 +15,7 @@ void Box::Init()
 	AddComponent<ModelRenderer>()->Load("assets\\model\\box.obj");
 	AddComponent<Collider>()
 		->SetAABB({ 1.0f, 1.0f, 1.0f })
-		->SetTag(Collider::Tag::Box)
+		->SetCollisionLayer(BattingCollisionLayers::Box)
 		->SetDebugColor(XMFLOAT4(1.0f, 0.55f, 0.0f, 1.0f));
 
 }

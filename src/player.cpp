@@ -7,6 +7,7 @@
 #include "audio.h"
 #include "playerMoveParticle.h"
 #include "collider.h"
+#include "battingCollisionLayers.h"
 
 
 void Player::Init()
@@ -23,7 +24,7 @@ void Player::Init()
 	AddComponent<Collider>()
 		->SetCapsule(0.45f, 1.8f)
 		->SetOffset({ 0.0f, 0.9f, 0.0f })
-		->SetTag(Collider::Tag::Player)
+		->SetCollisionLayer(BattingCollisionLayers::Player)
 		->SetDebugColor(XMFLOAT4(0.2f, 0.8f, 1.0f, 1.0f));
 }
 

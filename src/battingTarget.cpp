@@ -4,6 +4,7 @@
 #include "gameTime.h"
 #include "collider.h"
 #include "battingTarget.h"
+#include "battingCollisionLayers.h"
 
 void BattingTarget::Init()
 {
@@ -13,7 +14,8 @@ void BattingTarget::Init()
 
 	AddComponent<Collider>()
 		->SetAABB({ 1.0f, 1.0f, 0.35f })
-		->SetTag(Collider::Tag::Target)
+		->SetCollisionLayer(BattingCollisionLayers::Target)
+		->SetStatic()
 		->SetDebugColor(XMFLOAT4(1.0f, 0.95f, 0.10f, 1.0f));
 }
 

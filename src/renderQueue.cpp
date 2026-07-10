@@ -71,6 +71,6 @@ void RenderQueue::Execute()
 			continue;
 		}
 		RendererStateScope stateScope;
-		item.Object->Draw();
+		item.Object->RunDraw();
 	}
 }

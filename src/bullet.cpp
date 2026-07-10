@@ -10,6 +10,7 @@
 #include "explosion.h"
 #include "score.h"
 #include "collider.h"
+#include "battingCollisionLayers.h"
 
 
 void Bullet::Init()
@@ -19,7 +20,7 @@ void Bullet::Init()
 
 	m_Collider = AddComponent<Collider>();
 	m_Collider->SetSphere(0.35f)
-		->SetTag(Collider::Tag::Bullet)
+		->SetCollisionLayer(BattingCollisionLayers::Bullet)
 		->SetDebugColor(XMFLOAT4(1.0f, 1.0f, 0.0f, 1.0f));
 
 }
@@ -39,7 +40,7 @@ void Bullet::Update()
 	m_Position += m_Velocity;
 
 	// 敵との衝突判定。
-	auto hitColliders = Collider::GetOverlaps(*m_Collider, Collider::Tag::Enemy);
+	auto hitColliders = m_Collider->GetOverlaps(BattingCollisionLayers::Enemy);
 	for (Collider* collider : hitColliders)
 	{
 		Enemy* enemy = dynamic_cast<Enemy*>(collider->GetOwner());

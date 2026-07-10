@@ -17,7 +17,7 @@ private:
 	static void ChangeScene(std::unique_ptr<Scene> nextScene);
 
 public:
-	static void Init(const GameDefinition& gameDefinition);
+	static bool Init(const GameDefinition& gameDefinition);
 	static void Uninit();
 	static void Update(float fixedDeltaTime);
 	static void Draw();

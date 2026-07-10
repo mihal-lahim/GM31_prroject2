@@ -29,18 +29,22 @@
   <ItemGroup>
     <ClInclude Include="include\audio.h" />
     <ClInclude Include="include\cameraView.h" />
+	<ClInclude Include="include\collisionWorld.h" />
     <ClInclude Include="include\collider.h" />
     <ClInclude Include="include\component.h" />
     <ClInclude Include="include\DirectXTex.h" />
     <ClInclude Include="include\DirectXTex.inl" />
-    <ClInclude Include="include\engineSelfTests.h" />
+	<ClInclude Include="include\engineSelfTests.h" />
+	<ClInclude Include="include\engineCommon.h" />
     <ClInclude Include="include\gameDefinition.h" />
     <ClInclude Include="include\gameObject.h" />
     <ClInclude Include="include\gameSettings.h" />
     <ClInclude Include="include\gameTime.h" />
     <ClInclude Include="include\keyboard_utf8.h" />
     <ClInclude Include="include\main.h" />
-    <ClInclude Include="include\manager.h" />
+	<ClInclude Include="include\manager.h" />
+	<ClInclude Include="include\mouseInput.h" />
+	<ClInclude Include="include\objModelLoader.h" />
     <ClInclude Include="include\modelRenderer.h" />
     <ClInclude Include="include\particle.h" />
     <ClInclude Include="include\particleSystem.h" />
@@ -55,6 +59,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\audio.cpp" />
+	<ClCompile Include="src\collisionWorld.cpp" />
     <ClCompile Include="src\collider.cpp" />
     <ClCompile Include="src\colliderDebugDraw.cpp" />
     <ClCompile Include="src\colliderMath.cpp" />
@@ -62,7 +67,9 @@
     <ClCompile Include="src\gameSettings.cpp" />
     <ClCompile Include="src\gameTime.cpp" />
     <ClCompile Include="src\keyboard_utf8.cpp" />
-    <ClCompile Include="src\manager.cpp" />
+	<ClCompile Include="src\manager.cpp" />
+	<ClCompile Include="src\mouseInput.cpp" />
+	<ClCompile Include="src\objModelLoader.cpp" />
     <ClCompile Include="src\modelRenderer.cpp" />
     <ClCompile Include="src\particle.cpp" />
     <ClCompile Include="src\particleSystem.cpp" />

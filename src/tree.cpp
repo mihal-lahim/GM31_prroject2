@@ -6,6 +6,7 @@
 #include "cameraView.h"
 #include "collider.h"
 #include "world.h"
+#include "battingCollisionLayers.h"
 
 void Tree::Init()
 {
@@ -56,7 +57,8 @@ void Tree::Init()
 	AddComponent<Collider>()
 		->SetSphere(1.5f)
 		->SetOffset({ 0.0f, 0.75f, 0.0f })
-		->SetTag(Collider::Tag::Tree)
+		->SetCollisionLayer(BattingCollisionLayers::Tree)
+		->SetStatic()
 		->SetDebugColor(XMFLOAT4(0.2f, 1.0f, 0.25f, 1.0f));
 
 }

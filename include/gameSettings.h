@@ -1,5 +1,7 @@
 #pragma once
 
+#include <filesystem>
+
 class GameSettings
 {
 private:
@@ -7,6 +9,7 @@ private:
 	static float s_MouseSensitivity;
 
 public:
+	static bool Load(const std::filesystem::path& path);
 	static void SetMasterVolume(float volume);
 	static float GetMasterVolume() { return s_MasterVolume; }
 

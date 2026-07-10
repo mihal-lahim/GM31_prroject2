@@ -13,11 +13,11 @@ ComPtr<IXAudio2> Audio::m_Xaudio = nullptr;
 std::unique_ptr<IXAudio2MasteringVoice, XAudioVoiceDeleter> Audio::m_MasteringVoice = nullptr;
 float Audio::m_MasterVolume = 0.8f;
 
-void Audio::InitMaster()
+bool Audio::InitMaster()
 {
 	if (m_Xaudio != nullptr)
 	{
-		return;
+		return m_MasteringVoice != nullptr;
 	}
 
 	// COM初期化はアプリ全体の責務としてmain.cppで行う。
@@ -26,7 +26,7 @@ void Audio::InitMaster()
 	{
 		DebugLog("Audio::InitMaster: XAudio2Create failed.\n");
 		m_Xaudio.Reset();
-		return;
+		return false;
 	}
 
 	IXAudio2MasteringVoice* masteringVoice = nullptr;
@@ -35,11 +35,12 @@ void Audio::InitMaster()
 	{
 		DebugLog("Audio::InitMaster: CreateMasteringVoice failed.\n");
 		m_Xaudio.Reset();
-		return;
+		return false;
 	}
 
 	m_MasteringVoice.reset(masteringVoice);
 	SetMasterVolume(m_MasterVolume);
+	return true;
 }
 
 void Audio::UninitMaster()

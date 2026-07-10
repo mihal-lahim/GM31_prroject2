@@ -185,7 +185,7 @@ void Collider::DrawWire(const std::vector<VERTEX_3D>& vertices)
 
 void Collider::Draw()
 {
-	if (!s_DebugDrawEnabled || !m_DebugDraw)
+	if (!s_DebugDrawEnabled || !m_DebugDraw || !EnsureDebugResources())
 	{
 		return;
 	}

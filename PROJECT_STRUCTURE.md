@@ -11,7 +11,7 @@ concepts and the DirectX 11 backend used by both applications:
 
 - `World`, `Manager`, `Scene`, `GameObject`, and `Component`
 - rendering, model loading, numeric UI, audio, input, and time
-- collision queries and shared particle systems
+- per-World collision queries, spatial indexing, and shared particle systems
 - the `ICameraView` contract used by rendering and shared effects
 - typed texture, WAV, shader, and model handles managed by `ResourceManager`
 
@@ -20,6 +20,10 @@ Every `Scene` owns an independently constructible `World`. `World::Spawn`
 injects that world into each `GameObject`, so gameplay code performs local
 spawn/query operations without using the global `Manager`. `Manager` is now
 limited to application lifecycle, scene transitions, and frame orchestration.
+`CollisionWorld` follows the same ownership boundary. There is no process-wide
+collider registry: collision layers belong to each game, collision masks avoid
+unrelated narrow-phase tests, and static colliders are indexed in spatial hash
+cells. Query results retain registration order for deterministic behavior.
 
 ### WireAction (`WireAction.vcxproj`)
 
@@ -57,10 +61,19 @@ Objects spawned during a simulation step are initialized immediately but are
 queued by `World`; they begin updating on the next step. Scene changes and
 destroy requests are applied at the frame boundary.
 
+`World` invokes non-virtual lifecycle entry points (`Initialize`, `RunUpdate`,
+`RunDraw`, and `Shutdown`). They invoke object-specific virtual behavior and
+then component behavior exactly once. A derived object can no longer break its
+components by forgetting a `GameObject::Update`, `Draw`, or `Uninit` call.
+World type queries are cached and invalidated at spawn/destroy boundaries;
+objects already marked for destruction are excluded immediately.
+
 Rendering is submitted through `RenderQueue`. Opaque world objects are sorted
 front-to-back, transparent effects back-to-front, and overlay UI retains
 submission order. Each object draw is wrapped in `RendererStateScope`, which
-restores depth and blend state even when a draw implementation returns early.
+restores input assembly, shaders, constant buffers, rasterizer/viewports,
+render targets, depth/blend state, sampler, and texture state even when a draw
+implementation returns early.
 
 The application loop uses a 60 Hz accumulator with capped catch-up work. This
 preserves fractional elapsed time without allowing an unbounded update spiral.
@@ -79,6 +92,9 @@ cache, so existing draw classes receive the same input-layout and shader COM
 objects. `ModelRenderer` stores a `ModelHandle` rather than a raw pointer; cache
 clears therefore cannot invalidate a model still referenced by a component.
 Failed model loads are not cached and may be retried after an asset is fixed.
+OBJ/MTL parsing lives in `objModelLoader.cpp`; `ModelRenderer` is limited to
+GPU resource creation, handle ownership, and drawing. Mouse device state is
+similarly isolated in `mouseInput.cpp` instead of the application entry point.
 
 The cache is cleared after all scene objects and model resources are released,
 and before XAudio and Direct3D are shut down. A handle may safely outlive a
@@ -86,10 +102,16 @@ cache clear; its resource remains alive until the last handle is released.
 
 ## Assets and output
 
-Both application projects compile their shaders and copy `assets/` into their
-own output directory using MSBuild's built-in `Copy` task. At startup the
-working directory is set to the executable directory, so runtime asset paths do
-not depend on how the executable was launched.
+Both application projects compile their shaders and copy only the files in
+their explicit `RuntimeAsset` manifest into their own output directory using
+MSBuild's built-in `Copy` task. At startup the working directory is set to the
+executable directory, so runtime asset paths do not depend on how the
+executable was launched. Shared volume and mouse defaults are read from the
+application's `assets/config/*.cfg` file and fall back to validated defaults.
+
+DirectXTex is shipped in `include/` and `lib/`; global vcpkg integration is
+disabled so builds do not depend on a developer-specific `C:\vcpkg` install.
+See `THIRD_PARTY.md` for provenance requirements on upgrades.
 
 Debug x64 outputs are:
 
@@ -107,15 +129,21 @@ bin\x64\Debug\WireAction\WireAction.exe --self-test
 bin\x64\Debug\BattingCenter\BattingCenter.exe --self-test
 ```
 
-The command creates no window and returns `0` when World deferred spawning,
-render ordering, GameTime behavior, and WAV/model cache reuse pass.
+The command creates no window and returns `0` when World/cache invalidation,
+guaranteed component teardown, collision isolation/layers/static reindexing,
+render ordering, GameTime behavior, and WAV/model cache reuse pass. GitHub
+Actions builds and runs both applications in Debug and Release.
+`scripts/validate-project-boundaries.ps1` also prevents Engine sources from
+including either game's headers, rejects wildcard asset packaging, and guards
+the exact three-project solution shape.
 
 ## Adding another game
 
 1. Add a new Application project to the solution.
 2. Reference `Engine.vcxproj`.
 3. Compile `src/main.cpp` in the application project.
-4. Provide one implementation of `GetGameDefinition()` for that application.
-5. Add only that game's sources and shaders to the application project.
-6. Reuse engine interfaces such as `ICameraView`; do not add game-specific
+4. Provide one implementation of `GetGameDefinition()` with a settings path.
+5. Add only that game's sources, shaders, and explicit `RuntimeAsset` entries.
+6. Define game-specific collision layer bits outside Engine.
+7. Reuse engine interfaces such as `ICameraView`; do not add game-specific
    types to Engine.

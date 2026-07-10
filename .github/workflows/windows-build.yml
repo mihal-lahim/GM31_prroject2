@@ -1,0 +1,34 @@
+name: Windows build
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  build-and-test:
+    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        configuration: [Debug, Release]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Add MSBuild to PATH
+        uses: microsoft/setup-msbuild@v2
+
+      - name: Validate project boundaries
+        shell: powershell
+        run: powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\validate-project-boundaries.ps1
+
+      - name: Build all three projects
+        run: msbuild GM31_prroject2.slnx /m /p:Configuration=${{ matrix.configuration }} /p:Platform=x64 /nologo /v:minimal
+
+      - name: Test Batting Center
+        working-directory: bin/x64/${{ matrix.configuration }}/BattingCenter
+        run: .\BattingCenter.exe --self-test
+
+      - name: Test Wire Action
+        working-directory: bin/x64/${{ matrix.configuration }}/WireAction
+        run: .\WireAction.exe --self-test
