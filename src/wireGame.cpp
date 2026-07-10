@@ -3,11 +3,14 @@
 #include "gameTime.h"
 #include "keyboard_utf8.h"
 #include "manager.h"
+#include "score.h"
 #include "wireAnchor.h"
+#include "wireEnemy.h"
 #include "wirePlatform.h"
 #include "wirePlayer.h"
 #include "wireReticle.h"
 #include "wireStage.h"
+#include "wireSword.h"
 #include "wireTpsCamera.h"
 
 namespace
@@ -25,6 +28,12 @@ namespace
 		platform->SetPosition(position);
 		platform->SetScale(scale);
 	}
+
+	void AddEnemy(const Vector3& position)
+	{
+		WireEnemy* enemy = Manager::AddGameObject<WireEnemy>();
+		enemy->SetPosition(position);
+	}
 }
 
 void WireGame::Init()
@@ -32,6 +41,7 @@ void WireGame::Init()
 	GameTime::SetPaused(false);
 
 	Manager::AddGameObject<WirePlayer>();
+	Manager::AddGameObject<WireSword>();
 	Manager::AddGameObject<WireTpsCamera>();
 	Manager::AddGameObject<WireStage>();
 
@@ -50,7 +60,14 @@ void WireGame::Init()
 	AddAnchor({ 27.0f, 21.0f, -8.0f }, { 1.45f, 1.45f, 1.45f });
 	AddAnchor({ 0.0f, 23.0f, -25.0f }, { 1.6f, 1.6f, 1.6f });
 
+	AddEnemy({ 4.0f, 0.0f, 2.0f });
+	AddEnemy({ 1.0f, 6.0f, 20.0f });
+	AddEnemy({ 0.0f, 18.0f, -25.0f });
+
 	Manager::AddGameObject<WireReticle>();
+	Score* score = Manager::AddGameObject<Score>();
+	score->SetDigitCount(6);
+	score->SetPosition({ 180.0f, 20.0f, 0.0f });
 }
 
 void WireGame::Uninit()

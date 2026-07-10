@@ -20,9 +20,13 @@ The current active game is registered through:
 
 - `gameDefinition.*`: game title and initial scene factory. It currently starts `WireGame`.
 - `wireGame.*`: scene composition for the wire-action TPS prototype.
-- `wirePlayer.*`: TPS movement, right-click aim, left-click wire launch, and wire pull movement.
+- `wirePlayer.*`: TPS movement, right-click aim, left-click wire launch, wire pull movement, and sword charge attacks when not aiming.
+- `wireSword.*`: visible energy-sword model that follows the player hand and reacts to sword charge/swing state.
 - `wireTpsCamera.*`: over-the-shoulder TPS camera used by the wire-action game.
+- `wireEnemy.*`: immortal sandbag enemies for testing sword damage and hit reaction.
 - `wireAnchor.*`, `wirePlatform.*`, `wireStage.*`, `wireReticle.*`: grapple targets, elevated platforms, floor, and aiming UI.
+- `score.*`: shared numeric UI reused by the wire-action game to show total dealt damage.
+- `assets/model/wire_saber.*`: original glowing energy-sword model used by `WireSword`.
 
 ## Previous batting center game
 
@@ -40,4 +44,4 @@ The batting center files are still kept in the project, but they are not the act
 4. Register new files in `GM31_prroject2.vcxproj`.
 5. Keep framework files free of game-specific includes.
 
-Visual Studio filters are grouped into `Framework` and `Game/BattingCenter` to make this boundary visible in the project tree.
+Visual Studio filters are grouped into `Framework`, `Game/Shared`, `Game/WireAction`, and `Game/BattingCenter` to make this boundary visible in the project tree.

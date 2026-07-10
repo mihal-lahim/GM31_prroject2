@@ -6,7 +6,9 @@
 #include "manager.h"
 #include "renderer.h"
 #include "modelRenderer.h"
+#include "score.h"
 #include "wireAnchor.h"
+#include "wireEnemy.h"
 #include "wirePlatform.h"
 #include "wireTpsCamera.h"
 
@@ -33,6 +35,15 @@ namespace
 	constexpr float kWireStopDistance = 1.6f;
 	constexpr float kWireMaxDistance = 42.0f;
 	constexpr float kWireAimConeDot = 0.93f;
+	constexpr float kSwordMaxChargeTime = 2.2f;
+	constexpr float kSwordBaseDamage = 20.0f;
+	constexpr float kSwordChargeDamage = 70.0f;
+	constexpr float kSwordHeightDamageScale = 2.4f;
+	constexpr float kSwordMaxHeightDamage = 90.0f;
+	constexpr float kSwordBaseRange = 2.4f;
+	constexpr float kSwordRangeBonus = 1.2f;
+	constexpr float kSwordHitRadius = 1.15f;
+	constexpr float kSwordSwingDuration = 0.18f;
 
 	float WrapAngle(float angle)
 	{
@@ -97,6 +108,11 @@ void WirePlayer::Init()
 	D3D11_SUBRESOURCE_DATA initData{};
 	initData.pSysMem = wireVertex;
 	Renderer::GetDevice()->CreateBuffer(&bufferDesc, &initData, m_WireVertexBuffer.GetAddressOf());
+
+	VERTEX_3D swordVertex[4]{};
+	bufferDesc.ByteWidth = sizeof(swordVertex);
+	initData.pSysMem = swordVertex;
+	Renderer::GetDevice()->CreateBuffer(&bufferDesc, &initData, m_SwordVertexBuffer.GetAddressOf());
 }
 
 void WirePlayer::Uninit()
@@ -139,6 +155,7 @@ void WirePlayer::Update()
 
 	UpdateMovement(dt, camera);
 	UpdateWire(dt, camera);
+	UpdateSword(dt, camera);
 
 	const Vector3 previousPosition = m_Position;
 	m_Position += m_Velocity * dt;
@@ -296,9 +313,70 @@ void WirePlayer::UpdateWire(float dt, const WireTpsCamera* camera)
 	}
 }
 
+void WirePlayer::UpdateSword(float dt, const WireTpsCamera* camera)
+{
+	if (m_SwordSwingTimer > 0.0f)
+	{
+		m_SwordSwingTimer = std::max(0.0f, m_SwordSwingTimer - dt);
+	}
+
+	const bool swordAvailable = !Mouse_IsRightButtonDown() && !m_Aiming && !m_WireActive;
+	if (!swordAvailable)
+	{
+		m_SwordCharging = false;
+		m_SwordChargeTime = 0.0f;
+		return;
+	}
+
+	if (!m_SwordCharging && Mouse_IsLeftButtonDownTrigger())
+	{
+		StartSwordCharge();
+	}
+
+	if (!m_SwordCharging)
+	{
+		return;
+	}
+
+	if (Mouse_IsLeftButtonDown())
+	{
+		m_SwordChargeTime = std::min(kSwordMaxChargeTime, m_SwordChargeTime + dt);
+		m_SwordChargePeakHeight = std::max(m_SwordChargePeakHeight, m_Position.y);
+
+		const Vector3 forward = GetSwordForward(camera);
+		if (forward.length() > 0.0001f)
+		{
+			m_Rotation.y = LerpAngle(m_Rotation.y, atan2f(forward.x, forward.z), 0.18f);
+		}
+
+		const float chargeRatio = std::clamp(m_SwordChargeTime / kSwordMaxChargeTime, 0.0f, 1.0f);
+		m_Scale.x += (0.9f - m_Scale.x) * 0.05f;
+		m_Scale.y += (1.0f + chargeRatio * 0.18f - m_Scale.y) * 0.05f;
+		m_Scale.z += (0.9f - m_Scale.z) * 0.05f;
+		return;
+	}
+
+	ReleaseSwordAttack(camera);
+}
+
 float WirePlayer::GetAimTimeRatio() const
 {
 	return std::clamp(m_AimTimeRemaining / kAimMaxTime, 0.0f, 1.0f);
+}
+
+float WirePlayer::GetSwordChargeRatio() const
+{
+	return std::clamp(m_SwordChargeTime / kSwordMaxChargeTime, 0.0f, 1.0f);
+}
+
+float WirePlayer::GetSwordSwingRatio() const
+{
+	if (m_SwordSwingTimer <= 0.0f)
+	{
+		return 0.0f;
+	}
+
+	return 1.0f - std::clamp(m_SwordSwingTimer / kSwordSwingDuration, 0.0f, 1.0f);
 }
 
 bool WirePlayer::FindWireAnchor(const WireTpsCamera* camera, Vector3& anchorPosition) const
@@ -399,10 +477,85 @@ void WirePlayer::ReleaseWire(bool addBoost)
 	m_WireActive = false;
 }
 
+Vector3 WirePlayer::GetSwordForward(const WireTpsCamera* camera) const
+{
+	if (camera != nullptr)
+	{
+		Vector3 forward = Flatten(camera->GetAimDirection());
+		if (forward.length() > 0.0001f)
+		{
+			return forward;
+		}
+	}
+
+	Vector3 forward{ sinf(m_Rotation.y), 0.0f, cosf(m_Rotation.y) };
+	forward.normalize();
+	return forward;
+}
+
+void WirePlayer::StartSwordCharge()
+{
+	m_SwordCharging = true;
+	m_SwordChargeTime = 0.0f;
+	m_SwordChargePeakHeight = m_Position.y;
+}
+
+void WirePlayer::ReleaseSwordAttack(const WireTpsCamera* camera)
+{
+	const Vector3 forward = GetSwordForward(camera);
+	const int damage = CalculateSwordDamage();
+	const float chargeRatio = std::clamp(m_SwordChargeTime / kSwordMaxChargeTime, 0.0f, 1.0f);
+	const float range = kSwordBaseRange + kSwordRangeBonus * chargeRatio;
+	const Vector3 attackOrigin = m_Position + Vector3(0.0f, 1.15f, 0.0f);
+
+	int totalDamage = 0;
+	for (WireEnemy* enemy : Manager::GetGameObjects<WireEnemy>())
+	{
+		const Vector3 enemyCenter = enemy->GetHitCenter();
+		const Vector3 toEnemy = enemyCenter - attackOrigin;
+		const float projected = std::clamp(Vector3::dot(toEnemy, forward), 0.0f, range);
+		const Vector3 nearest = attackOrigin + forward * projected;
+		const float distanceToSwing = (enemyCenter - nearest).length();
+
+		if (projected <= 0.05f || distanceToSwing > kSwordHitRadius + enemy->GetHitRadius())
+		{
+			continue;
+		}
+
+		enemy->OnSwordHit(damage, forward);
+		totalDamage += damage;
+	}
+
+	if (totalDamage > 0)
+	{
+		if (Score* score = Manager::GetGameObject<Score>())
+		{
+			score->Add(totalDamage);
+		}
+		m_Velocity += forward * (2.0f + chargeRatio * 3.5f);
+	}
+
+	m_SwordCharging = false;
+	m_SwordChargeTime = 0.0f;
+	m_SwordSwingChargeRatio = chargeRatio;
+	m_SwordSwingTimer = kSwordSwingDuration;
+	m_Rotation.y = LerpAngle(m_Rotation.y, atan2f(forward.x, forward.z), 0.8f);
+	m_Scale = { 1.22f, 0.88f, 1.22f };
+}
+
+int WirePlayer::CalculateSwordDamage() const
+{
+	const float chargeRatio = std::clamp(m_SwordChargeTime / kSwordMaxChargeTime, 0.0f, 1.0f);
+	const float heightDamage = std::min(kSwordMaxHeightDamage, std::max(0.0f, m_SwordChargePeakHeight) * kSwordHeightDamageScale);
+	const float damage = kSwordBaseDamage + kSwordChargeDamage * chargeRatio + heightDamage;
+	return static_cast<int>(damage + 0.5f);
+}
+
 void WirePlayer::Draw()
 {
 	GameObject::Draw();
 	DrawWire();
+	DrawSword();
 }
 
 void WirePlayer::DrawWire()
@@ -440,4 +593,74 @@ void WirePlayer::DrawWire()
 	Renderer::GetDeviceContext()->IASetVertexBuffers(0, 1, m_WireVertexBuffer.GetAddressOf(), &stride, &offset);
 	Renderer::GetDeviceContext()->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_LINELIST);
 	Renderer::GetDeviceContext()->Draw(2, 0);
+}
+
+void WirePlayer::DrawSword()
+{
+	if (m_SwordVertexBuffer == nullptr || (!m_SwordCharging && m_SwordSwingTimer <= 0.0f))
+	{
+		return;
+	}
+
+	const float chargeRatio = m_SwordCharging
+		? std::clamp(m_SwordChargeTime / kSwordMaxChargeTime, 0.0f, 1.0f)
+		: m_SwordSwingChargeRatio;
+	const float swingRatio = m_SwordSwingTimer > 0.0f
+		? 1.0f - std::clamp(m_SwordSwingTimer / kSwordSwingDuration, 0.0f, 1.0f)
+		: 0.0f;
+
+	Vector3 forward{ sinf(m_Rotation.y), 0.0f, cosf(m_Rotation.y) };
+	forward.normalize();
+	Vector3 right{ cosf(m_Rotation.y), 0.0f, -sinf(m_Rotation.y) };
+	right.normalize();
+
+	const Vector3 hand = m_Position + Vector3(0.0f, 1.15f, 0.0f) + right * 0.42f;
+	const float bladeLength = 1.7f + chargeRatio * 0.85f;
+	const float swingSide = m_SwordSwingTimer > 0.0f ? (0.85f - swingRatio * 1.7f) : -0.28f;
+	const Vector3 tip = hand + forward * bladeLength + right * swingSide + Vector3(0.0f, 0.45f + chargeRatio * 0.22f, 0.0f);
+	const Vector3 trail = tip - right * (0.55f + chargeRatio * 0.35f) - forward * 0.25f;
+
+	const XMFLOAT4 bladeColor = m_SwordCharging
+		? XMFLOAT4(0.4f + chargeRatio * 0.6f, 0.75f, 1.0f, 1.0f)
+		: XMFLOAT4(1.0f, 0.82f, 0.28f, 1.0f);
+	const XMFLOAT4 trailColor = m_SwordCharging
+		? XMFLOAT4(0.25f, 0.55f + chargeRatio * 0.35f, 1.0f, 1.0f)
+		: XMFLOAT4(1.0f, 0.45f, 0.18f, 1.0f);
+
+	VERTEX_3D vertex[4]{};
+	vertex[0].Position = XMFLOAT3(hand.x, hand.y, hand.z);
+	vertex[0].Normal = XMFLOAT3(0.0f, 1.0f, 0.0f);
+	vertex[0].Diffuse = bladeColor;
+	vertex[0].TexCoord = XMFLOAT2(0.0f, 0.0f);
+	vertex[1].Position = XMFLOAT3(tip.x, tip.y, tip.z);
+	vertex[1].Normal = XMFLOAT3(0.0f, 1.0f, 0.0f);
+	vertex[1].Diffuse = bladeColor;
+	vertex[1].TexCoord = XMFLOAT2(1.0f, 0.0f);
+	vertex[2].Position = XMFLOAT3(tip.x, tip.y, tip.z);
+	vertex[2].Normal = XMFLOAT3(0.0f, 1.0f, 0.0f);
+	vertex[2].Diffuse = trailColor;
+	vertex[2].TexCoord = XMFLOAT2(0.0f, 1.0f);
+	vertex[3].Position = XMFLOAT3(trail.x, trail.y, trail.z);
+	vertex[3].Normal = XMFLOAT3(0.0f, 1.0f, 0.0f);
+	vertex[3].Diffuse = trailColor;
+	vertex[3].TexCoord = XMFLOAT2(1.0f, 1.0f);
+
+	Renderer::GetDeviceContext()->UpdateSubresource(m_SwordVertexBuffer.Get(), 0, nullptr, vertex, 0, 0);
+
+	Renderer::GetDeviceContext()->IASetInputLayout(m_LineVertexLayout.Get());
+	Renderer::GetDeviceContext()->VSSetShader(m_LineVertexShader.Get(), nullptr, 0);
+	Renderer::GetDeviceContext()->PSSetShader(m_LinePixelShader.Get(), nullptr, 0);
+	Renderer::SetWorldMatrix(XMMatrixIdentity());
+
+	MATERIAL material{};
+	material.Diffuse = XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f);
+	material.Ambient = material.Diffuse;
+	material.TextureEnable = FALSE;
+	Renderer::SetMaterial(material);
+
+	UINT stride = sizeof(VERTEX_3D);
+	UINT offset = 0;
+	Renderer::GetDeviceContext()->IASetVertexBuffers(0, 1, m_SwordVertexBuffer.GetAddressOf(), &stride, &offset);
+	Renderer::GetDeviceContext()->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_LINELIST);
+	Renderer::GetDeviceContext()->Draw(4, 0);
 }

@@ -25,6 +25,9 @@
     <Filter Include="Game">
       <UniqueIdentifier>{68d4b347-3b69-4634-b684-ad7c28057c10}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Game\Shared">
+      <UniqueIdentifier>{8d8a6bb1-b8a4-4e2b-b6c2-5741f0c844f2}</UniqueIdentifier>
+    </Filter>
     <Filter Include="Game\BattingCenter">
       <UniqueIdentifier>{d9a70a6f-1612-4680-a7dc-6990c6d10d9b}</UniqueIdentifier>
     </Filter>
@@ -54,6 +57,9 @@
     </Filter>
     <Filter Include="Game\WireAction\UI">
       <UniqueIdentifier>{7668b934-186d-4d41-8df0-4d3614064015}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Game\WireAction\Assets">
+      <UniqueIdentifier>{4f10926f-f516-43cd-94c0-f15d2aa7d4bd}</UniqueIdentifier>
     </Filter>
     <Filter Include="Shaders">
       <UniqueIdentifier>{41a17e24-91fb-431f-beea-7d80f4671fe0}</UniqueIdentifier>
@@ -157,7 +163,7 @@
       <Filter>Game\BattingCenter\Actors</Filter>
     </ClInclude>
     <ClInclude Include="include\score.h">
-      <Filter>Game\BattingCenter\Actors</Filter>
+      <Filter>Game\Shared</Filter>
     </ClInclude>
     <ClInclude Include="include\pauseMenu.h">
       <Filter>Game\BattingCenter\Actors</Filter>
@@ -198,6 +204,9 @@
     <ClInclude Include="include\wirePlayer.h">
       <Filter>Game\WireAction\Actors</Filter>
     </ClInclude>
+    <ClInclude Include="include\wireEnemy.h">
+      <Filter>Game\WireAction\Actors</Filter>
+    </ClInclude>
     <ClInclude Include="include\wireTpsCamera.h">
       <Filter>Game\WireAction\Actors</Filter>
     </ClInclude>
@@ -212,6 +221,9 @@
     </ClInclude>
     <ClInclude Include="include\wireReticle.h">
       <Filter>Game\WireAction\UI</Filter>
+    </ClInclude>
+    <ClInclude Include="include\wireSword.h">
+      <Filter>Game\WireAction\Actors</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
@@ -309,7 +321,7 @@
       <Filter>Game\BattingCenter\Actors</Filter>
     </ClCompile>
     <ClCompile Include="src\score.cpp">
-      <Filter>Game\BattingCenter\Actors</Filter>
+      <Filter>Game\Shared</Filter>
     </ClCompile>
     <ClCompile Include="src\pauseMenu.cpp">
       <Filter>Game\BattingCenter\Actors</Filter>
@@ -350,6 +362,9 @@
     <ClCompile Include="src\wirePlayer.cpp">
       <Filter>Game\WireAction\Actors</Filter>
     </ClCompile>
+    <ClCompile Include="src\wireEnemy.cpp">
+      <Filter>Game\WireAction\Actors</Filter>
+    </ClCompile>
     <ClCompile Include="src\wireTpsCamera.cpp">
       <Filter>Game\WireAction\Actors</Filter>
     </ClCompile>
@@ -365,6 +380,17 @@
     <ClCompile Include="src\wireReticle.cpp">
       <Filter>Game\WireAction\UI</Filter>
     </ClCompile>
+    <ClCompile Include="src\wireSword.cpp">
+      <Filter>Game\WireAction\Actors</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="assets\model\wire_saber.obj">
+      <Filter>Game\WireAction\Assets</Filter>
+    </None>
+    <None Include="assets\model\wire_saber.mtl">
+      <Filter>Game\WireAction\Assets</Filter>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <FxCompile Include="shaders\common.hlsl">

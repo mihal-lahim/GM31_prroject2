@@ -13,6 +13,7 @@ private:
 	ComPtr<ID3D11ShaderResourceView> m_pTexture;
 	
 	int m_value = 0;
+	int m_DigitCount = 4;
 public:
 	void Init()override;
 	void Uninit()override;
@@ -20,4 +21,5 @@ public:
 	void Draw()override;
 
 	void Add(int value) { m_value += value; }
+	void SetDigitCount(int digitCount);
 };

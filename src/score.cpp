@@ -65,6 +65,19 @@ void Score::Update()
 	
 }
 
+void Score::SetDigitCount(int digitCount)
+{
+	if (digitCount < 1)
+	{
+		digitCount = 1;
+	}
+	if (digitCount > 8)
+	{
+		digitCount = 8;
+	}
+	m_DigitCount = digitCount;
+}
+
 void Score::Draw()
 {
 	// 入力レイアウトを設定する。
@@ -105,7 +118,7 @@ void Score::Draw()
 
 	int number = m_value;
 
-	for (int i = 0; i < 4; i++)
+	for (int i = 0; i < m_DigitCount; i++)
 	{
 		// 表示する桁の数字を取り出す。
 		int num = number % 10;
