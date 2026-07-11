@@ -104,9 +104,10 @@ cache clear; its resource remains alive until the last handle is released.
 
 Both application projects compile their shaders and copy only the files in
 their explicit `RuntimeAsset` manifest into their own output directory using
-MSBuild's built-in `Copy` task. At startup the working directory is set to the
-executable directory, so runtime asset paths do not depend on how the
-executable was launched. Shared volume and mouse defaults are read from the
+MSBuild's built-in `Copy` task. The target recreates only `OutDir\assets`, so
+removed manifest entries cannot remain in a package from an older build. At
+startup the working directory is set to the executable directory, so runtime
+asset paths do not depend on how the executable was launched. Shared volume and mouse defaults are read from the
 application's `assets/config/*.cfg` file and fall back to validated defaults.
 
 DirectXTex is shipped in `include/` and `lib/`; global vcpkg integration is

@@ -88,6 +88,7 @@
 	</ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <Target Name="CopyRuntimeAssets" AfterTargets="Build">
+	<RemoveDir Directories="$(OutDir)assets" />
 	<Copy SourceFiles="@(RuntimeAsset)" DestinationFiles="@(RuntimeAsset-&gt;'$(OutDir)%(TargetPath)')" SkipUnchangedFiles="true" />
   </Target>
   <ImportGroup Label="ExtensionTargets" />
