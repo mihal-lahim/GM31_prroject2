@@ -1,5 +1,6 @@
 #include"main.h"
 #include"renderer.h"
+#include "graphicsResourceFactory.h"
 #include "polygon2D.h"
 #include "score.h"
 
@@ -38,12 +39,11 @@ void Score::Init()
 	D3D11_SUBRESOURCE_DATA sd{};
 	sd.pSysMem = vertex;
 
-	Renderer::GetDevice()->CreateBuffer(&bd, &sd, m_VertexBuffer.GetAddressOf());
+	Engine::GraphicsResourceFactory::CreateBuffer(m_VertexBuffer, bd, &sd, "Score");
 
 	// シェーダーを読み込む。
-	Renderer::CreateVertexShader(m_VertexShader, m_VertexLayout, "unlitTextureVS.cso");
-
-	Renderer::CreatePixelShader(m_PixelShader, "unlitTexturePS.cso");
+	Engine::GraphicsResourceFactory::CreateUnlitShaderPair(
+		m_VertexShader, m_VertexLayout, m_PixelShader, "Score");
 
 	// 数字テクスチャを読み込む。
 	m_Texture = ResourceManager::LoadTexture(L"assets/texture/number.png");

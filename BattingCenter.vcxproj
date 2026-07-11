@@ -30,6 +30,7 @@
   <ItemGroup>
 	<ClInclude Include="include\battingCollisionLayers.h" />
     <ClInclude Include="include\baseballBat.h" /><ClInclude Include="include\baseballBall.h" /><ClInclude Include="include\baseballEffects.h" />
+	<ClInclude Include="include\battingGameplayTuning.h" />
     <ClInclude Include="include\battingTarget.h" /><ClInclude Include="include\battingWall.h" /><ClInclude Include="include\box.h" />
     <ClInclude Include="include\bullet.h" /><ClInclude Include="include\camera.h" /><ClInclude Include="include\enemy.h" />
     <ClInclude Include="include\explosion.h" /><ClInclude Include="include\field.h" /><ClInclude Include="include\firework.h" />
@@ -40,6 +41,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\main.cpp" /><ClCompile Include="src\battingGameDefinition.cpp" />
+	<ClCompile Include="src\battingGameplayTuning.cpp" />
     <ClCompile Include="src\baseballBat.cpp" /><ClCompile Include="src\baseballBall.cpp" /><ClCompile Include="src\baseballEffects.cpp" />
     <ClCompile Include="src\battingTarget.cpp" /><ClCompile Include="src\battingWall.cpp" /><ClCompile Include="src\box.cpp" />
     <ClCompile Include="src\bullet.cpp" /><ClCompile Include="src\camera.cpp" /><ClCompile Include="src\enemy.cpp" />
@@ -61,6 +63,7 @@
 		<RuntimeAsset Include="THIRD_PARTY.md"><TargetPath>THIRD_PARTY.md</TargetPath></RuntimeAsset>
 		<RuntimeAsset Include="licenses\DirectXTex-LICENSE.txt"><TargetPath>licenses\DirectXTex-LICENSE.txt</TargetPath></RuntimeAsset>
 		<RuntimeAsset Include="assets\config\batting.cfg"><TargetPath>assets\config\batting.cfg</TargetPath></RuntimeAsset>
+		<RuntimeAsset Include="assets\config\batting-gameplay.cfg"><TargetPath>assets\config\batting-gameplay.cfg</TargetPath></RuntimeAsset>
 		<RuntimeAsset Include="assets\audio\bgm.wav"><TargetPath>assets\audio\bgm.wav</TargetPath></RuntimeAsset>
 		<RuntimeAsset Include="assets\audio\wan.wav"><TargetPath>assets\audio\wan.wav</TargetPath></RuntimeAsset>
 		<RuntimeAsset Include="assets\model\baseball_bat.obj"><TargetPath>assets\model\baseball_bat.obj</TargetPath></RuntimeAsset>

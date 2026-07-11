@@ -4,6 +4,7 @@
 #include "cameraView.h"
 #include "gameTime.h"
 #include "renderer.h"
+#include "graphicsResourceFactory.h"
 #include "world.h"
 
 #include <algorithm>
@@ -97,10 +98,9 @@ void WireAnchor::Init()
 
 		D3D11_SUBRESOURCE_DATA sd{};
 		sd.pSysMem = vertex;
-		Renderer::GetDevice()->CreateBuffer(&bd, &sd, s_VertexBuffer.GetAddressOf());
-
-		Renderer::CreateVertexShader(s_VertexShader, s_VertexLayout, "unlitTextureVS.cso");
-		Renderer::CreatePixelShader(s_PixelShader, "unlitTexturePS.cso");
+		Engine::GraphicsResourceFactory::CreateBuffer(s_VertexBuffer, bd, &sd, "WireAnchor");
+		Engine::GraphicsResourceFactory::CreateUnlitShaderPair(
+			s_VertexShader, s_VertexLayout, s_PixelShader, "WireAnchor");
 
 		s_Texture = ResourceManager::LoadTexture(L"assets/texture/particle.png");
 		assert(s_Texture);

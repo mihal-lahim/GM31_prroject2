@@ -35,6 +35,10 @@ Runtime defaults are data-driven in `assets/config/batting.cfg` and
 `assets/config/wire.cfg`. Each application project has an explicit runtime
 asset manifest, so building one game does not package the other game's assets.
 
+ゲームプレイの調整値は `assets/config/batting-gameplay.cfg` と
+`assets/config/wire-gameplay.cfg` に分離されています。設定に存在しない値は
+コード側の既定値を使うため、ファイル更新中でもゲームは起動できます。
+
 ## Wire Action controls
 
 - `WASD`: move

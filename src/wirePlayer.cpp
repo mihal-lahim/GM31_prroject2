@@ -5,29 +5,26 @@
 #include "modelRenderer.h"
 #include "wirePlayerInput.h"
 #include "wireTpsCamera.h"
+#include "wireGameplayTuning.h"
 
 #include <algorithm>
 
 namespace
 {
 	constexpr float kGroundY = 0.0f;
-	constexpr float kWorldBoundsX = 52.0f;
-	constexpr float kWorldBoundsZ = 52.0f;
-	constexpr float kPlayerStartZ = -8.0f;
-	constexpr float kPlayerModelYawOffset = XM_PI;
 }
 
 void WirePlayer::Init()
 {
 	m_Layer = Layer::World;
-	m_Position = { 0.0f, kGroundY, kPlayerStartZ };
+	m_Position = { 0.0f, kGroundY, GetWireGameplayTuning().Movement.PlayerStartZ };
 	m_Rotation = { 0.0f, 0.0f, 0.0f };
 	m_Scale = { 1.0f, 1.0f, 1.0f };
 
 	ModelRenderer* renderer = AddComponent<ModelRenderer>();
 	renderer->Load("assets\\model\\player.obj");
 	renderer->SetUseOwnerTransform(true);
-	renderer->SetRotationOffset({ 0.0f, kPlayerModelYawOffset, 0.0f });
+	renderer->SetRotationOffset({ 0.0f, GetWireGameplayTuning().Movement.PlayerModelYawOffset, 0.0f });
 	m_Presentation.Init();
 }
 
@@ -65,8 +62,8 @@ void WirePlayer::Update()
 	}
 	m_Movement.ResolvePlatformLanding(*this, previousPosition);
 
-	m_Position.x = std::clamp(m_Position.x, -kWorldBoundsX, kWorldBoundsX);
-	m_Position.z = std::clamp(m_Position.z, -kWorldBoundsZ, kWorldBoundsZ);
+	m_Position.x = std::clamp(m_Position.x, -GetWireGameplayTuning().Movement.WorldBoundsX, GetWireGameplayTuning().Movement.WorldBoundsX);
+	m_Position.z = std::clamp(m_Position.z, -GetWireGameplayTuning().Movement.WorldBoundsZ, GetWireGameplayTuning().Movement.WorldBoundsZ);
 	GameObject::Update();
 }
 

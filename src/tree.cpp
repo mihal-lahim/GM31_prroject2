@@ -2,6 +2,7 @@
 
 #include"main.h"
 #include"renderer.h"
+#include "graphicsResourceFactory.h"
 #include "tree.h"
 #include "cameraView.h"
 #include "collider.h"
@@ -43,12 +44,11 @@ void Tree::Init()
 	D3D11_SUBRESOURCE_DATA sd{};
 	sd.pSysMem = vertex;
 
-	Renderer::GetDevice()->CreateBuffer(&bd, &sd, m_VertexBuffer.GetAddressOf());
+	Engine::GraphicsResourceFactory::CreateBuffer(m_VertexBuffer, bd, &sd, "Tree");
 
 	// シェーダーを読み込む。
-	Renderer::CreateVertexShader(m_VertexShader, m_VertexLayout, "unlitTextureVS.cso");
-
-	Renderer::CreatePixelShader(m_PixelShader, "unlitTexturePS.cso");
+	Engine::GraphicsResourceFactory::CreateUnlitShaderPair(
+		m_VertexShader, m_VertexLayout, m_PixelShader, "Tree");
 
 	// 木のテクスチャを読み込む。
 	m_Texture = ResourceManager::LoadTexture(L"assets/texture/tree.png");

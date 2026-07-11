@@ -637,13 +637,13 @@ RendererStateScope::~RendererStateScope()
 
 
 
-void Renderer::CreateVertexShader( ComPtr<ID3D11VertexShader>& VertexShader, ComPtr<ID3D11InputLayout>& VertexLayout, const char* FileName )
+bool Renderer::CreateVertexShader( ComPtr<ID3D11VertexShader>& VertexShader, ComPtr<ID3D11InputLayout>& VertexLayout, const char* FileName )
 {
 	VertexShader.Reset();
 	VertexLayout.Reset();
 	if (FileName == nullptr)
 	{
-		return;
+		return false;
 	}
 
 	const VertexShaderHandle resource = ResourceManager::LoadVertexShader(FileName);
@@ -652,16 +652,17 @@ void Renderer::CreateVertexShader( ComPtr<ID3D11VertexShader>& VertexShader, Com
 		VertexShader = resource->Shader;
 		VertexLayout = resource->InputLayout;
 	}
+	return VertexShader != nullptr && VertexLayout != nullptr;
 }
 
 
 
-void Renderer::CreatePixelShader( ComPtr<ID3D11PixelShader>& PixelShader, const char* FileName )
+bool Renderer::CreatePixelShader( ComPtr<ID3D11PixelShader>& PixelShader, const char* FileName )
 {
 	PixelShader.Reset();
 	if (FileName == nullptr)
 	{
-		return;
+		return false;
 	}
 
 	const PixelShaderHandle resource = ResourceManager::LoadPixelShader(FileName);
@@ -669,6 +670,7 @@ void Renderer::CreatePixelShader( ComPtr<ID3D11PixelShader>& PixelShader, const 
 	{
 		PixelShader = resource->Shader;
 	}
+	return PixelShader != nullptr;
 }
 
 

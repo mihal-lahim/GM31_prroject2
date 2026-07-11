@@ -36,10 +36,12 @@
     <ClInclude Include="include\DirectXTex.inl" />
 	<ClInclude Include="include\engineSelfTests.h" />
 	<ClInclude Include="include\engineCommon.h" />
+	<ClInclude Include="include\engineApi.h" />
     <ClInclude Include="include\gameDefinition.h" />
     <ClInclude Include="include\gameObject.h" />
     <ClInclude Include="include\gameSettings.h" />
-    <ClInclude Include="include\gameTime.h" />
+	<ClInclude Include="include\gameTime.h" />
+	<ClInclude Include="include\graphicsResourceFactory.h" />
     <ClInclude Include="include\keyboard_utf8.h" />
     <ClInclude Include="include\main.h" />
 	<ClInclude Include="include\manager.h" />
@@ -51,7 +53,8 @@
     <ClInclude Include="include\polygon2D.h" />
     <ClInclude Include="include\renderer.h" />
     <ClInclude Include="include\renderQueue.h" />
-    <ClInclude Include="include\resourceManager.h" />
+	<ClInclude Include="include\resourceManager.h" />
+	<ClInclude Include="include\runtimeConfig.h" />
     <ClInclude Include="include\scene.h" />
     <ClInclude Include="include\score.h" />
     <ClInclude Include="include\Vector3.h" />
@@ -65,7 +68,8 @@
     <ClCompile Include="src\colliderMath.cpp" />
     <ClCompile Include="src\engineSelfTests.cpp" />
     <ClCompile Include="src\gameSettings.cpp" />
-    <ClCompile Include="src\gameTime.cpp" />
+	<ClCompile Include="src\gameTime.cpp" />
+	<ClCompile Include="src\graphicsResourceFactory.cpp" />
     <ClCompile Include="src\keyboard_utf8.cpp" />
 	<ClCompile Include="src\manager.cpp" />
 	<ClCompile Include="src\mouseInput.cpp" />
@@ -76,7 +80,8 @@
     <ClCompile Include="src\polygon2D.cpp" />
     <ClCompile Include="src\renderer.cpp" />
     <ClCompile Include="src\renderQueue.cpp" />
-    <ClCompile Include="src\resourceManager.cpp" />
+	<ClCompile Include="src\resourceManager.cpp" />
+	<ClCompile Include="src\runtimeConfig.cpp" />
     <ClCompile Include="src\score.cpp" />
     <ClCompile Include="src\world.cpp" />
   </ItemGroup>

@@ -24,6 +24,8 @@ enum class RenderCategory
 	Overlay
 };
 
+// Worldが所有するゲーム要素の基底クラスです。
+// 派生クラスは仮想関数に固有処理だけを書き、コンポーネント実行はRun*入口に任せます。
 class GameObject
 {
 	friend class World;
@@ -44,6 +46,7 @@ protected:
 	std::list<std::unique_ptr<Component>> m_Components;
 	World* m_World = nullptr;
 
+	// Spawn直後にWorldが一度だけ設定します。ゲーム側からの差し替えは禁止です。
 	void AttachWorld(World* world) { m_World = world; }
 
 	// Worldからの明示破棄とデストラクタの両方で呼ばれても、一度だけ後片付けする。
@@ -66,6 +69,7 @@ protected:
 		}
 		m_Components.clear();
 	}
+	// 静的コライダーの空間インデックスなど、変換に依存するComponentへ通知します。
 	void NotifyTransformChanged()
 	{
 		for (auto& component : m_Components)
@@ -126,9 +130,8 @@ public:
 		return m_Destroy;
 	}
 
-	// These non-virtual entry points guarantee component lifecycle execution.
-	// Derived lifecycle functions remain virtual for source compatibility, but
-	// must only contain object-specific behavior.
+	// 非virtualの実行入口です。派生クラスが基底実装を呼び忘れても
+	// Componentの更新・破棄が欠落しないようにします。
 	void Initialize()
 	{
 		m_Uninitialized = false;

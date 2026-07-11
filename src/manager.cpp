@@ -2,6 +2,7 @@
 #include "manager.h"
 #include "gameDefinition.h"
 #include "gameSettings.h"
+#include "runtimeConfig.h"
 #include "gameTime.h"
 #include "renderer.h"
 #include "audio.h"
@@ -20,6 +21,10 @@ bool Manager::Init(const GameDefinition& gameDefinition)
 	if (gameDefinition.SettingsPath != nullptr)
 	{
 		GameSettings::Load(gameDefinition.SettingsPath);
+	}
+	if (gameDefinition.GameplayConfigPath != nullptr)
+	{
+		Engine::RuntimeConfig::Load(gameDefinition.GameplayConfigPath);
 	}
 	if (!Renderer::Init())
 	{

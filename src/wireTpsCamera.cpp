@@ -5,40 +5,12 @@
 #include "renderer.h"
 #include "wirePlayer.h"
 #include "world.h"
+#include "wireGameplayTuning.h"
 
 #include <algorithm>
 
 namespace
 {
-	constexpr float kBaseFov = 1.0f;
-	constexpr float kMaxWireFov = 1.14f;
-	constexpr float kFovBoostStartSpeed = 16.0f;
-	constexpr float kFovBoostFullSpeed = 42.0f;
-	constexpr float kFovWireActiveBias = 0.035f;
-	constexpr float kFovFollowLerp = 0.12f;
-	constexpr float kAimFov = 0.82f;
-	constexpr float kNearClip = 0.1f;
-	constexpr float kFarClip = 1000.0f;
-	constexpr float kInitialCameraHeight = 7.6f;
-	constexpr float kInitialCameraDistance = -9.2f;
-	constexpr float kNormalMinPitch = XMConvertToRadians(-68.0f);
-	constexpr float kNormalMaxPitch = XMConvertToRadians(6.0f);
-	constexpr float kAimMinPitch = XMConvertToRadians(-88.0f);
-	constexpr float kAimMaxPitch = XMConvertToRadians(88.0f);
-	constexpr float kNormalPitchMouseScale = 0.62f;
-	constexpr float kAimPitchMouseScale = 0.85f;
-	constexpr float kNormalCameraDistance = 11.8f;
-	constexpr float kDistanceFollowLerp = 0.12f;
-	constexpr float kNormalFollowLerp = 0.18f;
-	constexpr float kWireFollowLerp = 0.52f;
-	constexpr float kAimFollowLerp = 0.34f;
-	constexpr float kNormalTargetHeight = 1.2f;
-	constexpr float kNormalMinCameraHeight = 0.85f;
-	constexpr float kNormalLookAhead = 1.8f;
-	constexpr float kAimCameraHeight = 1.65f;
-	constexpr float kAimBackDistance = 0.85f;
-	constexpr float kAimShoulderOffset = 1.18f;
-	constexpr float kAimFocusDistance = 24.0f;
 
 	Vector3 MakeCameraForward(float yaw, float pitch)
 	{
@@ -76,11 +48,11 @@ namespace
 void WireTpsCamera::Init()
 {
 	m_Layer = Layer::Camera;
-	m_Position = { 0.0f, kInitialCameraHeight, kInitialCameraDistance };
-	m_Target = { 0.0f, kDefaultTargetHeight, 0.0f };
-	m_Distance = kDefaultDistance;
-	m_Pitch = kDefaultPitch;
-	m_CurrentFov = kDefaultFov;
+	m_Position = { 0.0f, GetWireGameplayTuning().Camera.InitialHeight, GetWireGameplayTuning().Camera.InitialDistance };
+	m_Target = { 0.0f, GetWireGameplayTuning().Camera.NormalTargetHeight, 0.0f };
+	m_Distance = GetWireGameplayTuning().Camera.NormalCameraDistance;
+	m_Pitch = GetWireGameplayTuning().Camera.InitialPitch;
+	m_CurrentFov = GetWireGameplayTuning().Camera.BaseFov;
 	m_TargetInitialized = false;
 	m_CloseAimActiveLastFrame = false;
 	Mouse_Reset();
@@ -100,13 +72,13 @@ void WireTpsCamera::PreUpdate()
 	if (Mouse_ConsumeDelta(&mouseX, &mouseY))
 	{
 		const float sensitivity = GameSettings::GetMouseSensitivity();
-		const float pitchScale = closeAim ? kAimPitchMouseScale : kNormalPitchMouseScale;
+		const float pitchScale = closeAim ? GetWireGameplayTuning().Camera.AimPitchMouseScale : GetWireGameplayTuning().Camera.NormalPitchMouseScale;
 		m_Yaw += mouseX * sensitivity;
 		m_Pitch -= mouseY * sensitivity * pitchScale;
 	}
 
-	const float minPitch = closeAim ? kAimMinPitch : kNormalMinPitch;
-	const float maxPitch = closeAim ? kAimMaxPitch : kNormalMaxPitch;
+	const float minPitch = closeAim ? XMConvertToRadians(GetWireGameplayTuning().Camera.AimMinPitchDegrees) : XMConvertToRadians(GetWireGameplayTuning().Camera.NormalMinPitchDegrees);
+	const float maxPitch = closeAim ? XMConvertToRadians(GetWireGameplayTuning().Camera.AimMaxPitchDegrees) : XMConvertToRadians(GetWireGameplayTuning().Camera.NormalMaxPitchDegrees);
 	m_Pitch = std::clamp(m_Pitch, minPitch, maxPitch);
 	GameObject::PreUpdate();
 }
@@ -132,27 +104,27 @@ void WireTpsCamera::LateUpdate()
 	const Vector3 flatForward = MakeFlatForward(m_Yaw);
 	const Vector3 flatRight = MakeFlatRight(flatForward);
 
-	const float desiredDistance = kNormalCameraDistance;
-	m_Distance += (desiredDistance - m_Distance) * kDistanceFollowLerp;
+	const float desiredDistance = GetWireGameplayTuning().Camera.NormalCameraDistance;
+	m_Distance += (desiredDistance - m_Distance) * GetWireGameplayTuning().Camera.DistanceFollowLerp;
 
 	Vector3 desiredPosition;
 	Vector3 desiredTarget;
 	if (closeAim)
 	{
 		desiredPosition = playerPosition
-			+ Vector3(0.0f, kAimCameraHeight, 0.0f)
-			- flatForward * kAimBackDistance
-			+ flatRight * kAimShoulderOffset;
-		desiredTarget = desiredPosition + forward * kAimFocusDistance;
+			+ Vector3(0.0f, GetWireGameplayTuning().Camera.AimCameraHeight, 0.0f)
+			- flatForward * GetWireGameplayTuning().Camera.AimBackDistance
+			+ flatRight * GetWireGameplayTuning().Camera.AimShoulderOffset;
+		desiredTarget = desiredPosition + forward * GetWireGameplayTuning().Camera.AimFocusDistance;
 	}
 	else
 	{
 		desiredTarget = playerPosition
-			+ Vector3(0.0f, kNormalTargetHeight, 0.0f)
-			+ flatForward * kNormalLookAhead;
+			+ Vector3(0.0f, GetWireGameplayTuning().Camera.NormalTargetHeight, 0.0f)
+			+ flatForward * GetWireGameplayTuning().Camera.NormalLookAhead;
 		desiredPosition = desiredTarget - forward * m_Distance;
 
-		const float minCameraY = playerPosition.y + kNormalMinCameraHeight;
+		const float minCameraY = playerPosition.y + GetWireGameplayTuning().Camera.NormalMinCameraHeight;
 		if (desiredPosition.y < minCameraY)
 		{
 			const float lift = minCameraY - desiredPosition.y;
@@ -170,23 +142,23 @@ void WireTpsCamera::LateUpdate()
 	}
 	else
 	{
-		const float followLerp = closeAim ? kAimFollowLerp : (wireActive ? kWireFollowLerp : kNormalFollowLerp);
+		const float followLerp = closeAim ? GetWireGameplayTuning().Camera.AimFollowLerp : (wireActive ? GetWireGameplayTuning().Camera.WireFollowLerp : GetWireGameplayTuning().Camera.NormalFollowLerp);
 		m_Position += (desiredPosition - m_Position) * followLerp;
 		m_Target += (desiredTarget - m_Target) * followLerp;
 	}
 
-	const float speedRatio = std::clamp((player->GetSpeed() - kFovBoostStartSpeed) / (kFovBoostFullSpeed - kFovBoostStartSpeed), 0.0f, 1.0f);
-	const float wireBias = wireActive ? kFovWireActiveBias : 0.0f;
-	const float normalFov = std::min(kMaxWireFov, kBaseFov + speedRatio * (kMaxWireFov - kBaseFov) + wireBias);
-	const float targetFov = closeAim ? kAimFov : normalFov;
-	m_CurrentFov += (targetFov - m_CurrentFov) * kFovFollowLerp;
+	const float speedRatio = std::clamp((player->GetSpeed() - GetWireGameplayTuning().Camera.FovBoostStartSpeed) / (GetWireGameplayTuning().Camera.FovBoostFullSpeed - GetWireGameplayTuning().Camera.FovBoostStartSpeed), 0.0f, 1.0f);
+	const float wireBias = wireActive ? GetWireGameplayTuning().Camera.FovWireActiveBias : 0.0f;
+	const float normalFov = std::min(GetWireGameplayTuning().Camera.MaxWireFov, GetWireGameplayTuning().Camera.BaseFov + speedRatio * (GetWireGameplayTuning().Camera.MaxWireFov - GetWireGameplayTuning().Camera.BaseFov) + wireBias);
+	const float targetFov = closeAim ? GetWireGameplayTuning().Camera.AimFov : normalFov;
+	m_CurrentFov += (targetFov - m_CurrentFov) * GetWireGameplayTuning().Camera.FovFollowLerp;
 	m_CloseAimActiveLastFrame = closeAim;
 	GameObject::LateUpdate();
 }
 
 void WireTpsCamera::Draw()
 {
-	XMMATRIX projection = XMMatrixPerspectiveFovLH(m_CurrentFov, static_cast<float>(SCREEN_WIDTH) / SCREEN_HEIGHT, kNearClip, kFarClip);
+	XMMATRIX projection = XMMatrixPerspectiveFovLH(m_CurrentFov, static_cast<float>(SCREEN_WIDTH) / SCREEN_HEIGHT, GetWireGameplayTuning().Camera.NearClip, GetWireGameplayTuning().Camera.FarClip);
 	Renderer::SetProjectionMatrix(projection);
 
 	XMFLOAT3 up = { 0.0f, 1.0f, 0.0f };

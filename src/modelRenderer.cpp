@@ -1,5 +1,6 @@
 #include "main.h"
 #include "renderer.h"
+#include "graphicsResourceFactory.h"
 #include "gameObject.h"
 #include "modelRenderer.h"
 #include "objModelLoader.h"
@@ -23,8 +24,8 @@ void ModelRenderer::EnsureDefaultShader()
 		|| m_DefaultVertexShader == nullptr
 		|| m_DefaultPixelShader == nullptr)
 	{
-		Renderer::CreateVertexShader(m_DefaultVertexShader, m_DefaultVertexLayout, "unlitTextureVS.cso");
-		Renderer::CreatePixelShader(m_DefaultPixelShader, "unlitTexturePS.cso");
+		Engine::GraphicsResourceFactory::CreateUnlitShaderPair(
+			m_DefaultVertexShader, m_DefaultVertexLayout, m_DefaultPixelShader, "ModelRenderer");
 	}
 }
 
@@ -153,8 +154,8 @@ bool ModelRenderer::LoadModel(const char* FileName, MODEL* Model)
 
 	D3D11_SUBRESOURCE_DATA vertexData{};
 	vertexData.pSysMem = modelObj.VertexArray.data();
-	HRESULT hr = Renderer::GetDevice()->CreateBuffer(&vertexBufferDesc, &vertexData, Model->VertexBuffer.ReleaseAndGetAddressOf());
-	if (FAILED(hr))
+	if (!Engine::GraphicsResourceFactory::CreateBuffer(
+		Model->VertexBuffer, vertexBufferDesc, &vertexData, "ModelRenderer"))
 	{
 		DebugLog(std::string("ModelRenderer: failed to create vertex buffer for ") + FileName);
 		Model->SubsetArray.clear();
@@ -169,8 +170,8 @@ bool ModelRenderer::LoadModel(const char* FileName, MODEL* Model)
 
 	D3D11_SUBRESOURCE_DATA indexData{};
 	indexData.pSysMem = modelObj.IndexArray.data();
-	hr = Renderer::GetDevice()->CreateBuffer(&indexBufferDesc, &indexData, Model->IndexBuffer.ReleaseAndGetAddressOf());
-	if (FAILED(hr))
+	if (!Engine::GraphicsResourceFactory::CreateBuffer(
+		Model->IndexBuffer, indexBufferDesc, &indexData, "ModelRenderer"))
 	{
 		DebugLog(std::string("ModelRenderer: failed to create index buffer for ") + FileName);
 		Model->VertexBuffer.Reset();

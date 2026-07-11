@@ -2,6 +2,7 @@
 #include "cameraView.h"
 #include "gameTime.h"
 #include "renderer.h"
+#include "graphicsResourceFactory.h"
 #include "firework.h"
 #include "world.h"
 
@@ -77,10 +78,9 @@ void Firework::Init()
 		bd.BindFlags = D3D11_BIND_VERTEX_BUFFER;
 		bd.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
 
-		Renderer::GetDevice()->CreateBuffer(&bd, nullptr, s_VertexBuffer.GetAddressOf());
-
-		Renderer::CreateVertexShader(s_VertexShader, s_VertexLayout, "unlitTextureVS.cso");
-		Renderer::CreatePixelShader(s_PixelShader, "unlitTexturePS.cso");
+		Engine::GraphicsResourceFactory::CreateBuffer(s_VertexBuffer, bd, nullptr, "Firework");
+		Engine::GraphicsResourceFactory::CreateUnlitShaderPair(
+			s_VertexShader, s_VertexLayout, s_PixelShader, "Firework");
 
 		s_Texture = ResourceManager::LoadTexture(L"assets/texture/particle.png");
 		assert(s_Texture);

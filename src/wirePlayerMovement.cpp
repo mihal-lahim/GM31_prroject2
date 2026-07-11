@@ -8,6 +8,7 @@
 #include "wirePlayerInput.h"
 #include "wireSwordAbility.h"
 #include "wireTpsCamera.h"
+#include "wireGameplayTuning.h"
 
 #include <algorithm>
 #include <cstdlib>
@@ -15,37 +16,6 @@
 namespace
 {
 	constexpr float kVectorEpsilon = 0.0001f;
-	constexpr float kWorldBoundsX = 52.0f;
-	constexpr float kWorldBoundsZ = 52.0f;
-	constexpr float kGravity = -42.0f;
-	constexpr float kGroundAccel = 66.0f;
-	constexpr float kAirAccel = 24.0f;
-	constexpr float kGroundDamping = 6.4f;
-	constexpr float kAirDamping = 1.0f;
-	constexpr float kJumpVelocity = 14.5f;
-	constexpr float kAimMoveScale = 0.34f;
-	constexpr float kAimGravityScale = 0.42f;
-	constexpr float kAimFallSpeedLimit = -11.5f;
-	constexpr float kBlinkStepDistance = 3.2f;
-	constexpr float kBlinkSpeed = 38.0f;
-	constexpr float kBlinkDuration = 0.14f;
-	constexpr float kBlinkCooldown = 0.34f;
-	constexpr float kBlinkTurnLerp = 0.88f;
-	constexpr float kBlinkScaleXz = 1.35f;
-	constexpr float kBlinkScaleY = 0.72f;
-	constexpr float kBlinkParticleHeight = 0.95f;
-	constexpr int kBlinkStartParticleCount = 58;
-	constexpr int kBlinkEndParticleCount = 78;
-	constexpr int kBlinkTrailParticleCount = 12;
-	constexpr int kBlinkShockParticleCount = 30;
-	constexpr float kMoveTurnLerp = 0.22f;
-	constexpr float kScaleRecoverLerp = 0.08f;
-	constexpr float kGroundBobFrequency = 4.0f;
-	constexpr float kGroundBobAmount = 0.015f;
-	constexpr float kJumpSquashXz = 0.75f;
-	constexpr float kJumpStretchY = 1.35f;
-	constexpr float kPlayerFootMargin = 0.45f;
-	constexpr float kPlatformLandingGrace = 0.15f;
 
 	float WrapAngle(float angle)
 	{
@@ -91,12 +61,12 @@ void WirePlayerMovement::Update(
 	if (m_BlinkTimeRemaining > 0.0f)
 	{
 		m_BlinkTimeRemaining = std::max(0.0f, m_BlinkTimeRemaining - dt);
-		player.m_Velocity = m_BlinkDirection * kBlinkSpeed;
+		player.m_Velocity = m_BlinkDirection * GetWireGameplayTuning().Movement.BlinkSpeed;
 		player.m_Rotation.y = LerpAngle(
 			player.m_Rotation.y,
 			atan2f(m_BlinkDirection.x, m_BlinkDirection.z),
-			kBlinkTurnLerp);
-		EmitBlinkParticles(player.m_Position, -m_BlinkDirection, kBlinkTrailParticleCount);
+			GetWireGameplayTuning().Movement.BlinkTurnLerp);
+		EmitBlinkParticles(player.m_Position, -m_BlinkDirection, GetWireGameplayTuning().Movement.BlinkTrailParticleCount);
 		return;
 	}
 
@@ -104,8 +74,8 @@ void WirePlayerMovement::Update(
 	if (moveDirection.length() > kVectorEpsilon)
 	{
 		moveDirection.normalize();
-		const float accel = m_OnGround ? kGroundAccel : kAirAccel;
-		const float aimScale = player.m_Grapple.IsAiming() ? kAimMoveScale : 1.0f;
+		const float accel = m_OnGround ? GetWireGameplayTuning().Movement.GroundAcceleration : GetWireGameplayTuning().Movement.AirAcceleration;
+		const float aimScale = player.m_Grapple.IsAiming() ? GetWireGameplayTuning().Movement.AimMoveScale : 1.0f;
 		player.m_Velocity += moveDirection * (accel * aimScale * dt);
 
 		if (!player.m_Grapple.IsActive())
@@ -113,33 +83,33 @@ void WirePlayerMovement::Update(
 			player.m_Rotation.y = LerpAngle(
 				player.m_Rotation.y,
 				atan2f(moveDirection.x, moveDirection.z),
-				kMoveTurnLerp);
+				GetWireGameplayTuning().Movement.MoveTurnLerp);
 		}
 	}
 
 	if (input.JumpPressed && m_OnGround)
 	{
-		player.m_Velocity.y = kJumpVelocity;
-		player.m_Scale = { kJumpSquashXz, kJumpStretchY, kJumpSquashXz };
+		player.m_Velocity.y = GetWireGameplayTuning().Movement.JumpVelocity;
+		player.m_Scale = { GetWireGameplayTuning().Movement.JumpSquashXZ, GetWireGameplayTuning().Movement.JumpStretchY, GetWireGameplayTuning().Movement.JumpSquashXZ };
 	}
 
-	const float damping = m_OnGround ? kGroundDamping : kAirDamping;
+	const float damping = m_OnGround ? GetWireGameplayTuning().Movement.GroundDamping : GetWireGameplayTuning().Movement.AirDamping;
 	player.m_Velocity.x += -player.m_Velocity.x * damping * dt;
 	player.m_Velocity.z += -player.m_Velocity.z * damping * dt;
 	const bool aimFalling = player.m_Grapple.IsAiming() && !player.m_Grapple.IsActive() && !m_OnGround;
-	player.m_Velocity.y += kGravity * (aimFalling ? kAimGravityScale : 1.0f) * dt;
-	if (aimFalling && player.m_Velocity.y < kAimFallSpeedLimit)
+	player.m_Velocity.y += GetWireGameplayTuning().Movement.Gravity * (aimFalling ? GetWireGameplayTuning().Movement.AimGravityScale : 1.0f) * dt;
+	if (aimFalling && player.m_Velocity.y < GetWireGameplayTuning().Movement.AimFallSpeedLimit)
 	{
-		player.m_Velocity.y = kAimFallSpeedLimit;
+		player.m_Velocity.y = GetWireGameplayTuning().Movement.AimFallSpeedLimit;
 	}
 
-	player.m_Scale.x += (1.0f - player.m_Scale.x) * kScaleRecoverLerp;
-	player.m_Scale.y += (1.0f - player.m_Scale.y) * kScaleRecoverLerp;
-	player.m_Scale.z += (1.0f - player.m_Scale.z) * kScaleRecoverLerp;
+	player.m_Scale.x += (1.0f - player.m_Scale.x) * GetWireGameplayTuning().Movement.ScaleRecoverLerp;
+	player.m_Scale.y += (1.0f - player.m_Scale.y) * GetWireGameplayTuning().Movement.ScaleRecoverLerp;
+	player.m_Scale.z += (1.0f - player.m_Scale.z) * GetWireGameplayTuning().Movement.ScaleRecoverLerp;
 	if (m_OnGround)
 	{
 		m_MoveAnimation += Vector3(player.m_Velocity.x, 0.0f, player.m_Velocity.z).length() * dt;
-		player.m_Scale.y += sinf(m_MoveAnimation * kGroundBobFrequency) * kGroundBobAmount;
+		player.m_Scale.y += sinf(m_MoveAnimation * GetWireGameplayTuning().Movement.GroundBobFrequency) * GetWireGameplayTuning().Movement.GroundBobAmount;
 	}
 }
 
@@ -186,23 +156,23 @@ void WirePlayerMovement::StartBlink(WirePlayer& player, const Vector3& direction
 	const Vector3 startPosition = player.m_Position;
 	player.m_Grapple.Cancel(player, false);
 	m_BlinkDirection = blinkDirection;
-	m_BlinkTimeRemaining = kBlinkDuration;
-	m_BlinkCooldown = kBlinkCooldown;
-	player.m_Velocity = m_BlinkDirection * kBlinkSpeed;
-	player.m_Position += m_BlinkDirection * kBlinkStepDistance;
-	player.m_Position.x = std::clamp(player.m_Position.x, -kWorldBoundsX, kWorldBoundsX);
-	player.m_Position.z = std::clamp(player.m_Position.z, -kWorldBoundsZ, kWorldBoundsZ);
+	m_BlinkTimeRemaining = GetWireGameplayTuning().Movement.BlinkDuration;
+	m_BlinkCooldown = GetWireGameplayTuning().Movement.BlinkCooldown;
+	player.m_Velocity = m_BlinkDirection * GetWireGameplayTuning().Movement.BlinkSpeed;
+	player.m_Position += m_BlinkDirection * GetWireGameplayTuning().Movement.BlinkStepDistance;
+	player.m_Position.x = std::clamp(player.m_Position.x, -GetWireGameplayTuning().Movement.WorldBoundsX, GetWireGameplayTuning().Movement.WorldBoundsX);
+	player.m_Position.z = std::clamp(player.m_Position.z, -GetWireGameplayTuning().Movement.WorldBoundsZ, GetWireGameplayTuning().Movement.WorldBoundsZ);
 	player.m_Rotation.y = LerpAngle(
 		player.m_Rotation.y,
 		atan2f(m_BlinkDirection.x, m_BlinkDirection.z),
-		kBlinkTurnLerp);
-	player.m_Scale = { kBlinkScaleXz, kBlinkScaleY, kBlinkScaleXz };
+		GetWireGameplayTuning().Movement.BlinkTurnLerp);
+	player.m_Scale = { GetWireGameplayTuning().Movement.BlinkScaleXZ, GetWireGameplayTuning().Movement.BlinkScaleY, GetWireGameplayTuning().Movement.BlinkScaleXZ };
 	player.m_Sword.Cancel();
 
-	EmitBlinkParticles(startPosition, -m_BlinkDirection, kBlinkStartParticleCount);
-	EmitBlinkParticles(player.m_Position, m_BlinkDirection, kBlinkEndParticleCount);
-	EmitBlinkShockwave(startPosition, -m_BlinkDirection, kBlinkShockParticleCount);
-	EmitBlinkShockwave(player.m_Position, m_BlinkDirection, kBlinkShockParticleCount + 10);
+	EmitBlinkParticles(startPosition, -m_BlinkDirection, GetWireGameplayTuning().Movement.BlinkStartParticleCount);
+	EmitBlinkParticles(player.m_Position, m_BlinkDirection, GetWireGameplayTuning().Movement.BlinkEndParticleCount);
+	EmitBlinkShockwave(startPosition, -m_BlinkDirection, GetWireGameplayTuning().Movement.BlinkShockParticleCount);
+	EmitBlinkShockwave(player.m_Position, m_BlinkDirection, GetWireGameplayTuning().Movement.BlinkShockParticleCount + 10);
 }
 
 void WirePlayerMovement::EmitBlinkParticles(const Vector3& position, const Vector3& direction, int count)
@@ -216,7 +186,7 @@ void WirePlayerMovement::EmitBlinkParticles(const Vector3& position, const Vecto
 
 	for (int i = 0; i < count; i++)
 	{
-		Vector3 spawnPosition = position + Vector3(0.0f, kBlinkParticleHeight, 0.0f);
+		Vector3 spawnPosition = position + Vector3(0.0f, GetWireGameplayTuning().Movement.BlinkParticleHeight, 0.0f);
 		spawnPosition += side * RandomFloat(-0.68f, 0.68f);
 		spawnPosition += sparkDirection * RandomFloat(-0.58f, 0.34f);
 		spawnPosition.y += RandomFloat(-0.46f, 0.62f);
@@ -249,7 +219,7 @@ void WirePlayerMovement::EmitBlinkShockwave(const Vector3& position, const Vecto
 	if (side.length() <= kVectorEpsilon) side = { 1.0f, 0.0f, 0.0f };
 	side.normalize();
 
-	const Vector3 center = position + Vector3(0.0f, kBlinkParticleHeight, 0.0f);
+	const Vector3 center = position + Vector3(0.0f, GetWireGameplayTuning().Movement.BlinkParticleHeight, 0.0f);
 	for (int i = 0; i < count; i++)
 	{
 		const float angle = XM_2PI * static_cast<float>(i) / static_cast<float>(count);
@@ -278,11 +248,11 @@ void WirePlayerMovement::ResolvePlatformLanding(WirePlayer& player, const Vector
 	for (WirePlatform* platform : player.GetWorld().FindAll<WirePlatform>())
 	{
 		const float topY = platform->GetTopY();
-		if (previousPosition.y < topY - kPlatformLandingGrace || player.m_Position.y > topY)
+		if (previousPosition.y < topY - GetWireGameplayTuning().Movement.PlatformLandingGrace || player.m_Position.y > topY)
 		{
 			continue;
 		}
-		if (!platform->ContainsXZ(player.m_Position, kPlayerFootMargin))
+		if (!platform->ContainsXZ(player.m_Position, GetWireGameplayTuning().Movement.PlayerFootMargin))
 		{
 			continue;
 		}

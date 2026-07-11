@@ -2,6 +2,8 @@
 
 #include <filesystem>
 
+// 音量・マウス感度など、ゲームプレイに依存しないアプリ共通設定です。
+// ゲーム固有の数値はEngine::RuntimeConfigと各ゲームのTuning構造体で扱います。
 class GameSettings
 {
 private:

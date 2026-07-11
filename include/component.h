@@ -2,6 +2,8 @@
 
 
 
+// GameObjectに所有される機能単位です。
+// Component単体では寿命を管理せず、GameObjectのライフサイクルからのみ呼び出されます。
 class Component
 {
 
@@ -17,10 +19,12 @@ public:
 
 	virtual void Init() {};
 	virtual void Uninit() {};
+	// 入力・姿勢、ゲーム進行、後処理、描画の順にGameObjectが呼び出します。
 	virtual void PreUpdate() {};
 	virtual void Update() {};
 	virtual void LateUpdate() {};
 	virtual void Draw() {};
+	// SetPosition/SetScale等の公開変換API経由で通知されます。
 	virtual void OnOwnerTransformChanged() {};
 
 };

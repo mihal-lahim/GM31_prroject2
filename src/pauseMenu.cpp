@@ -1,5 +1,6 @@
 #include "main.h"
 #include "renderer.h"
+#include "graphicsResourceFactory.h"
 #include "gameTime.h"
 #include "gameSettings.h"
 #include "pauseMenu.h"
@@ -49,10 +50,9 @@ void PauseMenu::Init()
 
 	D3D11_SUBRESOURCE_DATA sd{};
 	sd.pSysMem = vertex;
-	Renderer::GetDevice()->CreateBuffer(&bd, &sd, m_VertexBuffer.GetAddressOf());
-
-	Renderer::CreateVertexShader(m_VertexShader, m_VertexLayout, "unlitTextureVS.cso");
-	Renderer::CreatePixelShader(m_PixelShader, "unlitTexturePS.cso");
+	Engine::GraphicsResourceFactory::CreateBuffer(m_VertexBuffer, bd, &sd, "PauseMenu");
+	Engine::GraphicsResourceFactory::CreateUnlitShaderPair(
+		m_VertexShader, m_VertexLayout, m_PixelShader, "PauseMenu");
 }
 
 void PauseMenu::Uninit()

@@ -96,6 +96,15 @@ OBJ/MTL parsing lives in `objModelLoader.cpp`; `ModelRenderer` is limited to
 GPU resource creation, handle ownership, and drawing. Mouse device state is
 similarly isolated in `mouseInput.cpp` instead of the application entry point.
 
+GPUバッファと標準シェーダーの生成は `Engine::GraphicsResourceFactory` に集約
+されています。失敗時は対象COMポインタを空にして統一ログを残すため、各描画
+クラスが失敗したリソースを使い続けることはありません。
+
+新規のEngine APIは `Engine::RuntimeConfig`、`Engine::GraphicsResourceFactory`
+のように `Engine::` 名前空間へ追加します。既存のグローバル型は二つのゲームを
+段階的に移行するための互換APIであり、`engineApi.h` からも `Engine::Renderer`
+等の名前で参照できます。
+
 The cache is cleared after all scene objects and model resources are released,
 and before XAudio and Direct3D are shut down. A handle may safely outlive a
 cache clear; its resource remains alive until the last handle is released.
@@ -109,6 +118,8 @@ removed manifest entries cannot remain in a package from an older build. At
 startup the working directory is set to the executable directory, so runtime
 asset paths do not depend on how the executable was launched. Shared volume and mouse defaults are read from the
 application's `assets/config/*.cfg` file and fall back to validated defaults.
+ゲームプレイ値は別の `*-gameplay.cfg` で管理し、Wire Actionでは移動・ワイヤー・
+剣・TPSカメラ、Batting Centerでは打撃判定をコード再コンパイルなしで調整できます。
 
 DirectXTex is shipped in `include/` and `lib/`; global vcpkg integration is
 disabled so builds do not depend on a developer-specific `C:\vcpkg` install.

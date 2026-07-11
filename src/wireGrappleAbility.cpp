@@ -5,6 +5,7 @@
 #include "wirePlayer.h"
 #include "wirePlayerInput.h"
 #include "wireTpsCamera.h"
+#include "wireGameplayTuning.h"
 
 #include <algorithm>
 #include <limits>
@@ -13,26 +14,6 @@ namespace
 {
 	constexpr float kVectorEpsilon = 0.0001f;
 	constexpr float kReleaseDirectionEpsilon = 0.001f;
-	constexpr float kAimMaxTime = 2.0f;
-	constexpr float kWirePullAccel = 88.0f;
-	constexpr float kWireMaxSpeed = 42.0f;
-	constexpr float kWireReleaseBoost = 8.5f;
-	constexpr float kWireReleaseUpBoost = 3.0f;
-	constexpr float kWireReleaseMaxSpeed = 50.0f;
-	constexpr float kWireStopDistance = 1.6f;
-	constexpr float kWireMaxDistance = 42.0f;
-	constexpr float kWireAimConeDot = 0.82f;
-	constexpr float kWireOriginHeight = 1.0f;
-	constexpr float kWireAnchorMinDistance = 0.1f;
-	constexpr float kAnchorDistanceScorePenalty = 0.012f;
-	constexpr float kAnchorRadiusScoreBonus = 0.05f;
-	constexpr float kNoAnchorCooldown = 0.10f;
-	constexpr float kWireStartCooldown = 0.16f;
-	constexpr float kWireLaunchImpulse = 9.0f;
-	constexpr float kWireTurnLerp = 0.30f;
-	constexpr float kWireReleaseSquashXz = 0.78f;
-	constexpr float kWireReleaseStretchY = 1.28f;
-	constexpr float kAnchorAimScoreWeight = 2.0f;
 
 	float WrapAngle(float angle)
 	{
@@ -70,7 +51,7 @@ void WireGrappleAbility::UpdateAim(
 	(void)player;
 	if (!input.AimDown || input.AimPressed)
 	{
-		m_AimTimeRemaining = kAimMaxTime;
+		m_AimTimeRemaining = GetWireGameplayTuning().Grapple.AimMaxTime;
 	}
 
 	m_Aiming = input.AimDown && m_AimTimeRemaining > 0.0f;
@@ -113,22 +94,22 @@ void WireGrappleAbility::Update(
 		return;
 	}
 
-	Vector3 toAnchor = m_Anchor - (player.m_Position + Vector3(0.0f, kWireOriginHeight, 0.0f));
+	Vector3 toAnchor = m_Anchor - (player.m_Position + Vector3(0.0f, GetWireGameplayTuning().Grapple.OriginHeight, 0.0f));
 	const float distance = toAnchor.length();
-	if (distance <= kWireStopDistance)
+	if (distance <= GetWireGameplayTuning().Grapple.StopDistance)
 	{
 		Cancel(player, true);
 		return;
 	}
 
 	toAnchor.normalize();
-	player.m_Velocity += toAnchor * (kWirePullAccel * dt);
-	player.m_Velocity = ClampLength(player.m_Velocity, kWireMaxSpeed);
+	player.m_Velocity += toAnchor * (GetWireGameplayTuning().Grapple.PullAcceleration * dt);
+	player.m_Velocity = ClampLength(player.m_Velocity, GetWireGameplayTuning().Grapple.MaxSpeed);
 
 	const Vector3 flatDirection = Flatten(toAnchor);
 	if (flatDirection.length() > kVectorEpsilon)
 	{
-		player.m_Rotation.y = LerpAngle(player.m_Rotation.y, atan2f(flatDirection.x, flatDirection.z), kWireTurnLerp);
+		player.m_Rotation.y = LerpAngle(player.m_Rotation.y, atan2f(flatDirection.x, flatDirection.z), GetWireGameplayTuning().Grapple.TurnLerp);
 	}
 }
 
@@ -144,16 +125,16 @@ void WireGrappleAbility::Cancel(WirePlayer& player, bool addBoost)
 		Vector3 boostDirection = player.m_Velocity;
 		if (boostDirection.length() < kReleaseDirectionEpsilon)
 		{
-			boostDirection = m_Anchor - (player.m_Position + Vector3(0.0f, kWireOriginHeight, 0.0f));
+			boostDirection = m_Anchor - (player.m_Position + Vector3(0.0f, GetWireGameplayTuning().Grapple.OriginHeight, 0.0f));
 		}
 
 		if (boostDirection.length() > kReleaseDirectionEpsilon)
 		{
 			boostDirection.normalize();
-			player.m_Velocity += boostDirection * kWireReleaseBoost;
-			player.m_Velocity.y += kWireReleaseUpBoost;
-			player.m_Velocity = ClampLength(player.m_Velocity, kWireReleaseMaxSpeed);
-			player.m_Scale = { kWireReleaseSquashXz, kWireReleaseStretchY, kWireReleaseSquashXz };
+			player.m_Velocity += boostDirection * GetWireGameplayTuning().Grapple.ReleaseBoost;
+			player.m_Velocity.y += GetWireGameplayTuning().Grapple.ReleaseUpBoost;
+			player.m_Velocity = ClampLength(player.m_Velocity, GetWireGameplayTuning().Grapple.ReleaseMaxSpeed);
+			player.m_Scale = { GetWireGameplayTuning().Grapple.ReleaseSquashXZ, GetWireGameplayTuning().Grapple.ReleaseStretchY, GetWireGameplayTuning().Grapple.ReleaseSquashXZ };
 		}
 	}
 
@@ -178,21 +159,21 @@ bool WireGrappleAbility::FindAnchor(World& world, const WireTpsCamera* camera, V
 		const Vector3 hookPosition = anchor->GetHookPosition();
 		Vector3 toAnchor = hookPosition - origin;
 		const float distance = toAnchor.length();
-		if (distance < kWireAnchorMinDistance || distance > kWireMaxDistance)
+		if (distance < GetWireGameplayTuning().Grapple.AnchorMinDistance || distance > GetWireGameplayTuning().Grapple.MaxDistance)
 		{
 			continue;
 		}
 
 		toAnchor /= distance;
 		const float aimDot = Vector3::dot(aimDirection, toAnchor);
-		if (aimDot < kWireAimConeDot)
+		if (aimDot < GetWireGameplayTuning().Grapple.AimConeDot)
 		{
 			continue;
 		}
 
-		const float score = aimDot * kAnchorAimScoreWeight
-			- distance * kAnchorDistanceScorePenalty
-			+ anchor->GetRadius() * kAnchorRadiusScoreBonus;
+		const float score = aimDot * GetWireGameplayTuning().Grapple.AnchorAimScoreWeight
+			- distance * GetWireGameplayTuning().Grapple.AnchorDistancePenalty
+			+ anchor->GetRadius() * GetWireGameplayTuning().Grapple.AnchorRadiusBonus;
 		if (score > bestScore)
 		{
 			bestScore = score;
@@ -210,23 +191,23 @@ void WireGrappleAbility::Start(WirePlayer& player, const WireTpsCamera* camera)
 	if (!FindAnchor(player.GetWorld(), camera, anchor))
 	{
 		Cancel(player, false);
-		m_Cooldown = kNoAnchorCooldown;
+		m_Cooldown = GetWireGameplayTuning().Grapple.NoAnchorCooldown;
 		return;
 	}
 
 	m_Anchor = anchor;
 	m_Active = true;
-	m_Cooldown = kWireStartCooldown;
+	m_Cooldown = GetWireGameplayTuning().Grapple.StartCooldown;
 
-	Vector3 launchDirection = m_Anchor - (player.m_Position + Vector3(0.0f, kWireOriginHeight, 0.0f));
+	Vector3 launchDirection = m_Anchor - (player.m_Position + Vector3(0.0f, GetWireGameplayTuning().Grapple.OriginHeight, 0.0f));
 	if (launchDirection.length() > kVectorEpsilon)
 	{
 		launchDirection.normalize();
-		player.m_Velocity += launchDirection * kWireLaunchImpulse;
+		player.m_Velocity += launchDirection * GetWireGameplayTuning().Grapple.LaunchImpulse;
 	}
 }
 
 float WireGrappleAbility::GetAimTimeRatio() const
 {
-	return std::clamp(m_AimTimeRemaining / kAimMaxTime, 0.0f, 1.0f);
+	return std::clamp(m_AimTimeRemaining / GetWireGameplayTuning().Grapple.AimMaxTime, 0.0f, 1.0f);
 }

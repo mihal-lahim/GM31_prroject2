@@ -10,6 +10,7 @@
 #include <string>
 #include <vector>
 
+// 不変リソースはshared_ptrハンドルで共有し、呼び出し側にGPU所有権を渡しません。
 struct TextureResource
 {
 	ComPtr<ID3D11ShaderResourceView> View;
@@ -51,6 +52,8 @@ using PixelShaderHandle = std::shared_ptr<const PixelShaderResource>;
 using ModelHandle = std::shared_ptr<const MODEL>;
 using ModelFactory = std::function<std::shared_ptr<MODEL>()>;
 
+// パスを正規化して各種リソースを一度だけ読み込むキャッシュです。
+// Clear後も既存ハンドルは有効なため、Scene破棄とGPU終了の順序を保てます。
 class ResourceManager
 {
 public:

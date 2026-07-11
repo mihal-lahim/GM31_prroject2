@@ -6,6 +6,7 @@
 #include <memory>
 #include <utility>
 
+// 1つのゲーム画面と、その画面専用のWorldをまとめる単位です。
 class Scene
 {
 private:
@@ -32,6 +33,7 @@ public:
 		m_ChangeScene = std::move(handler);
 	}
 
+	// ManagerがScene切替境界で呼びます。Scene実装はWorldを直接利用します。
 	virtual void Init() = 0;
 	virtual void Uninit() = 0;
 	virtual void Update() = 0;

@@ -2,6 +2,7 @@
 #include "wireStage.h"
 
 #include "renderer.h"
+#include "graphicsResourceFactory.h"
 
 void WireStage::Init()
 {
@@ -35,10 +36,9 @@ void WireStage::Init()
 
 	D3D11_SUBRESOURCE_DATA initData{};
 	initData.pSysMem = vertex;
-	Renderer::GetDevice()->CreateBuffer(&bufferDesc, &initData, m_VertexBuffer.GetAddressOf());
-
-	Renderer::CreateVertexShader(m_VertexShader, m_VertexLayout, "unlitTextureVS.cso");
-	Renderer::CreatePixelShader(m_PixelShader, "unlitTexturePS.cso");
+	Engine::GraphicsResourceFactory::CreateBuffer(m_VertexBuffer, bufferDesc, &initData, "WireStage");
+	Engine::GraphicsResourceFactory::CreateUnlitShaderPair(
+		m_VertexShader, m_VertexLayout, m_PixelShader, "WireStage");
 
 	m_Texture = ResourceManager::LoadTexture(L"assets/texture/ground.png");
 }

@@ -1,6 +1,7 @@
 #include "wirePlayerPresentation.h"
 
 #include "renderer.h"
+#include "graphicsResourceFactory.h"
 #include "wirePlayer.h"
 
 namespace
@@ -12,8 +13,8 @@ namespace
 
 void WirePlayerPresentation::Init()
 {
-	Renderer::CreateVertexShader(m_LineVertexShader, m_LineVertexLayout, "unlitTextureVS.cso");
-	Renderer::CreatePixelShader(m_LinePixelShader, "unlitTexturePS.cso");
+	Engine::GraphicsResourceFactory::CreateUnlitShaderPair(
+		m_LineVertexShader, m_LineVertexLayout, m_LinePixelShader, "WirePlayerPresentation");
 
 	VERTEX_3D wireVertex[2]{};
 	D3D11_BUFFER_DESC bufferDesc{};
@@ -22,7 +23,8 @@ void WirePlayerPresentation::Init()
 	bufferDesc.BindFlags = D3D11_BIND_VERTEX_BUFFER;
 	D3D11_SUBRESOURCE_DATA initData{};
 	initData.pSysMem = wireVertex;
-	Renderer::GetDevice()->CreateBuffer(&bufferDesc, &initData, m_WireVertexBuffer.GetAddressOf());
+	Engine::GraphicsResourceFactory::CreateBuffer(
+		m_WireVertexBuffer, bufferDesc, &initData, "WirePlayerPresentation");
 }
 
 void WirePlayerPresentation::Uninit()

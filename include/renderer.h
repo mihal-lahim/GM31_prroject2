@@ -1,6 +1,7 @@
 #pragma once
 
 #include "engineCommon.h"
+// Engine内で共有する標準頂点形式です。OBJ、2D、パーティクルで同じ入力レイアウトを使います。
 struct VERTEX_3D
 {
 	XMFLOAT3 Position;
@@ -42,6 +43,8 @@ enum class RenderBlendMode
 
 
 
+// Direct3D 11のデバイスとフレーム開始/終了を一元管理します。
+// GPUリソースの個別生成はEngine::GraphicsResourceFactoryを経由します。
 class Renderer
 {
 private:
@@ -75,6 +78,7 @@ private:
 public:
 	static bool Init();
 	static void Uninit();
+	// Beginでフレーム共通状態を初期化し、EndでPresentします。
 	static void Begin();
 	static void End();
 
@@ -96,12 +100,14 @@ public:
 
 
 
-	static void CreateVertexShader(ComPtr<ID3D11VertexShader>& VertexShader, ComPtr<ID3D11InputLayout>& VertexLayout, const char* FileName);
-	static void CreatePixelShader(ComPtr<ID3D11PixelShader>& PixelShader, const char* FileName);
+	// ResourceManager経由でシェーダーを取得します。失敗時は出力を空にしてfalseを返します。
+	static bool CreateVertexShader(ComPtr<ID3D11VertexShader>& VertexShader, ComPtr<ID3D11InputLayout>& VertexLayout, const char* FileName);
+	static bool CreatePixelShader(ComPtr<ID3D11PixelShader>& PixelShader, const char* FileName);
 
 
 };
 
+// GameObjectごとのDrawがパイプライン状態を変更しても、次のDrawへ漏らさないためのRAIIです。
 class RendererStateScope
 {
 private:

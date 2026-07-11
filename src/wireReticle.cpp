@@ -2,6 +2,7 @@
 #include "wireReticle.h"
 
 #include "renderer.h"
+#include "graphicsResourceFactory.h"
 #include "wirePlayer.h"
 #include "world.h"
 
@@ -55,15 +56,15 @@ void WireReticle::Init()
 
 	D3D11_SUBRESOURCE_DATA initData{};
 	initData.pSysMem = vertex;
-	Renderer::GetDevice()->CreateBuffer(&bufferDesc, &initData, m_VertexBuffer.GetAddressOf());
+	Engine::GraphicsResourceFactory::CreateBuffer(m_VertexBuffer, bufferDesc, &initData, "WireReticle");
 
 	VERTEX_3D timerParticles[kTimerParticleCount * kTimerParticleVerticesPerParticle]{};
 	bufferDesc.ByteWidth = sizeof(timerParticles);
 	initData.pSysMem = timerParticles;
-	Renderer::GetDevice()->CreateBuffer(&bufferDesc, &initData, m_TimerParticleBuffer.GetAddressOf());
+	Engine::GraphicsResourceFactory::CreateBuffer(m_TimerParticleBuffer, bufferDesc, &initData, "WireReticle");
 
-	Renderer::CreateVertexShader(m_VertexShader, m_VertexLayout, "unlitTextureVS.cso");
-	Renderer::CreatePixelShader(m_PixelShader, "unlitTexturePS.cso");
+	Engine::GraphicsResourceFactory::CreateUnlitShaderPair(
+		m_VertexShader, m_VertexLayout, m_PixelShader, "WireReticle");
 }
 
 void WireReticle::Uninit()

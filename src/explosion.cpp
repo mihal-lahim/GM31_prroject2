@@ -2,6 +2,7 @@
 
 #include"main.h"
 #include"renderer.h"
+#include "graphicsResourceFactory.h"
 #include "explosion.h"
 #include "cameraView.h"
 #include "world.h"
@@ -42,16 +43,15 @@ void Explosion::Init()
 	D3D11_SUBRESOURCE_DATA sd{};
 	sd.pSysMem = vertex;
 
-	Renderer::GetDevice()->CreateBuffer(&bd, &sd, m_VertexBuffer.GetAddressOf());
+	Engine::GraphicsResourceFactory::CreateBuffer(m_VertexBuffer, bd, &sd, "Explosion");
 
 	// 爆発テクスチャを読み込む。
 	m_Texture = ResourceManager::LoadTexture(L"assets/texture/explosion.png");
 	assert(m_Texture);
 
 	// シェーダーを読み込む。
-	Renderer::CreateVertexShader(m_VertexShader, m_VertexLayout, "unlitTextureVS.cso");
-
-	Renderer::CreatePixelShader(m_PixelShader, "unlitTexturePS.cso");
+	Engine::GraphicsResourceFactory::CreateUnlitShaderPair(
+		m_VertexShader, m_VertexLayout, m_PixelShader, "Explosion");
 
 	m_Frame = 0;
 }

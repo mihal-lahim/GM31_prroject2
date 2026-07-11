@@ -5,6 +5,8 @@
 #include "gameObject.h"
 #include "renderer.h"
 
+// Colliderは所有GameObjectのWorldへ自動登録されます。
+// 形状変更や公開変換API経由の移動は、静的空間インデックスを無効化します。
 class Collider : public Component
 {
 public:
@@ -54,6 +56,7 @@ public:
 	Collider* SetAABB(const Vector3& halfSize);
 	Collider* SetCapsule(float radius, float height);
 	Collider* SetOffset(const Vector3& offset);
+	// layerは自分のカテゴリ、maskは衝突候補として受け入れるカテゴリです。
 	Collider* SetCollisionLayer(CollisionLayer layer);
 	Collider* SetCollisionMask(CollisionLayer mask);
 	Collider* SetStatic(bool isStatic = true);

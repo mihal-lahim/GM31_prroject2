@@ -9,6 +9,7 @@
 
 class Collider;
 
+// ビットフラグで表す衝突カテゴリです。ゲーム固有のビット定義は各ゲーム側に置きます。
 using CollisionLayer = std::uint32_t;
 
 namespace CollisionLayers
@@ -18,6 +19,8 @@ namespace CollisionLayers
 	inline constexpr CollisionLayer All = ~CollisionLayer{ 0 };
 }
 
+// Worldごとに独立した衝突レジストリです。
+// 静的Colliderだけを空間ハッシュへ登録し、動的Colliderは常に最新状態で評価します。
 class CollisionWorld
 {
 private:
@@ -53,12 +56,14 @@ private:
 public:
 	void Register(Collider& collider);
 	void Unregister(Collider& collider);
+	// 形状・変換・静的フラグの変更後、次の問い合わせ直前にインデックスを再構築します。
 	void MarkStaticIndexDirty() { m_StaticIndexDirty = true; }
 	void Clear();
 
 	std::vector<Collider*> GetOverlaps(
 		const Collider& collider,
 		CollisionLayer layerMask = CollisionLayers::All);
+	// 攻撃判定など、Colliderを作らずカプセル形状で検索したい場合に使います。
 	std::vector<Collider*> QueryCapsule(
 		const Vector3& start,
 		const Vector3& end,

@@ -9,35 +9,13 @@
 #include "wirePlayerInput.h"
 #include "wireSlashEffect.h"
 #include "wireCollisionLayers.h"
+#include "wireGameplayTuning.h"
 #include "world.h"
 
 #include <algorithm>
 
 namespace
 {
-	constexpr float kSwordMaxChargeTime = 2.2f;
-	constexpr float kSwordBaseDamage = 20.0f;
-	constexpr float kSwordChargeDamage = 70.0f;
-	constexpr float kSwordHeightDamageScale = 2.4f;
-	constexpr float kSwordMaxHeightDamage = 90.0f;
-	constexpr float kSwordBaseRange = 2.4f;
-	constexpr float kSwordRangeBonus = 1.2f;
-	constexpr float kSwordHitRadius = 1.15f;
-	constexpr float kSwordSwingDuration = 0.18f;
-	constexpr int kSwordHitStopBaseFrames = 4;
-	constexpr int kSwordHitStopChargeFrames = 3;
-	constexpr float kSwordHitStopScale = 0.10f;
-	constexpr float kSwordChargeScaleXz = 0.90f;
-	constexpr float kSwordChargeScaleY = 1.0f;
-	constexpr float kSwordChargeScaleYBonus = 0.18f;
-	constexpr float kSwordChargeScaleLerp = 0.05f;
-	constexpr float kSwordSwingScaleXz = 1.22f;
-	constexpr float kSwordSwingScaleY = 0.88f;
-	constexpr float kSwordAttackOriginHeight = 1.15f;
-	constexpr float kSwordHitProjectionMin = 0.05f;
-	constexpr float kSlashEffectBackstep = 0.25f;
-	constexpr float kSwordHitBoostBase = 2.0f;
-	constexpr float kSwordHitBoostCharge = 3.5f;
 	constexpr float kDamageRoundOffset = 0.5f;
 	constexpr float kHitStopFrameRoundOffset = 0.5f;
 
@@ -79,12 +57,12 @@ void WireSwordAbility::Update(
 
 	if (input.AttackDown)
 	{
-		m_ChargeTime = std::min(kSwordMaxChargeTime, m_ChargeTime + dt);
+		m_ChargeTime = std::min(GetWireGameplayTuning().Sword.MaxChargeTime, m_ChargeTime + dt);
 		m_ChargePeakHeight = std::max(m_ChargePeakHeight, player.m_Position.y);
 		const float chargeRatio = GetChargeRatio();
-		player.m_Scale.x += (kSwordChargeScaleXz - player.m_Scale.x) * kSwordChargeScaleLerp;
-		player.m_Scale.y += (kSwordChargeScaleY + chargeRatio * kSwordChargeScaleYBonus - player.m_Scale.y) * kSwordChargeScaleLerp;
-		player.m_Scale.z += (kSwordChargeScaleXz - player.m_Scale.z) * kSwordChargeScaleLerp;
+		player.m_Scale.x += (GetWireGameplayTuning().Sword.ChargeScaleXZ - player.m_Scale.x) * GetWireGameplayTuning().Sword.ChargeScaleLerp;
+		player.m_Scale.y += (GetWireGameplayTuning().Sword.ChargeScaleY + chargeRatio * GetWireGameplayTuning().Sword.ChargeScaleYBonus - player.m_Scale.y) * GetWireGameplayTuning().Sword.ChargeScaleLerp;
+		player.m_Scale.z += (GetWireGameplayTuning().Sword.ChargeScaleXZ - player.m_Scale.z) * GetWireGameplayTuning().Sword.ChargeScaleLerp;
 		return;
 	}
 
@@ -109,15 +87,15 @@ void WireSwordAbility::ReleaseAttack(WirePlayer& player)
 	const Vector3 forward = GetSwordForward(player);
 	const int damage = CalculateDamage();
 	const float chargeRatio = GetChargeRatio();
-	const float range = kSwordBaseRange + kSwordRangeBonus * chargeRatio;
-	const Vector3 attackOrigin = player.m_Position + Vector3(0.0f, kSwordAttackOriginHeight, 0.0f);
+	const float range = GetWireGameplayTuning().Sword.BaseRange + GetWireGameplayTuning().Sword.RangeBonus * chargeRatio;
+	const Vector3 attackOrigin = player.m_Position + Vector3(0.0f, GetWireGameplayTuning().Sword.AttackOriginHeight, 0.0f);
 
 	int totalDamage = 0;
 	const Vector3 attackEnd = attackOrigin + forward * range;
 	for (Collider* collider : player.GetWorld().GetCollisionWorld().QueryCapsule(
 		attackOrigin,
 		attackEnd,
-		kSwordHitRadius,
+		GetWireGameplayTuning().Sword.HitRadius,
 		WireCollisionLayers::Enemy))
 	{
 		WireEnemy* enemy = dynamic_cast<WireEnemy*>(collider->GetOwner());
@@ -128,14 +106,14 @@ void WireSwordAbility::ReleaseAttack(WirePlayer& player)
 		const Vector3 enemyCenter = enemy->GetHitCenter();
 		const Vector3 toEnemy = enemyCenter - attackOrigin;
 		const float projected = std::clamp(Vector3::dot(toEnemy, forward), 0.0f, range);
-		if (projected <= kSwordHitProjectionMin)
+		if (projected <= GetWireGameplayTuning().Sword.HitProjectionMin)
 		{
 			continue;
 		}
 
 		enemy->OnSwordHit(damage, forward);
 		WireSlashEffect* effect = player.GetWorld().Spawn<WireSlashEffect>();
-		effect->Setup(enemyCenter - forward * kSlashEffectBackstep, forward, chargeRatio);
+		effect->Setup(enemyCenter - forward * GetWireGameplayTuning().Sword.SlashEffectBackstep, forward, chargeRatio);
 		totalDamage += damage;
 	}
 
@@ -145,31 +123,31 @@ void WireSwordAbility::ReleaseAttack(WirePlayer& player)
 		{
 			score->Add(totalDamage);
 		}
-		player.m_Velocity += forward * (kSwordHitBoostBase + chargeRatio * kSwordHitBoostCharge);
+		player.m_Velocity += forward * (GetWireGameplayTuning().Sword.HitBoostBase + chargeRatio * GetWireGameplayTuning().Sword.HitBoostCharge);
 		GameTime::StartHitStop(
-			kSwordHitStopBaseFrames + static_cast<int>(chargeRatio * kSwordHitStopChargeFrames + kHitStopFrameRoundOffset),
-			kSwordHitStopScale);
+			GetWireGameplayTuning().Sword.HitStopBaseFrames + static_cast<int>(chargeRatio * GetWireGameplayTuning().Sword.HitStopChargeFrames + kHitStopFrameRoundOffset),
+			GetWireGameplayTuning().Sword.HitStopScale);
 	}
 
 	m_Charging = false;
 	m_ChargeTime = 0.0f;
 	m_SwingChargeRatio = chargeRatio;
-	m_SwingTimer = kSwordSwingDuration;
-	player.m_Scale = { kSwordSwingScaleXz, kSwordSwingScaleY, kSwordSwingScaleXz };
+	m_SwingTimer = GetWireGameplayTuning().Sword.SwingDuration;
+	player.m_Scale = { GetWireGameplayTuning().Sword.SwingScaleXZ, GetWireGameplayTuning().Sword.SwingScaleY, GetWireGameplayTuning().Sword.SwingScaleXZ };
 }
 
 int WireSwordAbility::CalculateDamage() const
 {
 	const float heightDamage = std::min(
-		kSwordMaxHeightDamage,
-		std::max(0.0f, m_ChargePeakHeight) * kSwordHeightDamageScale);
-	const float damage = kSwordBaseDamage + kSwordChargeDamage * GetChargeRatio() + heightDamage;
+		GetWireGameplayTuning().Sword.MaxHeightDamage,
+		std::max(0.0f, m_ChargePeakHeight) * GetWireGameplayTuning().Sword.HeightDamageScale);
+	const float damage = GetWireGameplayTuning().Sword.BaseDamage + GetWireGameplayTuning().Sword.ChargeDamage * GetChargeRatio() + heightDamage;
 	return static_cast<int>(damage + kDamageRoundOffset);
 }
 
 float WireSwordAbility::GetChargeRatio() const
 {
-	return std::clamp(m_ChargeTime / kSwordMaxChargeTime, 0.0f, 1.0f);
+	return std::clamp(m_ChargeTime / GetWireGameplayTuning().Sword.MaxChargeTime, 0.0f, 1.0f);
 }
 
 float WireSwordAbility::GetSwingRatio() const
@@ -178,5 +156,5 @@ float WireSwordAbility::GetSwingRatio() const
 	{
 		return 0.0f;
 	}
-	return 1.0f - std::clamp(m_SwingTimer / kSwordSwingDuration, 0.0f, 1.0f);
+	return 1.0f - std::clamp(m_SwingTimer / GetWireGameplayTuning().Sword.SwingDuration, 0.0f, 1.0f);
 }

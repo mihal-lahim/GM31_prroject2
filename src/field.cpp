@@ -2,6 +2,7 @@
 
 #include"main.h"
 #include"renderer.h"
+#include "graphicsResourceFactory.h"
 #include "field.h"
 #include "audio.h"
 
@@ -40,12 +41,11 @@ void Field::Init()
 	D3D11_SUBRESOURCE_DATA sd{};
 	sd.pSysMem = vertex;
 
-	Renderer::GetDevice()->CreateBuffer(&bd, &sd, m_VertexBuffer.GetAddressOf());
+	Engine::GraphicsResourceFactory::CreateBuffer(m_VertexBuffer, bd, &sd, "Field");
 
 	// シェーダーを読み込む。
-	Renderer::CreateVertexShader(m_VertexShader, m_VertexLayout, "unlitTextureVS.cso");
-
-	Renderer::CreatePixelShader(m_PixelShader, "unlitTexturePS.cso");
+	Engine::GraphicsResourceFactory::CreateUnlitShaderPair(
+		m_VertexShader, m_VertexLayout, m_PixelShader, "Field");
 
 	// 地面テクスチャを読み込む。
 	m_Texture = ResourceManager::LoadTexture(L"assets/texture/ground.png");
