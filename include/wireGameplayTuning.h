@@ -2,6 +2,10 @@
 
 // Wire Action固有のゲームプレイ値です。
 // 既定値はコードに残し、assets/config/wire-gameplay.cfgで安全に上書きできます。
+
+// 空中ブリンク回数の上限です。UIゲージのピップ表示数と揃えています。
+inline constexpr int kMaxAirBlinkCharges = 4;
+
 struct WireMovementTuning
 {
 	float WorldBoundsX = 52.0f;
