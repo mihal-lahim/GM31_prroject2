@@ -8,6 +8,7 @@
 #include "wireAnchor.h"
 #include "wireEnemy.h"
 #include "wirePlatform.h"
+#include "wireBlinkGauge.h"
 #include "wirePlayer.h"
 #include "wireReticle.h"
 #include "wireStage.h"
@@ -152,6 +153,7 @@ void WireGame::Init()
 	}
 
 	world.Spawn<WireReticle>();
+	world.Spawn<WireBlinkGauge>();
 	m_Score = world.Spawn<Score>();
 	m_Score->SetDigitCount(kScoreDigits);
 	m_Score->SetPosition(kScorePosition);

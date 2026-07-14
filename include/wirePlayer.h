@@ -38,4 +38,7 @@ public:
 	float GetSpeed() const { return m_Velocity.length(); }
 	bool IsOnGround() const { return m_Movement.IsOnGround(); }
 	Vector3 GetWireAnchor() const { return m_Grapple.GetAnchor(); }
+	float GetBlinkCooldownRatio() const { return m_Movement.GetBlinkCooldownRatio01(); }
+	bool CanBlinkNow() const { return m_Movement.CanBlinkNow(); }
+	int GetAirBlinkChargesRemaining() const { return m_Movement.GetAirBlinkChargesRemaining(); }
 };
