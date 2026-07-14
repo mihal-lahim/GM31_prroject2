@@ -33,6 +33,12 @@ public:
 	void ResolvePlatformLanding(WirePlayer& player, const Vector3& previousPosition);
 	void SetOnGround(bool onGround) { m_OnGround = onGround; }
 	bool IsOnGround() const { return m_OnGround; }
+	// ブリンク移動中はワイヤーの開始・牽引を抑止し、勢い保存が破られないようにします。
+	bool IsBlinking() const { return m_BlinkTimeRemaining > 0.0f; }
+	// リスポーン時にブリンクの持続・維持速度・チャージを初期化します。
+	void ResetForRespawn();
+	// ワイヤー接続の瞬間に呼ばれ、空中チャージを即時回復します(UIの表示遅れ防止)。
+	void RestoreAirBlinkCharges() { m_AirBlinkChargesUsed = 0; }
 
 	// UIゲージ用: クールダウンの回復率(0=撃った直後、1=完了)です。
 	float GetBlinkCooldownRatio01() const;

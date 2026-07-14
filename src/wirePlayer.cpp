@@ -38,7 +38,12 @@ void WirePlayer::Update()
 
 	m_Grapple.UpdateAim(*this, dt, input, camera);
 	m_Movement.Update(*this, dt, input, camera);
-	m_Grapple.Update(*this, dt, input, camera);
+	// ブリンク中にワイヤーが再接続すると、牽引とMaxSpeedクランプが勢い保存を破るため抑止します。
+	// StartBlinkが接続を必ず切るので、抑止中にCancelが必要な状態は発生しません。
+	if (!m_Movement.IsBlinking())
+	{
+		m_Grapple.Update(*this, dt, input, camera);
+	}
 	m_Sword.Update(*this, dt, input, m_Grapple);
 
 	const Vector3 previousPosition = m_Position;
@@ -57,6 +62,7 @@ void WirePlayer::Respawn(const Vector3& position)
 	// 落下前の速度やワイヤー状態を残すと、復帰直後に再び投げ出されるため完全に初期化します。
 	m_Grapple.Cancel(*this, false);
 	m_Sword.Cancel();
+	m_Movement.ResetForRespawn();
 	m_Position = position;
 	m_Velocity = { 0.0f, 0.0f, 0.0f };
 	m_Scale = { 1.0f, 1.0f, 1.0f };

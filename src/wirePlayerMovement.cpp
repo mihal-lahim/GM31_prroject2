@@ -141,6 +141,17 @@ void WirePlayerMovement::UpdateBlink(
 	m_BlinkInputHeld = blinkInputHeld;
 }
 
+void WirePlayerMovement::ResetForRespawn()
+{
+	// ブリンク中に落下すると、復帰直後に旧ブリンク速度で射出されるため必ず打ち切ります。
+	m_BlinkTimeRemaining = 0.0f;
+	m_BlinkTravelSpeed = 0.0f;
+	m_BlinkCooldown = 0.0f;
+	m_AirBlinkChargesUsed = 0;
+	// 押しっぱなしのShiftで復帰直後に暴発しないよう、一度離すまで再発動を待ちます。
+	m_BlinkInputHeld = true;
+}
+
 bool WirePlayerMovement::CanBlinkNow() const
 {
 	if (m_BlinkCooldown > 0.0f || m_BlinkTimeRemaining > 0.0f)
