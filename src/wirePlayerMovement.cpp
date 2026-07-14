@@ -100,6 +100,7 @@ void WirePlayerMovement::Update(
 	player.m_Velocity.y += GetWireGameplayTuning().Movement.Gravity * (aimFalling ? GetWireGameplayTuning().Movement.AimGravityScale : 1.0f) * dt;
 	if (aimFalling && player.m_Velocity.y < GetWireGameplayTuning().Movement.AimFallSpeedLimit)
 	{
+		// 構え中の下限が0なら、上昇が収まった位置で落下せずホバリングします。
 		player.m_Velocity.y = GetWireGameplayTuning().Movement.AimFallSpeedLimit;
 	}
 
@@ -247,6 +248,12 @@ void WirePlayerMovement::ResolvePlatformLanding(WirePlayer& player, const Vector
 
 	for (WirePlatform* platform : player.GetWorld().FindAll<WirePlatform>())
 	{
+		// 背景用ビルは箱モデルを共有しますが、ゲームプレイ上の足場にはしません。
+		if (!platform->IsLandingEnabled())
+		{
+			continue;
+		}
+
 		const float topY = platform->GetTopY();
 		if (previousPosition.y < topY - GetWireGameplayTuning().Movement.PlatformLandingGrace || player.m_Position.y > topY)
 		{

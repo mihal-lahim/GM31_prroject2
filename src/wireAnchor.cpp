@@ -98,13 +98,17 @@ void WireAnchor::Init()
 
 		D3D11_SUBRESOURCE_DATA sd{};
 		sd.pSysMem = vertex;
-		Engine::GraphicsResourceFactory::CreateBuffer(s_VertexBuffer, bd, &sd, "WireAnchor");
-		Engine::GraphicsResourceFactory::CreateUnlitShaderPair(
-			s_VertexShader, s_VertexLayout, s_PixelShader, "WireAnchor");
+		m_RenderingAvailable = Engine::GraphicsResourceFactory::CreateBuffer(
+			s_VertexBuffer, bd, &sd, "WireAnchor");
+		m_RenderingAvailable = Engine::GraphicsResourceFactory::CreateUnlitShaderPair(
+			s_VertexShader, s_VertexLayout, s_PixelShader, "WireAnchor")
+			&& m_RenderingAvailable;
 
 		s_Texture = ResourceManager::LoadTexture(L"assets/texture/particle.png");
-		assert(s_Texture);
 	}
+	m_RenderingAvailable = Engine::GraphicsResourceFactory::IsDrawable(
+		s_VertexBuffer.Get(), s_VertexLayout.Get(), s_VertexShader.Get(), s_PixelShader.Get())
+		&& s_Texture != nullptr;
 
 	s_RefCount++;
 }

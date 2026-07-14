@@ -3,30 +3,39 @@
 
 #include "renderer.h"
 #include "graphicsResourceFactory.h"
+#include "wireGameplayTuning.h"
 
 void WireStage::Init()
 {
 	m_Layer = Layer::World;
 
+	const WireStageTuning& stage = GetWireGameplayTuning().Stage;
+	const float abyssY = stage.OriginY - stage.FallDepth - 3.0f;
+	const float leftX = stage.OriginX - 55.0f;
+	const float rightX = stage.OriginX + 55.0f;
+	const float nearZ = stage.OriginZ - 35.0f;
+	const float farZ = stage.OriginZ + stage.FinishOffsetZ + 35.0f;
+
+	// 地面ではなく、コースのはるか下に見える奈落面です。プレイヤーとは衝突しません。
 	VERTEX_3D vertex[4]{};
-	vertex[0].Position = XMFLOAT3(-55.0f, 0.0f, 55.0f);
+	vertex[0].Position = XMFLOAT3(leftX, abyssY, farZ);
 	vertex[0].Normal = XMFLOAT3(0.0f, 1.0f, 0.0f);
-	vertex[0].Diffuse = XMFLOAT4(0.75f, 0.85f, 0.95f, 1.0f);
+	vertex[0].Diffuse = XMFLOAT4(0.08f, 0.13f, 0.22f, 1.0f);
 	vertex[0].TexCoord = XMFLOAT2(0.0f, 0.0f);
 
-	vertex[1].Position = XMFLOAT3(55.0f, 0.0f, 55.0f);
+	vertex[1].Position = XMFLOAT3(rightX, abyssY, farZ);
 	vertex[1].Normal = XMFLOAT3(0.0f, 1.0f, 0.0f);
-	vertex[1].Diffuse = XMFLOAT4(0.75f, 0.85f, 0.95f, 1.0f);
+	vertex[1].Diffuse = XMFLOAT4(0.08f, 0.13f, 0.22f, 1.0f);
 	vertex[1].TexCoord = XMFLOAT2(18.0f, 0.0f);
 
-	vertex[2].Position = XMFLOAT3(-55.0f, 0.0f, -55.0f);
+	vertex[2].Position = XMFLOAT3(leftX, abyssY, nearZ);
 	vertex[2].Normal = XMFLOAT3(0.0f, 1.0f, 0.0f);
-	vertex[2].Diffuse = XMFLOAT4(0.75f, 0.85f, 0.95f, 1.0f);
+	vertex[2].Diffuse = XMFLOAT4(0.08f, 0.13f, 0.22f, 1.0f);
 	vertex[2].TexCoord = XMFLOAT2(0.0f, 18.0f);
 
-	vertex[3].Position = XMFLOAT3(55.0f, 0.0f, -55.0f);
+	vertex[3].Position = XMFLOAT3(rightX, abyssY, nearZ);
 	vertex[3].Normal = XMFLOAT3(0.0f, 1.0f, 0.0f);
-	vertex[3].Diffuse = XMFLOAT4(0.75f, 0.85f, 0.95f, 1.0f);
+	vertex[3].Diffuse = XMFLOAT4(0.08f, 0.13f, 0.22f, 1.0f);
 	vertex[3].TexCoord = XMFLOAT2(18.0f, 18.0f);
 
 	D3D11_BUFFER_DESC bufferDesc{};
@@ -36,11 +45,14 @@ void WireStage::Init()
 
 	D3D11_SUBRESOURCE_DATA initData{};
 	initData.pSysMem = vertex;
-	Engine::GraphicsResourceFactory::CreateBuffer(m_VertexBuffer, bufferDesc, &initData, "WireStage");
-	Engine::GraphicsResourceFactory::CreateUnlitShaderPair(
-		m_VertexShader, m_VertexLayout, m_PixelShader, "WireStage");
+	m_RenderingAvailable = Engine::GraphicsResourceFactory::CreateBuffer(
+		m_VertexBuffer, bufferDesc, &initData, "WireStage");
+	m_RenderingAvailable = Engine::GraphicsResourceFactory::CreateUnlitShaderPair(
+		m_VertexShader, m_VertexLayout, m_PixelShader, "WireStage")
+		&& m_RenderingAvailable;
 
 	m_Texture = ResourceManager::LoadTexture(L"assets/texture/ground.png");
+	m_RenderingAvailable = m_Texture != nullptr && m_RenderingAvailable;
 }
 
 void WireStage::Uninit()
@@ -61,8 +73,8 @@ void WireStage::Draw()
 	Renderer::SetWorldMatrix(XMMatrixIdentity());
 
 	MATERIAL material{};
-	material.Diffuse = XMFLOAT4(0.75f, 0.85f, 0.95f, 1.0f);
-	material.Ambient = XMFLOAT4(0.75f, 0.85f, 0.95f, 1.0f);
+	material.Diffuse = XMFLOAT4(0.08f, 0.13f, 0.22f, 1.0f);
+	material.Ambient = XMFLOAT4(0.08f, 0.13f, 0.22f, 1.0f);
 	material.TextureEnable = m_Texture != nullptr;
 	Renderer::SetMaterial(material);
 

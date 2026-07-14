@@ -56,15 +56,18 @@ void WireReticle::Init()
 
 	D3D11_SUBRESOURCE_DATA initData{};
 	initData.pSysMem = vertex;
-	Engine::GraphicsResourceFactory::CreateBuffer(m_VertexBuffer, bufferDesc, &initData, "WireReticle");
+	const bool reticleBufferCreated = Engine::GraphicsResourceFactory::CreateBuffer(
+		m_VertexBuffer, bufferDesc, &initData, "WireReticle");
 
 	VERTEX_3D timerParticles[kTimerParticleCount * kTimerParticleVerticesPerParticle]{};
 	bufferDesc.ByteWidth = sizeof(timerParticles);
 	initData.pSysMem = timerParticles;
-	Engine::GraphicsResourceFactory::CreateBuffer(m_TimerParticleBuffer, bufferDesc, &initData, "WireReticle");
+	const bool timerBufferCreated = Engine::GraphicsResourceFactory::CreateBuffer(
+		m_TimerParticleBuffer, bufferDesc, &initData, "WireReticle");
 
-	Engine::GraphicsResourceFactory::CreateUnlitShaderPair(
+	const bool shadersCreated = Engine::GraphicsResourceFactory::CreateUnlitShaderPair(
 		m_VertexShader, m_VertexLayout, m_PixelShader, "WireReticle");
+	m_RenderingAvailable = reticleBufferCreated && timerBufferCreated && shadersCreated;
 }
 
 void WireReticle::Uninit()

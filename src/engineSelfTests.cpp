@@ -5,10 +5,12 @@
 #include "modelRenderer.h"
 #include "renderQueue.h"
 #include "resourceManager.h"
+#include "runtimeConfig.h"
 #include "world.h"
 
 #include <cmath>
 #include <filesystem>
+#include <fstream>
 
 namespace
 {
@@ -304,6 +306,38 @@ namespace
 		ResourceManager::Clear();
 		return ResourceManager::GetModelCount() == 0 && first != nullptr;
 	}
+
+	bool TestRuntimeConfigValidationAndReload()
+	{
+		const std::filesystem::path configPath =
+			std::filesystem::temp_directory_path() / "gm31-runtime-config-self-test.cfg";
+		{
+			std::ofstream file(configPath, std::ios::trunc);
+			if (!file)
+			{
+				return false;
+			}
+			file << "test.speed=25\n"
+				<< "test.count=4\n"
+				<< "test.fractional_count=3.5\n"
+				<< "test.invalid=nan\n";
+		}
+
+		Engine::RuntimeConfig::Reset();
+		const std::uint64_t generationBeforeLoad = Engine::RuntimeConfig::GetGeneration();
+		const bool loaded = Engine::RuntimeConfig::Load(configPath);
+		const bool valuesAreValid = loaded
+			&& Engine::RuntimeConfig::GetGeneration() == generationBeforeLoad + 1
+			&& NearlyEqual(Engine::RuntimeConfig::GetFloat("test.speed", 0.0f, 0.0f, 10.0f), 10.0f)
+			&& Engine::RuntimeConfig::GetInt("test.count", 0, 0, 10) == 4
+			&& Engine::RuntimeConfig::GetInt("test.fractional_count", 7, 0, 10) == 7
+			&& NearlyEqual(Engine::RuntimeConfig::GetFloat("test.invalid", 9.0f), 9.0f);
+
+		std::error_code removeError;
+		std::filesystem::remove(configPath, removeError);
+		Engine::RuntimeConfig::Reset();
+		return valuesAreValid;
+	}
 }
 
 bool RunEngineSelfTests()
@@ -313,6 +347,7 @@ bool RunEngineSelfTests()
 		&& TestCollisionWorldIsolation()
 		&& TestRenderOrdering()
 		&& TestGameTime()
+		&& TestRuntimeConfigValidationAndReload()
 		&& TestWaveResourceCache()
 		&& TestModelResourceCache();
 	OutputDebugStringA(passed ? "Engine self-tests passed.\n" : "Engine self-tests failed.\n");

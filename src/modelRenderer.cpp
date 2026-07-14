@@ -24,18 +24,24 @@ void ModelRenderer::EnsureDefaultShader()
 		|| m_DefaultVertexShader == nullptr
 		|| m_DefaultPixelShader == nullptr)
 	{
-		Engine::GraphicsResourceFactory::CreateUnlitShaderPair(
-			m_DefaultVertexShader, m_DefaultVertexLayout, m_DefaultPixelShader, "ModelRenderer");
+		if (!Engine::GraphicsResourceFactory::CreateUnlitShaderPair(
+			m_DefaultVertexShader, m_DefaultVertexLayout, m_DefaultPixelShader, "ModelRenderer"))
+		{
+			return;
+		}
 	}
 }
 
 void ModelRenderer::Draw()
 {
-	if (m_Model == nullptr || m_Model->VertexBuffer == nullptr || m_Model->IndexBuffer == nullptr || m_Model->SubsetNum == 0)
+	if (m_Model == nullptr || m_Model->VertexBuffer == nullptr || m_Model->IndexBuffer == nullptr
+		|| m_Model->SubsetNum == 0 || Renderer::GetDeviceContext() == nullptr)
 	{
 		return;
 	}
 
+	// 共有シェーダーは最初のモデル描画時に遅延生成する。
+	// 準備済み判定より前に呼ばないと、初回描画が永久にスキップされてしまう。
 	EnsureDefaultShader();
 	if (m_DefaultVertexLayout == nullptr
 		|| m_DefaultVertexShader == nullptr

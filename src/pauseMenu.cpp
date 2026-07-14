@@ -50,9 +50,11 @@ void PauseMenu::Init()
 
 	D3D11_SUBRESOURCE_DATA sd{};
 	sd.pSysMem = vertex;
-	Engine::GraphicsResourceFactory::CreateBuffer(m_VertexBuffer, bd, &sd, "PauseMenu");
-	Engine::GraphicsResourceFactory::CreateUnlitShaderPair(
-		m_VertexShader, m_VertexLayout, m_PixelShader, "PauseMenu");
+	m_RenderingAvailable = Engine::GraphicsResourceFactory::CreateBuffer(
+		m_VertexBuffer, bd, &sd, "PauseMenu");
+	m_RenderingAvailable = Engine::GraphicsResourceFactory::CreateUnlitShaderPair(
+		m_VertexShader, m_VertexLayout, m_PixelShader, "PauseMenu")
+		&& m_RenderingAvailable;
 }
 
 void PauseMenu::Uninit()
@@ -121,9 +123,15 @@ void PauseMenu::Update()
 
 void PauseMenu::DrawRect(float x, float y, float width, float height, const XMFLOAT4& color)
 {
-	D3D11_MAPPED_SUBRESOURCE msr{};
-	if (FAILED(Renderer::GetDeviceContext()->Map(m_VertexBuffer.Get(), 0, D3D11_MAP_WRITE_DISCARD, 0, &msr)))
+	if (!m_RenderingAvailable)
 	{
+		return;
+	}
+
+	D3D11_MAPPED_SUBRESOURCE msr{};
+	if (!Engine::GraphicsResourceFactory::MapWriteDiscard(m_VertexBuffer.Get(), msr, "PauseMenu"))
+	{
+		m_RenderingAvailable = false;
 		return;
 	}
 

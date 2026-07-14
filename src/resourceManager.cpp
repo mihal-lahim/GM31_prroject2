@@ -9,6 +9,8 @@
 #include <limits>
 #include <unordered_map>
 
+namespace Engine
+{
 namespace
 {
 	std::unordered_map<std::string, std::shared_ptr<TextureResource>> g_TextureCache;
@@ -399,4 +401,6 @@ std::size_t ResourceManager::GetPixelShaderCount()
 std::size_t ResourceManager::GetModelCount()
 {
 	return g_ModelCache.size();
+}
+
 }

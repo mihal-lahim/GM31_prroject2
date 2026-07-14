@@ -13,11 +13,15 @@
 #include "particleSystem.h"
 #include "renderQueue.h"
 #include "resourceManager.h"
+namespace Engine
+{
 std::unique_ptr<Scene> Manager::m_Scene = nullptr;
 std::unique_ptr<Scene> Manager::m_NextScene = nullptr;
 
 bool Manager::Init(const GameDefinition& gameDefinition)
 {
+	// 前回起動したゲームの調整値を引き継がないよう、ゲームごとに設定テーブルを初期化します。
+	Engine::RuntimeConfig::Reset();
 	if (gameDefinition.SettingsPath != nullptr)
 	{
 		GameSettings::Load(gameDefinition.SettingsPath);
@@ -174,4 +178,5 @@ ICameraView* Manager::GetActiveCamera()
 World* Manager::GetCurrentWorld()
 {
 	return m_Scene != nullptr ? &m_Scene->GetWorld() : nullptr;
+}
 }

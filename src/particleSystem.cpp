@@ -53,13 +53,17 @@ void ParticleSystem::Init()
 		bd.ByteWidth = sizeof(VERTEX_3D) * kMaxSparks * kVerticesPerSpark;
 		bd.BindFlags = D3D11_BIND_VERTEX_BUFFER;
 		bd.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
-		Engine::GraphicsResourceFactory::CreateBuffer(s_VertexBuffer, bd, nullptr, "ParticleSystem");
-		Engine::GraphicsResourceFactory::CreateUnlitShaderPair(
-			s_VertexShader, s_VertexLayout, s_PixelShader, "ParticleSystem");
+		m_RenderingAvailable = Engine::GraphicsResourceFactory::CreateBuffer(
+			s_VertexBuffer, bd, nullptr, "ParticleSystem");
+		m_RenderingAvailable = Engine::GraphicsResourceFactory::CreateUnlitShaderPair(
+			s_VertexShader, s_VertexLayout, s_PixelShader, "ParticleSystem")
+			&& m_RenderingAvailable;
 
 		s_Texture = ResourceManager::LoadTexture(L"assets/texture/particle.png");
-		assert(s_Texture);
 	}
+	m_RenderingAvailable = Engine::GraphicsResourceFactory::IsDrawable(
+		s_VertexBuffer.Get(), s_VertexLayout.Get(), s_VertexShader.Get(), s_PixelShader.Get())
+		&& s_Texture != nullptr;
 }
 
 void ParticleSystem::Uninit()
@@ -217,8 +221,9 @@ void ParticleSystem::Draw()
 	}
 
 	D3D11_MAPPED_SUBRESOURCE mapped{};
-	if (FAILED(Renderer::GetDeviceContext()->Map(s_VertexBuffer.Get(), 0, D3D11_MAP_WRITE_DISCARD, 0, &mapped)))
+	if (!Engine::GraphicsResourceFactory::MapWriteDiscard(s_VertexBuffer.Get(), mapped, "ParticleSystem"))
 	{
+		m_RenderingAvailable = false;
 		return;
 	}
 	memcpy(mapped.pData, vertices.data(), sizeof(VERTEX_3D) * vertices.size());

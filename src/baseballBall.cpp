@@ -9,17 +9,20 @@
 #include "score.h"
 #include "battingTarget.h"
 #include "battingCollisionLayers.h"
+#include "battingGameplayTuning.h"
 
 void BaseballBall::Init()
 {
 	m_Layer = Layer::World;
-	m_Scale = { 0.35f, 0.35f, 0.35f };
+	const auto& tuning = GetBattingGameplayTuning();
+	m_Scale = { tuning.BallScale, tuning.BallScale, tuning.BallScale };
+	m_Lifetime = tuning.BallLifetime;
 
 	AddComponent<ModelRenderer>()
 		->SetUseOwnerTransform()
 		->Load("assets\\model\\bullet.obj");
 	m_Collider = AddComponent<Collider>();
-	m_Collider->SetSphere(0.55f)
+	m_Collider->SetSphere(tuning.BallColliderRadius)
 		->SetCollisionLayer(BattingCollisionLayers::Baseball)
 		->SetDebugColor(XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f));
 }
@@ -34,7 +37,7 @@ void BaseballBall::HitBack(const Vector3& direction, float speed)
 	Vector3 hitDirection = direction;
 	hitDirection.normalize();
 	m_Velocity = hitDirection * speed;
-	m_Velocity.y += 2.4f;
+	m_Velocity.y += GetBattingGameplayTuning().BatHitLift;
 	m_HitBack = true;
 
 	if (m_Collider != nullptr)
@@ -52,6 +55,7 @@ void BaseballBall::Explode()
 void BaseballBall::Update()
 {
 	const float dt = GameTime::GetDeltaTime();
+	const auto& tuning = GetBattingGameplayTuning();
 
 	m_Lifetime -= dt;
 	if (m_Lifetime <= 0.0f)
@@ -70,7 +74,7 @@ void BaseballBall::Update()
 		}
 	}
 
-	m_Velocity.y += -2.0f * dt;
+	m_Velocity.y += tuning.BallGravity * dt;
 	m_Position += m_Velocity * dt;
 	m_Rotation.x += m_Velocity.z * dt * 2.0f;
 	m_Rotation.z -= m_Velocity.x * dt * 2.0f;
@@ -81,7 +85,7 @@ void BaseballBall::Update()
 		while (m_TrailTimer <= 0.0f)
 		{
 			BaseballEffects::EmitSparkleTrail(m_Position);
-			m_TrailTimer += 0.03f;
+			m_TrailTimer += tuning.TrailInterval;
 		}
 	}
 
@@ -91,7 +95,7 @@ void BaseballBall::Update()
 		if (!targets.empty())
 		{
 			m_TargetScored = true;
-			int addScore = 100;
+			int addScore = tuning.DefaultTargetScore;
 
 			if (BattingTarget* target = dynamic_cast<BattingTarget*>(targets.front()->GetOwner()))
 			{
@@ -113,15 +117,15 @@ void BaseballBall::Update()
 		if (!walls.empty())
 		{
 			m_Bounced = true;
-			m_Velocity.z *= -0.62f;
-			m_Velocity.x *= 0.72f;
-			m_Velocity.y = 3.0f;
-			m_Position.z += (m_Velocity.z > 0.0f) ? 0.25f : -0.25f;
-			m_ExplosionDelay = 0.28f;
+			m_Velocity.z *= tuning.WallBounceZ;
+			m_Velocity.x *= tuning.WallBounceX;
+			m_Velocity.y = tuning.WallBounceLift;
+			m_Position.z += (m_Velocity.z > 0.0f) ? tuning.WallSeparation : -tuning.WallSeparation;
+			m_ExplosionDelay = tuning.WallExplosionDelay;
 		}
 	}
 
-	if (!m_HitBack && m_Position.z < -8.0f)
+	if (!m_HitBack && m_Position.z < tuning.MissDestroyZ)
 	{
 		SetDestroy();
 	}

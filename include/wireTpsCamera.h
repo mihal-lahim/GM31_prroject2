@@ -33,6 +33,7 @@ public:
 	Vector3 GetCameraForward() const override;
 	Vector3 GetAimOrigin() const { return m_Position; }
 	Vector3 GetAimDirection() const;
+	void SnapOnNextLateUpdate() { m_TargetInitialized = false; }
 
 	Vector3 GetForward() override;
 	Vector3 GetRight() override;

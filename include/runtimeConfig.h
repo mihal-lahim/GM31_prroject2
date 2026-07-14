@@ -1,6 +1,7 @@
 #pragma once
 
 #include <filesystem>
+#include <cstdint>
 #include <string>
 
 namespace Engine
@@ -10,8 +11,15 @@ namespace Engine
 	class RuntimeConfig
 	{
 	public:
+		// 現在値を破棄して既定値へ戻します。別ゲームの起動前に呼び出します。
+		static void Reset() noexcept;
 		static bool Load(const std::filesystem::path& path);
 		static float GetFloat(const std::string& key, float defaultValue);
+		static float GetFloat(const std::string& key, float defaultValue, float minimum, float maximum);
 		static int GetInt(const std::string& key, int defaultValue);
+		static int GetInt(const std::string& key, int defaultValue, int minimum, int maximum);
+
+		// 設定の読込成功ごとに増える世代番号です。Tuning側の安全な再構築に使用します。
+		static std::uint64_t GetGeneration() noexcept;
 	};
 }

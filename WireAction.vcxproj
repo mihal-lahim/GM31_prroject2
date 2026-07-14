@@ -87,6 +87,7 @@
 		<RuntimeAsset Include="assets\model\wire_saber.obj"><TargetPath>assets\model\wire_saber.obj</TargetPath></RuntimeAsset>
 		<RuntimeAsset Include="assets\model\wire_saber.mtl"><TargetPath>assets\model\wire_saber.mtl</TargetPath></RuntimeAsset>
 		<RuntimeAsset Include="assets\texture\ground.png"><TargetPath>assets\texture\ground.png</TargetPath></RuntimeAsset>
+		<RuntimeAsset Include="assets\texture\number.png"><TargetPath>assets\texture\number.png</TargetPath></RuntimeAsset>
 		<RuntimeAsset Include="assets\texture\particle.png"><TargetPath>assets\texture\particle.png</TargetPath></RuntimeAsset>
 	</ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

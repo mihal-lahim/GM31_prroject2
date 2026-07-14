@@ -87,8 +87,9 @@ bool BaseballBat::IsHitActive() const
 		return false;
 	}
 
-	const float progress = 1.0f - (m_SwingTimer / GetBattingGameplayTuning().SwingDuration);
-	return progress >= 0.16f && progress <= 0.78f;
+	const auto& tuning = GetBattingGameplayTuning();
+	const float progress = 1.0f - (m_SwingTimer / tuning.SwingDuration);
+	return progress >= tuning.HitWindowStart && progress <= tuning.HitWindowEnd;
 }
 
 void BaseballBat::UpdatePose()
@@ -98,6 +99,7 @@ void BaseballBat::UpdatePose()
 		return;
 	}
 
+	const auto& tuning = GetBattingGameplayTuning();
 	Vector3 forward = m_Player->GetForward();
 	forward.y = 0.0f;
 	if (forward.length() <= 0.0001f)
@@ -117,7 +119,7 @@ void BaseballBat::UpdatePose()
 	float progress = 0.0f;
 	if (m_SwingTimer > 0.0f)
 	{
-		progress = 1.0f - (m_SwingTimer / GetBattingGameplayTuning().SwingDuration);
+		progress = 1.0f - (m_SwingTimer / tuning.SwingDuration);
 	}
 
 	const float swing = SmoothStep(progress);
@@ -129,7 +131,7 @@ void BaseballBat::UpdatePose()
 
 	Vector3 shoulder = m_Player->GetPosition() + Vector3(0.0f, 1.15f, 0.0f) + forward * 0.32f + right * 0.22f;
 	m_SegmentStart = shoulder + batDirection * 0.22f;
-	m_SegmentEnd = shoulder + batDirection * GetBattingGameplayTuning().BatLength;
+	m_SegmentEnd = shoulder + batDirection * tuning.BatLength;
 	m_Position = (m_SegmentStart + m_SegmentEnd) * 0.5f;
 
 	m_HitDirection = forward + Vector3(0.0f, 0.18f, 0.0f);
@@ -162,6 +164,7 @@ void BaseballBat::TryHitBalls()
 		return;
 	}
 
+	const auto& tuning = GetBattingGameplayTuning();
 	auto balls = GetWorld().FindAll<BaseballBall>();
 	for (BaseballBall* ball : balls)
 	{
@@ -171,12 +174,12 @@ void BaseballBat::TryHitBalls()
 		}
 
 		const float distance = DistancePointToSegment(ball->GetPosition(), m_SegmentStart, m_SegmentEnd);
-		if (distance > GetBattingGameplayTuning().BatRadius)
+		if (distance > tuning.BatRadius)
 		{
 			continue;
 		}
 
-		ball->HitBack(m_HitDirection, GetBattingGameplayTuning().BatPower);
+		ball->HitBack(m_HitDirection, tuning.BatPower);
 		m_HitThisSwing = true;
 
 		if (m_Collider != nullptr)

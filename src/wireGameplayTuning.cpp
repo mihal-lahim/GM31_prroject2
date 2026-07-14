@@ -3,29 +3,42 @@
 #include "runtimeConfig.h"
 
 #include <algorithm>
+#include <cmath>
+#include <cstdint>
+#include <limits>
 
 namespace
 {
 	float Float(const char* key, float defaultValue)
 	{
-		return Engine::RuntimeConfig::GetFloat(key, defaultValue);
+		// 既定値の10倍を通常の調整範囲とし、桁間違いによる物理演算の発散を防ぎます。
+		const float magnitude = (std::max)(std::abs(defaultValue) * 10.0f, 1.0f);
+		return Engine::RuntimeConfig::GetFloat(key, defaultValue, -magnitude, magnitude);
+	}
+
+	float FloatInRange(const char* key, float defaultValue, float minimum, float maximum)
+	{
+		return Engine::RuntimeConfig::GetFloat(key, defaultValue, minimum, maximum);
 	}
 
 	int Integer(const char* key, int defaultValue)
 	{
-		return Engine::RuntimeConfig::GetInt(key, defaultValue);
+		const int maximum = (std::max)(std::abs(defaultValue) * 10, 100);
+		return Engine::RuntimeConfig::GetInt(key, defaultValue, 0, maximum);
 	}
 }
 
 const WireGameplayTuning& GetWireGameplayTuning()
 {
-	static const WireGameplayTuning tuning = []
+	static WireGameplayTuning tuning{};
+	static std::uint64_t loadedGeneration = (std::numeric_limits<std::uint64_t>::max)();
+	const std::uint64_t currentGeneration = Engine::RuntimeConfig::GetGeneration();
+	if (loadedGeneration != currentGeneration)
 	{
 		WireGameplayTuning value{};
 		auto& movement = value.Movement;
 		movement.WorldBoundsX = Float("wire.movement.world_bounds_x", movement.WorldBoundsX);
 		movement.WorldBoundsZ = Float("wire.movement.world_bounds_z", movement.WorldBoundsZ);
-		movement.PlayerStartZ = Float("wire.movement.player_start_z", movement.PlayerStartZ);
 		movement.PlayerModelYawOffset = Float("wire.movement.player_model_yaw_offset", movement.PlayerModelYawOffset);
 		movement.Gravity = Float("wire.movement.gravity", movement.Gravity);
 		movement.GroundAcceleration = Float("wire.movement.ground_acceleration", movement.GroundAcceleration);
@@ -35,7 +48,8 @@ const WireGameplayTuning& GetWireGameplayTuning()
 		movement.JumpVelocity = Float("wire.movement.jump_velocity", movement.JumpVelocity);
 		movement.AimMoveScale = Float("wire.movement.aim_move_scale", movement.AimMoveScale);
 		movement.AimGravityScale = Float("wire.movement.aim_gravity_scale", movement.AimGravityScale);
-		movement.AimFallSpeedLimit = Float("wire.movement.aim_fall_speed_limit", movement.AimFallSpeedLimit);
+		movement.AimFallSpeedLimit = FloatInRange(
+			"wire.movement.aim_fall_speed_limit", movement.AimFallSpeedLimit, -100.0f, 0.0f);
 		movement.BlinkStepDistance = Float("wire.movement.blink_step_distance", movement.BlinkStepDistance);
 		movement.BlinkSpeed = Float("wire.movement.blink_speed", movement.BlinkSpeed);
 		movement.BlinkDuration = Float("wire.movement.blink_duration", movement.BlinkDuration);
@@ -136,15 +150,90 @@ const WireGameplayTuning& GetWireGameplayTuning()
 		camera.AimShoulderOffset = Float("wire.camera.aim_shoulder_offset", camera.AimShoulderOffset);
 		camera.AimFocusDistance = Float("wire.camera.aim_focus_distance", camera.AimFocusDistance);
 
-		// 0以下では除算や補間が破綻する値だけは、設定ミスでも安全な下限へ補正します。
+		auto& stage = value.Stage;
+		stage.OriginX = FloatInRange("wire.stage.origin_x", stage.OriginX, -1000.0f, 1000.0f);
+		stage.OriginY = FloatInRange("wire.stage.origin_y", stage.OriginY, -1000.0f, 1000.0f);
+		stage.OriginZ = FloatInRange("wire.stage.origin_z", stage.OriginZ, -1000.0f, 1000.0f);
+		stage.FallDepth = FloatInRange("wire.stage.fall_depth", stage.FallDepth, 4.0f, 200.0f);
+		// 400mを超えると標準配置のアンカー間隔がワイヤー射程を超えるため、安全な上限を設けます。
+		stage.FinishOffsetZ = FloatInRange("wire.stage.finish_offset_z", stage.FinishOffsetZ, 50.0f, 400.0f);
+		stage.CheckpointHeightTolerance = FloatInRange(
+			"wire.stage.checkpoint_height_tolerance", stage.CheckpointHeightTolerance, 0.1f, 5.0f);
+		stage.GoalParticleCount = Integer("wire.stage.goal_particle_count", stage.GoalParticleCount);
+
+		// 値同士の関係やゲーム固有の意味を検証し、危険な設定でも実行を継続できるようにします。
+		movement.WorldBoundsX = (std::max)(movement.WorldBoundsX, 1.0f);
+		movement.WorldBoundsZ = (std::max)(movement.WorldBoundsZ, 1.0f);
+		movement.GroundAcceleration = (std::max)(movement.GroundAcceleration, 0.0f);
+		movement.AirAcceleration = (std::max)(movement.AirAcceleration, 0.0f);
+		movement.GroundDamping = (std::max)(movement.GroundDamping, 0.0f);
+		movement.AirDamping = (std::max)(movement.AirDamping, 0.0f);
+		movement.AimMoveScale = std::clamp(movement.AimMoveScale, 0.0f, 2.0f);
+		movement.AimGravityScale = std::clamp(movement.AimGravityScale, 0.0f, 2.0f);
 		movement.BlinkDuration = (std::max)(movement.BlinkDuration, 0.01f);
+		movement.BlinkCooldown = (std::max)(movement.BlinkCooldown, 0.0f);
+		movement.BlinkTurnLerp = std::clamp(movement.BlinkTurnLerp, 0.0f, 1.0f);
+		movement.MoveTurnLerp = std::clamp(movement.MoveTurnLerp, 0.0f, 1.0f);
+		movement.ScaleRecoverLerp = std::clamp(movement.ScaleRecoverLerp, 0.0f, 1.0f);
+		movement.BlinkScaleXZ = std::clamp(movement.BlinkScaleXZ, 0.1f, 4.0f);
+		movement.BlinkScaleY = std::clamp(movement.BlinkScaleY, 0.1f, 4.0f);
+		movement.JumpSquashXZ = std::clamp(movement.JumpSquashXZ, 0.1f, 4.0f);
+		movement.JumpStretchY = std::clamp(movement.JumpStretchY, 0.1f, 4.0f);
+		movement.PlayerFootMargin = (std::max)(movement.PlayerFootMargin, 0.0f);
+		movement.PlatformLandingGrace = (std::max)(movement.PlatformLandingGrace, 0.0f);
+
 		grapple.AimMaxTime = (std::max)(grapple.AimMaxTime, 0.01f);
+		grapple.PullAcceleration = (std::max)(grapple.PullAcceleration, 0.0f);
+		grapple.MaxSpeed = (std::max)(grapple.MaxSpeed, 0.01f);
+		grapple.ReleaseMaxSpeed = (std::max)(grapple.ReleaseMaxSpeed, 0.01f);
+		grapple.StopDistance = (std::max)(grapple.StopDistance, 0.01f);
+		grapple.MaxDistance = (std::max)(grapple.MaxDistance, grapple.StopDistance + 0.01f);
+		grapple.AimConeDot = std::clamp(grapple.AimConeDot, -1.0f, 1.0f);
+		grapple.AnchorMinDistance = std::clamp(
+			grapple.AnchorMinDistance, 0.0f, grapple.MaxDistance);
+		grapple.NoAnchorCooldown = (std::max)(grapple.NoAnchorCooldown, 0.0f);
+		grapple.StartCooldown = (std::max)(grapple.StartCooldown, 0.0f);
+		grapple.TurnLerp = std::clamp(grapple.TurnLerp, 0.0f, 1.0f);
+
 		sword.MaxChargeTime = (std::max)(sword.MaxChargeTime, 0.01f);
 		sword.SwingDuration = (std::max)(sword.SwingDuration, 0.01f);
+		sword.BaseDamage = (std::max)(sword.BaseDamage, 0.0f);
+		sword.ChargeDamage = (std::max)(sword.ChargeDamage, 0.0f);
+		sword.HeightDamageScale = (std::max)(sword.HeightDamageScale, 0.0f);
+		sword.MaxHeightDamage = (std::max)(sword.MaxHeightDamage, 0.0f);
+		sword.BaseRange = (std::max)(sword.BaseRange, 0.01f);
+		sword.RangeBonus = (std::max)(sword.RangeBonus, 0.0f);
+		sword.HitRadius = (std::max)(sword.HitRadius, 0.01f);
+		sword.HitStopScale = std::clamp(sword.HitStopScale, 0.0f, 1.0f);
+		sword.ChargeScaleLerp = std::clamp(sword.ChargeScaleLerp, 0.0f, 1.0f);
+
+		camera.BaseFov = std::clamp(camera.BaseFov, 0.1f, 3.0f);
+		camera.MaxWireFov = std::clamp(camera.MaxWireFov, camera.BaseFov, 3.0f);
+		camera.AimFov = std::clamp(camera.AimFov, 0.1f, 3.0f);
 		camera.NearClip = (std::max)(camera.NearClip, 0.01f);
 		camera.FarClip = (std::max)(camera.FarClip, camera.NearClip + 0.01f);
 		camera.FovBoostFullSpeed = (std::max)(camera.FovBoostFullSpeed, camera.FovBoostStartSpeed + 0.01f);
-		return value;
-	}();
+		camera.FovFollowLerp = std::clamp(camera.FovFollowLerp, 0.0f, 1.0f);
+		camera.DistanceFollowLerp = std::clamp(camera.DistanceFollowLerp, 0.0f, 1.0f);
+		camera.NormalFollowLerp = std::clamp(camera.NormalFollowLerp, 0.0f, 1.0f);
+		camera.WireFollowLerp = std::clamp(camera.WireFollowLerp, 0.0f, 1.0f);
+		camera.AimFollowLerp = std::clamp(camera.AimFollowLerp, 0.0f, 1.0f);
+		camera.NormalPitchMouseScale = (std::max)(camera.NormalPitchMouseScale, 0.0f);
+		camera.AimPitchMouseScale = (std::max)(camera.AimPitchMouseScale, 0.0f);
+
+		stage.FallDepth = (std::max)(stage.FallDepth, 4.0f);
+		stage.FinishOffsetZ = (std::max)(stage.FinishOffsetZ, 1.0f);
+		stage.CheckpointHeightTolerance = std::clamp(
+			stage.CheckpointHeightTolerance, 0.1f, 5.0f);
+		stage.GoalParticleCount = std::clamp(stage.GoalParticleCount, 0, 1000);
+
+		// コース原点や全長を調整しても、プレイヤー座標のクランプでゴール前に止まらないようにします。
+		movement.WorldBoundsX = (std::max)(movement.WorldBoundsX, std::abs(stage.OriginX) + 48.0f);
+		movement.WorldBoundsZ = (std::max)(
+			movement.WorldBoundsZ, std::abs(stage.OriginZ) + stage.FinishOffsetZ + 20.0f);
+
+		tuning = value;
+		loadedGeneration = currentGeneration;
+	}
 	return tuning;
 }

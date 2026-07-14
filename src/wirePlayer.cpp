@@ -9,15 +9,11 @@
 
 #include <algorithm>
 
-namespace
-{
-	constexpr float kGroundY = 0.0f;
-}
-
 void WirePlayer::Init()
 {
 	m_Layer = Layer::World;
-	m_Position = { 0.0f, kGroundY, GetWireGameplayTuning().Movement.PlayerStartZ };
+	const WireStageTuning& stage = GetWireGameplayTuning().Stage;
+	m_Position = { stage.OriginX, stage.OriginY, stage.OriginZ };
 	m_Rotation = { 0.0f, 0.0f, 0.0f };
 	m_Scale = { 1.0f, 1.0f, 1.0f };
 
@@ -47,24 +43,29 @@ void WirePlayer::Update()
 
 	const Vector3 previousPosition = m_Position;
 	m_Position += m_Velocity * dt;
-	if (m_Position.y <= kGroundY)
-	{
-		m_Position.y = kGroundY;
-		if (m_Velocity.y < 0.0f)
-		{
-			m_Velocity.y = 0.0f;
-		}
-		m_Movement.SetOnGround(true);
-	}
-	else
-	{
-		m_Movement.SetOnGround(false);
-	}
+	// 全面地面は設けず、実際に足場へ着地した場合だけ接地状態にします。
+	m_Movement.SetOnGround(false);
 	m_Movement.ResolvePlatformLanding(*this, previousPosition);
 
 	m_Position.x = std::clamp(m_Position.x, -GetWireGameplayTuning().Movement.WorldBoundsX, GetWireGameplayTuning().Movement.WorldBoundsX);
 	m_Position.z = std::clamp(m_Position.z, -GetWireGameplayTuning().Movement.WorldBoundsZ, GetWireGameplayTuning().Movement.WorldBoundsZ);
 	GameObject::Update();
+}
+
+void WirePlayer::Respawn(const Vector3& position)
+{
+	// 落下前の速度やワイヤー状態を残すと、復帰直後に再び投げ出されるため完全に初期化します。
+	m_Grapple.Cancel(*this, false);
+	m_Sword.Cancel();
+	m_Position = position;
+	m_Velocity = { 0.0f, 0.0f, 0.0f };
+	m_Scale = { 1.0f, 1.0f, 1.0f };
+	m_Movement.SetOnGround(true);
+
+	if (WireTpsCamera* camera = GetWorld().FindFirst<WireTpsCamera>())
+	{
+		camera->SnapOnNextLateUpdate();
+	}
 }
 
 void WirePlayer::Draw()

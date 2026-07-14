@@ -48,16 +48,9 @@ void WireGrappleAbility::UpdateAim(
 	const WirePlayerInputState& input,
 	const WireTpsCamera* camera)
 {
-	(void)player;
-	if (!input.AimDown || input.AimPressed)
+	if (input.AimPressed)
 	{
 		m_AimTimeRemaining = GetWireGameplayTuning().Grapple.AimMaxTime;
-	}
-
-	m_Aiming = input.AimDown && m_AimTimeRemaining > 0.0f;
-	if (m_Aiming)
-	{
-		m_AimTimeRemaining = std::max(0.0f, m_AimTimeRemaining - dt);
 	}
 
 	m_AimingAtAnchor = false;
@@ -66,7 +59,30 @@ void WireGrappleAbility::UpdateAim(
 		m_Cooldown = std::max(0.0f, m_Cooldown - dt);
 	}
 
-	if (camera != nullptr && m_Aiming)
+	if (!input.AimDown)
+	{
+		// 右クリックを離したら、次に構えるための制限時間を回復します。
+		m_AimTimeRemaining = GetWireGameplayTuning().Grapple.AimMaxTime;
+		m_Aiming = false;
+		return;
+	}
+
+	if (m_Active)
+	{
+		// 接続後は構え時間を消費しません。右クリックを離すまで接続を維持します。
+		m_Aiming = true;
+		return;
+	}
+
+	// 制限時間は、アンカーを探して構えている間だけ減少します。
+	m_Aiming = m_AimTimeRemaining > 0.0f;
+	if (!m_Aiming)
+	{
+		return;
+	}
+	m_AimTimeRemaining = std::max(0.0f, m_AimTimeRemaining - dt);
+
+	if (camera != nullptr)
 	{
 		Vector3 previewAnchor;
 		m_AimingAtAnchor = FindAnchor(player.GetWorld(), camera, previewAnchor);
@@ -98,7 +114,7 @@ void WireGrappleAbility::Update(
 	const float distance = toAnchor.length();
 	if (distance <= GetWireGameplayTuning().Grapple.StopDistance)
 	{
-		Cancel(player, true);
+		// アンカーへ到達しても自動切断しません。近距離では牽引だけを止め、接続状態を保ちます。
 		return;
 	}
 

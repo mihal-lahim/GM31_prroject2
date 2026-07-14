@@ -44,15 +44,17 @@ void Tree::Init()
 	D3D11_SUBRESOURCE_DATA sd{};
 	sd.pSysMem = vertex;
 
-	Engine::GraphicsResourceFactory::CreateBuffer(m_VertexBuffer, bd, &sd, "Tree");
+	m_RenderingAvailable = Engine::GraphicsResourceFactory::CreateBuffer(
+		m_VertexBuffer, bd, &sd, "Tree");
 
 	// シェーダーを読み込む。
-	Engine::GraphicsResourceFactory::CreateUnlitShaderPair(
-		m_VertexShader, m_VertexLayout, m_PixelShader, "Tree");
+	m_RenderingAvailable = Engine::GraphicsResourceFactory::CreateUnlitShaderPair(
+		m_VertexShader, m_VertexLayout, m_PixelShader, "Tree")
+		&& m_RenderingAvailable;
 
 	// 木のテクスチャを読み込む。
 	m_Texture = ResourceManager::LoadTexture(L"assets/texture/tree.png");
-	assert(m_Texture);
+	m_RenderingAvailable = m_Texture != nullptr && m_RenderingAvailable;
 
 	AddComponent<Collider>()
 		->SetSphere(1.5f)

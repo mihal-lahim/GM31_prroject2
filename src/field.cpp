@@ -41,15 +41,17 @@ void Field::Init()
 	D3D11_SUBRESOURCE_DATA sd{};
 	sd.pSysMem = vertex;
 
-	Engine::GraphicsResourceFactory::CreateBuffer(m_VertexBuffer, bd, &sd, "Field");
+	m_RenderingAvailable = Engine::GraphicsResourceFactory::CreateBuffer(
+		m_VertexBuffer, bd, &sd, "Field");
 
 	// シェーダーを読み込む。
-	Engine::GraphicsResourceFactory::CreateUnlitShaderPair(
-		m_VertexShader, m_VertexLayout, m_PixelShader, "Field");
+	m_RenderingAvailable = Engine::GraphicsResourceFactory::CreateUnlitShaderPair(
+		m_VertexShader, m_VertexLayout, m_PixelShader, "Field")
+		&& m_RenderingAvailable;
 
 	// 地面テクスチャを読み込む。
 	m_Texture = ResourceManager::LoadTexture(L"assets/texture/ground.png");
-	assert(m_Texture);
+	m_RenderingAvailable = m_Texture != nullptr && m_RenderingAvailable;
 
 	// BGMをループ再生する。
 	Audio* bgm = AddComponent<Audio>();

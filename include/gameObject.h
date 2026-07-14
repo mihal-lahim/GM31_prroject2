@@ -34,6 +34,8 @@ protected:
 
 	bool m_Destroy = false;
 	bool m_Uninitialized = false;
+	// GPUリソースを用意できなかった場合も、更新や当たり判定は継続し、描画だけを止めます。
+	bool m_RenderingAvailable = true;
 	Layer m_Layer = Layer::World;
 	RenderCategory m_RenderCategory = RenderCategory::Auto;
 
@@ -135,6 +137,7 @@ public:
 	void Initialize()
 	{
 		m_Uninitialized = false;
+		m_RenderingAvailable = true;
 		Init();
 	}
 	void Shutdown()
@@ -172,7 +175,10 @@ public:
 	}
 	void RunDraw()
 	{
-		Draw();
+		if (m_RenderingAvailable)
+		{
+			Draw();
+		}
 		for (auto& component : m_Components)
 		{
 			component->Draw();

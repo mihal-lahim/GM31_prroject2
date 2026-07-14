@@ -59,3 +59,39 @@ bool Engine::GraphicsResourceFactory::CreateUnlitShaderPair(
 	LogGpuCreationFailure(ownerName, "unlit shader pair", E_FAIL);
 	return false;
 }
+
+bool Engine::GraphicsResourceFactory::IsDrawable(
+	ID3D11Buffer* vertexBuffer,
+	ID3D11InputLayout* inputLayout,
+	ID3D11VertexShader* vertexShader,
+	ID3D11PixelShader* pixelShader) noexcept
+{
+	return Renderer::GetDeviceContext() != nullptr
+		&& vertexBuffer != nullptr
+		&& inputLayout != nullptr
+		&& vertexShader != nullptr
+		&& pixelShader != nullptr;
+}
+
+bool Engine::GraphicsResourceFactory::MapWriteDiscard(
+	ID3D11Buffer* buffer,
+	D3D11_MAPPED_SUBRESOURCE& mappedResource,
+	const char* ownerName)
+{
+	mappedResource = {};
+	ID3D11DeviceContext* context = Renderer::GetDeviceContext();
+	if (context == nullptr || buffer == nullptr)
+	{
+		LogGpuCreationFailure(ownerName, "dynamic buffer map", E_POINTER);
+		return false;
+	}
+
+	const HRESULT result = context->Map(buffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &mappedResource);
+	if (FAILED(result))
+	{
+		LogGpuCreationFailure(ownerName, "dynamic buffer map", result);
+		mappedResource = {};
+		return false;
+	}
+	return true;
+}

@@ -1,6 +1,8 @@
 #pragma once
 
 #include "engineCommon.h"
+namespace Engine
+{
 // Engine内で共有する標準頂点形式です。OBJ、2D、パーティクルで同じ入力レイアウトを使います。
 struct VERTEX_3D
 {
@@ -122,3 +124,12 @@ public:
 	RendererStateScope(const RendererStateScope&) = delete;
 	RendererStateScope& operator=(const RendererStateScope&) = delete;
 };
+}
+
+// 既存ゲームコード向けの互換名です。新規コードはEngine::を使用します。
+using VERTEX_3D = Engine::VERTEX_3D;
+using MATERIAL = Engine::MATERIAL;
+using LIGHT = Engine::LIGHT;
+using RenderBlendMode = Engine::RenderBlendMode;
+using Renderer = Engine::Renderer;
+using RendererStateScope = Engine::RendererStateScope;

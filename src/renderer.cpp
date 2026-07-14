@@ -4,6 +4,8 @@
 #include "resourceManager.h"
 #include <array>
 
+namespace Engine
+{
 
 D3D_FEATURE_LEVEL       Renderer::m_FeatureLevel = D3D_FEATURE_LEVEL_11_0;
 
@@ -671,6 +673,8 @@ bool Renderer::CreatePixelShader( ComPtr<ID3D11PixelShader>& PixelShader, const 
 		PixelShader = resource->Shader;
 	}
 	return PixelShader != nullptr;
+}
+
 }
 
 

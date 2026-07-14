@@ -39,15 +39,17 @@ void Polygon2D::Init(float x, float y, float width, float height,const WCHAR* te
 	D3D11_SUBRESOURCE_DATA sd{};
 	sd.pSysMem = vertex;
 
-	Engine::GraphicsResourceFactory::CreateBuffer(m_VertexBuffer, bd, &sd, "Polygon2D");
+	m_RenderingAvailable = Engine::GraphicsResourceFactory::CreateBuffer(
+		m_VertexBuffer, bd, &sd, "Polygon2D");
 
 	// シェーダーを読み込む。
-	Engine::GraphicsResourceFactory::CreateUnlitShaderPair(
-		m_VertexShader, m_VertexLayout, m_PixelShader, "Polygon2D");
+	m_RenderingAvailable = Engine::GraphicsResourceFactory::CreateUnlitShaderPair(
+		m_VertexShader, m_VertexLayout, m_PixelShader, "Polygon2D")
+		&& m_RenderingAvailable;
 
 	// テクスチャを読み込む。
 	m_Texture = ResourceManager::LoadTexture(texturePath);
-	assert(m_Texture);
+	m_RenderingAvailable = m_Texture != nullptr && m_RenderingAvailable;
 
 }
 

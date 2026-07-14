@@ -1,5 +1,6 @@
 #include "main.h"
 #include "renderer.h"
+#include "graphicsResourceFactory.h"
 #include "collider.h"
 
 namespace
@@ -155,7 +156,7 @@ void Collider::DrawWire(const std::vector<VERTEX_3D>& vertices)
 	}
 
 	D3D11_MAPPED_SUBRESOURCE mapped{};
-	if (FAILED(Renderer::GetDeviceContext()->Map(s_VertexBuffer.Get(), 0, D3D11_MAP_WRITE_DISCARD, 0, &mapped)))
+	if (!Engine::GraphicsResourceFactory::MapWriteDiscard(s_VertexBuffer.Get(), mapped, "Collider"))
 	{
 		return;
 	}

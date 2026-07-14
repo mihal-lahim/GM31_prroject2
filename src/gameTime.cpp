@@ -2,6 +2,8 @@
 
 #include <algorithm>
 
+namespace Engine
+{
 namespace
 {
 	constexpr float kDefaultDeltaTime = 1.0f / 60.0f;
@@ -82,4 +84,5 @@ void GameTime::StartHitStop(int frames, float timeScale)
 		m_HitStopFrames = frames;
 		m_HitStopScale = timeScale;
 	}
+}
 }

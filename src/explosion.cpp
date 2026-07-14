@@ -43,15 +43,17 @@ void Explosion::Init()
 	D3D11_SUBRESOURCE_DATA sd{};
 	sd.pSysMem = vertex;
 
-	Engine::GraphicsResourceFactory::CreateBuffer(m_VertexBuffer, bd, &sd, "Explosion");
+	m_RenderingAvailable = Engine::GraphicsResourceFactory::CreateBuffer(
+		m_VertexBuffer, bd, &sd, "Explosion");
 
 	// 爆発テクスチャを読み込む。
 	m_Texture = ResourceManager::LoadTexture(L"assets/texture/explosion.png");
-	assert(m_Texture);
+	m_RenderingAvailable = m_Texture != nullptr && m_RenderingAvailable;
 
 	// シェーダーを読み込む。
-	Engine::GraphicsResourceFactory::CreateUnlitShaderPair(
-		m_VertexShader, m_VertexLayout, m_PixelShader, "Explosion");
+	m_RenderingAvailable = Engine::GraphicsResourceFactory::CreateUnlitShaderPair(
+		m_VertexShader, m_VertexLayout, m_PixelShader, "Explosion")
+		&& m_RenderingAvailable;
 
 	m_Frame = 0;
 }
@@ -80,8 +82,12 @@ void Explosion::Draw()
 	Renderer::GetDeviceContext()->PSSetShader(m_PixelShader.Get(), NULL, 0);
 
 	// 頂点バッファへアニメーション用UVを転送する。
-	D3D11_MAPPED_SUBRESOURCE msr;
-	Renderer::GetDeviceContext()->Map(m_VertexBuffer.Get(), 0, D3D11_MAP_WRITE_DISCARD, 0, &msr);
+	D3D11_MAPPED_SUBRESOURCE msr{};
+	if (!Engine::GraphicsResourceFactory::MapWriteDiscard(m_VertexBuffer.Get(), msr, "Explosion"))
+	{
+		m_RenderingAvailable = false;
+		return;
+	}
 
 	VERTEX_3D* vertex = (VERTEX_3D*)msr.pData;
 	float tx = 1.0f / 4.0f * (m_Frame % 4);

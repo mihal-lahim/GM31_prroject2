@@ -29,7 +29,7 @@ bin\x64\Debug\BattingCenter\BattingCenter.exe --self-test
 The self-test mode does not create a game window. It validates World lifecycle,
 component lifecycle guarantees, per-World collision isolation and spatial
 index updates, deferred spawning, render ordering, GameTime behavior, and
-shared WAV/model resource caching.
+shared WAV/model resource caching. RuntimeConfigの再読込、範囲補正、整数検証も確認します。
 
 Runtime defaults are data-driven in `assets/config/batting.cfg` and
 `assets/config/wire.cfg`. Each application project has an explicit runtime
@@ -37,7 +37,10 @@ asset manifest, so building one game does not package the other game's assets.
 
 ゲームプレイの調整値は `assets/config/batting-gameplay.cfg` と
 `assets/config/wire-gameplay.cfg` に分離されています。設定に存在しない値は
-コード側の既定値を使うため、ファイル更新中でもゲームは起動できます。
+コード側の既定値を使います。非数値や危険な範囲の値は警告を出して既定値または
+安全な範囲へ補正するため、調整ミスだけでゲームがクラッシュしにくい構成です。
+通常の調整はソース側の設定ファイルを編集して再ビルドしてください。設定APIを
+再読込した場合はTuningも同じプロセス内で更新されます。
 
 ## Wire Action controls
 

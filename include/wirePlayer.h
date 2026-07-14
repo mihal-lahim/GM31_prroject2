@@ -24,6 +24,7 @@ public:
 	void Uninit() override;
 	void Update() override;
 	void Draw() override;
+	void Respawn(const Vector3& position);
 
 	bool IsAiming() const { return m_Grapple.IsAiming(); }
 	bool IsWireActive() const { return m_Grapple.IsActive(); }
@@ -35,5 +36,6 @@ public:
 	float GetSwordChargeRatio() const { return m_Sword.GetChargeRatio(); }
 	float GetSwordSwingRatio() const { return m_Sword.GetSwingRatio(); }
 	float GetSpeed() const { return m_Velocity.length(); }
+	bool IsOnGround() const { return m_Movement.IsOnGround(); }
 	Vector3 GetWireAnchor() const { return m_Grapple.GetAnchor(); }
 };

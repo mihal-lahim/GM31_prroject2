@@ -13,7 +13,7 @@ namespace
 
 void WirePlayerPresentation::Init()
 {
-	Engine::GraphicsResourceFactory::CreateUnlitShaderPair(
+	const bool shadersCreated = Engine::GraphicsResourceFactory::CreateUnlitShaderPair(
 		m_LineVertexShader, m_LineVertexLayout, m_LinePixelShader, "WirePlayerPresentation");
 
 	VERTEX_3D wireVertex[2]{};
@@ -23,8 +23,9 @@ void WirePlayerPresentation::Init()
 	bufferDesc.BindFlags = D3D11_BIND_VERTEX_BUFFER;
 	D3D11_SUBRESOURCE_DATA initData{};
 	initData.pSysMem = wireVertex;
-	Engine::GraphicsResourceFactory::CreateBuffer(
+	const bool bufferCreated = Engine::GraphicsResourceFactory::CreateBuffer(
 		m_WireVertexBuffer, bufferDesc, &initData, "WirePlayerPresentation");
+	m_RenderingAvailable = shadersCreated && bufferCreated;
 }
 
 void WirePlayerPresentation::Uninit()
@@ -33,11 +34,12 @@ void WirePlayerPresentation::Uninit()
 	m_LineVertexLayout.Reset();
 	m_LineVertexShader.Reset();
 	m_LinePixelShader.Reset();
+	m_RenderingAvailable = false;
 }
 
 void WirePlayerPresentation::Draw(const WirePlayer& player)
 {
-	if (!player.IsWireActive() || m_WireVertexBuffer == nullptr)
+	if (!m_RenderingAvailable || !player.IsWireActive())
 	{
 		return;
 	}

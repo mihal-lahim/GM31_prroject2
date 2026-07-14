@@ -39,15 +39,19 @@ void Score::Init()
 	D3D11_SUBRESOURCE_DATA sd{};
 	sd.pSysMem = vertex;
 
-	Engine::GraphicsResourceFactory::CreateBuffer(m_VertexBuffer, bd, &sd, "Score");
+	m_RenderingAvailable = Engine::GraphicsResourceFactory::CreateBuffer(
+		m_VertexBuffer, bd, &sd, "Score");
 
 	// シェーダーを読み込む。
-	Engine::GraphicsResourceFactory::CreateUnlitShaderPair(
-		m_VertexShader, m_VertexLayout, m_PixelShader, "Score");
+	m_RenderingAvailable = Engine::GraphicsResourceFactory::CreateUnlitShaderPair(
+		m_VertexShader, m_VertexLayout, m_PixelShader, "Score")
+		&& m_RenderingAvailable;
 
 	// 数字テクスチャを読み込む。
+	// ScoreはWireActionとBattingCenterの両方で使うため、各アプリの
+	// RuntimeAssetマニフェストにはnumber.pngを必ず含める必要があります。
 	m_Texture = ResourceManager::LoadTexture(L"assets/texture/number.png");
-	assert(m_Texture);
+	m_RenderingAvailable = m_Texture != nullptr && m_RenderingAvailable;
 	m_value = 0;
 
 }
@@ -123,8 +127,12 @@ void Score::Draw()
 		number /= 10;
 
 		// 頂点バッファへ数字のUVを転送する。
-		D3D11_MAPPED_SUBRESOURCE msr;
-		Renderer::GetDeviceContext()->Map(m_VertexBuffer.Get(), 0, D3D11_MAP_WRITE_DISCARD, 0, &msr);
+		D3D11_MAPPED_SUBRESOURCE msr{};
+		if (!Engine::GraphicsResourceFactory::MapWriteDiscard(m_VertexBuffer.Get(), msr, "Score"))
+		{
+			m_RenderingAvailable = false;
+			return;
+		}
 
 		VERTEX_3D* vertex = (VERTEX_3D*)msr.pData;
 		float x = -30.0f * i;

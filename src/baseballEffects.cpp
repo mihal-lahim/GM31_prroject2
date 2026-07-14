@@ -1,5 +1,6 @@
 #include "baseballEffects.h"
 #include "particleSystem.h"
+#include "battingGameplayTuning.h"
 
 namespace
 {
@@ -55,7 +56,7 @@ namespace
 
 void BaseballEffects::EmitSparkleTrail(const Vector3& position)
 {
-	for (int i = 0; i < 2; i++)
+	for (int i = 0; i < GetBattingGameplayTuning().TrailParticleCount; i++)
 	{
 		Vector3 offset = RandomDirection() * RandomFloat(0.03f, 0.22f);
 		Vector3 velocity = RandomDirection() * RandomFloat(0.35f, 1.7f);
@@ -83,7 +84,7 @@ void BaseballEffects::EmitTargetHitSparkles(const Vector3& position)
 		SpawnSparkle(spawnPosition, velocity, scale, life, TargetBurstColor(i));
 	}
 
-	for (int i = 0; i < 150; i++)
+	for (int i = 0; i < GetBattingGameplayTuning().TargetBurstParticleCount; i++)
 	{
 		Vector3 velocity = RandomBurstDirection() * RandomFloat(7.0f, 23.0f);
 		velocity.y += RandomFloat(1.4f, 8.0f);
@@ -147,7 +148,7 @@ void BaseballEffects::EmitTargetHitSparkles(const Vector3& position)
 
 void BaseballEffects::EmitWallExplosion(const Vector3& position)
 {
-	for (int i = 0; i < 42; i++)
+	for (int i = 0; i < GetBattingGameplayTuning().WallExplosionParticleCount; i++)
 	{
 		Vector3 velocity = RandomDirection() * RandomFloat(2.0f, 8.5f);
 		float scale = RandomFloat(0.06f, 0.18f);

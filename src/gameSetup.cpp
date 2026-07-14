@@ -41,7 +41,6 @@ void GameSetup::AddBattingCenter(World& world)
 	BattingTarget* target = world.Spawn<BattingTarget>();
 	target->SetPosition({ 0.0f, 5.0f, 30.5f });
 	target->SetScale({ 1.7f, 1.7f, 1.0f });
-	target->SetScoreValue(100);
 
 	world.Spawn<Score>()->SetPosition({ 100.0f, 100.0f, 0.0f });
 }

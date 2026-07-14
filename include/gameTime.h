@@ -1,5 +1,7 @@
 #pragma once
 
+namespace Engine
+{
 class GameTime
 {
 private:
@@ -26,3 +28,7 @@ public:
 	static void SetPaused(bool paused) { m_Paused = paused; }
 	static bool IsPaused() { return m_Paused; }
 };
+}
+
+// 既存ゲームコード向けの互換名です。新規コードはEngine::GameTimeを使用します。
+using GameTime = Engine::GameTime;

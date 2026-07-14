@@ -6,7 +6,6 @@ struct WireMovementTuning
 {
 	float WorldBoundsX = 52.0f;
 	float WorldBoundsZ = 52.0f;
-	float PlayerStartZ = -8.0f;
 	float PlayerModelYawOffset = 3.14159265f;
 	float Gravity = -42.0f;
 	float GroundAcceleration = 66.0f;
@@ -16,7 +15,7 @@ struct WireMovementTuning
 	float JumpVelocity = 14.5f;
 	float AimMoveScale = 0.34f;
 	float AimGravityScale = 0.42f;
-	float AimFallSpeedLimit = -11.5f;
+	float AimFallSpeedLimit = 0.0f; // 構え中の最低下降速度。0なら落下せず空中で静止する
 	float BlinkStepDistance = 3.2f;
 	float BlinkSpeed = 38.0f;
 	float BlinkDuration = 0.14f;
@@ -47,7 +46,7 @@ struct WireGrappleTuning
 	float ReleaseBoost = 8.5f;
 	float ReleaseUpBoost = 3.0f;
 	float ReleaseMaxSpeed = 50.0f;
-	float StopDistance = 1.6f;
+	float StopDistance = 1.6f; // 接続を切る距離ではなく、近距離で牽引を止める範囲
 	float MaxDistance = 42.0f;
 	float AimConeDot = 0.82f;
 	float OriginHeight = 1.0f;
@@ -124,13 +123,27 @@ struct WireCameraTuning
 	float AimFocusDistance = 24.0f;
 };
 
+// ステージ全体の位置と進行ルールです。
+// 個々の足場・アンカーはこの原点からの相対座標で配置するため、原点を変更してもコース全体がずれません。
+struct WireStageTuning
+{
+	float OriginX = 0.0f;
+	float OriginY = 0.0f;
+	float OriginZ = -12.0f;
+	float FallDepth = 24.0f;
+	float FinishOffsetZ = 237.0f;
+	float CheckpointHeightTolerance = 1.25f;
+	int GoalParticleCount = 120;
+};
+
 struct WireGameplayTuning
 {
 	WireMovementTuning Movement;
 	WireGrappleTuning Grapple;
 	WireSwordTuning Sword;
 	WireCameraTuning Camera;
+	WireStageTuning Stage;
 };
 
-// Managerが設定を読み込んだ後に初回構築される、読み取り専用の調整値です。
+// RuntimeConfigの読込世代が変わると再構築される、読み取り専用の調整値です。
 const WireGameplayTuning& GetWireGameplayTuning();
