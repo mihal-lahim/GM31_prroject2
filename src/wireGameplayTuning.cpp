@@ -53,7 +53,9 @@ const WireGameplayTuning& GetWireGameplayTuning()
 		movement.BlinkStepDistance = Float("wire.movement.blink_step_distance", movement.BlinkStepDistance);
 		movement.BlinkSpeed = Float("wire.movement.blink_speed", movement.BlinkSpeed);
 		movement.BlinkCarryMaxSpeed = Float("wire.movement.blink_carry_max_speed", movement.BlinkCarryMaxSpeed);
-		movement.AirBlinkCharges = Integer("wire.movement.air_blink_charges", movement.AirBlinkCharges);
+		// UIゲージのピップ表示と一致させるため、上限をkMaxAirBlinkChargesで制限します。
+		movement.AirBlinkCharges = Engine::RuntimeConfig::GetInt(
+			"wire.movement.air_blink_charges", movement.AirBlinkCharges, 0, kMaxAirBlinkCharges);
 		movement.BlinkDuration = Float("wire.movement.blink_duration", movement.BlinkDuration);
 		movement.BlinkCooldown = Float("wire.movement.blink_cooldown", movement.BlinkCooldown);
 		movement.BlinkTurnLerp = Float("wire.movement.blink_turn_lerp", movement.BlinkTurnLerp);
