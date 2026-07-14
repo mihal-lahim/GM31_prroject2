@@ -48,7 +48,6 @@
 	<ClInclude Include="include\mouseInput.h" />
 	<ClInclude Include="include\objModelLoader.h" />
     <ClInclude Include="include\modelRenderer.h" />
-    <ClInclude Include="include\particle.h" />
     <ClInclude Include="include\particleSystem.h" />
     <ClInclude Include="include\polygon2D.h" />
     <ClInclude Include="include\renderer.h" />
@@ -75,7 +74,6 @@
 	<ClCompile Include="src\mouseInput.cpp" />
 	<ClCompile Include="src\objModelLoader.cpp" />
     <ClCompile Include="src\modelRenderer.cpp" />
-    <ClCompile Include="src\particle.cpp" />
     <ClCompile Include="src\particleSystem.cpp" />
     <ClCompile Include="src\polygon2D.cpp" />
     <ClCompile Include="src\renderer.cpp" />
