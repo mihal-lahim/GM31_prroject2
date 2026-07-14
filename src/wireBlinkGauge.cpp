@@ -18,9 +18,8 @@ namespace
 	constexpr float kFramePadding = 3.0f;
 	constexpr float kPipSize = 10.0f;
 	constexpr float kPipSpacing = 6.0f;
-	constexpr int kMaxPips = 4;
 	constexpr int kVerticesPerQuad = 6;
-	constexpr int kMaxVertices = (2 + kMaxPips) * kVerticesPerQuad;
+	constexpr int kMaxVertices = (2 + kMaxAirBlinkCharges) * kVerticesPerQuad;
 
 	void FillQuad(VERTEX_3D* vertices, float left, float top, float width, float height, const XMFLOAT4& color)
 	{
