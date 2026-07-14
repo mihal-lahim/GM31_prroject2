@@ -18,6 +18,10 @@ struct WireMovementTuning
 	float AimFallSpeedLimit = 0.0f; // 構え中の最低下降速度。0なら落下せず空中で静止する
 	float BlinkStepDistance = 3.2f;
 	float BlinkSpeed = 38.0f;
+	// ブリンクは現在速度を新しい方向へ引き継ぎます(勢い保存)。これはその上限です。
+	float BlinkCarryMaxSpeed = 55.0f;
+	// 空中で連続使用できる回数。着地またはワイヤー接続で回復します。
+	int AirBlinkCharges = 1;
 	float BlinkDuration = 0.14f;
 	float BlinkCooldown = 0.34f;
 	float BlinkTurnLerp = 0.88f;

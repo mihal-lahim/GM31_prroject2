@@ -61,7 +61,7 @@ void WirePlayerMovement::Update(
 	if (m_BlinkTimeRemaining > 0.0f)
 	{
 		m_BlinkTimeRemaining = std::max(0.0f, m_BlinkTimeRemaining - dt);
-		player.m_Velocity = m_BlinkDirection * GetWireGameplayTuning().Movement.BlinkSpeed;
+		player.m_Velocity = m_BlinkDirection * m_BlinkTravelSpeed;
 		player.m_Rotation.y = LerpAngle(
 			player.m_Rotation.y,
 			atan2f(m_BlinkDirection.x, m_BlinkDirection.z),
@@ -126,13 +126,43 @@ void WirePlayerMovement::UpdateBlink(
 		m_BlinkCooldown = std::max(0.0f, m_BlinkCooldown - dt);
 	}
 
+	// 着地とワイヤー接続が空中チャージを回復させます。温存するか使うかの駆け引きを作ります。
+	if (m_OnGround || player.m_Grapple.IsActive())
+	{
+		m_AirBlinkChargesUsed = 0;
+	}
+
 	const Vector3 direction = GetBlinkInputDirection(input, cameraForward, cameraRight);
 	const bool blinkInputHeld = input.BlinkDown && direction.length() > kVectorEpsilon;
-	if (blinkInputHeld && !m_BlinkInputHeld && m_BlinkCooldown <= 0.0f && m_BlinkTimeRemaining <= 0.0f)
+	if (blinkInputHeld && !m_BlinkInputHeld && CanBlinkNow())
 	{
 		StartBlink(player, direction);
 	}
 	m_BlinkInputHeld = blinkInputHeld;
+}
+
+bool WirePlayerMovement::CanBlinkNow() const
+{
+	if (m_BlinkCooldown > 0.0f || m_BlinkTimeRemaining > 0.0f)
+	{
+		return false;
+	}
+	return m_OnGround || GetAirBlinkChargesRemaining() > 0;
+}
+
+float WirePlayerMovement::GetBlinkCooldownRatio01() const
+{
+	const float cooldown = GetWireGameplayTuning().Movement.BlinkCooldown;
+	if (cooldown <= 0.0f)
+	{
+		return 1.0f;
+	}
+	return std::clamp(1.0f - m_BlinkCooldown / cooldown, 0.0f, 1.0f);
+}
+
+int WirePlayerMovement::GetAirBlinkChargesRemaining() const
+{
+	return std::max(0, GetWireGameplayTuning().Movement.AirBlinkCharges - m_AirBlinkChargesUsed);
 }
 
 Vector3 WirePlayerMovement::GetBlinkInputDirection(
@@ -156,10 +186,21 @@ void WirePlayerMovement::StartBlink(WirePlayer& player, const Vector3& direction
 
 	const Vector3 startPosition = player.m_Position;
 	player.m_Grapple.Cancel(player, false);
+	if (!m_OnGround)
+	{
+		m_AirBlinkChargesUsed++;
+	}
 	m_BlinkDirection = blinkDirection;
 	m_BlinkTimeRemaining = GetWireGameplayTuning().Movement.BlinkDuration;
 	m_BlinkCooldown = GetWireGameplayTuning().Movement.BlinkCooldown;
-	player.m_Velocity = m_BlinkDirection * GetWireGameplayTuning().Movement.BlinkSpeed;
+	// ワイヤーで稼いだ勢いを消さず、新しい方向へ引き継ぎます(下限BlinkSpeed・上限CarryMax)。
+	// 落下速度を水平速度へ変換する悪用は上限クランプで抑えます。
+	const float carryCap = std::max(
+		GetWireGameplayTuning().Movement.BlinkSpeed,
+		GetWireGameplayTuning().Movement.BlinkCarryMaxSpeed);
+	m_BlinkTravelSpeed = std::clamp(
+		player.m_Velocity.length(), GetWireGameplayTuning().Movement.BlinkSpeed, carryCap);
+	player.m_Velocity = m_BlinkDirection * m_BlinkTravelSpeed;
 	player.m_Position += m_BlinkDirection * GetWireGameplayTuning().Movement.BlinkStepDistance;
 	player.m_Position.x = std::clamp(player.m_Position.x, -GetWireGameplayTuning().Movement.WorldBoundsX, GetWireGameplayTuning().Movement.WorldBoundsX);
 	player.m_Position.z = std::clamp(player.m_Position.z, -GetWireGameplayTuning().Movement.WorldBoundsZ, GetWireGameplayTuning().Movement.WorldBoundsZ);

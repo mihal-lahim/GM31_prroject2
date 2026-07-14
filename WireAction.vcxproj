@@ -30,6 +30,7 @@
   <ItemGroup>
 	<ClInclude Include="include\wireCollisionLayers.h" />
     <ClInclude Include="include\wireAnchor.h" />
+    <ClInclude Include="include\wireBlinkGauge.h" />
     <ClInclude Include="include\wireEnemy.h" />
     <ClInclude Include="include\wireGame.h" />
     <ClInclude Include="include\wireGrappleAbility.h" />
@@ -51,6 +52,7 @@
     <ClCompile Include="src\main.cpp" />
     <ClCompile Include="src\wireGameDefinition.cpp" />
     <ClCompile Include="src\wireAnchor.cpp" />
+    <ClCompile Include="src\wireBlinkGauge.cpp" />
     <ClCompile Include="src\wireEnemy.cpp" />
     <ClCompile Include="src\wireGame.cpp" />
     <ClCompile Include="src\wireGrappleAbility.cpp" />

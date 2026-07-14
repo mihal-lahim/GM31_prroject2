@@ -52,6 +52,8 @@ const WireGameplayTuning& GetWireGameplayTuning()
 			"wire.movement.aim_fall_speed_limit", movement.AimFallSpeedLimit, -100.0f, 0.0f);
 		movement.BlinkStepDistance = Float("wire.movement.blink_step_distance", movement.BlinkStepDistance);
 		movement.BlinkSpeed = Float("wire.movement.blink_speed", movement.BlinkSpeed);
+		movement.BlinkCarryMaxSpeed = Float("wire.movement.blink_carry_max_speed", movement.BlinkCarryMaxSpeed);
+		movement.AirBlinkCharges = Integer("wire.movement.air_blink_charges", movement.AirBlinkCharges);
 		movement.BlinkDuration = Float("wire.movement.blink_duration", movement.BlinkDuration);
 		movement.BlinkCooldown = Float("wire.movement.blink_cooldown", movement.BlinkCooldown);
 		movement.BlinkTurnLerp = Float("wire.movement.blink_turn_lerp", movement.BlinkTurnLerp);
