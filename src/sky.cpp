@@ -2,7 +2,7 @@
 #include "renderer.h"
 #include"modelRenderer.h"
 #include "sky.h"
-#include "camera.h"
+#include "cameraView.h"
 #include "world.h"
 
 
@@ -21,10 +21,11 @@ void Sky::Uninit()
 
 void Sky::Update()
 {
-	Camera* camera = GetWorld().FindFirst<Camera>();
+	// 通常カメラとTPSカメラのどちらでも追従できるよう、共通インターフェースを利用します。
+	ICameraView* camera = GetWorld().FindFirst<ICameraView>();
 	if (camera != nullptr)
 	{
-		m_Position = camera->GetPosition();
+		m_Position = camera->GetCameraPosition();
 	}
 
 	GameObject::Update();

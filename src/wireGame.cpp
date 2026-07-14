@@ -4,6 +4,7 @@
 #include "keyboard_utf8.h"
 #include "particleSystem.h"
 #include "score.h"
+#include "sky.h"
 #include "wireAnchor.h"
 #include "wireEnemy.h"
 #include "wirePlatform.h"
@@ -28,13 +29,6 @@ namespace
 	struct AnchorPlacement
 	{
 		Vector3 Position;
-		Vector3 Scale;
-	};
-
-	struct SceneryBuildingPlacement
-	{
-		float X;
-		float Z;
 		Vector3 Scale;
 	};
 
@@ -75,28 +69,6 @@ namespace
 		{  0.0f, 18.0f, 237.0f }
 	};
 
-	// コースの両側へ交互の高さで並べ、奥へ進んでいることが分かる背景シルエットを作ります。
-	// WirePlatformの箱モデルを共有しますが、着地判定は無効にします。
-	const SceneryBuildingPlacement kSceneryBuildingPlacements[] =
-	{
-		{ -42.0f,   2.0f, { 8.0f, 16.0f, 10.0f } },
-		{  43.0f,   8.0f, { 9.0f, 22.0f, 11.0f } },
-		{ -45.0f,  32.0f, { 9.0f, 24.0f, 10.0f } },
-		{  40.0f,  39.0f, { 7.0f, 17.0f, 12.0f } },
-		{ -40.0f,  63.0f, { 7.0f, 29.0f, 11.0f } },
-		{  45.0f,  69.0f, { 9.0f, 21.0f, 10.0f } },
-		{ -44.0f,  94.0f, { 10.0f, 20.0f, 12.0f } },
-		{  41.0f, 100.0f, { 7.0f, 31.0f, 10.0f } },
-		{ -41.0f, 126.0f, { 8.0f, 25.0f, 11.0f } },
-		{  45.0f, 132.0f, { 9.0f, 19.0f, 12.0f } },
-		{ -45.0f, 158.0f, { 9.0f, 32.0f, 10.0f } },
-		{  40.0f, 164.0f, { 7.0f, 24.0f, 11.0f } },
-		{ -40.0f, 190.0f, { 7.0f, 22.0f, 12.0f } },
-		{  44.0f, 196.0f, { 9.0f, 34.0f, 10.0f } },
-		{ -44.0f, 222.0f, { 10.0f, 28.0f, 11.0f } },
-		{  41.0f, 230.0f, { 8.0f, 23.0f, 12.0f } }
-	};
-
 	constexpr int kScoreDigits = 3;
 	const Vector3 kScorePosition{ 180.0f, 20.0f, 0.0f };
 
@@ -130,15 +102,6 @@ namespace
 		platform->SetScale(scale);
 	}
 
-	void AddSceneryBuilding(World& world, const SceneryBuildingPlacement& placement)
-	{
-		const WireStageTuning& stage = GetWireGameplayTuning().Stage;
-		WirePlatform* building = world.Spawn<WirePlatform>();
-		building->SetPosition(ToWorldPosition({ placement.X, -stage.FallDepth - 3.0f, placement.Z }));
-		building->SetScale(placement.Scale);
-		building->SetLandingEnabled(false);
-	}
-
 	void AddEnemy(World& world, const Vector3& position)
 	{
 		WireEnemy* enemy = world.Spawn<WireEnemy>();
@@ -169,17 +132,13 @@ void WireGame::Init()
 	WirePlayer* player = world.Spawn<WirePlayer>();
 	world.Spawn<WireSword>();
 	world.Spawn<WireTpsCamera>();
+	world.Spawn<Sky>();
 	world.Spawn<WireStage>();
 	world.Spawn<ParticleSystem>();
 
 	for (const PlatformPlacement& placement : kPlatformPlacements)
 	{
 		AddPlatform(world, ToWorldPosition(placement.Position), placement.Scale);
-	}
-
-	for (const SceneryBuildingPlacement& placement : kSceneryBuildingPlacements)
-	{
-		AddSceneryBuilding(world, placement);
 	}
 
 	for (const AnchorPlacement& placement : kAnchorPlacements)

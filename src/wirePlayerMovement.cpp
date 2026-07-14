@@ -248,12 +248,6 @@ void WirePlayerMovement::ResolvePlatformLanding(WirePlayer& player, const Vector
 
 	for (WirePlatform* platform : player.GetWorld().FindAll<WirePlatform>())
 	{
-		// 背景用ビルは箱モデルを共有しますが、ゲームプレイ上の足場にはしません。
-		if (!platform->IsLandingEnabled())
-		{
-			continue;
-		}
-
 		const float topY = platform->GetTopY();
 		if (previousPosition.y < topY - GetWireGameplayTuning().Movement.PlatformLandingGrace || player.m_Position.y > topY)
 		{
