@@ -214,6 +214,8 @@ void WireGrappleAbility::Start(WirePlayer& player, const WireTpsCamera* camera)
 	m_Anchor = anchor;
 	m_Active = true;
 	m_Cooldown = GetWireGameplayTuning().Grapple.StartCooldown;
+	// 接続の瞬間にチャージを回復し、UIゲージが1フレーム古い状態を表示しないようにします。
+	player.m_Movement.RestoreAirBlinkCharges();
 
 	Vector3 launchDirection = m_Anchor - (player.m_Position + Vector3(0.0f, GetWireGameplayTuning().Grapple.OriginHeight, 0.0f));
 	if (launchDirection.length() > kVectorEpsilon)
