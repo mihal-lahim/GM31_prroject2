@@ -123,6 +123,10 @@ public:
 	~RendererStateScope();
 	RendererStateScope(const RendererStateScope&) = delete;
 	RendererStateScope& operator=(const RendererStateScope&) = delete;
+
+	// 取得済みスナップショットへ何度でも復元できます。
+	// RenderQueueが1回のスナップショットを各Draw後に使い回すために公開しています。
+	void Restore() const;
 };
 }
 

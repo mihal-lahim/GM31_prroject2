@@ -12,6 +12,9 @@ static_assert(sizeof(Keyboard_State) == 256 / 8, "キーボード状態構造体
 
 static Keyboard_State gState = {};
 static Keyboard_State gStateOld = {};
+// ステップ間に押して離された短い入力を失わないための押下ラッチです。
+// keycopy()(=シミュレーションステップが入力を消費した後)でクリアされます。
+static Keyboard_State gStickyPressed = {};
 
 namespace
 {
@@ -29,6 +32,7 @@ namespace
 void keycopy()
 {
     gStateOld = gState; // 前回のキー情報を保存
+    gStickyPressed = {}; // 消費済みの押下ラッチをクリア
 }
 
 static void keyDown(int key)
@@ -38,7 +42,13 @@ static void keyDown(int key)
         return;
     }
 
-    gState.bits[key >> 5] |= KeyBit(key);
+    const unsigned int bit = KeyBit(key);
+    // キーリピートのWM_KEYDOWNでは再ラッチしないよう、未押下→押下の遷移だけを記録します。
+    if ((gState.bits[key >> 5] & bit) == 0)
+    {
+        gStickyPressed.bits[key >> 5] |= bit;
+    }
+    gState.bits[key >> 5] |= bit;
 }
 
 static void keyUp(int key)
@@ -79,7 +89,11 @@ bool Keyboard_IsKeyDownTrigger(Keyboard_Keys key)
     const unsigned int bit = KeyBit(keyValue);
     const unsigned int current = gState.bits[keyValue >> 5] & bit;
     const unsigned int previous = gStateOld.bits[keyValue >> 5] & bit;
-    return (current ^ previous) && current;
+    const unsigned int sticky = gStickyPressed.bits[keyValue >> 5] & bit;
+    // stickyは実際の0→1遷移を記録しているため優先します。これにより
+    // 「押しっぱなし→ステップ間に離して再押下」や「ステップ間に押して離した」入力も
+    // 1回だけ成立します(長押しはキーリピートを再ラッチしないため連発しません)。
+    return sticky != 0 || (previous == 0 && current != 0);
 }
 
 bool Keyboard_IsKeyUp(Keyboard_Keys key, const Keyboard_State* pState)
@@ -118,6 +132,7 @@ void Keyboard_Reset(void)
 {
     gState = {};
     gStateOld = {};
+    gStickyPressed = {};
 }
 
 // キーボード制御用のウィンドウメッセージ処理

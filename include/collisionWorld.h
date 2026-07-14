@@ -4,7 +4,6 @@
 
 #include <cstdint>
 #include <unordered_map>
-#include <unordered_set>
 #include <vector>
 
 class Collider;
@@ -43,19 +42,26 @@ private:
 
 	static constexpr float kCellSize = 8.0f;
 
-	// Registration order is retained so overlap results are deterministic.
-	std::vector<Collider*> m_Colliders;
+	// 静的・動的を分けて保持します。クエリ結果の決定的順序は登録シリアルで再現します。
+	std::vector<Collider*> m_StaticColliders;
+	std::vector<Collider*> m_DynamicColliders;
 	std::unordered_map<CellKey, std::vector<Collider*>, CellKeyHash> m_StaticCells;
+	// クエリごとのヒープ確保を避けるための候補収集用スクラッチです。
+	std::vector<Collider*> m_CandidateScratch;
+	std::uint64_t m_NextRegistrationSerial = 1;
 	bool m_StaticIndexDirty = true;
 
 	static CellKey ToCell(const Vector3& position);
 	void EnsureStaticIndex();
 	void AddStaticColliderToIndex(Collider& collider);
-	std::vector<Collider*> CollectCandidates(const Vector3& minimum, const Vector3& maximum);
+	const std::vector<Collider*>& CollectCandidates(const Vector3& minimum, const Vector3& maximum);
+	bool IsRegistered(const Collider& collider) const;
 
 public:
 	void Register(Collider& collider);
 	void Unregister(Collider& collider);
+	// SetStaticで静的・動的の分類が変わったとき、リスト間を移動します(登録順は維持)。
+	void NotifyStaticStateChanged(Collider& collider);
 	// 形状・変換・静的フラグの変更後、次の問い合わせ直前にインデックスを再構築します。
 	void MarkStaticIndexDirty() { m_StaticIndexDirty = true; }
 	void Clear();
@@ -70,5 +76,5 @@ public:
 		float radius,
 		CollisionLayer layerMask = CollisionLayers::All);
 
-	std::size_t GetColliderCount() const { return m_Colliders.size(); }
+	std::size_t GetColliderCount() const { return m_StaticColliders.size() + m_DynamicColliders.size(); }
 };

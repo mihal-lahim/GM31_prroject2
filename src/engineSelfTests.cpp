@@ -230,6 +230,74 @@ namespace
 			&& newCellHits.front()->GetOwner() == nearbyStatic;
 	}
 
+	// クエリ結果が登録順で返ること(空間ハッシュの複数セル重複・静的動的の分類変更・
+	// 再登録を含む)を確認します。ゲーム側の決定的な挙動がこの順序に依存しています。
+	bool TestCollisionQueryOrder()
+	{
+		constexpr CollisionLayer layer = 1u << 6;
+		World world;
+
+		CollisionTestObject* dynamicFirst = world.Spawn<CollisionTestObject>();
+		dynamicFirst->SetPosition({ -2.0f, 0.0f, 0.0f });
+		dynamicFirst->GetCollider().SetSphere(1.0f)->SetCollisionLayer(layer);
+
+		// kCellSize(8)を超える幅で複数セルへ登録される静的Colliderです。
+		CollisionTestObject* wideStatic = world.Spawn<CollisionTestObject>();
+		wideStatic->SetPosition({ 0.0f, 0.0f, 0.0f });
+		wideStatic->GetCollider()
+			.SetAABB({ 10.0f, 0.5f, 0.5f })
+			->SetCollisionLayer(layer)
+			->SetStatic();
+
+		CollisionTestObject* dynamicSecond = world.Spawn<CollisionTestObject>();
+		dynamicSecond->SetPosition({ 2.0f, 0.0f, 0.0f });
+		dynamicSecond->GetCollider().SetSphere(1.0f)->SetCollisionLayer(layer);
+
+		CollisionTestObject* lateStatic = world.Spawn<CollisionTestObject>();
+		lateStatic->SetPosition({ 4.0f, 0.0f, 0.0f });
+		lateStatic->GetCollider().SetSphere(1.0f)->SetCollisionLayer(layer)->SetStatic();
+
+		const auto queryAll = [&world]()
+		{
+			return world.GetCollisionWorld().QueryCapsule(
+				{ -6.0f, 0.0f, 0.0f }, { 6.0f, 0.0f, 0.0f }, 0.75f, layer);
+		};
+
+		auto hits = queryAll();
+		if (hits.size() != 4
+			|| hits[0]->GetOwner() != dynamicFirst
+			|| hits[1]->GetOwner() != wideStatic
+			|| hits[2]->GetOwner() != dynamicSecond
+			|| hits[3]->GetOwner() != lateStatic)
+		{
+			return false;
+		}
+
+		// 静的・動的の分類を切り替えても登録順は維持されること。
+		wideStatic->GetCollider().SetStatic(false);
+		hits = queryAll();
+		if (hits.size() != 4
+			|| hits[0]->GetOwner() != dynamicFirst
+			|| hits[1]->GetOwner() != wideStatic
+			|| hits[2]->GetOwner() != dynamicSecond
+			|| hits[3]->GetOwner() != lateStatic)
+		{
+			return false;
+		}
+		wideStatic->GetCollider().SetStatic(true);
+
+		// 解除→再登録したColliderは末尾扱いになること。
+		CollisionWorld& collisionWorld = world.GetCollisionWorld();
+		collisionWorld.Unregister(dynamicFirst->GetCollider());
+		collisionWorld.Register(dynamicFirst->GetCollider());
+		hits = queryAll();
+		return hits.size() == 4
+			&& hits[0]->GetOwner() == wideStatic
+			&& hits[1]->GetOwner() == dynamicSecond
+			&& hits[2]->GetOwner() == lateStatic
+			&& hits[3]->GetOwner() == dynamicFirst;
+	}
+
 	bool TestGameTime()
 	{
 		GameTime::Init();
@@ -345,6 +413,7 @@ bool RunEngineSelfTests()
 	const bool passed = TestWorldLifecycle()
 		&& TestGuaranteedComponentLifecycle()
 		&& TestCollisionWorldIsolation()
+		&& TestCollisionQueryOrder()
 		&& TestRenderOrdering()
 		&& TestGameTime()
 		&& TestRuntimeConfigValidationAndReload()

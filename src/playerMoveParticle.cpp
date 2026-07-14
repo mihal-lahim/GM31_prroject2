@@ -2,7 +2,7 @@
 #include "world.h"
 #include "gameTime.h"
 #include "player.h"
-#include "particle.h"
+#include "particleSystem.h"
 #include "playerMoveParticle.h"
 
 namespace
@@ -15,11 +15,9 @@ namespace
 
 void PlayerMoveParticle::EmitParticle(const Vector3& position, const Vector3& velocity, int life, const Vector3& scale)
 {
-	Particle* particle = m_GameObject->GetWorld().Spawn<Particle>();
-	particle->SetPosition(position);
-	particle->SetVelocity(velocity);
-	particle->SetLife(life);
-	particle->SetScale(scale);
+	// 走行中は毎秒最大約200個のGameObject生成になっていたため、共有ParticleSystemへ統合。
+	// 色・重力・縮小率は旧Particleの既定値と同一です。
+	ParticleSystem::Emit(position, velocity, scale.x, life, XMFLOAT4(0.85f, 0.90f, 1.0f, 1.0f));
 }
 
 void PlayerMoveParticle::Init()

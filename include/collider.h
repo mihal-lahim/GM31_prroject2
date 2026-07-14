@@ -37,6 +37,9 @@ private:
 	bool m_DebugDraw = true;
 	bool m_UseOwnerScale = true;
 	bool m_IsStatic = false;
+	// CollisionWorldが登録時に発番します。クエリ結果を登録順で返すためのキーです。
+	friend class CollisionWorld;
+	std::uint64_t m_RegistrationSerial = 0;
 	void NotifyBoundsChanged();
 
 	void DrawWire(const std::vector<VERTEX_3D>& vertices);
@@ -65,6 +68,7 @@ public:
 	Collider* SetUseOwnerScale(bool enabled);
 
 	Shape GetShape() const { return m_Shape; }
+	std::uint64_t GetRegistrationSerial() const { return m_RegistrationSerial; }
 	CollisionLayer GetCollisionLayer() const { return m_CollisionLayer; }
 	CollisionLayer GetCollisionMask() const { return m_CollisionMask; }
 	bool IsStatic() const { return m_IsStatic; }

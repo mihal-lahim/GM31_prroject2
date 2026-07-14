@@ -13,8 +13,13 @@ void World::BeginUpdate()
 void World::EndUpdate()
 {
 	m_IsUpdating = false;
+	// 新規オブジェクトがない場合はキャッシュを維持し、毎ステップのdynamic_cast再走査を避けます。
+	const bool hadPending = !m_PendingGameObjects.empty();
 	m_GameObjects.splice(m_GameObjects.end(), m_PendingGameObjects);
-	InvalidateQueryCache();
+	if (hadPending)
+	{
+		InvalidateQueryCache();
+	}
 }
 
 void World::DestroyRequestedObjects()

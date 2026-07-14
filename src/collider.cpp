@@ -125,6 +125,11 @@ Collider* Collider::SetStatic(bool isStatic)
 	if (m_IsStatic != isStatic)
 	{
 		m_IsStatic = isStatic;
+		if (m_GameObject != nullptr)
+		{
+			// 静的・動的の分類リストを移動し、空間インデックスも再構築対象にします。
+			m_GameObject->GetWorld().GetCollisionWorld().NotifyStaticStateChanged(*this);
+		}
 		NotifyBoundsChanged();
 	}
 	return this;

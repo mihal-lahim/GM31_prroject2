@@ -75,6 +75,8 @@ void BaseballBall::Update()
 	}
 
 	m_Velocity.y += tuning.BallGravity * dt;
+	m_PreviousPosition = m_Position;
+	m_HasPreviousPosition = true;
 	m_Position += m_Velocity * dt;
 	m_Rotation.x += m_Velocity.z * dt * 2.0f;
 	m_Rotation.z -= m_Velocity.x * dt * 2.0f;

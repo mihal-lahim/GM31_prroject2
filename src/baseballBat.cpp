@@ -35,19 +35,59 @@ namespace
 		return a + (b - a) * t;
 	}
 
-	float DistancePointToSegment(const Vector3& point, const Vector3& start, const Vector3& end)
+	// ボールの移動軌跡(線分)とバット(線分)の最短距離。高速球のすり抜けを防ぎます。
+	float DistanceSegmentToSegment(const Vector3& p1, const Vector3& q1, const Vector3& p2, const Vector3& q2)
 	{
-		Vector3 segment = end - start;
-		float segmentLengthSq = Vector3::dot(segment, segment);
-		if (segmentLengthSq <= 0.0001f)
+		const Vector3 d1 = q1 - p1;
+		const Vector3 d2 = q2 - p2;
+		const Vector3 r = p1 - p2;
+		const float a = Vector3::dot(d1, d1);
+		const float e = Vector3::dot(d2, d2);
+		const float f = Vector3::dot(d2, r);
+		float s = 0.0f;
+		float t = 0.0f;
+
+		if (a <= 0.0001f && e <= 0.0001f)
 		{
-			return (point - start).length();
+			return (p1 - p2).length();
+		}
+		if (a <= 0.0001f)
+		{
+			t = Clamp01(f / e);
+		}
+		else
+		{
+			const float c = Vector3::dot(d1, r);
+			if (e <= 0.0001f)
+			{
+				s = Clamp01(-c / a);
+			}
+			else
+			{
+				const float b = Vector3::dot(d1, d2);
+				const float denominator = a * e - b * b;
+				if (denominator != 0.0f)
+				{
+					s = Clamp01((b * f - c * e) / denominator);
+				}
+
+				t = (b * s + f) / e;
+				if (t < 0.0f)
+				{
+					t = 0.0f;
+					s = Clamp01(-c / a);
+				}
+				else if (t > 1.0f)
+				{
+					t = 1.0f;
+					s = Clamp01((b - c) / a);
+				}
+			}
 		}
 
-		float t = Vector3::dot(point - start, segment) / segmentLengthSq;
-		t = Clamp01(t);
-		Vector3 closest = start + segment * t;
-		return (point - closest).length();
+		const Vector3 closest1 = p1 + d1 * s;
+		const Vector3 closest2 = p2 + d2 * t;
+		return (closest1 - closest2).length();
 	}
 }
 
@@ -173,7 +213,9 @@ void BaseballBat::TryHitBalls()
 			continue;
 		}
 
-		const float distance = DistancePointToSegment(ball->GetPosition(), m_SegmentStart, m_SegmentEnd);
+		// ボールが今ステップで通過した軌跡全体とバット線分で判定し、高速球のすり抜けを防ぎます。
+		const float distance = DistanceSegmentToSegment(
+			ball->GetPreviousPosition(), ball->GetPosition(), m_SegmentStart, m_SegmentEnd);
 		if (distance > tuning.BatRadius)
 		{
 			continue;
@@ -209,9 +251,16 @@ void BaseballBat::Update()
 	}
 
 	UpdatePose();
-	TryHitBalls();
 
 	GameObject::Update();
+}
+
+void BaseballBat::LateUpdate()
+{
+	// ボールを含む全オブジェクトのUpdate完了後に判定するため、1ステップ古い位置を見ません。
+	TryHitBalls();
+
+	GameObject::LateUpdate();
 }
 
 void BaseballBat::Draw()

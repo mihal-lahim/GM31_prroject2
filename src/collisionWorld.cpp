@@ -35,25 +35,55 @@ CollisionWorld::CellKey CollisionWorld::ToCell(const Vector3& position)
 	};
 }
 
+bool CollisionWorld::IsRegistered(const Collider& collider) const
+{
+	return std::find(m_StaticColliders.begin(), m_StaticColliders.end(), &collider) != m_StaticColliders.end()
+		|| std::find(m_DynamicColliders.begin(), m_DynamicColliders.end(), &collider) != m_DynamicColliders.end();
+}
+
 void CollisionWorld::Register(Collider& collider)
 {
-	if (std::find(m_Colliders.begin(), m_Colliders.end(), &collider) == m_Colliders.end())
+	if (!IsRegistered(collider))
 	{
-		m_Colliders.push_back(&collider);
+		// 再登録は新しいシリアルを受け取り、従来のpush_backと同じく末尾扱いになります。
+		collider.m_RegistrationSerial = m_NextRegistrationSerial++;
+		(collider.IsStatic() ? m_StaticColliders : m_DynamicColliders).push_back(&collider);
 	}
 	m_StaticIndexDirty = true;
 }
 
 void CollisionWorld::Unregister(Collider& collider)
 {
-	m_Colliders.erase(std::remove(m_Colliders.begin(), m_Colliders.end(), &collider), m_Colliders.end());
+	m_StaticColliders.erase(
+		std::remove(m_StaticColliders.begin(), m_StaticColliders.end(), &collider), m_StaticColliders.end());
+	m_DynamicColliders.erase(
+		std::remove(m_DynamicColliders.begin(), m_DynamicColliders.end(), &collider), m_DynamicColliders.end());
+	m_StaticIndexDirty = true;
+}
+
+void CollisionWorld::NotifyStaticStateChanged(Collider& collider)
+{
+	if (!IsRegistered(collider))
+	{
+		return;
+	}
+
+	// シリアルを維持したままリスト間を移動するので、クエリ結果の登録順は変わりません。
+	m_StaticColliders.erase(
+		std::remove(m_StaticColliders.begin(), m_StaticColliders.end(), &collider), m_StaticColliders.end());
+	m_DynamicColliders.erase(
+		std::remove(m_DynamicColliders.begin(), m_DynamicColliders.end(), &collider), m_DynamicColliders.end());
+	(collider.IsStatic() ? m_StaticColliders : m_DynamicColliders).push_back(&collider);
 	m_StaticIndexDirty = true;
 }
 
 void CollisionWorld::Clear()
 {
-	m_Colliders.clear();
+	m_StaticColliders.clear();
+	m_DynamicColliders.clear();
 	m_StaticCells.clear();
+	m_CandidateScratch.clear();
+	m_NextRegistrationSerial = 1;
 	m_StaticIndexDirty = false;
 }
 
@@ -65,9 +95,9 @@ void CollisionWorld::EnsureStaticIndex()
 	}
 
 	m_StaticCells.clear();
-	for (Collider* collider : m_Colliders)
+	for (Collider* collider : m_StaticColliders)
 	{
-		if (collider != nullptr && collider->IsStatic())
+		if (collider != nullptr)
 		{
 			AddStaticColliderToIndex(*collider);
 		}
@@ -95,10 +125,10 @@ void CollisionWorld::AddStaticColliderToIndex(Collider& collider)
 	}
 }
 
-std::vector<Collider*> CollisionWorld::CollectCandidates(const Vector3& minimum, const Vector3& maximum)
+const std::vector<Collider*>& CollisionWorld::CollectCandidates(const Vector3& minimum, const Vector3& maximum)
 {
 	EnsureStaticIndex();
-	std::unordered_set<Collider*> uniqueCandidates;
+	m_CandidateScratch.clear();
 
 	const CellKey minimumCell = ToCell(minimum);
 	const CellKey maximumCell = ToCell(maximum);
@@ -113,29 +143,25 @@ std::vector<Collider*> CollisionWorld::CollectCandidates(const Vector3& minimum,
 				{
 					continue;
 				}
-				uniqueCandidates.insert(found->second.begin(), found->second.end());
+				m_CandidateScratch.insert(
+					m_CandidateScratch.end(), found->second.begin(), found->second.end());
 			}
 		}
 	}
 
-	for (Collider* collider : m_Colliders)
-	{
-		if (collider != nullptr && !collider->IsStatic())
-		{
-			uniqueCandidates.insert(collider);
-		}
-	}
+	m_CandidateScratch.insert(
+		m_CandidateScratch.end(), m_DynamicColliders.begin(), m_DynamicColliders.end());
 
-	std::vector<Collider*> candidates;
-	candidates.reserve(uniqueCandidates.size());
-	for (Collider* collider : m_Colliders)
+	// 複数セルへ登録された静的Colliderの重複を除去しつつ、登録順(シリアル昇順)へ整えます。
+	// 全Colliderの再走査を避けられるため、候補が少ないほどクエリが軽くなります。
+	std::sort(m_CandidateScratch.begin(), m_CandidateScratch.end(),
+		[](const Collider* left, const Collider* right)
 	{
-		if (uniqueCandidates.contains(collider))
-		{
-			candidates.push_back(collider);
-		}
-	}
-	return candidates;
+		return left->GetRegistrationSerial() < right->GetRegistrationSerial();
+	});
+	m_CandidateScratch.erase(
+		std::unique(m_CandidateScratch.begin(), m_CandidateScratch.end()), m_CandidateScratch.end());
+	return m_CandidateScratch;
 }
 
 std::vector<Collider*> CollisionWorld::GetOverlaps(const Collider& collider, CollisionLayer layerMask)

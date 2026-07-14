@@ -16,7 +16,11 @@ void RenderQueue::Build(World& world, const ICameraView* camera)
 		const Vector3 forward = camera->GetCameraForward();
 		for (auto& gameObject : world.GetObjects())
 		{
-			gameObject->CalcCameraZ(position, forward);
+			// Overlayは投入順ソートなので深度計算は不要です。
+			if (gameObject->GetRenderCategory() != RenderCategory::Overlay)
+			{
+				gameObject->CalcCameraZ(position, forward);
+			}
 		}
 	}
 
@@ -64,13 +68,21 @@ void RenderQueue::Sort()
 
 void RenderQueue::Execute()
 {
+	if (m_Items.empty())
+	{
+		return;
+	}
+
+	// 各スコープは直前スコープの復元後=同一ベースラインを再取得していただけなので、
+	// スナップショットは1回だけ取得し、各Draw後に同じ状態へ復元します。
+	RendererStateScope stateScope;
 	for (const RenderItem& item : m_Items)
 	{
 		if (item.Object == nullptr)
 		{
 			continue;
 		}
-		RendererStateScope stateScope;
 		item.Object->RunDraw();
+		stateScope.Restore();
 	}
 }

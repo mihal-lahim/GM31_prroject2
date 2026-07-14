@@ -1,6 +1,7 @@
 #pragma once
 
 #include "gameObject.h"
+#include "renderer.h"
 #include "resourceManager.h"
 
 class ParticleSystem : public GameObject
@@ -26,6 +27,10 @@ private:
 	static TextureHandle s_Texture;
 
 	std::vector<Spark> m_Sparks;
+	// 消滅したスパークの再利用先。追加をO(1)にします。
+	std::vector<int> m_FreeSparkIndices;
+	// 毎フレームの頂点構築で容量を再利用し、描画中のヒープ確保を避けます。
+	std::vector<VERTEX_3D> m_VertexScratch;
 
 	void AddSpark(const Vector3& position, const Vector3& velocity, float scale, int life, const XMFLOAT4& color, float gravity, float shrink);
 

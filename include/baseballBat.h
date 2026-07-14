@@ -23,6 +23,8 @@ public:
 	void Init()override;
 	void Uninit()override;
 	void Update()override;
+	// 全ボールの移動が終わった後に判定するため、打撃判定はLateUpdateで行います。
+	void LateUpdate()override;
 	void Draw()override;
 
 	void SetOwner(Player* player) { m_Player = player; }

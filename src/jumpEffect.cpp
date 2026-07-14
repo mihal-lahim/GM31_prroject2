@@ -3,7 +3,7 @@
 #include "graphicsResourceFactory.h"
 #include "gameTime.h"
 #include "world.h"
-#include "particle.h"
+#include "particleSystem.h"
 #include "jumpEffect.h"
 
 ComPtr<ID3D11Buffer> JumpEffect::s_VertexBuffer = nullptr;
@@ -158,12 +158,9 @@ void JumpEffect::EmitSparkles()
 		float scale = RandomFloat(0.05f, 0.13f);
 		int life = 16 + static_cast<int>(RandomFloat(0.0f, 12.0f));
 
-		Particle* particle = GetWorld().Spawn<Particle>();
-		particle->SetPosition(position);
-		particle->SetVelocity(velocity);
-		particle->SetScale({ scale, scale, scale });
-		particle->SetLife(life);
-		particle->SetColor(RandomSparkleColor());
+		// GameObjectを24個生成する代わりに、常駐ParticleSystemの共有バッファへ追加します。
+		// 重力・縮小率の既定値は旧Particleの挙動と同一です。
+		ParticleSystem::Emit(position, velocity, scale, life, RandomSparkleColor());
 	}
 }
 

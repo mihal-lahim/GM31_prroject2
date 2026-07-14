@@ -597,6 +597,11 @@ RendererStateScope::RendererStateScope()
 
 RendererStateScope::~RendererStateScope()
 {
+	Restore();
+}
+
+void RendererStateScope::Restore() const
+{
 	ID3D11DeviceContext* context = Renderer::GetDeviceContext();
 	if (context == nullptr || m_Snapshot == nullptr)
 	{

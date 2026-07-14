@@ -15,6 +15,12 @@
 #include "resourceManager.h"
 namespace Engine
 {
+namespace
+{
+	// 毎フレームの再確保を避けるため、描画キューの容量をフレーム間で再利用します。
+	RenderQueue g_RenderQueue;
+}
+
 std::unique_ptr<Scene> Manager::m_Scene = nullptr;
 std::unique_ptr<Scene> Manager::m_NextScene = nullptr;
 
@@ -75,6 +81,8 @@ void Manager::Uninit()
 		m_Scene.reset();
 	}
 	m_NextScene.reset();
+
+	g_RenderQueue = RenderQueue();
 
 	ModelRenderer::ReleaseSharedResources();
 	ParticleSystem::UnloadSharedResources();
@@ -157,9 +165,10 @@ void Manager::Draw()
 		return;
 	}
 
-	RenderQueue renderQueue;
-	renderQueue.Build(*world, camera);
-	renderQueue.Execute();
+	g_RenderQueue.Build(*world, camera);
+	g_RenderQueue.Execute();
+	// GameObjectへの生ポインタを次フレームまで保持しないよう空にします(容量は維持)。
+	g_RenderQueue.Clear();
 
 	if (m_Scene != nullptr)
 	{

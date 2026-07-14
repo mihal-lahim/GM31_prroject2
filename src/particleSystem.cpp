@@ -45,6 +45,8 @@ void ParticleSystem::Init()
 	m_Layer = Layer::Effect;
 	s_Instance = this;
 	m_Sparks.reserve(kMaxSparks);
+	m_FreeSparkIndices.reserve(kMaxSparks);
+	m_VertexScratch.reserve(kMaxSparks * kVerticesPerSpark);
 
 	if (s_VertexBuffer == nullptr)
 	{
@@ -79,6 +81,7 @@ void ParticleSystem::Uninit()
 	}
 
 	m_Sparks.clear();
+	m_FreeSparkIndices.clear();
 	UninitComponents();
 }
 
@@ -99,10 +102,7 @@ void ParticleSystem::Emit(const Vector3& position, const Vector3& velocity, floa
 		return;
 	}
 
-	if (s_Instance != nullptr)
-	{
-		s_Instance->AddSpark(position, velocity, scale, life, color, gravity, shrink);
-	}
+	s_Instance->AddSpark(position, velocity, scale, life, color, gravity, shrink);
 }
 
 void ParticleSystem::AddSpark(const Vector3& position, const Vector3& velocity, float scale, int life, const XMFLOAT4& color, float gravity, float shrink)
@@ -112,45 +112,45 @@ void ParticleSystem::AddSpark(const Vector3& position, const Vector3& velocity, 
 		return;
 	}
 
-	for (Spark& spark : m_Sparks)
+	Spark* slot = nullptr;
+	while (!m_FreeSparkIndices.empty())
 	{
-		if (spark.Life <= 0)
+		const int index = m_FreeSparkIndices.back();
+		m_FreeSparkIndices.pop_back();
+		if (index >= 0 && index < static_cast<int>(m_Sparks.size()) && m_Sparks[index].Life <= 0)
 		{
-			spark.Position = position;
-			spark.Velocity = velocity;
-			spark.Scale = scale;
-			spark.Life = life;
-			spark.MaxLife = life;
-			spark.Color = color;
-			spark.Gravity = gravity;
-			spark.Shrink = shrink;
-			return;
+			slot = &m_Sparks[index];
+			break;
 		}
 	}
 
-	if (m_Sparks.size() >= kMaxSparks)
+	if (slot == nullptr)
 	{
-		return;
+		if (m_Sparks.size() >= kMaxSparks)
+		{
+			return;
+		}
+		m_Sparks.emplace_back();
+		slot = &m_Sparks.back();
 	}
 
-	Spark spark;
-	spark.Position = position;
-	spark.Velocity = velocity;
-	spark.Scale = scale;
-	spark.Life = life;
-	spark.MaxLife = life;
-	spark.Color = color;
-	spark.Gravity = gravity;
-	spark.Shrink = shrink;
-	m_Sparks.push_back(spark);
+	slot->Position = position;
+	slot->Velocity = velocity;
+	slot->Scale = scale;
+	slot->Life = life;
+	slot->MaxLife = life;
+	slot->Color = color;
+	slot->Gravity = gravity;
+	slot->Shrink = shrink;
 }
 
 void ParticleSystem::Update()
 {
 	const float dt = GameTime::GetDeltaTime();
 
-	for (Spark& spark : m_Sparks)
+	for (int index = 0; index < static_cast<int>(m_Sparks.size()); index++)
 	{
+		Spark& spark = m_Sparks[index];
 		if (spark.Life <= 0)
 		{
 			continue;
@@ -164,6 +164,11 @@ void ParticleSystem::Update()
 			spark.Scale = 0.01f;
 		}
 		spark.Life--;
+		if (spark.Life <= 0)
+		{
+			// 消滅した瞬間に一度だけフリーリストへ登録します。
+			m_FreeSparkIndices.push_back(index);
+		}
 	}
 }
 
@@ -183,8 +188,8 @@ void ParticleSystem::Draw()
 	Vector3 right{ rightValue.x, rightValue.y, rightValue.z };
 	Vector3 up{ upValue.x, upValue.y, upValue.z };
 
-	std::vector<VERTEX_3D> vertices;
-	vertices.reserve(kMaxSparks * kVerticesPerSpark);
+	std::vector<VERTEX_3D>& vertices = m_VertexScratch;
+	vertices.clear();
 
 	for (const Spark& spark : m_Sparks)
 	{
