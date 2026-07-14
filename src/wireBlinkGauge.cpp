@@ -113,7 +113,7 @@ void WireBlinkGauge::Draw()
 	}
 
 	// バーの上に空中チャージ残数をピップで表示します。
-	const int totalCharges = std::clamp(GetWireGameplayTuning().Movement.AirBlinkCharges, 0, kMaxPips);
+	const int totalCharges = std::clamp(GetWireGameplayTuning().Movement.AirBlinkCharges, 0, kMaxAirBlinkCharges);
 	const int remainingCharges = std::clamp(player->GetAirBlinkChargesRemaining(), 0, totalCharges);
 	for (int index = 0; index < totalCharges; index++)
 	{
