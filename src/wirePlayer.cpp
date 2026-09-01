@@ -2,7 +2,7 @@
 
 #include "gameTime.h"
 #include "world.h"
-#include "modelRenderer.h"
+#include "animationModel.h"
 #include "wirePlayerInput.h"
 #include "wireTpsCamera.h"
 #include "wireGameplayTuning.h"
@@ -17,16 +17,20 @@ void WirePlayer::Init()
 	m_Rotation = { 0.0f, 0.0f, 0.0f };
 	m_Scale = { 1.0f, 1.0f, 1.0f };
 
-	ModelRenderer* renderer = AddComponent<ModelRenderer>();
-	renderer->Load("assets\\model\\player.obj");
-	renderer->SetUseOwnerTransform(true);
-	renderer->SetRotationOffset({ 0.0f, GetWireGameplayTuning().Movement.PlayerModelYawOffset, 0.0f });
+	m_AnimationModel = AddComponent<AnimationModel>();
+	m_AnimationModel->SetModelScale(0.01f);
+	m_AnimationModel->SetModelYawOffset(GetWireGameplayTuning().Movement.PlayerModelYawOffset);
+	m_AnimationModel->Load("assets\\model\\Akai.fbx");
+	m_AnimationModel->LoadAnimation("assets\\model\\Akai_Idle.fbx", "Idle");
+	m_AnimationModel->LoadAnimation("assets\\model\\Akai_Run.fbx", "Run");
+	m_AnimationModel->Update("Idle", 0);
 	m_Presentation.Init();
 }
 
 void WirePlayer::Uninit()
 {
 	m_Presentation.Uninit();
+	m_AnimationModel = nullptr;
 	GameObject::Uninit();
 }
 
@@ -54,6 +58,26 @@ void WirePlayer::Update()
 
 	m_Position.x = std::clamp(m_Position.x, -GetWireGameplayTuning().Movement.WorldBoundsX, GetWireGameplayTuning().Movement.WorldBoundsX);
 	m_Position.z = std::clamp(m_Position.z, -GetWireGameplayTuning().Movement.WorldBoundsZ, GetWireGameplayTuning().Movement.WorldBoundsZ);
+
+	if (m_AnimationModel != nullptr)
+	{
+		const float horizontalSpeed = Vector3(m_Velocity.x, 0.0f, m_Velocity.z).length();
+		// 低速域でIdle/Runが頻繁に往復しないよう、切り替えにヒステリシスを持たせる。
+		const bool useRunAnimation = m_UsingRunAnimation
+			? horizontalSpeed > 0.15f
+			: horizontalSpeed > 0.35f;
+		if (useRunAnimation != m_UsingRunAnimation)
+		{
+			m_UsingRunAnimation = useRunAnimation;
+			m_AnimationTick = 0.0f;
+		}
+
+		// 追加されたIdle/Run FBXはいずれも60 ticks/秒で書き出されている。
+		m_AnimationTick += dt * 60.0f;
+		m_AnimationModel->Update(
+			m_UsingRunAnimation ? "Run" : "Idle",
+			static_cast<int>(m_AnimationTick));
+	}
 	GameObject::Update();
 }
 
@@ -67,6 +91,12 @@ void WirePlayer::Respawn(const Vector3& position)
 	m_Velocity = { 0.0f, 0.0f, 0.0f };
 	m_Scale = { 1.0f, 1.0f, 1.0f };
 	m_Movement.SetOnGround(true);
+	m_UsingRunAnimation = false;
+	m_AnimationTick = 0.0f;
+	if (m_AnimationModel != nullptr)
+	{
+		m_AnimationModel->Update("Idle", 0);
+	}
 
 	if (WireTpsCamera* camera = GetWorld().FindFirst<WireTpsCamera>())
 	{

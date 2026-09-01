@@ -6,6 +6,8 @@
 #include "wirePlayerPresentation.h"
 #include "wireSwordAbility.h"
 
+class AnimationModel;
+
 class WirePlayer : public GameObject
 {
 private:
@@ -18,6 +20,9 @@ private:
 	WireGrappleAbility m_Grapple;
 	WireSwordAbility m_Sword;
 	WirePlayerPresentation m_Presentation;
+	AnimationModel* m_AnimationModel = nullptr;
+	float m_AnimationTick = 0.0f;
+	bool m_UsingRunAnimation = false;
 
 public:
 	void Init() override;
