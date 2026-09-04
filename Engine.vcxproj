@@ -56,6 +56,10 @@
 	<ClInclude Include="include\runtimeConfig.h" />
     <ClInclude Include="include\scene.h" />
     <ClInclude Include="include\score.h" />
+	<ClInclude Include="include\glyphRenderer2D.h" />
+	<ClInclude Include="include\alphabetText.h" />
+	<ClInclude Include="include\kanaText.h" />
+	<ClInclude Include="include\kanjiText.h" />
     <ClInclude Include="include\Vector3.h" />
     <ClInclude Include="include\world.h" />
   </ItemGroup>
@@ -81,6 +85,10 @@
 	<ClCompile Include="src\resourceManager.cpp" />
 	<ClCompile Include="src\runtimeConfig.cpp" />
     <ClCompile Include="src\score.cpp" />
+	<ClCompile Include="src\glyphRenderer2D.cpp" />
+	<ClCompile Include="src\alphabetText.cpp" />
+	<ClCompile Include="src\kanaText.cpp" />
+	<ClCompile Include="src\kanjiText.cpp" />
     <ClCompile Include="src\world.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

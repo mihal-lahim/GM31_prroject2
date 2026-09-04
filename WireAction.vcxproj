@@ -74,6 +74,11 @@
     <ClInclude Include="include\wireCollisionLayers.h" />
     <ClInclude Include="include\wireAnchor.h" />
     <ClInclude Include="include\wireBlinkGauge.h" />
+	<ClInclude Include="include\procedural_city.hpp" />
+	<ClInclude Include="include\wireCity.h" />
+	<ClInclude Include="include\wireDeliveryHud.h" />
+	<ClInclude Include="include\wireTitleScene.h" />
+	<ClInclude Include="include\wireResultScene.h" />
     <ClInclude Include="include\wireEnemy.h" />
     <ClInclude Include="include\wireGame.h" />
     <ClInclude Include="include\wireGrappleAbility.h" />
@@ -97,6 +102,10 @@
     <ClCompile Include="src\wireGameDefinition.cpp" />
     <ClCompile Include="src\wireAnchor.cpp" />
     <ClCompile Include="src\wireBlinkGauge.cpp" />
+	<ClCompile Include="src\wireCity.cpp" />
+	<ClCompile Include="src\wireDeliveryHud.cpp" />
+	<ClCompile Include="src\wireTitleScene.cpp" />
+	<ClCompile Include="src\wireResultScene.cpp" />
     <ClCompile Include="src\wireEnemy.cpp" />
     <ClCompile Include="src\wireGame.cpp" />
     <ClCompile Include="src\wireGrappleAbility.cpp" />
@@ -147,6 +156,12 @@
     <RuntimeAsset Include="assets\model\box.obj">
       <TargetPath>assets\model\box.obj</TargetPath>
     </RuntimeAsset>
+	<RuntimeAsset Include="assets\model\city_test.obj">
+	  <TargetPath>assets\model\city_test.obj</TargetPath>
+	</RuntimeAsset>
+	<RuntimeAsset Include="assets\model\city_anchors.obj">
+	  <TargetPath>assets\model\city_anchors.obj</TargetPath>
+	</RuntimeAsset>
     <RuntimeAsset Include="assets\model\Akai.fbx">
       <TargetPath>assets\model\Akai.fbx</TargetPath>
     </RuntimeAsset>
@@ -189,6 +204,21 @@
     <RuntimeAsset Include="assets\texture\ground.png">
       <TargetPath>assets\texture\ground.png</TargetPath>
     </RuntimeAsset>
+	<RuntimeAsset Include="assets\texture\alphabet.png">
+	  <TargetPath>assets\texture\alphabet.png</TargetPath>
+	</RuntimeAsset>
+	<RuntimeAsset Include="assets\texture\kana.png">
+	  <TargetPath>assets\texture\kana.png</TargetPath>
+	</RuntimeAsset>
+	<RuntimeAsset Include="assets\texture\kanji.png">
+	  <TargetPath>assets\texture\kanji.png</TargetPath>
+	</RuntimeAsset>
+	<RuntimeAsset Include="assets\texture\title.png">
+	  <TargetPath>assets\texture\title.png</TargetPath>
+	</RuntimeAsset>
+	<RuntimeAsset Include="assets\texture\result.png">
+	  <TargetPath>assets\texture\result.png</TargetPath>
+	</RuntimeAsset>
     <RuntimeAsset Include="assets\texture\number.png">
       <TargetPath>assets\texture\number.png</TargetPath>
     </RuntimeAsset>

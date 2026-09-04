@@ -14,12 +14,12 @@ private:
 	std::function<void(std::unique_ptr<Scene>)> m_ChangeScene;
 
 protected:
-	template<typename T>
-	void ChangeScene()
+	template<typename T, typename... Args>
+	void ChangeScene(Args&&... args)
 	{
 		if (m_ChangeScene)
 		{
-			m_ChangeScene(std::make_unique<T>());
+			m_ChangeScene(std::make_unique<T>(std::forward<Args>(args)...));
 		}
 	}
 

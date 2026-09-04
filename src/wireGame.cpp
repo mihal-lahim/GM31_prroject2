@@ -3,14 +3,15 @@
 #include "gameTime.h"
 #include "keyboard_utf8.h"
 #include "particleSystem.h"
-#include "score.h"
 #include "sky.h"
 #include "wireAnchor.h"
-#include "wireEnemy.h"
 #include "wirePlatform.h"
 #include "wireBlinkGauge.h"
+#include "wireCity.h"
+#include "wireDeliveryHud.h"
 #include "wirePlayer.h"
 #include "wireReticle.h"
+#include "wireResultScene.h"
 #include "wireStage.h"
 #include "wireSword.h"
 #include "wireTpsCamera.h"
@@ -21,93 +22,8 @@
 
 namespace
 {
-	struct PlatformPlacement
-	{
-		Vector3 Position;
-		Vector3 Scale;
-	};
-
-	struct AnchorPlacement
-	{
-		Vector3 Position;
-		Vector3 Scale;
-	};
-
-	// コースは手前（Z=0）から奥（Z=237）へ進みます。
-	// 足場は開始・中継3か所・ゴールだけに限定し、その間をワイヤーで渡る設計です。
-	constexpr float kReferenceCourseLength = 237.0f;
-	const PlatformPlacement kPlatformPlacements[] =
-	{
-		{ {  0.0f, -2.0f,   0.0f }, { 9.0f, 1.0f, 8.0f } },
-		{ { -7.0f,  2.0f,  58.0f }, { 6.0f, 1.0f, 5.0f } },
-		{ {  8.0f,  8.0f, 116.0f }, { 5.5f, 1.0f, 5.0f } },
-		{ { -6.0f, 12.0f, 176.0f }, { 5.5f, 1.0f, 5.0f } },
-		{ {  0.0f, 16.0f, 237.0f }, { 9.0f, 1.0f, 8.0f } }
-	};
-
-	// 射程42m以内で次のアンカーが見つかるよう、18～24m間隔で左右と高さにリズムを付けています。
-	const AnchorPlacement kAnchorPlacements[] =
-	{
-		{ {  0.0f, 14.0f,  18.0f }, { 1.30f, 1.30f, 1.30f } },
-		{ { -8.0f, 18.0f,  38.0f }, { 1.35f, 1.35f, 1.35f } },
-		{ { -2.0f, 17.0f,  54.0f }, { 1.35f, 1.35f, 1.35f } },
-		{ {  7.0f, 22.0f,  76.0f }, { 1.40f, 1.40f, 1.40f } },
-		{ { -6.0f, 28.0f,  98.0f }, { 1.45f, 1.45f, 1.45f } },
-		{ {  7.0f, 25.0f, 112.0f }, { 1.45f, 1.45f, 1.45f } },
-		{ {  0.0f, 32.0f, 134.0f }, { 1.50f, 1.50f, 1.50f } },
-		{ { -10.0f, 38.0f, 154.0f }, { 1.55f, 1.55f, 1.55f } },
-		{ { -4.0f, 34.0f, 172.0f }, { 1.55f, 1.55f, 1.55f } },
-		{ {  8.0f, 41.0f, 194.0f }, { 1.60f, 1.60f, 1.60f } },
-		{ { -7.0f, 43.0f, 214.0f }, { 1.65f, 1.65f, 1.65f } },
-		{ {  0.0f, 36.0f, 232.0f }, { 2.00f, 2.00f, 2.00f } }
-	};
-
-	const Vector3 kEnemyPlacements[] =
-	{
-		{ -7.0f,  4.0f,  58.0f },
-		{  8.0f, 10.0f, 116.0f },
-		{ -6.0f, 14.0f, 176.0f },
-		{  0.0f, 18.0f, 237.0f }
-	};
-
-	constexpr int kScoreDigits = 3;
-	const Vector3 kScorePosition{ 180.0f, 20.0f, 0.0f };
-
-	Vector3 ToWorldPosition(const Vector3& localPosition)
-	{
-		const WireStageTuning& stage = GetWireGameplayTuning().Stage;
-		const float zScale = stage.FinishOffsetZ / kReferenceCourseLength;
-		return {
-			stage.OriginX + localPosition.x,
-			stage.OriginY + localPosition.y,
-			stage.OriginZ + localPosition.z * zScale
-		};
-	}
-
-	float PlatformTopY(const PlatformPlacement& placement)
-	{
-		return ToWorldPosition(placement.Position).y + placement.Scale.y * 2.0f;
-	}
-
-	void AddAnchor(World& world, const Vector3& position, const Vector3& scale)
-	{
-		WireAnchor* anchor = world.Spawn<WireAnchor>();
-		anchor->SetPosition(position);
-		anchor->SetScale(scale);
-	}
-
-	void AddPlatform(World& world, const Vector3& position, const Vector3& scale)
-	{
-		WirePlatform* platform = world.Spawn<WirePlatform>();
-		platform->SetPosition(position);
-		platform->SetScale(scale);
-	}
-
-	void AddEnemy(World& world, const Vector3& position)
-	{
-		WireEnemy* enemy = world.Spawn<WireEnemy>();
-		enemy->SetPosition(position);
-	}
+	constexpr float kDeliveryRadius = 4.5f;
+	float g_BestDeliveryTime = 0.0f;
 
 	void EmitGoalCelebration(const Vector3& center)
 	{
@@ -136,32 +52,27 @@ void WireGame::Init()
 	world.Spawn<Sky>();
 	world.Spawn<WireStage>();
 	world.Spawn<ParticleSystem>();
-
-	for (const PlatformPlacement& placement : kPlatformPlacements)
+	WireCity* city = world.Spawn<WireCity>();
+	for (const Vector3& location : city->GetDeliveryLocations())
 	{
-		AddPlatform(world, ToWorldPosition(placement.Position), placement.Scale);
+		WireAnchor* marker = world.Spawn<WireAnchor>();
+		marker->SetPosition(location);
+		marker->SetScale({ 2.2f, 2.2f, 2.2f });
+		marker->SetRadius(2.8f);
+		marker->SetColors({ 1.0f, 0.48f, 0.06f, 0.88f }, { 1.0f, 0.96f, 0.56f, 1.0f });
+		m_DeliveryMarkers.push_back(marker);
 	}
-
-	for (const AnchorPlacement& placement : kAnchorPlacements)
-	{
-		AddAnchor(world, ToWorldPosition(placement.Position), placement.Scale);
-	}
-
-	for (const Vector3& position : kEnemyPlacements)
-	{
-		AddEnemy(world, ToWorldPosition(position));
-	}
+	m_Delivered.assign(m_DeliveryMarkers.size(), false);
 
 	world.Spawn<WireReticle>();
 	world.Spawn<WireBlinkGauge>();
-	m_Score = world.Spawn<Score>();
-	m_Score->SetDigitCount(kScoreDigits);
-	m_Score->SetPosition(kScorePosition);
+	m_Hud = world.Spawn<WireDeliveryHud>();
+	m_Hud->SetProgress(0, static_cast<int>(m_DeliveryMarkers.size()));
 
-	// 各足場をチェックポイントとして扱い、落下時は最後に着地した場所へ戻します。
+	// 登った屋上をチェックポイントとして扱い、落下時は最も高く到達した屋上へ戻します。
 	m_RespawnPosition = player->GetPosition();
-	m_UnlockedCheckpointIndex = 0;
-	m_BestProgressPercent = 0;
+	m_ElapsedSeconds = 0.0f;
+	m_ResultDelay = 0.0f;
 	m_Completed = false;
 }
 
@@ -171,6 +82,24 @@ void WireGame::Uninit()
 
 void WireGame::Update()
 {
+#ifdef _DEBUG
+	if (Keyboard_IsKeyDownTrigger(KK_F10))
+	{
+		ChangeScene<WireResultScene>(83.42f, 79.18f);
+		return;
+	}
+#endif
+
+	if (m_Completed)
+	{
+		m_ResultDelay += GameTime::GetDeltaTime();
+		if (m_ResultDelay >= 1.1f)
+		{
+			ChangeScene<WireResultScene>(m_ElapsedSeconds, g_BestDeliveryTime);
+		}
+		return;
+	}
+
 	if (Keyboard_IsKeyDownTrigger(KK_TAB))
 	{
 		GameTime::SetPaused(!GameTime::IsPaused());
@@ -188,45 +117,66 @@ void WireGame::Update()
 		player->Respawn(m_RespawnPosition);
 	}
 
-	// 中継足場へ実際に着地したときだけ復帰地点を更新します。
-	for (int index = m_UnlockedCheckpointIndex + 1;
-		index < static_cast<int>(std::size(kPlatformPlacements)); ++index)
+	// 今までの復帰地点より高い屋上へ着地した場合だけチェックポイントを更新します。
+	if (player->IsOnGround())
 	{
-		const PlatformPlacement& checkpoint = kPlatformPlacements[index];
-		const Vector3 checkpointPosition = ToWorldPosition(checkpoint.Position);
-		const Vector3 playerPosition = player->GetPosition();
-		const bool inside = std::abs(playerPosition.x - checkpointPosition.x) <= checkpoint.Scale.x + 0.5f
-			&& std::abs(playerPosition.z - checkpointPosition.z) <= checkpoint.Scale.z + 0.5f;
-		const bool atTop = std::abs(playerPosition.y - PlatformTopY(checkpoint))
-			<= stage.CheckpointHeightTolerance;
-		if (!player->IsOnGround() || !inside || !atTop)
+		for (WirePlatform* platform : GetWorld().FindAll<WirePlatform>())
+		{
+			const float topY = platform->GetTopY();
+			if (topY <= m_RespawnPosition.y + 1.0f
+				|| !platform->ContainsXZ(player->GetPosition(), 0.0f)
+				|| std::abs(player->GetPosition().y - topY) > stage.CheckpointHeightTolerance)
+			{
+				continue;
+			}
+
+			const Vector3 center = platform->GetPosition();
+			m_RespawnPosition = { center.x, topY, center.z };
+			break;
+		}
+	}
+
+	if (!m_Completed)
+	{
+		m_ElapsedSeconds += GameTime::GetDeltaTime();
+		if (m_Hud != nullptr) m_Hud->SetElapsedTime(m_ElapsedSeconds);
+	}
+
+	int deliveredCount = 0;
+	bool deliveredThisFrame = false;
+	for (size_t index = 0; index < m_DeliveryMarkers.size(); ++index)
+	{
+		if (m_Delivered[index])
+		{
+			deliveredCount++;
+			continue;
+		}
+		WireAnchor* marker = m_DeliveryMarkers[index];
+		if (marker == nullptr || (marker->GetPosition() - player->GetPosition()).length() > kDeliveryRadius)
 		{
 			continue;
 		}
 
-		m_UnlockedCheckpointIndex = index;
-		m_RespawnPosition = { checkpointPosition.x, PlatformTopY(checkpoint), checkpointPosition.z };
-		break;
+		m_Delivered[index] = true;
+		deliveredCount++;
+		deliveredThisFrame = true;
+		marker->SetDestroy();
+		EmitGoalCelebration(marker->GetPosition());
 	}
-
-	const float progress = std::clamp(
-		(player->GetPosition().z - stage.OriginZ) / stage.FinishOffsetZ, 0.0f, 1.0f);
-	const int progressPercent = static_cast<int>(progress * 100.0f);
-	if (progressPercent > m_BestProgressPercent && m_Score != nullptr)
+	if (deliveredThisFrame && m_Hud != nullptr)
 	{
-		m_Score->Add(progressPercent - m_BestProgressPercent);
-		m_BestProgressPercent = progressPercent;
+		m_Hud->SetProgress(deliveredCount, static_cast<int>(m_DeliveryMarkers.size()));
+		m_Hud->ShowDelivered();
 	}
 
-	const int lastCheckpointIndex = static_cast<int>(std::size(kPlatformPlacements)) - 1;
-	if (!m_Completed && m_UnlockedCheckpointIndex == lastCheckpointIndex)
+	if (!m_Completed && deliveredCount == static_cast<int>(m_DeliveryMarkers.size()))
 	{
 		m_Completed = true;
-		if (m_Score != nullptr && m_BestProgressPercent < 100)
+		if (g_BestDeliveryTime <= 0.0f || m_ElapsedSeconds < g_BestDeliveryTime)
 		{
-			m_Score->Add(100 - m_BestProgressPercent);
-			m_BestProgressPercent = 100;
+			g_BestDeliveryTime = m_ElapsedSeconds;
 		}
+		if (m_Hud != nullptr) m_Hud->ShowComplete(m_ElapsedSeconds, g_BestDeliveryTime);
 		EmitGoalCelebration(player->GetPosition());
 	}
 }

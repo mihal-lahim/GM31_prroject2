@@ -4,7 +4,12 @@
 
 class WirePlatform : public GameObject
 {
+private:
+	bool m_Visible = true;
+
 public:
+	explicit WirePlatform(bool visible = true) : m_Visible(visible) {}
+
 	void Init() override;
 	void Uninit() override;
 	void Update() override;

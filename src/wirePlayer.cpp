@@ -4,6 +4,7 @@
 #include "world.h"
 #include "animationModel.h"
 #include "wirePlayerInput.h"
+#include "wireCity.h"
 #include "wireTpsCamera.h"
 #include "wireGameplayTuning.h"
 
@@ -52,6 +53,10 @@ void WirePlayer::Update()
 
 	const Vector3 previousPosition = m_Position;
 	m_Position += m_Velocity * dt;
+	if (WireCity* city = GetWorld().FindFirst<WireCity>())
+	{
+		city->ResolvePlayerCollision(previousPosition, m_Position, m_Velocity);
+	}
 	// 全面地面は設けず、実際に足場へ着地した場合だけ接地状態にします。
 	m_Movement.SetOnGround(false);
 	m_Movement.ResolvePlatformLanding(*this, previousPosition);

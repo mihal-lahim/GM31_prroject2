@@ -8,9 +8,12 @@ void WirePlatform::Init()
 {
 	m_Layer = Layer::World;
 
-	ModelRenderer* renderer = AddComponent<ModelRenderer>();
-	renderer->Load("assets\\model\\box.obj");
-	renderer->SetUseOwnerTransform(true);
+	if (m_Visible)
+	{
+		ModelRenderer* renderer = AddComponent<ModelRenderer>();
+		renderer->Load("assets\\model\\box.obj");
+		renderer->SetUseOwnerTransform(true);
+	}
 }
 
 void WirePlatform::Uninit()

@@ -1,26 +1,23 @@
 #pragma once
 
-#include "gameObject.h"
-#include "resourceManager.h"
+#include "glyphRenderer2D.h"
 
-class Score :public GameObject
+// 数値をテクスチャアトラス(number.png, 5x5、0-9のみ使用)から
+// 桁ごとに切り出して表示する。挙動は元の実装と同じ。
+class Score : public GlyphRenderer2D
 {
 private:
-	ComPtr<ID3D11Buffer> m_VertexBuffer;
-
-	ComPtr<ID3D11InputLayout> m_VertexLayout;
-	ComPtr<ID3D11VertexShader> m_VertexShader;
-	ComPtr<ID3D11PixelShader> m_PixelShader;
-	TextureHandle m_Texture;
-	
 	int m_value = 0;
 	int m_DigitCount = 4;
-public:
-	void Init()override;
-	void Uninit()override;
-	void Update()override;
-	void Draw()override;
 
-	void Add(int value) { m_value += value; }
+	// m_value / m_DigitCount からm_Indicesを再構築する。
+	void UpdateIndices();
+
+public:
+	void Init() override;
+
+	void Add(int value) { m_value += value; UpdateIndices(); }
+	void SetValue(int value) { m_value = value; UpdateIndices(); }
+	int GetValue() const { return m_value; }
 	void SetDigitCount(int digitCount);
 };

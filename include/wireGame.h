@@ -2,15 +2,20 @@
 
 #include "scene.h"
 
-class Score;
+#include <vector>
+
+class WireAnchor;
+class WireDeliveryHud;
 
 class WireGame : public Scene
 {
 private:
 	Vector3 m_RespawnPosition{};
-	Score* m_Score = nullptr;
-	int m_UnlockedCheckpointIndex = 0;
-	int m_BestProgressPercent = 0;
+	std::vector<WireAnchor*> m_DeliveryMarkers;
+	std::vector<bool> m_Delivered;
+	WireDeliveryHud* m_Hud = nullptr;
+	float m_ElapsedSeconds = 0.0f;
+	float m_ResultDelay = 0.0f;
 	bool m_Completed = false;
 
 public:

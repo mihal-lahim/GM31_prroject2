@@ -1,12 +1,12 @@
 #include "gameDefinition.h"
 
-#include "wireGame.h"
+#include "wireTitleScene.h"
 
 namespace
 {
 	std::unique_ptr<Scene> CreateInitialScene()
 	{
-		return std::make_unique<WireGame>();
+		return std::make_unique<WireTitleScene>();
 	}
 }
 

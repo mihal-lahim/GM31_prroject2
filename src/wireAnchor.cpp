@@ -142,7 +142,7 @@ void WireAnchor::Update()
 
 void WireAnchor::Draw()
 {
-	if (s_VertexBuffer == nullptr || s_Texture == nullptr)
+	if (!m_Visible || s_VertexBuffer == nullptr || s_Texture == nullptr)
 	{
 		return;
 	}
@@ -176,13 +176,13 @@ void WireAnchor::Draw()
 		s_VertexBuffer.Get(),
 		m_Position,
 		outerSize,
-		XMFLOAT4(0.08f, 0.72f, 1.0f, 0.72f),
+		m_OuterColor,
 		invView);
 	DrawBillboardLayer(
 		s_VertexBuffer.Get(),
 		m_Position,
 		innerSize,
-		XMFLOAT4(1.0f, 1.0f, 1.0f, 0.95f),
+		m_InnerColor,
 		invView);
 
 	Renderer::SetDepthEnable(true);

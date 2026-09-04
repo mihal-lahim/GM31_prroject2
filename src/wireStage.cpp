@@ -10,13 +10,13 @@ void WireStage::Init()
 	m_Layer = Layer::World;
 
 	const WireStageTuning& stage = GetWireGameplayTuning().Stage;
-	const float abyssY = stage.OriginY - stage.FallDepth - 3.0f;
-	const float leftX = stage.OriginX - 55.0f;
-	const float rightX = stage.OriginX + 55.0f;
-	const float nearZ = stage.OriginZ - 35.0f;
-	const float farZ = stage.OriginZ + stage.FinishOffsetZ + 35.0f;
+	const float abyssY = stage.OriginY - 0.15f;
+	const float leftX = stage.OriginX - 126.0f;
+	const float rightX = stage.OriginX + 126.0f;
+	const float nearZ = -74.0f;
+	const float farZ = 178.0f;
 
-	// 地面ではなく、コースのはるか下に見える奈落面です。プレイヤーとは衝突しません。
+	// 都市全体を支える道路面です。着地判定はWireCityが登録する非表示足場が担当します。
 	VERTEX_3D vertex[4]{};
 	vertex[0].Position = XMFLOAT3(leftX, abyssY, farZ);
 	vertex[0].Normal = XMFLOAT3(0.0f, 1.0f, 0.0f);
