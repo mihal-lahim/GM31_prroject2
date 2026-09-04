@@ -96,6 +96,13 @@ void WirePlayerMovement::Update(
 	const float damping = m_OnGround ? GetWireGameplayTuning().Movement.GroundDamping : GetWireGameplayTuning().Movement.AirDamping;
 	player.m_Velocity.x += -player.m_Velocity.x * damping * dt;
 	player.m_Velocity.z += -player.m_Velocity.z * damping * dt;
+	if (player.m_Grapple.IsAiming() && !player.m_Grapple.IsActive())
+	{
+		const float aimBrake = std::clamp(
+			GetWireGameplayTuning().Movement.AimHorizontalDamping * dt, 0.0f, 1.0f);
+		player.m_Velocity.x *= 1.0f - aimBrake;
+		player.m_Velocity.z *= 1.0f - aimBrake;
+	}
 	const bool aimFalling = player.m_Grapple.IsAiming() && !player.m_Grapple.IsActive() && !m_OnGround;
 	player.m_Velocity.y += GetWireGameplayTuning().Movement.Gravity * (aimFalling ? GetWireGameplayTuning().Movement.AimGravityScale : 1.0f) * dt;
 	if (aimFalling && player.m_Velocity.y < GetWireGameplayTuning().Movement.AimFallSpeedLimit)

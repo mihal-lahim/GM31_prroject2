@@ -39,13 +39,13 @@ void WirePlayerPresentation::Uninit()
 
 void WirePlayerPresentation::Draw(const WirePlayer& player)
 {
-	if (!m_RenderingAvailable || !player.IsWireActive())
+	if (!m_RenderingAvailable || !player.IsWireVisible())
 	{
 		return;
 	}
 
 	const Vector3 position = player.GetPosition();
-	const Vector3 anchor = player.GetWireAnchor();
+	const Vector3 anchor = player.GetWireEnd();
 	VERTEX_3D vertex[2]{};
 	vertex[0].Position = XMFLOAT3(position.x, position.y + kWireLineStartHeight, position.z);
 	vertex[0].Normal = XMFLOAT3(0.0f, 1.0f, 0.0f);

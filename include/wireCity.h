@@ -30,5 +30,6 @@ public:
 	void Uninit() override;
 	void Draw() override;
 	void ResolvePlayerCollision(const Vector3& previousPosition, Vector3& position, Vector3& velocity) const;
+	bool RaycastBuildings(const Vector3& origin, const Vector3& direction, float maxDistance, Vector3& hitPosition) const;
 	const std::vector<Vector3>& GetDeliveryLocations() const { return m_DeliveryLocations; }
 };

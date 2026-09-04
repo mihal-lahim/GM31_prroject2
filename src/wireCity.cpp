@@ -3,7 +3,6 @@
 #include "graphicsResourceFactory.h"
 #include "procedural_city.hpp"
 #include "renderer.h"
-#include "wireAnchor.h"
 #include "wirePlatform.h"
 #include "world.h"
 
@@ -241,28 +240,6 @@ void WireCity::Init()
 		roof->SetScale({ building.footprintWidth * 0.5f,
 			kRoofThickness, building.footprintDepth * 0.5f });
 
-		// Invisible samples let the player grapple ordinary facade areas while
-		// keeping the city facade visually clean.
-		for (int floor = 1; floor < building.floorCount; floor += 2)
-		{
-			const float y = floor * kFloorHeight + kFloorHeight * 0.55f;
-			const float halfW = building.footprintWidth * 0.5f + 0.08f;
-			const float halfD = building.footprintDepth * 0.5f + 0.08f;
-			const Vector3 wallPoints[] =
-			{
-				{ building.lotCenter.x, y, building.lotCenter.z + kCityOffsetZ - halfD },
-				{ building.lotCenter.x, y, building.lotCenter.z + kCityOffsetZ + halfD },
-				{ building.lotCenter.x - halfW, y, building.lotCenter.z + kCityOffsetZ },
-				{ building.lotCenter.x + halfW, y, building.lotCenter.z + kCityOffsetZ }
-			};
-			for (const Vector3& point : wallPoints)
-			{
-				WireAnchor* wallAnchor = GetWorld().Spawn<WireAnchor>(false);
-				wallAnchor->SetPosition(point);
-				wallAnchor->SetRadius(2.4f);
-			}
-		}
-
 		if (buildingIndex == 6 || buildingIndex == 24 || buildingIndex == 42)
 		{
 			m_DeliveryLocations.push_back({ building.lotCenter.x, roofY + 1.8f,
@@ -295,6 +272,47 @@ void WireCity::Init()
 	m_RenderingAvailable = Engine::GraphicsResourceFactory::CreateUnlitShaderPair(
 		m_VertexShader, m_VertexLayout, m_PixelShader, "WireCity") && m_RenderingAvailable;
 	m_IndexCount = static_cast<unsigned int>(indices.size());
+}
+
+bool WireCity::RaycastBuildings(
+	const Vector3& origin, const Vector3& direction, float maxDistance, Vector3& hitPosition) const
+{
+	constexpr float epsilon = 0.00001f;
+	float closest = maxDistance;
+	bool found = false;
+	for (const BuildingBounds& building : m_BuildingBounds)
+	{
+		const float boundsMin[3] = {
+			building.CenterX - building.HalfWidth, 0.0f, building.CenterZ - building.HalfDepth };
+		const float boundsMax[3] = {
+			building.CenterX + building.HalfWidth, building.Height, building.CenterZ + building.HalfDepth };
+		const float rayOrigin[3] = { origin.x, origin.y, origin.z };
+		const float rayDirection[3] = { direction.x, direction.y, direction.z };
+		float nearDistance = 0.0f;
+		float farDistance = closest;
+		bool intersects = true;
+		for (int axis = 0; axis < 3; ++axis)
+		{
+			if (std::abs(rayDirection[axis]) < epsilon)
+			{
+				if (rayOrigin[axis] < boundsMin[axis] || rayOrigin[axis] > boundsMax[axis]) intersects = false;
+				continue;
+			}
+			float t0 = (boundsMin[axis] - rayOrigin[axis]) / rayDirection[axis];
+			float t1 = (boundsMax[axis] - rayOrigin[axis]) / rayDirection[axis];
+			if (t0 > t1) std::swap(t0, t1);
+			nearDistance = std::max(nearDistance, t0);
+			farDistance = std::min(farDistance, t1);
+			if (nearDistance > farDistance) intersects = false;
+		}
+		if (intersects && nearDistance >= 0.0f && nearDistance < closest)
+		{
+			closest = nearDistance;
+			found = true;
+		}
+	}
+	if (found) hitPosition = origin + direction * closest;
+	return found;
 }
 
 void WireCity::ResolvePlayerCollision(

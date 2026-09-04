@@ -33,6 +33,7 @@ public:
 
 	bool IsAiming() const { return m_Grapple.IsAiming(); }
 	bool IsWireActive() const { return m_Grapple.IsActive(); }
+	bool IsWireVisible() const { return m_Grapple.IsActive() || m_Grapple.IsFiring(); }
 	bool IsAimingAtAnchor() const { return m_Grapple.IsAimingAtAnchor(); }
 	bool IsSwordReady() const { return !m_Grapple.IsAiming() && !m_Grapple.IsActive(); }
 	bool IsSwordCharging() const { return m_Sword.IsCharging(); }
@@ -43,6 +44,7 @@ public:
 	float GetSpeed() const { return m_Velocity.length(); }
 	bool IsOnGround() const { return m_Movement.IsOnGround(); }
 	Vector3 GetWireAnchor() const { return m_Grapple.GetAnchor(); }
+	Vector3 GetWireEnd() const { return m_Grapple.GetWireEnd(); }
 	float GetBlinkCooldownRatio() const { return m_Movement.GetBlinkCooldownRatio01(); }
 	bool CanBlinkNow() const { return m_Movement.CanBlinkNow(); }
 	int GetAirBlinkChargesRemaining() const { return m_Movement.GetAirBlinkChargesRemaining(); }

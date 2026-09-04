@@ -18,6 +18,7 @@ struct WireMovementTuning
 	float AirDamping = 1.0f;
 	float JumpVelocity = 14.5f;
 	float AimMoveScale = 0.34f;
+	float AimHorizontalDamping = 24.0f;
 	float AimGravityScale = 0.42f;
 	float AimFallSpeedLimit = 0.0f; // 構え中の最低下降速度。0なら落下せず空中で静止する
 	float BlinkStepDistance = 3.2f;
@@ -49,6 +50,7 @@ struct WireMovementTuning
 struct WireGrappleTuning
 {
 	float AimMaxTime = 2.0f;
+	float HookSpeed = 82.0f;
 	float PullAcceleration = 88.0f;
 	float MaxSpeed = 42.0f;
 	float ReleaseBoost = 8.5f;

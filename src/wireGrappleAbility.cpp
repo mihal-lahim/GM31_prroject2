@@ -1,14 +1,13 @@
 #include "wireGrappleAbility.h"
 
 #include "world.h"
-#include "wireAnchor.h"
+#include "wireCity.h"
 #include "wirePlayer.h"
 #include "wirePlayerInput.h"
 #include "wireTpsCamera.h"
 #include "wireGameplayTuning.h"
 
 #include <algorithm>
-#include <limits>
 
 namespace
 {
@@ -67,9 +66,9 @@ void WireGrappleAbility::UpdateAim(
 		return;
 	}
 
-	if (m_Active)
+	if (m_Active || m_Firing)
 	{
-		// 接続後は構え時間を消費しません。右クリックを離すまで接続を維持します。
+		// 先端の飛翔中と接続後は、右クリックを離すまで制限時間を消費しません。
 		m_Aiming = true;
 		return;
 	}
@@ -104,6 +103,30 @@ void WireGrappleAbility::Update(
 	{
 		Cancel(player, true);
 	}
+	if (m_Firing)
+	{
+		Vector3 toTarget = m_Anchor - m_HookTip;
+		const float remaining = toTarget.length();
+		const float travel = GetWireGameplayTuning().Grapple.HookSpeed * dt;
+		if (remaining <= travel || remaining <= kVectorEpsilon)
+		{
+			m_HookTip = m_Anchor;
+			m_Firing = false;
+			m_Active = true;
+			player.m_Movement.RestoreAirBlinkCharges();
+			Vector3 launchDirection = m_Anchor - (player.m_Position + Vector3(0.0f, GetWireGameplayTuning().Grapple.OriginHeight, 0.0f));
+			if (launchDirection.length() > kVectorEpsilon)
+			{
+				launchDirection.normalize();
+				player.m_Velocity += launchDirection * GetWireGameplayTuning().Grapple.LaunchImpulse;
+			}
+		}
+		else
+		{
+			toTarget /= remaining;
+			m_HookTip += toTarget * travel;
+		}
+	}
 
 	if (!m_Active)
 	{
@@ -131,12 +154,12 @@ void WireGrappleAbility::Update(
 
 void WireGrappleAbility::Cancel(WirePlayer& player, bool addBoost)
 {
-	if (!m_Active)
+	if (!m_Active && !m_Firing)
 	{
 		return;
 	}
 
-	if (addBoost)
+	if (addBoost && m_Active)
 	{
 		Vector3 boostDirection = player.m_Velocity;
 		if (boostDirection.length() < kReleaseDirectionEpsilon)
@@ -155,6 +178,7 @@ void WireGrappleAbility::Cancel(WirePlayer& player, bool addBoost)
 	}
 
 	m_Active = false;
+	m_Firing = false;
 }
 
 bool WireGrappleAbility::FindAnchor(World& world, const WireTpsCamera* camera, Vector3& anchorPosition) const
@@ -168,37 +192,9 @@ bool WireGrappleAbility::FindAnchor(World& world, const WireTpsCamera* camera, V
 	Vector3 aimDirection = camera->GetAimDirection();
 	aimDirection.normalize();
 
-	float bestScore = -std::numeric_limits<float>::max();
-	bool found = false;
-	for (WireAnchor* anchor : world.FindAll<WireAnchor>())
-	{
-		const Vector3 hookPosition = anchor->GetHookPosition();
-		Vector3 toAnchor = hookPosition - origin;
-		const float distance = toAnchor.length();
-		if (distance < GetWireGameplayTuning().Grapple.AnchorMinDistance || distance > GetWireGameplayTuning().Grapple.MaxDistance)
-		{
-			continue;
-		}
-
-		toAnchor /= distance;
-		const float aimDot = Vector3::dot(aimDirection, toAnchor);
-		if (aimDot < GetWireGameplayTuning().Grapple.AimConeDot)
-		{
-			continue;
-		}
-
-		const float score = aimDot * GetWireGameplayTuning().Grapple.AnchorAimScoreWeight
-			- distance * GetWireGameplayTuning().Grapple.AnchorDistancePenalty
-			+ anchor->GetRadius() * GetWireGameplayTuning().Grapple.AnchorRadiusBonus;
-		if (score > bestScore)
-		{
-			bestScore = score;
-			anchorPosition = hookPosition;
-			found = true;
-		}
-	}
-
-	return found;
+	WireCity* city = world.FindFirst<WireCity>();
+	return city != nullptr && city->RaycastBuildings(
+		origin, aimDirection, GetWireGameplayTuning().Grapple.MaxDistance, anchorPosition);
 }
 
 void WireGrappleAbility::Start(WirePlayer& player, const WireTpsCamera* camera)
@@ -212,17 +208,10 @@ void WireGrappleAbility::Start(WirePlayer& player, const WireTpsCamera* camera)
 	}
 
 	m_Anchor = anchor;
-	m_Active = true;
+	m_HookTip = player.m_Position + Vector3(0.0f, GetWireGameplayTuning().Grapple.OriginHeight, 0.0f);
+	m_Firing = true;
+	m_Active = false;
 	m_Cooldown = GetWireGameplayTuning().Grapple.StartCooldown;
-	// 接続の瞬間にチャージを回復し、UIゲージが1フレーム古い状態を表示しないようにします。
-	player.m_Movement.RestoreAirBlinkCharges();
-
-	Vector3 launchDirection = m_Anchor - (player.m_Position + Vector3(0.0f, GetWireGameplayTuning().Grapple.OriginHeight, 0.0f));
-	if (launchDirection.length() > kVectorEpsilon)
-	{
-		launchDirection.normalize();
-		player.m_Velocity += launchDirection * GetWireGameplayTuning().Grapple.LaunchImpulse;
-	}
 }
 
 float WireGrappleAbility::GetAimTimeRatio() const

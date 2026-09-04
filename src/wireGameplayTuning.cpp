@@ -47,6 +47,7 @@ const WireGameplayTuning& GetWireGameplayTuning()
 		movement.AirDamping = Float("wire.movement.air_damping", movement.AirDamping);
 		movement.JumpVelocity = Float("wire.movement.jump_velocity", movement.JumpVelocity);
 		movement.AimMoveScale = Float("wire.movement.aim_move_scale", movement.AimMoveScale);
+		movement.AimHorizontalDamping = Float("wire.movement.aim_horizontal_damping", movement.AimHorizontalDamping);
 		movement.AimGravityScale = Float("wire.movement.aim_gravity_scale", movement.AimGravityScale);
 		movement.AimFallSpeedLimit = FloatInRange(
 			"wire.movement.aim_fall_speed_limit", movement.AimFallSpeedLimit, -100.0f, 0.0f);
@@ -77,6 +78,7 @@ const WireGameplayTuning& GetWireGameplayTuning()
 
 		auto& grapple = value.Grapple;
 		grapple.AimMaxTime = Float("wire.grapple.aim_max_time", grapple.AimMaxTime);
+		grapple.HookSpeed = Float("wire.grapple.hook_speed", grapple.HookSpeed);
 		grapple.PullAcceleration = Float("wire.grapple.pull_acceleration", grapple.PullAcceleration);
 		grapple.MaxSpeed = Float("wire.grapple.max_speed", grapple.MaxSpeed);
 		grapple.ReleaseBoost = Float("wire.grapple.release_boost", grapple.ReleaseBoost);
