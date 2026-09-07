@@ -37,6 +37,8 @@ cells. Query results retain registration order for deterministic behavior.
 - `wireGrappleAbility.*`: aiming, anchor selection, and wire motion
 - `wireSwordAbility.*`: charge attacks, collision queries, and damage
 - `wirePlayerPresentation.*`: player-specific wire rendering
+- `wireEnemy.*`: rooftop patrol/chase/attack state machine
+- `wireDebugTools.*`: shared debug keys, opt-in and available in Release
 - remaining `wire*` actors, world objects, camera, effects, and UI
 
 ### BattingCenter (`BattingCenter.vcxproj`)

@@ -76,6 +76,7 @@
     <ClInclude Include="include\wireBlinkGauge.h" />
 	<ClInclude Include="include\procedural_city.hpp" />
 	<ClInclude Include="include\wireCity.h" />
+	<ClInclude Include="include\wireDebugTools.h" />
 	<ClInclude Include="include\wireDeliveryHud.h" />
 	<ClInclude Include="include\wireTitleScene.h" />
 	<ClInclude Include="include\wireResultScene.h" />
@@ -103,6 +104,7 @@
     <ClCompile Include="src\wireAnchor.cpp" />
     <ClCompile Include="src\wireBlinkGauge.cpp" />
 	<ClCompile Include="src\wireCity.cpp" />
+	<ClCompile Include="src\wireDebugTools.cpp" />
 	<ClCompile Include="src\wireDeliveryHud.cpp" />
 	<ClCompile Include="src\wireTitleScene.cpp" />
 	<ClCompile Include="src\wireResultScene.cpp" />

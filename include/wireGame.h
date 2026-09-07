@@ -6,6 +6,7 @@
 
 class WireAnchor;
 class WireDeliveryHud;
+class WireEnemy;
 class AlphabetText;
 
 class WireGame : public Scene
@@ -24,13 +25,20 @@ private:
 	AlphabetText* m_PauseInstruction = nullptr;
 	int m_TutorialStep = 0;
 	float m_TutorialCompleteTime = 0.0f;
-#ifdef _DEBUG
-	AlphabetText* m_DebugHelp = nullptr;
-	AlphabetText* m_DebugColliderStatus = nullptr;
-#endif
+	bool m_Failed = false;
+	// 撃破数はチュートリアルの進行判定に使うため、生成時の総数と残数から求めます。
+	int m_EnemyTotal = 0;
+	AlphabetText* m_DebugHelp1 = nullptr;
+	AlphabetText* m_DebugHelp2 = nullptr;
+	AlphabetText* m_DebugStatus = nullptr;
 
-	void UpdateTutorial(int deliveredCount);
+	void UpdateTutorial(int deliveredCount, int defeatedCount);
 	void SetTutorialInstruction(const char* instruction);
+	void SpawnEnemies();
+	// F1のデバッグ表示を更新します。OFFのときは何も表示しません。
+	void UpdateDebugOverlay();
+	// デバッグキーによるシーン移動を処理します。移動したらtrueを返します。
+	bool HandleDebugSceneRequest();
 
 public:
 	void Init() override;

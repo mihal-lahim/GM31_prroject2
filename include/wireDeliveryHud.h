@@ -17,12 +17,15 @@ private:
 	float m_BestSeconds = 0.0f;
 	float m_NoticeTime = 0.0f;
 	bool m_Complete = false;
+	int m_Health = 0;
+	int m_MaxHealth = 0;
 	AlphabetText m_DeliveriesLabel;
 	AlphabetText m_OfLabel;
 	AlphabetText m_TimeLabel;
 	AlphabetText m_DeliveredNotice;
 	AlphabetText m_AllDeliveredLabel;
 	AlphabetText m_BestLabel;
+	AlphabetText m_HealthLabel;
 	AlphabetText m_RetryLabel;
 	Score m_DeliveredValue;
 	Score m_TotalValue;
@@ -37,6 +40,8 @@ public:
 	void Draw() override;
 	void SetProgress(int delivered, int total);
 	void SetElapsedTime(float seconds) { m_ElapsedSeconds = seconds; }
+	// 残りHPをピップで表示します。値はWireGameが毎フレーム反映します。
+	void SetHealth(int current, int max);
 	void ShowDelivered();
 	void ShowComplete(float elapsedSeconds, float bestSeconds);
 };

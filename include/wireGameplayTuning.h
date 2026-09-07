@@ -133,6 +133,39 @@ struct WireCameraTuning
 	float AimFocusDistance = 24.0f;
 };
 
+// 屋上を巡回する敵と、被弾するプレイヤー側の値です。
+struct WireEnemyTuning
+{
+	int Health = 120;              // 剣の無溜め一撃が約20なので、複数回か溜め一撃で倒れます
+	int CountPerRooftop = 2;
+	float PatrolSpeed = 3.2f;
+	float ChaseSpeed = 7.4f;
+	float Acceleration = 22.0f;
+	float TurnLerp = 0.16f;
+	float PatrolRadius = 6.5f;     // ホーム地点から離れられる距離
+	float PatrolTurnInterval = 2.4f;
+	float DetectRadius = 14.0f;
+	// 探知半径との差がヒステリシスになり、境界での状態往復を防ぎます。
+	float LoseRadius = 20.0f;
+	float DetectHeightRange = 6.0f; // 高さがこれ以上離れていれば見失う(別の屋上の敵が反応しない)
+	float AttackRadius = 2.2f;
+	float AttackInterval = 1.2f;
+	int ContactDamage = 1;
+	float KnockbackSpeed = 13.0f;
+	float KnockbackUpSpeed = 5.5f;
+	float EdgeMargin = 1.2f;        // 足場の縁からこれだけ内側で引き返します
+	int DeathParticleCount = 46;
+};
+
+struct WirePlayerHealthTuning
+{
+	int MaxHealth = 5;
+	float InvincibleTime = 1.1f;
+	float HitBlinkInterval = 0.09f;
+	int HitStopFrames = 6;
+	float HitStopScale = 0.14f;
+};
+
 // ステージ全体の位置と進行ルールです。
 // 個々の足場・アンカーはこの原点からの相対座標で配置するため、原点を変更してもコース全体がずれません。
 struct WireStageTuning
@@ -153,6 +186,8 @@ struct WireGameplayTuning
 	WireSwordTuning Sword;
 	WireCameraTuning Camera;
 	WireStageTuning Stage;
+	WireEnemyTuning Enemy;
+	WirePlayerHealthTuning Health;
 };
 
 // RuntimeConfigの読込世代が変わると再構築される、読み取り専用の調整値です。

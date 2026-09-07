@@ -19,6 +19,8 @@ float GameTime::m_TimeScale = kDefaultTimeScale;
 int GameTime::m_HitStopFrames = 0;
 float GameTime::m_HitStopScale = kDefaultTimeScale;
 bool GameTime::m_Paused = false;
+bool GameTime::m_StepRequested = false;
+bool GameTime::m_SteppingThisFrame = false;
 unsigned long long GameTime::m_FrameCount = 0;
 
 void GameTime::Init()
@@ -29,12 +31,19 @@ void GameTime::Init()
 	m_HitStopFrames = 0;
 	m_HitStopScale = kDefaultTimeScale;
 	m_Paused = false;
+	m_StepRequested = false;
+	m_SteppingThisFrame = false;
 	m_FrameCount = 0;
 }
 
 void GameTime::Update(float unscaledDeltaTime)
 {
-	if (m_Paused)
+	// コマ送り要求は、要求されたフレームではなく次のUpdateで一度だけ消化します。
+	// 消化したフレームだけIsSteppingFrameがtrueになり、更新側が同じ判断を共有できます。
+	m_SteppingThisFrame = m_Paused && m_StepRequested;
+	m_StepRequested = false;
+
+	if (m_Paused && !m_SteppingThisFrame)
 	{
 		m_DeltaTime = kStoppedDeltaTime;
 	}

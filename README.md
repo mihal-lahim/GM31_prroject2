@@ -53,5 +53,20 @@ asset manifest, so building one game does not package the other game's assets.
 - Hold/release left mouse while not aiming: charge/release sword attack
 - `Tab`: pause
 
+配達地点の屋上には敵が巡回しています。探知範囲に入ると追跡し、接触するとダメージを
+受けます。HPが0になるとゲームオーバーです。敵は剣で撃破できます。
+
+## Wire Action debug tools
+
+審査・検証用のデバッグ機能はReleaseビルドでも使用できます。既定ではすべてOFFで、
+`F1` を押すまで通常プレイの画面には現れません。タイトル画面に有効化キーを表示しています。
+
+- `F1`: デバッグ表示のON/OFF（操作ヘルプ、コリジョン状態、接地状態、最寄りの敵の思考状態）
+- `F2`: コリジョン表示
+- `F3`: コマ送り（`Tab` でポーズ中のみ）
+- `F4`: 無敵
+- `F5`: タイムスケール切替（0.25倍 / 1倍 / 2倍）
+- `F7`〜`F10`: シーン指定（タイトル / ゲーム / クリア / ゲームオーバー）
+
 See `PROJECT_STRUCTURE.md` for dependency rules, lifecycle details, and output
 layout.
