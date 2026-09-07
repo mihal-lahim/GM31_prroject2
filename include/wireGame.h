@@ -6,6 +6,7 @@
 
 class WireAnchor;
 class WireDeliveryHud;
+class AlphabetText;
 
 class WireGame : public Scene
 {
@@ -17,6 +18,19 @@ private:
 	float m_ElapsedSeconds = 0.0f;
 	float m_ResultDelay = 0.0f;
 	bool m_Completed = false;
+	AlphabetText* m_TutorialTitle = nullptr;
+	AlphabetText* m_TutorialInstruction = nullptr;
+	AlphabetText* m_PauseTitle = nullptr;
+	AlphabetText* m_PauseInstruction = nullptr;
+	int m_TutorialStep = 0;
+	float m_TutorialCompleteTime = 0.0f;
+#ifdef _DEBUG
+	AlphabetText* m_DebugHelp = nullptr;
+	AlphabetText* m_DebugColliderStatus = nullptr;
+#endif
+
+	void UpdateTutorial(int deliveredCount);
+	void SetTutorialInstruction(const char* instruction);
 
 public:
 	void Init() override;

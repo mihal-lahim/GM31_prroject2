@@ -5,7 +5,9 @@ function Read-ProjectItems([string] $projectPath, [string] $itemName) {
     [xml] $project = Get-Content (Join-Path $root $projectPath)
     $namespace = New-Object System.Xml.XmlNamespaceManager($project.NameTable)
     $namespace.AddNamespace('msb', 'http://schemas.microsoft.com/developer/msbuild/2003')
-    return $project.SelectNodes("//msb:$itemName", $namespace) | ForEach-Object { $_.Include }
+    return $project.SelectNodes("//msb:$itemName", $namespace) |
+        Where-Object { -not [string]::IsNullOrWhiteSpace([string] $_.Include) } |
+        ForEach-Object { [string] $_.Include }
 }
 
 function Normalize-RelativePath([string] $path) {

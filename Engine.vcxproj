@@ -54,6 +54,7 @@
     <ClInclude Include="include\renderQueue.h" />
 	<ClInclude Include="include\resourceManager.h" />
 	<ClInclude Include="include\runtimeConfig.h" />
+	<ClInclude Include="include\sceneFade.h" />
     <ClInclude Include="include\scene.h" />
     <ClInclude Include="include\score.h" />
 	<ClInclude Include="include\glyphRenderer2D.h" />
@@ -84,6 +85,7 @@
     <ClCompile Include="src\renderQueue.cpp" />
 	<ClCompile Include="src\resourceManager.cpp" />
 	<ClCompile Include="src\runtimeConfig.cpp" />
+	<ClCompile Include="src\sceneFade.cpp" />
     <ClCompile Include="src\score.cpp" />
 	<ClCompile Include="src\glyphRenderer2D.cpp" />
 	<ClCompile Include="src\alphabetText.cpp" />

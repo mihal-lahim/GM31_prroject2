@@ -13,16 +13,21 @@
 #include "particleSystem.h"
 #include "renderQueue.h"
 #include "resourceManager.h"
+#include "sceneFade.h"
 namespace Engine
 {
 namespace
 {
 	// 毎フレームの再確保を避けるため、描画キューの容量をフレーム間で再利用します。
 	RenderQueue g_RenderQueue;
+	constexpr float kFadeDurationSeconds = 0.45f;
 }
 
 std::unique_ptr<Scene> Manager::m_Scene = nullptr;
 std::unique_ptr<Scene> Manager::m_NextScene = nullptr;
+std::unique_ptr<SceneFade> Manager::m_SceneFade = nullptr;
+float Manager::m_FadeAlpha = 1.0f;
+bool Manager::m_FadingOut = false;
 
 bool Manager::Init(const GameDefinition& gameDefinition)
 {
@@ -45,6 +50,16 @@ bool Manager::Init(const GameDefinition& gameDefinition)
 		Renderer::Uninit();
 		return false;
 	}
+	m_SceneFade = std::make_unique<SceneFade>();
+	if (!m_SceneFade->Init())
+	{
+		m_SceneFade.reset();
+		Audio::UninitMaster();
+		Renderer::Uninit();
+		return false;
+	}
+	m_FadeAlpha = 1.0f;
+	m_FadingOut = false;
 
 	if (gameDefinition.CreateInitialScene != nullptr)
 	{
@@ -52,6 +67,8 @@ bool Manager::Init(const GameDefinition& gameDefinition)
 	}
 	else
 	{
+		m_SceneFade->Uninit();
+		m_SceneFade.reset();
 		Audio::UninitMaster();
 		Renderer::Uninit();
 		return false;
@@ -68,6 +85,11 @@ bool Manager::Init(const GameDefinition& gameDefinition)
 	}
 
 	Audio::UninitMaster();
+	if (m_SceneFade != nullptr)
+	{
+		m_SceneFade->Uninit();
+		m_SceneFade.reset();
+	}
 	Renderer::Uninit();
 	return false;
 }
@@ -81,6 +103,11 @@ void Manager::Uninit()
 		m_Scene.reset();
 	}
 	m_NextScene.reset();
+	if (m_SceneFade != nullptr)
+	{
+		m_SceneFade->Uninit();
+		m_SceneFade.reset();
+	}
 
 	g_RenderQueue = RenderQueue();
 
@@ -95,7 +122,36 @@ void Manager::Uninit()
 
 void Manager::ChangeScene(std::unique_ptr<Scene> nextScene)
 {
-	m_NextScene = std::move(nextScene);
+	if (nextScene != nullptr && m_NextScene == nullptr)
+	{
+		m_NextScene = std::move(nextScene);
+		m_FadingOut = true;
+	}
+}
+
+void Manager::UpdateSceneTransition(float fixedDeltaTime)
+{
+	const float fadeStep = fixedDeltaTime / kFadeDurationSeconds;
+	if (m_FadingOut)
+	{
+		m_FadeAlpha = (std::min)(1.0f, m_FadeAlpha + fadeStep);
+		if (m_FadeAlpha >= 1.0f && m_NextScene != nullptr)
+		{
+			m_Scene->Uninit();
+			m_Scene->GetWorld().Clear();
+			m_Scene = std::move(m_NextScene);
+			m_Scene->SetSceneChangeHandler([](std::unique_ptr<Scene> nextScene)
+			{
+				Manager::ChangeScene(std::move(nextScene));
+			});
+			m_Scene->Init();
+			m_FadingOut = false;
+		}
+	}
+	else
+	{
+		m_FadeAlpha = (std::max)(0.0f, m_FadeAlpha - fadeStep);
+	}
 }
 
 void Manager::Update(float fixedDeltaTime)
@@ -140,18 +196,7 @@ void Manager::Update(float fixedDeltaTime)
 	world.EndUpdate();
 
 	world.DestroyRequestedObjects();
-
-	if (m_NextScene != nullptr)
-	{
-		m_Scene->Uninit();
-		m_Scene->GetWorld().Clear();
-		m_Scene = std::move(m_NextScene);
-		m_Scene->SetSceneChangeHandler([](std::unique_ptr<Scene> nextScene)
-		{
-			Manager::ChangeScene(std::move(nextScene));
-		});
-		m_Scene->Init();
-	}
+	UpdateSceneTransition(fixedDeltaTime);
 }
 
 void Manager::Draw()
@@ -173,6 +218,10 @@ void Manager::Draw()
 	if (m_Scene != nullptr)
 	{
 		m_Scene->Draw();
+	}
+	if (m_SceneFade != nullptr)
+	{
+		m_SceneFade->Draw(m_FadeAlpha);
 	}
 	
 	Renderer::End();

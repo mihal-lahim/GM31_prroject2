@@ -10,6 +10,8 @@
 #include "wireGame.h"
 #include "world.h"
 
+#include <cmath>
+
 namespace
 {
 	AlphabetText* AddAlphabet(World& world, const char* text, const Vector3& position,
@@ -31,7 +33,7 @@ void WireTitleScene::Init()
 	World& world = GetWorld();
 	world.Spawn<Polygon2D>()->Init(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, L"assets/texture/title.png");
 	AddAlphabet(world, "WIRE DELIVERY", { 250,170,0 }, 72, 56, { 1.0f,0.72f,0.18f,1.0f });
-	AddAlphabet(world, "PRESS ENTER", { 430,470,0 }, 42, 34, { 0.92f,0.97f,1.0f,1.0f });
+	m_StartPrompt = AddAlphabet(world, "PRESS ENTER", { 430,470,0 }, 42, 34, { 0.92f,0.97f,1.0f,1.0f });
 	AddAlphabet(world, "WASD MOVE SHIFT DASH", { 365,570,0 }, 28, 23, { 0.18f,0.86f,1.0f,1.0f });
 
 	KanaText* kana = world.Spawn<KanaText>();
@@ -47,12 +49,20 @@ void WireTitleScene::Init()
 	kanji->SetGlyphSize(38);
 	kanji->SetGlyphAdvance(42);
 	kanji->SetColor({ 1.0f,0.82f,0.34f,1.0f });
+	m_AnimationTime = 0.0f;
 }
 
 void WireTitleScene::Uninit() {}
 
 void WireTitleScene::Update()
 {
+	m_AnimationTime += GameTime::GetDeltaTime();
+	if (m_StartPrompt != nullptr)
+	{
+		const float pulse = 0.5f + 0.5f * sinf(m_AnimationTime * 4.0f);
+		m_StartPrompt->SetPosition({ 430.0f, 470.0f + sinf(m_AnimationTime * 2.0f) * 7.0f, 0.0f });
+		m_StartPrompt->SetColor({ 0.60f + pulse * 0.32f, 0.82f + pulse * 0.15f, 1.0f, 0.55f + pulse * 0.45f });
+	}
 	if (Keyboard_IsKeyDownTrigger(KK_ENTER)) ChangeScene<WireGame>();
 }
 

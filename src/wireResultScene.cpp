@@ -8,9 +8,11 @@
 #include "polygon2D.h"
 #include "score.h"
 #include "wireGame.h"
+#include "wireTitleScene.h"
 #include "world.h"
 
 #include <algorithm>
+#include <cmath>
 
 namespace
 {
@@ -54,7 +56,8 @@ void WireResultScene::Init()
 	AddTime(world, m_ClearTime, { 890,295,0 }, { 0.92f,0.97f,1.0f,1.0f });
 	AddAlphabet(world, "BEST", { 375,395,0 }, 42, 34, { 0.18f,0.86f,1.0f,1.0f });
 	AddTime(world, m_BestTime, { 890,385,0 }, { 0.18f,0.86f,1.0f,1.0f });
-	AddAlphabet(world, "PRESS R TO RETRY", { 375,570,0 }, 34, 27, { 0.92f,0.97f,1.0f,1.0f });
+	m_RetryPrompt = AddAlphabet(world, "PRESS R TO RETRY", { 375,570,0 }, 34, 27, { 0.92f,0.97f,1.0f,1.0f });
+	m_TitlePrompt = AddAlphabet(world, "PRESS ENTER FOR TITLE", { 315,625,0 }, 28, 23, { 1.0f,0.82f,0.34f,1.0f });
 
 	KanjiText* kanji = world.Spawn<KanjiText>();
 	kanji->SetText(L"配達完了");
@@ -62,13 +65,32 @@ void WireResultScene::Init()
 	kanji->SetGlyphSize(42);
 	kanji->SetGlyphAdvance(44);
 	kanji->SetColor({ 1.0f,0.82f,0.34f,1.0f });
+	m_AnimationTime = 0.0f;
 }
 
 void WireResultScene::Uninit() {}
 
 void WireResultScene::Update()
 {
-	if (Keyboard_IsKeyDownTrigger(KK_R) || Keyboard_IsKeyDownTrigger(KK_ENTER)) ChangeScene<WireGame>();
+	m_AnimationTime += GameTime::GetDeltaTime();
+	const float pulse = 0.5f + 0.5f * sinf(m_AnimationTime * 3.6f);
+	if (m_RetryPrompt != nullptr)
+	{
+		m_RetryPrompt->SetPosition({ 375.0f, 570.0f + sinf(m_AnimationTime * 2.0f) * 5.0f, 0.0f });
+		m_RetryPrompt->SetColor({ 0.72f + pulse * 0.25f, 0.84f + pulse * 0.13f, 1.0f, 0.62f + pulse * 0.38f });
+	}
+	if (m_TitlePrompt != nullptr)
+	{
+		m_TitlePrompt->SetColor({ 1.0f, 0.68f + pulse * 0.18f, 0.22f, 0.58f + pulse * 0.42f });
+	}
+	if (Keyboard_IsKeyDownTrigger(KK_R))
+	{
+		ChangeScene<WireGame>();
+	}
+	else if (Keyboard_IsKeyDownTrigger(KK_ENTER))
+	{
+		ChangeScene<WireTitleScene>();
+	}
 }
 
 void WireResultScene::Draw() {}

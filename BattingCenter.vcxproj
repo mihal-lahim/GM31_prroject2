@@ -81,7 +81,10 @@
 		<RuntimeAsset Include="assets\model\sky.obj"><TargetPath>assets\model\sky.obj</TargetPath></RuntimeAsset>
 		<RuntimeAsset Include="assets\model\sky.mtl"><TargetPath>assets\model\sky.mtl</TargetPath></RuntimeAsset>
 		<RuntimeAsset Include="assets\model\sky.jpg"><TargetPath>assets\model\sky.jpg</TargetPath></RuntimeAsset>
-		<RuntimeAsset Include="assets\texture\Explosion.png"><TargetPath>assets\texture\Explosion.png</TargetPath></RuntimeAsset>
+    <RuntimeAsset Include="assets\texture\Explosion.png"><TargetPath>assets\texture\Explosion.png</TargetPath></RuntimeAsset>
+	<RuntimeAsset Include="assets\texture\alphabet.png"><TargetPath>assets\texture\alphabet.png</TargetPath></RuntimeAsset>
+	<RuntimeAsset Include="assets\texture\kana.png"><TargetPath>assets\texture\kana.png</TargetPath></RuntimeAsset>
+	<RuntimeAsset Include="assets\texture\kanji.png"><TargetPath>assets\texture\kanji.png</TargetPath></RuntimeAsset>
 		<RuntimeAsset Include="assets\texture\ground.png"><TargetPath>assets\texture\ground.png</TargetPath></RuntimeAsset>
 		<RuntimeAsset Include="assets\texture\number.png"><TargetPath>assets\texture\number.png</TargetPath></RuntimeAsset>
 		<RuntimeAsset Include="assets\texture\particle.png"><TargetPath>assets\texture\particle.png</TargetPath></RuntimeAsset>
