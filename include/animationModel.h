@@ -50,6 +50,7 @@ private:
 	std::unordered_map<std::string, BONE> m_Bone;//ボーンデータ（名前で参照）
 	float m_ModelScale = 1.0f;
 	float m_ModelYawOffset = 0.0f;
+	bool m_Visible = true;
 
 	void CreateBone(aiNode* Node);
 	void UpdateBoneMatrix(aiNode* Node, aiMatrix4x4 Matrix);
@@ -61,6 +62,9 @@ public:
 	void LoadAnimation( const char *FileName, const char *Name );
 	void SetModelScale(float Scale) { m_ModelScale = Scale; }
 	void SetModelYawOffset(float YawOffset) { m_ModelYawOffset = YawOffset; }
+	// 被弾中の点滅など、更新は続けたまま描画だけを止めたい場合に使います。
+	void SetVisible(bool Visible) { m_Visible = Visible; }
+	bool IsVisible() const { return m_Visible; }
 	void Uninit() override;
 	void Update(const char* AnimationName1, int Frame1);
 	void Draw() override;

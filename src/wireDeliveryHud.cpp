@@ -75,6 +75,7 @@ void WireDeliveryHud::Init()
 	setupLabel(m_AllDeliveredLabel, "ALL DELIVERED", { SCREEN_WIDTH * 0.5f - 250.0f,220,0 }, 51, 40, gold);
 	setupLabel(m_BestLabel, "BEST", { SCREEN_WIDTH * 0.5f - 225.0f,370,0 }, 38, 30, cyan);
 	setupLabel(m_RetryLabel, "R RETRY", { SCREEN_WIDTH * 0.5f - 115.0f,445,0 }, 35, 28, white);
+	setupLabel(m_HealthLabel, "LIFE", { 38,104,0 }, 28, 22, cyan);
 	setupNumber(m_FinalTimeValue, 6, { SCREEN_WIDTH * 0.5f + 185.0f,305,0 }, 45, -37, white);
 	setupNumber(m_BestTimeValue, 6, { SCREEN_WIDTH * 0.5f + 185.0f,365,0 }, 45, -37, cyan);
 	m_TotalValue.SetValue(m_Total);
@@ -95,6 +96,12 @@ void WireDeliveryHud::SetProgress(int delivered, int total)
 	m_TotalValue.SetValue(total);
 }
 
+void WireDeliveryHud::SetHealth(int current, int max)
+{
+	m_MaxHealth = std::max(0, max);
+	m_Health = std::clamp(current, 0, m_MaxHealth);
+}
+
 void WireDeliveryHud::ShowDelivered() { m_NoticeTime = 1.15f; }
 
 void WireDeliveryHud::ShowComplete(float elapsedSeconds, float bestSeconds)
@@ -112,6 +119,24 @@ void WireDeliveryHud::Draw()
 	vertices.reserve(1800);
 	Rect(vertices, 22, 18, 410, 72, { 0.025f,0.04f,0.065f,0.82f });
 	Rect(vertices, SCREEN_WIDTH - 330.0f, 18, 308, 72, { 0.025f,0.04f,0.065f,0.82f });
+
+	if (m_MaxHealth > 0)
+	{
+		// 残りHPをピップで並べます。失った分は暗く残し、最大値が分かるようにします。
+		constexpr float pipWidth = 26.0f;
+		constexpr float pipHeight = 15.0f;
+		constexpr float pipGap = 6.0f;
+		const float pipsWidth = m_MaxHealth * pipWidth + (m_MaxHealth - 1) * pipGap;
+		Rect(vertices, 22, 96, 116.0f + pipsWidth, 40, { 0.025f,0.04f,0.065f,0.82f });
+		for (int i = 0; i < m_MaxHealth; ++i)
+		{
+			const float x = 112.0f + i * (pipWidth + pipGap);
+			const XMFLOAT4 color = i < m_Health
+				? XMFLOAT4{ 1.0f,0.34f,0.40f,0.96f }
+				: XMFLOAT4{ 0.22f,0.14f,0.18f,0.85f };
+			Rect(vertices, x, 108, pipWidth, pipHeight, color);
+		}
+	}
 
 	if (m_NoticeTime > 0.0f)
 	{
@@ -150,6 +175,7 @@ void WireDeliveryHud::Draw()
 	m_TotalValue.Draw();
 	m_TimeLabel.Draw();
 	m_TimeValue.Draw();
+	if (m_MaxHealth > 0) m_HealthLabel.Draw();
 	if (m_NoticeTime > 0.0f) m_DeliveredNotice.Draw();
 	if (m_Complete)
 	{

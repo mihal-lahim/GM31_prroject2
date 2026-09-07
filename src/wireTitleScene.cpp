@@ -7,7 +7,9 @@
 #include "keyboard_utf8.h"
 #include "main.h"
 #include "polygon2D.h"
+#include "wireDebugTools.h"
 #include "wireGame.h"
+#include "wireResultScene.h"
 #include "world.h"
 
 #include <cmath>
@@ -49,6 +51,9 @@ void WireTitleScene::Init()
 	kanji->SetGlyphSize(38);
 	kanji->SetGlyphAdvance(42);
 	kanji->SetColor({ 1.0f,0.82f,0.34f,1.0f });
+	// 審査時にデバッグ機能へ到達できるよう、有効化キーを常時表示します。
+	AddAlphabet(world, "F1 DEBUG MENU", { 24, SCREEN_HEIGHT - 40.0f, 0 }, 20, 16,
+		{ 0.45f,1.0f,0.58f,0.72f });
 	m_AnimationTime = 0.0f;
 }
 
@@ -56,6 +61,16 @@ void WireTitleScene::Uninit() {}
 
 void WireTitleScene::Update()
 {
+	switch (WireDebugTools::Update())
+	{
+	case WireDebugTools::SceneRequest::Game: ChangeScene<WireGame>(); return;
+	case WireDebugTools::SceneRequest::ResultCleared:
+		ChangeScene<WireResultScene>(0.0f, 0.0f, true); return;
+	case WireDebugTools::SceneRequest::ResultGameOver:
+		ChangeScene<WireResultScene>(0.0f, 0.0f, false); return;
+	default: break;
+	}
+
 	m_AnimationTime += GameTime::GetDeltaTime();
 	if (m_StartPrompt != nullptr)
 	{

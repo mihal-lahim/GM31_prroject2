@@ -24,12 +24,27 @@ private:
 	float m_AnimationTick = 0.0f;
 	bool m_UsingRunAnimation = false;
 
+	int m_Health = 1;
+	float m_InvincibleTime = 0.0f;
+	// デバッグ用の無敵。有効な間はTakeDamageを無視します。
+	bool m_DamageDisabled = false;
+
 public:
 	void Init() override;
 	void Uninit() override;
 	void Update() override;
 	void Draw() override;
 	void Respawn(const Vector3& position);
+
+	// 敵の接触攻撃から呼ばれます。無敵時間中とデバッグ無敵中は何も起きません。
+	void TakeDamage(int amount, const Vector3& knockbackDirection);
+	int GetHealth() const { return m_Health; }
+	int GetMaxHealth() const;
+	bool IsDead() const { return m_Health <= 0; }
+	bool IsInvincible() const { return m_InvincibleTime > 0.0f; }
+	void SetDamageDisabled(bool disabled) { m_DamageDisabled = disabled; }
+	bool IsDamageDisabled() const { return m_DamageDisabled; }
+	Vector3 GetVelocity() const { return m_Velocity; }
 
 	bool IsAiming() const { return m_Grapple.IsAiming(); }
 	bool IsWireActive() const { return m_Grapple.IsActive(); }

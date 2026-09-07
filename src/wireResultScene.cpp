@@ -7,6 +7,7 @@
 #include "main.h"
 #include "polygon2D.h"
 #include "score.h"
+#include "wireDebugTools.h"
 #include "wireGame.h"
 #include "wireTitleScene.h"
 #include "world.h"
@@ -51,7 +52,12 @@ void WireResultScene::Init()
 	GameTime::SetPaused(false);
 	World& world = GetWorld();
 	world.Spawn<Polygon2D>()->Init(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, L"assets/texture/result.png");
-	AddAlphabet(world, "ALL DELIVERED", { 270,135,0 }, 64, 50, { 1.0f,0.72f,0.18f,1.0f });
+	// ゲームオーバーは赤系、クリアは金系にし、一目で結果が分かるようにします。
+	const XMFLOAT4 headingColor = m_Cleared
+		? XMFLOAT4{ 1.0f,0.72f,0.18f,1.0f }
+		: XMFLOAT4{ 1.0f,0.38f,0.32f,1.0f };
+	AddAlphabet(world, m_Cleared ? "ALL DELIVERED" : "GAME OVER",
+		{ m_Cleared ? 270.0f : 400.0f, 135.0f, 0.0f }, 64, 50, headingColor);
 	AddAlphabet(world, "TIME", { 375,305,0 }, 42, 34, { 0.92f,0.97f,1.0f,1.0f });
 	AddTime(world, m_ClearTime, { 890,295,0 }, { 0.92f,0.97f,1.0f,1.0f });
 	AddAlphabet(world, "BEST", { 375,395,0 }, 42, 34, { 0.18f,0.86f,1.0f,1.0f });
@@ -60,7 +66,7 @@ void WireResultScene::Init()
 	m_TitlePrompt = AddAlphabet(world, "PRESS ENTER FOR TITLE", { 315,625,0 }, 28, 23, { 1.0f,0.82f,0.34f,1.0f });
 
 	KanjiText* kanji = world.Spawn<KanjiText>();
-	kanji->SetText(L"配達完了");
+	kanji->SetText(m_Cleared ? L"配達完了" : L"配達失敗");
 	kanji->SetPosition({ 535,235,0 });
 	kanji->SetGlyphSize(42);
 	kanji->SetGlyphAdvance(44);
@@ -72,6 +78,13 @@ void WireResultScene::Uninit() {}
 
 void WireResultScene::Update()
 {
+	switch (WireDebugTools::Update())
+	{
+	case WireDebugTools::SceneRequest::Title: ChangeScene<WireTitleScene>(); return;
+	case WireDebugTools::SceneRequest::Game: ChangeScene<WireGame>(); return;
+	default: break;
+	}
+
 	m_AnimationTime += GameTime::GetDeltaTime();
 	const float pulse = 0.5f + 0.5f * sinf(m_AnimationTime * 3.6f);
 	if (m_RetryPrompt != nullptr)

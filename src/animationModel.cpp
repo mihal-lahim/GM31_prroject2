@@ -112,6 +112,11 @@ namespace
 
 void AnimationModel::Draw()
 {
+	if (!m_Visible)
+	{
+		return;
+	}
+
 	ID3D11DeviceContext* context = Renderer::GetDeviceContext();
 	if (context == nullptr || m_AiScene == nullptr || m_VertexBuffer == nullptr || m_IndexBuffer == nullptr
 		|| m_VertexLayout == nullptr || m_VertexShader == nullptr || m_PixelShader == nullptr)

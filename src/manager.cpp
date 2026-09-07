@@ -163,13 +163,16 @@ void Manager::Update(float fixedDeltaTime)
 		return;
 	}
 
+	// ポーズ中はUI以外を止めますが、コマ送りのフレームだけは通常どおり1回進めます。
+	const bool skipWorldUpdate = GameTime::IsPaused() && !GameTime::IsSteppingFrame();
+
 	World& world = m_Scene->GetWorld();
 	world.BeginUpdate();
 	m_Scene->Update();
 
 	for (auto& gameObject : world.GetObjects())
 	{
-		if (GameTime::IsPaused() && gameObject->GetLayer() != Layer::UI)
+		if (skipWorldUpdate && gameObject->GetLayer() != Layer::UI)
 		{
 			continue;
 		}
@@ -178,7 +181,7 @@ void Manager::Update(float fixedDeltaTime)
 
 	for (auto& gameObject : world.GetObjects())
 	{
-		if (GameTime::IsPaused() && gameObject->GetLayer() != Layer::UI)
+		if (skipWorldUpdate && gameObject->GetLayer() != Layer::UI)
 		{
 			continue;
 		}
@@ -187,7 +190,7 @@ void Manager::Update(float fixedDeltaTime)
 
 	for (auto& gameObject : world.GetObjects())
 	{
-		if (GameTime::IsPaused() && gameObject->GetLayer() != Layer::UI)
+		if (skipWorldUpdate && gameObject->GetLayer() != Layer::UI)
 		{
 			continue;
 		}

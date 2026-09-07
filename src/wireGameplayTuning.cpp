@@ -167,6 +167,33 @@ const WireGameplayTuning& GetWireGameplayTuning()
 			"wire.stage.checkpoint_height_tolerance", stage.CheckpointHeightTolerance, 0.1f, 5.0f);
 		stage.GoalParticleCount = Integer("wire.stage.goal_particle_count", stage.GoalParticleCount);
 
+		auto& enemy = value.Enemy;
+		enemy.Health = Integer("wire.enemy.health", enemy.Health);
+		enemy.CountPerRooftop = Integer("wire.enemy.count_per_rooftop", enemy.CountPerRooftop);
+		enemy.PatrolSpeed = Float("wire.enemy.patrol_speed", enemy.PatrolSpeed);
+		enemy.ChaseSpeed = Float("wire.enemy.chase_speed", enemy.ChaseSpeed);
+		enemy.Acceleration = Float("wire.enemy.acceleration", enemy.Acceleration);
+		enemy.TurnLerp = Float("wire.enemy.turn_lerp", enemy.TurnLerp);
+		enemy.PatrolRadius = Float("wire.enemy.patrol_radius", enemy.PatrolRadius);
+		enemy.PatrolTurnInterval = Float("wire.enemy.patrol_turn_interval", enemy.PatrolTurnInterval);
+		enemy.DetectRadius = Float("wire.enemy.detect_radius", enemy.DetectRadius);
+		enemy.LoseRadius = Float("wire.enemy.lose_radius", enemy.LoseRadius);
+		enemy.DetectHeightRange = Float("wire.enemy.detect_height_range", enemy.DetectHeightRange);
+		enemy.AttackRadius = Float("wire.enemy.attack_radius", enemy.AttackRadius);
+		enemy.AttackInterval = Float("wire.enemy.attack_interval", enemy.AttackInterval);
+		enemy.ContactDamage = Integer("wire.enemy.contact_damage", enemy.ContactDamage);
+		enemy.KnockbackSpeed = Float("wire.enemy.knockback_speed", enemy.KnockbackSpeed);
+		enemy.KnockbackUpSpeed = Float("wire.enemy.knockback_up_speed", enemy.KnockbackUpSpeed);
+		enemy.EdgeMargin = Float("wire.enemy.edge_margin", enemy.EdgeMargin);
+		enemy.DeathParticleCount = Integer("wire.enemy.death_particle_count", enemy.DeathParticleCount);
+
+		auto& health = value.Health;
+		health.MaxHealth = Integer("wire.health.max_health", health.MaxHealth);
+		health.InvincibleTime = Float("wire.health.invincible_time", health.InvincibleTime);
+		health.HitBlinkInterval = Float("wire.health.hit_blink_interval", health.HitBlinkInterval);
+		health.HitStopFrames = Integer("wire.health.hit_stop_frames", health.HitStopFrames);
+		health.HitStopScale = Float("wire.health.hit_stop_scale", health.HitStopScale);
+
 		// 値同士の関係やゲーム固有の意味を検証し、危険な設定でも実行を継続できるようにします。
 		movement.WorldBoundsX = (std::max)(movement.WorldBoundsX, 1.0f);
 		movement.WorldBoundsZ = (std::max)(movement.WorldBoundsZ, 1.0f);
@@ -232,6 +259,30 @@ const WireGameplayTuning& GetWireGameplayTuning()
 		stage.CheckpointHeightTolerance = std::clamp(
 			stage.CheckpointHeightTolerance, 0.1f, 5.0f);
 		stage.GoalParticleCount = std::clamp(stage.GoalParticleCount, 0, 1000);
+
+		// HPが0だと生成直後に死ぬため、最低1を保証します。
+		enemy.Health = (std::max)(enemy.Health, 1);
+		enemy.CountPerRooftop = std::clamp(enemy.CountPerRooftop, 0, 16);
+		enemy.PatrolSpeed = (std::max)(enemy.PatrolSpeed, 0.0f);
+		enemy.ChaseSpeed = (std::max)(enemy.ChaseSpeed, 0.0f);
+		enemy.Acceleration = (std::max)(enemy.Acceleration, 0.01f);
+		enemy.TurnLerp = std::clamp(enemy.TurnLerp, 0.0f, 1.0f);
+		enemy.PatrolRadius = (std::max)(enemy.PatrolRadius, 0.5f);
+		enemy.PatrolTurnInterval = (std::max)(enemy.PatrolTurnInterval, 0.1f);
+		enemy.DetectRadius = (std::max)(enemy.DetectRadius, 0.5f);
+		// 見失う距離が探知距離以下だと、追跡開始と解除が毎フレーム往復します。
+		enemy.LoseRadius = (std::max)(enemy.LoseRadius, enemy.DetectRadius + 1.0f);
+		enemy.DetectHeightRange = (std::max)(enemy.DetectHeightRange, 0.5f);
+		enemy.AttackRadius = std::clamp(enemy.AttackRadius, 0.1f, enemy.DetectRadius);
+		enemy.AttackInterval = (std::max)(enemy.AttackInterval, 0.05f);
+		enemy.EdgeMargin = (std::max)(enemy.EdgeMargin, 0.0f);
+		enemy.DeathParticleCount = std::clamp(enemy.DeathParticleCount, 0, 1000);
+
+		// 最大HPが0だと開始と同時にゲームオーバーになるため、最低1を保証します。
+		health.MaxHealth = (std::max)(health.MaxHealth, 1);
+		health.InvincibleTime = (std::max)(health.InvincibleTime, 0.0f);
+		health.HitBlinkInterval = (std::max)(health.HitBlinkInterval, 0.01f);
+		health.HitStopScale = std::clamp(health.HitStopScale, 0.0f, 1.0f);
 
 		// コース原点や全長を調整しても、プレイヤー座標のクランプでゴール前に止まらないようにします。
 		movement.WorldBoundsX = (std::max)(movement.WorldBoundsX, std::abs(stage.OriginX) + 48.0f);

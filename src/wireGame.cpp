@@ -8,10 +8,13 @@
 #include "wirePlatform.h"
 #include "wireBlinkGauge.h"
 #include "wireCity.h"
+#include "wireDebugTools.h"
 #include "wireDeliveryHud.h"
+#include "wireEnemy.h"
 #include "wirePlayer.h"
-#include "wireReticle.h"
 #include "wireResultScene.h"
+#include "wireTitleScene.h"
+#include "wireReticle.h"
 #include "wireStage.h"
 #include "wireSword.h"
 #include "wireTpsCamera.h"
@@ -22,6 +25,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <string>
 
 namespace
 {
@@ -52,9 +56,9 @@ void WireGame::SetTutorialInstruction(const char* instruction)
 	}
 }
 
-void WireGame::UpdateTutorial(int deliveredCount)
+void WireGame::UpdateTutorial(int deliveredCount, int defeatedCount)
 {
-	if (m_TutorialStep >= 6)
+	if (m_TutorialStep >= 7)
 	{
 		m_TutorialCompleteTime += GameTime::GetDeltaTime();
 		if (m_TutorialCompleteTime >= 2.0f)
@@ -79,6 +83,7 @@ void WireGame::UpdateTutorial(int deliveredCount)
 	case 3: completedStep = Mouse_IsRightButtonDown(); break;
 	case 4: completedStep = Mouse_IsRightButtonDown() && Mouse_IsLeftButtonDownTrigger(); break;
 	case 5: completedStep = deliveredCount > 0; break;
+	case 6: completedStep = defeatedCount > 0; break;
 	default: break;
 	}
 	if (!completedStep) return;
@@ -90,8 +95,10 @@ void WireGame::UpdateTutorial(int deliveredCount)
 	case 2: SetTutorialInstruction("SHIFT WHILE MOVING TO BLINK"); break;
 	case 3: SetTutorialInstruction("HOLD RIGHT MOUSE TO AIM"); break;
 	case 4: SetTutorialInstruction("LEFT MOUSE TO FIRE WIRE"); break;
+	// 先に配達というゲーム目的を伝え、そのあとで戦闘操作を教えます。
 	case 5: SetTutorialInstruction("VISIT THE GLOWING MARKERS"); break;
-	case 6: SetTutorialInstruction("TUTORIAL COMPLETE"); break;
+	case 6: SetTutorialInstruction("CHARGE LEFT MOUSE AND DEFEAT AN ENEMY"); break;
+	case 7: SetTutorialInstruction("TUTORIAL COMPLETE"); break;
 	default: break;
 	}
 }
@@ -153,26 +160,64 @@ void WireGame::Init()
 	m_PauseInstruction->SetColor({ 0.86f,0.95f,1.0f,1.0f });
 	m_PauseInstruction->SetVisible(false);
 
-#ifdef _DEBUG
-	m_DebugHelp = world.Spawn<AlphabetText>();
-	m_DebugHelp->SetText("DEBUG  COLLIDER FKEY TWO  RESULT FKEY TEN");
-	m_DebugHelp->SetPosition({ 36, 108, 0 });
-	m_DebugHelp->SetGlyphSize(18);
-	m_DebugHelp->SetGlyphAdvance(14);
-	m_DebugHelp->SetColor({ 0.45f,1.0f,0.58f,0.90f });
-	m_DebugColliderStatus = world.Spawn<AlphabetText>();
-	m_DebugColliderStatus->SetText("COLLIDER OFF");
-	m_DebugColliderStatus->SetPosition({ 36, 137, 0 });
-	m_DebugColliderStatus->SetGlyphSize(17);
-	m_DebugColliderStatus->SetGlyphAdvance(14);
-	m_DebugColliderStatus->SetColor({ 0.55f,0.78f,1.0f,0.88f });
-#endif
+	// デバッグ表示はReleaseビルドでも生成しますが、F1を押すまで非表示のままです。
+	auto addDebugLine = [&world](float y, float size, const XMFLOAT4& color)
+	{
+		AlphabetText* label = world.Spawn<AlphabetText>();
+		label->SetPosition({ 36, y, 0 });
+		label->SetGlyphSize(size);
+		label->SetGlyphAdvance(size * 0.78f);
+		label->SetColor(color);
+		label->SetVisible(false);
+		return label;
+	};
+	// HUDのLIFE表示より下に置き、通常のHUDと重ならないようにします。
+	m_DebugHelp1 = addDebugLine(152.0f, 18.0f, { 0.45f,1.0f,0.58f,0.90f });
+	m_DebugHelp1->SetText(WireDebugTools::GetHelpLine1());
+	m_DebugHelp2 = addDebugLine(177.0f, 18.0f, { 0.45f,1.0f,0.58f,0.90f });
+	m_DebugHelp2->SetText(WireDebugTools::GetHelpLine2());
+	m_DebugStatus = addDebugLine(202.0f, 17.0f, { 0.55f,0.78f,1.0f,0.88f });
+
+	SpawnEnemies();
 
 	// 登った屋上をチェックポイントとして扱い、落下時は最も高く到達した屋上へ戻します。
 	m_RespawnPosition = player->GetPosition();
 	m_ElapsedSeconds = 0.0f;
 	m_ResultDelay = 0.0f;
 	m_Completed = false;
+	m_Failed = false;
+	WireDebugTools::ResetForNewGame();
+}
+
+void WireGame::SpawnEnemies()
+{
+	World& world = GetWorld();
+	WireCity* city = world.FindFirst<WireCity>();
+	if (city == nullptr)
+	{
+		return;
+	}
+
+	// 配達地点の屋上にだけ敵を置き、目的地と敵の存在を結び付けます。
+	// 開始地点(地上)には置かないため、操作に慣れる前に襲われることはありません。
+	const WireEnemyTuning& tuning = GetWireGameplayTuning().Enemy;
+	const std::vector<Vector3>& locations = city->GetDeliveryLocations();
+	m_EnemyTotal = 0;
+	for (size_t index = 1; index < locations.size(); ++index)
+	{
+		for (int slot = 0; slot < tuning.CountPerRooftop; ++slot)
+		{
+			// 配達マーカーの真上に重ならないよう、円状にずらして配置します。
+			const float angle = XM_2PI * static_cast<float>(slot)
+				/ static_cast<float>((std::max)(tuning.CountPerRooftop, 1));
+			const float offset = tuning.PatrolRadius * 0.55f;
+			WireEnemy* enemy = world.Spawn<WireEnemy>();
+			enemy->SetPosition(locations[index]
+				+ Vector3(cosf(angle) * offset, 0.0f, sinf(angle) * offset));
+			enemy->OnPlaced();
+			++m_EnemyTotal;
+		}
+	}
 }
 
 void WireGame::Uninit()
@@ -181,29 +226,18 @@ void WireGame::Uninit()
 
 void WireGame::Update()
 {
-#ifdef _DEBUG
-	if (Keyboard_IsKeyDownTrigger(KK_F2))
+	if (HandleDebugSceneRequest())
 	{
-		Collider::SetDebugDrawEnabled(!Collider::GetDebugDrawEnabled());
-		if (m_DebugColliderStatus != nullptr)
-		{
-			m_DebugColliderStatus->SetText(
-				Collider::GetDebugDrawEnabled() ? "COLLIDER ON" : "COLLIDER OFF");
-		}
-	}
-	if (Keyboard_IsKeyDownTrigger(KK_F10))
-	{
-		ChangeScene<WireResultScene>(83.42f, 79.18f);
 		return;
 	}
-#endif
+	UpdateDebugOverlay();
 
-	if (m_Completed)
+	if (m_Completed || m_Failed)
 	{
 		m_ResultDelay += GameTime::GetDeltaTime();
 		if (m_ResultDelay >= 1.1f)
 		{
-			ChangeScene<WireResultScene>(m_ElapsedSeconds, g_BestDeliveryTime);
+			ChangeScene<WireResultScene>(m_ElapsedSeconds, g_BestDeliveryTime, m_Completed);
 		}
 		return;
 	}
@@ -220,6 +254,15 @@ void WireGame::Update()
 	WirePlayer* player = GetWorld().FindFirst<WirePlayer>();
 	if (player == nullptr)
 	{
+		return;
+	}
+
+	player->SetDamageDisabled(WireDebugTools::IsInvincibleEnabled());
+	if (player->IsDead())
+	{
+		// 敵にHPを削り切られた場合はゲームオーバーです。
+		// クリア時と同じ遅延を挟み、被弾演出を見せてからリザルトへ移ります。
+		m_Failed = true;
 		return;
 	}
 
@@ -292,7 +335,88 @@ void WireGame::Update()
 		EmitGoalCelebration(player->GetPosition());
 	}
 
-	UpdateTutorial(deliveredCount);
+	if (m_Hud != nullptr)
+	{
+		m_Hud->SetHealth(player->GetHealth(), player->GetMaxHealth());
+	}
+
+	const int defeatedCount = m_EnemyTotal - static_cast<int>(GetWorld().FindAll<WireEnemy>().size());
+	UpdateTutorial(deliveredCount, defeatedCount);
+}
+
+bool WireGame::HandleDebugSceneRequest()
+{
+	switch (WireDebugTools::Update())
+	{
+	case WireDebugTools::SceneRequest::Title:
+		ChangeScene<WireTitleScene>();
+		return true;
+	case WireDebugTools::SceneRequest::Game:
+		ChangeScene<WireGame>();
+		return true;
+	case WireDebugTools::SceneRequest::ResultCleared:
+		ChangeScene<WireResultScene>(m_ElapsedSeconds, g_BestDeliveryTime, true);
+		return true;
+	case WireDebugTools::SceneRequest::ResultGameOver:
+		ChangeScene<WireResultScene>(m_ElapsedSeconds, g_BestDeliveryTime, false);
+		return true;
+	default:
+		return false;
+	}
+}
+
+void WireGame::UpdateDebugOverlay()
+{
+	const bool visible = WireDebugTools::IsOverlayVisible();
+	if (m_DebugHelp1 != nullptr) m_DebugHelp1->SetVisible(visible);
+	if (m_DebugHelp2 != nullptr) m_DebugHelp2->SetVisible(visible);
+	if (m_DebugStatus == nullptr)
+	{
+		return;
+	}
+
+	m_DebugStatus->SetVisible(visible);
+	if (!visible)
+	{
+		return;
+	}
+
+	// AlphabetTextはA-Zと空白だけを表示できるため、状態は英字の語で並べます。
+	std::string status = "COLLIDER ";
+	status += Collider::GetDebugDrawEnabled() ? "ON" : "OFF";
+	status += "   INVINCIBLE ";
+	status += WireDebugTools::IsInvincibleEnabled() ? "ON" : "OFF";
+	status += "   SPEED ";
+	const float timeScale = WireDebugTools::GetTimeScale();
+	status += timeScale < 1.0f ? "SLOW" : (timeScale > 1.0f ? "FAST" : "NORMAL");
+	if (GameTime::IsPaused())
+	{
+		status += "   PAUSED PRESS F THREE TO STEP";
+	}
+	WirePlayer* player = GetWorld().FindFirst<WirePlayer>();
+	if (player != nullptr)
+	{
+		status += player->IsOnGround() ? "   GROUNDED" : "   AIRBORNE";
+
+		// 最も近い敵の状態を出し、思考ルーチンの遷移を画面で確認できるようにします。
+		const WireEnemy* nearest = nullptr;
+		float nearestDistance = 0.0f;
+		for (WireEnemy* enemy : GetWorld().FindAll<WireEnemy>())
+		{
+			const float distance = (enemy->GetPosition() - player->GetPosition()).length();
+			if (nearest == nullptr || distance < nearestDistance)
+			{
+				nearest = enemy;
+				nearestDistance = distance;
+			}
+		}
+		if (nearest != nullptr)
+		{
+			status += "   NEAREST ENEMY ";
+			status += nearest->GetStateName();
+		}
+	}
+	m_DebugStatus->SetText(status);
 }
 
 void WireGame::Draw()
