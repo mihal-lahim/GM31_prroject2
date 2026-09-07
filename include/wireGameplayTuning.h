@@ -102,7 +102,8 @@ struct WireSwordTuning
 struct WireCameraTuning
 {
 	float BaseFov = 1.0f;
-	float MaxWireFov = 1.14f;
+	// 速度に応じて広がる視野の上限です。差が小さいと速度が画面に出ません。
+	float MaxWireFov = 1.30f;
 	float FovBoostStartSpeed = 16.0f;
 	float FovBoostFullSpeed = 42.0f;
 	float FovWireActiveBias = 0.035f;
@@ -119,18 +120,63 @@ struct WireCameraTuning
 	float AimMaxPitchDegrees = 88.0f;
 	float NormalPitchMouseScale = 0.62f;
 	float AimPitchMouseScale = 0.85f;
-	float NormalCameraDistance = 11.8f;
+	// 平常時は近めに寄せてキャラを大きく見せ、速度が乗ったぶんだけ引きます(SpeedDistanceBoost)。
+	float NormalCameraDistance = 9.4f;
 	float DistanceFollowLerp = 0.12f;
-	float NormalFollowLerp = 0.18f;
+	float NormalFollowLerp = 0.22f;
 	float WireFollowLerp = 0.52f;
 	float AimFollowLerp = 0.34f;
-	float NormalTargetHeight = 1.2f;
+	float NormalTargetHeight = 1.45f;
 	float NormalMinCameraHeight = 0.85f;
 	float NormalLookAhead = 1.8f;
 	float AimCameraHeight = 1.65f;
 	float AimBackDistance = 0.85f;
 	float AimShoulderOffset = 1.18f;
 	float AimFocusDistance = 24.0f;
+
+	// --- 疾走感まわり ---
+	// 速度が上がるほどカメラを後ろへ引き、視野を広げ、追従を締めます。
+	// 引く量と広げる量が揃って初めて「速い」と感じられるため、3つは同じspeedRatioで駆動します。
+	float SpeedDistanceBoost = 4.6f;
+	float SpeedFollowLerpBoost = 0.20f;
+	// 横方向の速度でカメラを傾けます。ワイヤーで振られるときの体感差が大きい要素です。
+	float RollPerLateralSpeed = 0.0075f;
+	float MaxRoll = 0.20f;
+	float RollLerp = 0.10f;
+
+	// --- 衝撃演出 ---
+	// トラウマ値(0-1)を二乗して揺れ幅にします。小さい衝撃が過剰に暴れないようにするためです。
+	float ShakeDecay = 2.8f;
+	float ShakeMaxOffset = 0.80f;
+	float ShakeMaxAngle = 0.05f;
+	float ShakeFrequency = 24.0f;
+	// 攻撃時にカメラを一瞬押し戻すバネです。減衰と戻る強さで手応えが決まります。
+	float PunchSpring = 150.0f;
+	float PunchDamping = 15.0f;
+	float FovKickDecay = 6.0f;
+	float FovKickMax = 0.22f;
+
+	// 各アクションが与える衝撃量です。0にすればその演出だけを切れます。
+	float SwordHitShake = 0.34f;
+	float SwordHitChargeShake = 0.30f;
+	float SwordHitPunch = 3.4f;
+	float SwordHitFovKick = 0.07f;
+	float LandingShake = 0.26f;
+	float LandingSpeedForFullShake = 34.0f;
+	float BlinkShake = 0.16f;
+	float BlinkFovKick = 0.10f;
+	float WireAttachShake = 0.18f;
+	float WireAttachFovKick = 0.06f;
+	float DamageShake = 0.55f;
+
+	// --- 速度線 ---
+	// カメラの脇を後方へ流れる線を出し、速度そのものを画面で読めるようにします。
+	float SpeedLineStartSpeed = 20.0f;
+	float SpeedLineFullSpeed = 46.0f;
+	int SpeedLineMaxPerFrame = 4;
+	float SpeedLineSpread = 3.4f;
+	float SpeedLineForwardOffset = 7.0f;
+	float SpeedLineSpeed = 34.0f;
 };
 
 // 屋上を巡回する敵と、被弾するプレイヤー側の値です。

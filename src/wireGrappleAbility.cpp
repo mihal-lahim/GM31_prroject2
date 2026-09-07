@@ -114,6 +114,13 @@ void WireGrappleAbility::Update(
 			m_Firing = false;
 			m_Active = true;
 			player.m_Movement.RestoreAirBlinkCharges();
+
+			// フックが刺さった瞬間に軽い衝撃を返し、接続できたことを手で分かるようにします。
+			if (WireTpsCamera* tpsCamera = player.GetWorld().FindFirst<WireTpsCamera>())
+			{
+				tpsCamera->AddShake(GetWireGameplayTuning().Camera.WireAttachShake);
+				tpsCamera->AddFovKick(GetWireGameplayTuning().Camera.WireAttachFovKick);
+			}
 			Vector3 launchDirection = m_Anchor - (player.m_Position + Vector3(0.0f, GetWireGameplayTuning().Grapple.OriginHeight, 0.0f));
 			if (launchDirection.length() > kVectorEpsilon)
 			{

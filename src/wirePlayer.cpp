@@ -67,6 +67,7 @@ void WirePlayer::Update()
 	m_Position.z = std::clamp(m_Position.z, -GetWireGameplayTuning().Movement.WorldBoundsZ, GetWireGameplayTuning().Movement.WorldBoundsZ);
 
 	m_InvincibleTime = std::max(0.0f, m_InvincibleTime - dt);
+	m_Presentation.Update(*this, dt, camera);
 
 	if (m_AnimationModel != nullptr)
 	{
@@ -150,6 +151,13 @@ void WirePlayer::TakeDamage(int amount, const Vector3& knockbackDirection)
 	m_Grapple.Cancel(*this, false);
 	m_Sword.Cancel();
 	GameTime::StartHitStop(health.HitStopFrames, health.HitStopScale);
+
+	// 被弾は最も強く揺らします。押し出された向きへカメラも振られます。
+	if (WireTpsCamera* camera = GetWorld().FindFirst<WireTpsCamera>())
+	{
+		camera->AddShake(GetWireGameplayTuning().Camera.DamageShake);
+		camera->AddPunch(horizontal, 4.5f);
+	}
 }
 
 void WirePlayer::Draw()

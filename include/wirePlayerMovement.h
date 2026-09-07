@@ -27,6 +27,8 @@ private:
 	void StartBlink(WirePlayer& player, const Vector3& direction);
 	void EmitBlinkParticles(const Vector3& position, const Vector3& direction, int count);
 	void EmitBlinkShockwave(const Vector3& position, const Vector3& direction, int count);
+	// 着地の土煙とカメラ揺れです。impactSpeedは着地直前の落下速度(正の値)です。
+	void EmitLandingImpact(WirePlayer& player, float impactSpeed);
 
 public:
 	void Update(WirePlayer& player, float dt, const WirePlayerInputState& input, const WireTpsCamera* camera);

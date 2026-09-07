@@ -208,6 +208,13 @@ void WirePlayerMovement::StartBlink(WirePlayer& player, const Vector3& direction
 	{
 		m_AirBlinkChargesUsed++;
 	}
+	// 踏み込みの瞬間に視野を広げて軽く揺らし、瞬発力を画面に出します。
+	if (WireTpsCamera* camera = player.GetWorld().FindFirst<WireTpsCamera>())
+	{
+		camera->AddShake(GetWireGameplayTuning().Camera.BlinkShake);
+		camera->AddFovKick(GetWireGameplayTuning().Camera.BlinkFovKick);
+	}
+
 	m_BlinkDirection = blinkDirection;
 	m_BlinkTimeRemaining = GetWireGameplayTuning().Movement.BlinkDuration;
 	m_BlinkCooldown = GetWireGameplayTuning().Movement.BlinkCooldown;
@@ -298,6 +305,40 @@ void WirePlayerMovement::EmitBlinkShockwave(const Vector3& position, const Vecto
 	}
 }
 
+void WirePlayerMovement::EmitLandingImpact(WirePlayer& player, float impactSpeed)
+{
+	const WireCameraTuning& camera = GetWireGameplayTuning().Camera;
+	const float ratio = std::clamp(impactSpeed / camera.LandingSpeedForFullShake, 0.0f, 1.0f);
+	// 軽い着地でいちいち画面が揺れると煩わしいため、下限を設けます。
+	if (ratio < 0.18f)
+	{
+		return;
+	}
+
+	if (WireTpsCamera* tpsCamera = player.GetWorld().FindFirst<WireTpsCamera>())
+	{
+		tpsCamera->AddShake(camera.LandingShake * ratio);
+		tpsCamera->AddPunch({ 0.0f, -1.0f, 0.0f }, 2.2f * ratio);
+	}
+
+	// 土煙を水平に広げ、接地した高さを見せます。
+	const int count = 10 + static_cast<int>(ratio * 22.0f);
+	for (int i = 0; i < count; ++i)
+	{
+		const float angle = XM_2PI * static_cast<float>(i) / static_cast<float>(count);
+		const float speed = (2.2f + ratio * 5.0f) * RandomFloat(0.7f, 1.25f);
+		const Vector3 velocity{ cosf(angle) * speed, RandomFloat(0.4f, 1.9f), sinf(angle) * speed };
+		ParticleSystem::Emit(
+			player.m_Position + Vector3(0.0f, 0.12f, 0.0f),
+			velocity,
+			0.16f + ratio * 0.12f,
+			22 + static_cast<int>(ratio * 12.0f),
+			XMFLOAT4(0.82f, 0.86f, 0.92f, 0.42f + ratio * 0.34f),
+			-5.0f,
+			0.93f);
+	}
+}
+
 void WirePlayerMovement::ResolvePlatformLanding(WirePlayer& player, const Vector3& previousPosition)
 {
 	if (player.m_Velocity.y > 0.0f)
@@ -317,9 +358,13 @@ void WirePlayerMovement::ResolvePlatformLanding(WirePlayer& player, const Vector
 			continue;
 		}
 
+		// 落下速度に応じた着地衝撃を出します。速く落ちたときほど強く揺れ、
+		// 土煙が広がるので、高所からの飛び降りに手応えが生まれます。
+		const float impactSpeed = -player.m_Velocity.y;
 		player.m_Position.y = topY;
 		player.m_Velocity.y = 0.0f;
 		m_OnGround = true;
+		EmitLandingImpact(player, impactSpeed);
 		return;
 	}
 }

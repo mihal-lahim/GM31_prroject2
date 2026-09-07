@@ -2,6 +2,7 @@
 #include "wireTpsCamera.h"
 
 #include "gameSettings.h"
+#include "gameTime.h"
 #include "renderer.h"
 #include "wirePlayer.h"
 #include "world.h"
@@ -43,6 +44,14 @@ namespace
 	{
 		return XMFLOAT3(value.x, value.y, value.z);
 	}
+
+	// 位相の異なる正弦波を重ねた擬似ノイズです。乱数を使わないため、
+	// 同じ操作をすれば同じ揺れになり、リプレイや録画での再現性が保てます。
+	float ShakeNoise(float phase, float seed)
+	{
+		return sinf(phase * (1.0f + seed * 0.37f) + seed * 2.19f) * 0.62f
+			+ sinf(phase * (2.31f + seed * 0.53f) + seed * 5.11f) * 0.38f;
+	}
 }
 
 void WireTpsCamera::Init()
@@ -55,6 +64,14 @@ void WireTpsCamera::Init()
 	m_CurrentFov = GetWireGameplayTuning().Camera.BaseFov;
 	m_TargetInitialized = false;
 	m_CloseAimActiveLastFrame = false;
+	m_Trauma = 0.0f;
+	m_ShakePhase = 0.0f;
+	m_PunchOffset = { 0.0f, 0.0f, 0.0f };
+	m_PunchVelocity = { 0.0f, 0.0f, 0.0f };
+	m_FovKick = 0.0f;
+	m_Roll = 0.0f;
+	m_ShakenPosition = m_Position;
+	m_ShakenTarget = m_Target;
 	Mouse_Reset();
 }
 
@@ -104,8 +121,18 @@ void WireTpsCamera::LateUpdate()
 	const Vector3 flatForward = MakeFlatForward(m_Yaw);
 	const Vector3 flatRight = MakeFlatRight(flatForward);
 
-	const float desiredDistance = GetWireGameplayTuning().Camera.NormalCameraDistance;
-	m_Distance += (desiredDistance - m_Distance) * GetWireGameplayTuning().Camera.DistanceFollowLerp;
+	const WireCameraTuning& tuning = GetWireGameplayTuning().Camera;
+
+	// 速度に応じてカメラを引く・視野を広げる・追従を締める、の3つを同じ比率で駆動します。
+	// 引くだけでは間延びし、広げるだけでは追いつかないため、必ず揃えて動かします。
+	const float speedRatio = std::clamp(
+		(player->GetSpeed() - tuning.FovBoostStartSpeed)
+		/ (tuning.FovBoostFullSpeed - tuning.FovBoostStartSpeed), 0.0f, 1.0f);
+
+	// 構え中は精密に狙う場面なので、速度による引きを効かせません。
+	const float desiredDistance = tuning.NormalCameraDistance
+		+ (closeAim ? 0.0f : speedRatio * tuning.SpeedDistanceBoost);
+	m_Distance += (desiredDistance - m_Distance) * tuning.DistanceFollowLerp;
 
 	Vector3 desiredPosition;
 	Vector3 desiredTarget;
@@ -142,28 +169,121 @@ void WireTpsCamera::LateUpdate()
 	}
 	else
 	{
-		const float followLerp = closeAim ? GetWireGameplayTuning().Camera.AimFollowLerp : (wireActive ? GetWireGameplayTuning().Camera.WireFollowLerp : GetWireGameplayTuning().Camera.NormalFollowLerp);
+		float followLerp = closeAim
+			? tuning.AimFollowLerp
+			: (wireActive ? tuning.WireFollowLerp : tuning.NormalFollowLerp);
+		// 速い場面ほど強く追従させ、プレイヤーが画面端へ流れていくのを防ぎます。
+		if (!closeAim)
+		{
+			followLerp = std::clamp(followLerp + speedRatio * tuning.SpeedFollowLerpBoost, 0.0f, 1.0f);
+		}
 		m_Position += (desiredPosition - m_Position) * followLerp;
 		m_Target += (desiredTarget - m_Target) * followLerp;
 	}
 
-	const float speedRatio = std::clamp((player->GetSpeed() - GetWireGameplayTuning().Camera.FovBoostStartSpeed) / (GetWireGameplayTuning().Camera.FovBoostFullSpeed - GetWireGameplayTuning().Camera.FovBoostStartSpeed), 0.0f, 1.0f);
-	const float wireBias = wireActive ? GetWireGameplayTuning().Camera.FovWireActiveBias : 0.0f;
-	const float normalFov = std::min(GetWireGameplayTuning().Camera.MaxWireFov, GetWireGameplayTuning().Camera.BaseFov + speedRatio * (GetWireGameplayTuning().Camera.MaxWireFov - GetWireGameplayTuning().Camera.BaseFov) + wireBias);
-	const float targetFov = closeAim ? GetWireGameplayTuning().Camera.AimFov : normalFov;
-	m_CurrentFov += (targetFov - m_CurrentFov) * GetWireGameplayTuning().Camera.FovFollowLerp;
+	// 進行方向に対する横向きの速さでカメラを傾けます。
+	// ワイヤーで振られている間の弧の大きさが体で分かるようになります。
+	float targetRoll = 0.0f;
+	if (!closeAim)
+	{
+		const float lateralSpeed = Vector3::dot(player->GetVelocity(), flatRight);
+		targetRoll = std::clamp(
+			-lateralSpeed * tuning.RollPerLateralSpeed, -tuning.MaxRoll, tuning.MaxRoll);
+	}
+	m_Roll += (targetRoll - m_Roll) * tuning.RollLerp;
+
+	const float wireBias = wireActive ? tuning.FovWireActiveBias : 0.0f;
+	const float normalFov = std::min(tuning.MaxWireFov,
+		tuning.BaseFov + speedRatio * (tuning.MaxWireFov - tuning.BaseFov) + wireBias);
+	const float targetFov = closeAim ? tuning.AimFov : normalFov;
+	m_CurrentFov += (targetFov - m_CurrentFov) * tuning.FovFollowLerp;
 	m_CloseAimActiveLastFrame = closeAim;
+
+	// 揺れとパンチは追従結果へ後から乗せます。追従計算そのものには混ぜません。
+	const float dt = GameTime::GetDeltaTime();
+	UpdateImpactState(dt);
+	ApplyImpactToView(dt);
 	GameObject::LateUpdate();
+}
+
+void WireTpsCamera::AddShake(float trauma)
+{
+	// 複数の衝撃が重なっても暴れないよう、1で飽和させます。
+	m_Trauma = std::clamp(m_Trauma + trauma, 0.0f, 1.0f);
+}
+
+void WireTpsCamera::AddPunch(const Vector3& direction, float strength)
+{
+	Vector3 normalized = direction;
+	normalized.normalize();
+	m_PunchVelocity += normalized * strength;
+}
+
+void WireTpsCamera::AddFovKick(float amount)
+{
+	const WireCameraTuning& tuning = GetWireGameplayTuning().Camera;
+	m_FovKick = std::clamp(m_FovKick + amount, 0.0f, tuning.FovKickMax);
+}
+
+void WireTpsCamera::UpdateImpactState(float dt)
+{
+	const WireCameraTuning& tuning = GetWireGameplayTuning().Camera;
+
+	m_Trauma = (std::max)(0.0f, m_Trauma - tuning.ShakeDecay * dt);
+	m_ShakePhase += dt * tuning.ShakeFrequency;
+
+	// パンチはバネで原点へ戻します。押し戻り→復帰の往復が手応えになります。
+	m_PunchVelocity += (-m_PunchOffset * tuning.PunchSpring
+		- m_PunchVelocity * tuning.PunchDamping) * dt;
+	m_PunchOffset += m_PunchVelocity * dt;
+
+	m_FovKick = (std::max)(0.0f, m_FovKick - tuning.FovKickDecay * dt);
+}
+
+void WireTpsCamera::ApplyImpactToView(float dt)
+{
+	(void)dt;
+	const WireCameraTuning& tuning = GetWireGameplayTuning().Camera;
+
+	// トラウマを二乗し、小さい衝撃ほど控えめ・大きい衝撃ほど派手にします。
+	const float shake = m_Trauma * m_Trauma;
+	const Vector3 offset
+	{
+		ShakeNoise(m_ShakePhase, 0.0f) * shake * tuning.ShakeMaxOffset,
+		ShakeNoise(m_ShakePhase, 1.0f) * shake * tuning.ShakeMaxOffset,
+		ShakeNoise(m_ShakePhase, 2.0f) * shake * tuning.ShakeMaxOffset
+	};
+	// 注視点は視点と別位相で揺らし、平行移動ではなく「揺さぶられ」に見せます。
+	const Vector3 targetOffset
+	{
+		ShakeNoise(m_ShakePhase, 3.0f) * shake * tuning.ShakeMaxAngle * m_Distance,
+		ShakeNoise(m_ShakePhase, 4.0f) * shake * tuning.ShakeMaxAngle * m_Distance,
+		ShakeNoise(m_ShakePhase, 5.0f) * shake * tuning.ShakeMaxAngle * m_Distance
+	};
+
+	m_ShakenPosition = m_Position + offset + m_PunchOffset;
+	m_ShakenTarget = m_Target + targetOffset;
 }
 
 void WireTpsCamera::Draw()
 {
-	XMMATRIX projection = XMMatrixPerspectiveFovLH(m_CurrentFov, static_cast<float>(SCREEN_WIDTH) / SCREEN_HEIGHT, GetWireGameplayTuning().Camera.NearClip, GetWireGameplayTuning().Camera.FarClip);
+	const WireCameraTuning& tuning = GetWireGameplayTuning().Camera;
+	// FOVキックは加速の瞬間だけ視野を広げ、速度が乗ったことを一拍で伝えます。
+	const float drawFov = std::clamp(m_CurrentFov + m_FovKick, 0.1f, 3.0f);
+	XMMATRIX projection = XMMatrixPerspectiveFovLH(
+		drawFov, static_cast<float>(SCREEN_WIDTH) / SCREEN_HEIGHT, tuning.NearClip, tuning.FarClip);
 	Renderer::SetProjectionMatrix(projection);
 
-	XMFLOAT3 up = { 0.0f, 1.0f, 0.0f };
-	const XMFLOAT3 position = ToXMFLOAT3(m_Position);
-	const XMFLOAT3 target = ToXMFLOAT3(m_Target);
+	// 視線軸まわりに上ベクトルを回してロールさせます。
+	Vector3 rollForward = m_ShakenTarget - m_ShakenPosition;
+	rollForward.normalize();
+	const Vector3 rollRight = MakeFlatRight(MakeFlatForward(m_Yaw));
+	const Vector3 rolledUp = Vector3::cross(rollForward, rollRight) * cosf(m_Roll)
+		+ rollRight * sinf(m_Roll);
+
+	XMFLOAT3 up = ToXMFLOAT3(rolledUp);
+	const XMFLOAT3 position = ToXMFLOAT3(m_ShakenPosition);
+	const XMFLOAT3 target = ToXMFLOAT3(m_ShakenTarget);
 	m_ViewMatrix = XMMatrixLookAtLH(
 		XMLoadFloat3(&position),
 		XMLoadFloat3(&target),
