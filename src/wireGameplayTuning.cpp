@@ -155,6 +155,36 @@ const WireGameplayTuning& GetWireGameplayTuning()
 		camera.AimBackDistance = Float("wire.camera.aim_back_distance", camera.AimBackDistance);
 		camera.AimShoulderOffset = Float("wire.camera.aim_shoulder_offset", camera.AimShoulderOffset);
 		camera.AimFocusDistance = Float("wire.camera.aim_focus_distance", camera.AimFocusDistance);
+		camera.SpeedDistanceBoost = Float("wire.camera.speed_distance_boost", camera.SpeedDistanceBoost);
+		camera.SpeedFollowLerpBoost = Float("wire.camera.speed_follow_lerp_boost", camera.SpeedFollowLerpBoost);
+		camera.RollPerLateralSpeed = Float("wire.camera.roll_per_lateral_speed", camera.RollPerLateralSpeed);
+		camera.MaxRoll = Float("wire.camera.max_roll", camera.MaxRoll);
+		camera.RollLerp = Float("wire.camera.roll_lerp", camera.RollLerp);
+		camera.ShakeDecay = Float("wire.camera.shake_decay", camera.ShakeDecay);
+		camera.ShakeMaxOffset = Float("wire.camera.shake_max_offset", camera.ShakeMaxOffset);
+		camera.ShakeMaxAngle = Float("wire.camera.shake_max_angle", camera.ShakeMaxAngle);
+		camera.ShakeFrequency = Float("wire.camera.shake_frequency", camera.ShakeFrequency);
+		camera.PunchSpring = Float("wire.camera.punch_spring", camera.PunchSpring);
+		camera.PunchDamping = Float("wire.camera.punch_damping", camera.PunchDamping);
+		camera.FovKickDecay = Float("wire.camera.fov_kick_decay", camera.FovKickDecay);
+		camera.FovKickMax = Float("wire.camera.fov_kick_max", camera.FovKickMax);
+		camera.SwordHitShake = Float("wire.camera.sword_hit_shake", camera.SwordHitShake);
+		camera.SwordHitChargeShake = Float("wire.camera.sword_hit_charge_shake", camera.SwordHitChargeShake);
+		camera.SwordHitPunch = Float("wire.camera.sword_hit_punch", camera.SwordHitPunch);
+		camera.SwordHitFovKick = Float("wire.camera.sword_hit_fov_kick", camera.SwordHitFovKick);
+		camera.LandingShake = Float("wire.camera.landing_shake", camera.LandingShake);
+		camera.LandingSpeedForFullShake = Float("wire.camera.landing_speed_for_full_shake", camera.LandingSpeedForFullShake);
+		camera.BlinkShake = Float("wire.camera.blink_shake", camera.BlinkShake);
+		camera.BlinkFovKick = Float("wire.camera.blink_fov_kick", camera.BlinkFovKick);
+		camera.WireAttachShake = Float("wire.camera.wire_attach_shake", camera.WireAttachShake);
+		camera.WireAttachFovKick = Float("wire.camera.wire_attach_fov_kick", camera.WireAttachFovKick);
+		camera.DamageShake = Float("wire.camera.damage_shake", camera.DamageShake);
+		camera.SpeedLineStartSpeed = Float("wire.camera.speed_line_start_speed", camera.SpeedLineStartSpeed);
+		camera.SpeedLineFullSpeed = Float("wire.camera.speed_line_full_speed", camera.SpeedLineFullSpeed);
+		camera.SpeedLineMaxPerFrame = Integer("wire.camera.speed_line_max_per_frame", camera.SpeedLineMaxPerFrame);
+		camera.SpeedLineSpread = Float("wire.camera.speed_line_spread", camera.SpeedLineSpread);
+		camera.SpeedLineForwardOffset = Float("wire.camera.speed_line_forward_offset", camera.SpeedLineForwardOffset);
+		camera.SpeedLineSpeed = Float("wire.camera.speed_line_speed", camera.SpeedLineSpeed);
 
 		auto& stage = value.Stage;
 		stage.OriginX = FloatInRange("wire.stage.origin_x", stage.OriginX, -1000.0f, 1000.0f);
@@ -253,6 +283,28 @@ const WireGameplayTuning& GetWireGameplayTuning()
 		camera.AimFollowLerp = std::clamp(camera.AimFollowLerp, 0.0f, 1.0f);
 		camera.NormalPitchMouseScale = (std::max)(camera.NormalPitchMouseScale, 0.0f);
 		camera.AimPitchMouseScale = (std::max)(camera.AimPitchMouseScale, 0.0f);
+
+		camera.SpeedDistanceBoost = (std::max)(camera.SpeedDistanceBoost, 0.0f);
+		// 追従係数は加算後も0-1に収める必要があるため、加算分の上限を先に制限します。
+		camera.SpeedFollowLerpBoost = std::clamp(camera.SpeedFollowLerpBoost, 0.0f, 1.0f);
+		camera.RollPerLateralSpeed = (std::max)(camera.RollPerLateralSpeed, 0.0f);
+		// 傾けすぎると水平が分からなくなるため、上限を約34度に制限します。
+		camera.MaxRoll = std::clamp(camera.MaxRoll, 0.0f, 0.6f);
+		camera.RollLerp = std::clamp(camera.RollLerp, 0.0f, 1.0f);
+		camera.ShakeDecay = (std::max)(camera.ShakeDecay, 0.01f);
+		camera.ShakeMaxOffset = (std::max)(camera.ShakeMaxOffset, 0.0f);
+		camera.ShakeMaxAngle = std::clamp(camera.ShakeMaxAngle, 0.0f, 0.3f);
+		camera.ShakeFrequency = (std::max)(camera.ShakeFrequency, 0.01f);
+		camera.PunchSpring = (std::max)(camera.PunchSpring, 0.01f);
+		camera.PunchDamping = (std::max)(camera.PunchDamping, 0.01f);
+		camera.FovKickDecay = (std::max)(camera.FovKickDecay, 0.01f);
+		camera.FovKickMax = std::clamp(camera.FovKickMax, 0.0f, 1.0f);
+		camera.LandingSpeedForFullShake = (std::max)(camera.LandingSpeedForFullShake, 0.01f);
+		camera.SpeedLineStartSpeed = (std::max)(camera.SpeedLineStartSpeed, 0.0f);
+		// 開始速度と同値以下だと0除算になるため、必ず上回らせます。
+		camera.SpeedLineFullSpeed = (std::max)(camera.SpeedLineFullSpeed, camera.SpeedLineStartSpeed + 1.0f);
+		camera.SpeedLineMaxPerFrame = std::clamp(camera.SpeedLineMaxPerFrame, 0, 64);
+		camera.SpeedLineSpread = (std::max)(camera.SpeedLineSpread, 0.0f);
 
 		stage.FallDepth = (std::max)(stage.FallDepth, 4.0f);
 		stage.FinishOffsetZ = (std::max)(stage.FinishOffsetZ, 1.0f);

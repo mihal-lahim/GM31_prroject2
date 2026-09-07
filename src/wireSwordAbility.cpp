@@ -8,6 +8,7 @@
 #include "wirePlayer.h"
 #include "wirePlayerInput.h"
 #include "wireSlashEffect.h"
+#include "wireTpsCamera.h"
 #include "wireCollisionLayers.h"
 #include "wireGameplayTuning.h"
 #include "world.h"
@@ -124,6 +125,17 @@ void WireSwordAbility::ReleaseAttack(WirePlayer& player)
 			score->Add(totalDamage);
 		}
 		player.m_Velocity += forward * (GetWireGameplayTuning().Sword.HitBoostBase + chargeRatio * GetWireGameplayTuning().Sword.HitBoostCharge);
+
+		// 当たった瞬間にカメラを揺らし、斬った方向と逆へ押し戻します。
+		// ヒットストップだけでは「止まった」としか感じないため、動きを一緒に返します。
+		if (WireTpsCamera* camera = player.GetWorld().FindFirst<WireTpsCamera>())
+		{
+			const WireCameraTuning& cameraTuning = GetWireGameplayTuning().Camera;
+			camera->AddShake(cameraTuning.SwordHitShake + chargeRatio * cameraTuning.SwordHitChargeShake);
+			camera->AddPunch(-forward, cameraTuning.SwordHitPunch * (1.0f + chargeRatio));
+			camera->AddFovKick(cameraTuning.SwordHitFovKick);
+		}
+
 		GameTime::StartHitStop(
 			GetWireGameplayTuning().Sword.HitStopBaseFrames + static_cast<int>(chargeRatio * GetWireGameplayTuning().Sword.HitStopChargeFrames + kHitStopFrameRoundOffset),
 			GetWireGameplayTuning().Sword.HitStopScale);
