@@ -26,6 +26,12 @@ private:
 
 	int m_Health = 1;
 	float m_InvincibleTime = 0.0f;
+
+	// 連鎖状態。移動アクションと斬撃を続けるほど段階が上がり、止まると落ちます。
+	int m_MomentumActions = 0;
+	float m_MomentumTimer = 0.0f;
+	void UpdateMomentum(float dt);
+
 	// デバッグ用の無敵。有効な間はTakeDamageを無視します。
 	bool m_DamageDisabled = false;
 
@@ -46,6 +52,15 @@ public:
 	bool IsDamageDisabled() const { return m_DamageDisabled; }
 	Vector3 GetVelocity() const { return m_Velocity; }
 
+	// ワイヤー接続・壁蹴り・空中ダッシュ・斬撃の成功時に呼び、連鎖を伸ばします。
+	void NotifyMomentumAction();
+	int GetMomentumRank() const;
+	// 次の段階までの進捗(0-1)です。UIゲージが使います。
+	float GetMomentumProgress01() const;
+	// 段階に応じた攻撃倍率です。動き続けるほど突破力が上がります。
+	float GetMomentumDamageScale() const;
+	float GetMomentumSpeedScale() const;
+
 	bool IsAiming() const { return m_Grapple.IsAiming(); }
 	bool IsWireActive() const { return m_Grapple.IsActive(); }
 	bool IsWireVisible() const { return m_Grapple.IsActive() || m_Grapple.IsFiring(); }
@@ -63,4 +78,7 @@ public:
 	float GetBlinkCooldownRatio() const { return m_Movement.GetBlinkCooldownRatio01(); }
 	bool CanBlinkNow() const { return m_Movement.CanBlinkNow(); }
 	int GetAirBlinkChargesRemaining() const { return m_Movement.GetAirBlinkChargesRemaining(); }
+	// デバッグ表示とUI用。壁蹴りの可否と、いま狙っているワイヤー対象です。
+	bool CanWallKick() const { return m_Movement.CanWallKickNow(); }
+	const WireTargetHit& GetWireAimPreview() const { return m_Grapple.GetAimPreview(); }
 };

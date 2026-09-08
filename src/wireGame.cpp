@@ -4,24 +4,26 @@
 #include "keyboard_utf8.h"
 #include "particleSystem.h"
 #include "sky.h"
-#include "wireAnchor.h"
-#include "wirePlatform.h"
-#include "wireBlinkGauge.h"
-#include "wireCity.h"
-#include "wireDebugTools.h"
-#include "wireDeliveryHud.h"
-#include "wireEnemy.h"
-#include "wirePlayer.h"
-#include "wireResultScene.h"
-#include "wireTitleScene.h"
-#include "wireReticle.h"
-#include "wireStage.h"
-#include "wireSword.h"
-#include "wireTpsCamera.h"
-#include "wireGameplayTuning.h"
 #include "alphabetText.h"
 #include "collider.h"
 #include "mouseInput.h"
+#include "wireAnchor.h"
+#include "wireBlinkGauge.h"
+#include "wireDebugTools.h"
+#include "wireEnemy.h"
+#include "wireFactory.h"
+#include "wireGameplayTuning.h"
+#include "wireGiantMachine.h"
+#include "wireLockGate.h"
+#include "wireMachinePart.h"
+#include "wireMissionHud.h"
+#include "wirePlayer.h"
+#include "wireResultScene.h"
+#include "wireReticle.h"
+#include "wireSword.h"
+#include "wireTitleScene.h"
+#include "wireTpsCamera.h"
+#include "wireWorker.h"
 
 #include <algorithm>
 #include <cmath>
@@ -29,23 +31,9 @@
 
 namespace
 {
-	constexpr float kDeliveryRadius = 4.5f;
-	float g_BestDeliveryTime = 0.0f;
-
-	void EmitGoalCelebration(const Vector3& center)
-	{
-		const int count = GetWireGameplayTuning().Stage.GoalParticleCount;
-		for (int i = 0; i < count; ++i)
-		{
-			const float angle = XM_2PI * static_cast<float>(i) / static_cast<float>((std::max)(count, 1));
-			const float speed = 5.5f + static_cast<float>(i % 7) * 0.75f;
-			Vector3 velocity{ cosf(angle) * speed, 6.0f + static_cast<float>(i % 5), sinf(angle) * speed };
-			const XMFLOAT4 color = (i % 3 == 0)
-				? XMFLOAT4(1.0f, 0.90f, 0.30f, 1.0f)
-				: XMFLOAT4(0.20f, 0.90f, 1.0f, 0.95f);
-			ParticleSystem::Emit(center + Vector3(0.0f, 2.0f, 0.0f), velocity, 0.22f, 52, color, -7.0f, 0.975f);
-		}
-	}
+	// 巨大機械を立たせる位置です。工場の奥のホールに合わせています。
+	const Vector3 kMachinePosition{ 0.0f, 0.0f, 58.0f };
+	float g_BestClearTime = 0.0f;
 }
 
 void WireGame::SetTutorialInstruction(const char* instruction)
@@ -56,12 +44,12 @@ void WireGame::SetTutorialInstruction(const char* instruction)
 	}
 }
 
-void WireGame::UpdateTutorial(int deliveredCount, int defeatedCount)
+void WireGame::UpdateTutorial()
 {
-	if (m_TutorialStep >= 7)
+	if (m_TutorialStep >= 5)
 	{
 		m_TutorialCompleteTime += GameTime::GetDeltaTime();
-		if (m_TutorialCompleteTime >= 2.0f)
+		if (m_TutorialCompleteTime >= 2.5f)
 		{
 			if (m_TutorialTitle != nullptr) m_TutorialTitle->SetVisible(false);
 			if (m_TutorialInstruction != nullptr) m_TutorialInstruction->SetVisible(false);
@@ -69,6 +57,13 @@ void WireGame::UpdateTutorial(int deliveredCount, int defeatedCount)
 		return;
 	}
 
+	WirePlayer* player = GetWorld().FindFirst<WirePlayer>();
+	if (player == nullptr)
+	{
+		return;
+	}
+
+	// 移動を繋げる順に教えます。実際にその操作をするまで次へ進みません。
 	bool completedStep = false;
 	switch (m_TutorialStep)
 	{
@@ -76,14 +71,10 @@ void WireGame::UpdateTutorial(int deliveredCount, int defeatedCount)
 		completedStep = Keyboard_IsKeyDown(KK_W) || Keyboard_IsKeyDown(KK_A)
 			|| Keyboard_IsKeyDown(KK_S) || Keyboard_IsKeyDown(KK_D);
 		break;
-	case 1: completedStep = Keyboard_IsKeyDownTrigger(KK_SPACE); break;
-	case 2:
-		completedStep = Keyboard_IsKeyDown(KK_LEFTSHIFT) || Keyboard_IsKeyDown(KK_RIGHTSHIFT);
-		break;
-	case 3: completedStep = Mouse_IsRightButtonDown(); break;
-	case 4: completedStep = Mouse_IsRightButtonDown() && Mouse_IsLeftButtonDownTrigger(); break;
-	case 5: completedStep = deliveredCount > 0; break;
-	case 6: completedStep = defeatedCount > 0; break;
+	case 1: completedStep = player->IsWireActive(); break;
+	case 2: completedStep = player->GetMomentumRank() >= 1; break;
+	case 3: completedStep = m_EnemyTotal - GetRemainingEnemyCount() > 0; break;
+	case 4: completedStep = m_Machine != nullptr && m_Machine->GetRemainingArmorCount() < m_Machine->GetTotalArmorCount(); break;
 	default: break;
 	}
 	if (!completedStep) return;
@@ -91,16 +82,137 @@ void WireGame::UpdateTutorial(int deliveredCount, int defeatedCount)
 	++m_TutorialStep;
 	switch (m_TutorialStep)
 	{
-	case 1: SetTutorialInstruction("SPACE TO JUMP"); break;
-	case 2: SetTutorialInstruction("SHIFT WHILE MOVING TO BLINK"); break;
-	case 3: SetTutorialInstruction("HOLD RIGHT MOUSE TO AIM"); break;
-	case 4: SetTutorialInstruction("LEFT MOUSE TO FIRE WIRE"); break;
-	// 先に配達というゲーム目的を伝え、そのあとで戦闘操作を教えます。
-	case 5: SetTutorialInstruction("VISIT THE GLOWING MARKERS"); break;
-	case 6: SetTutorialInstruction("CHARGE LEFT MOUSE AND DEFEAT AN ENEMY"); break;
-	case 7: SetTutorialInstruction("TUTORIAL COMPLETE"); break;
+	case 1: SetTutorialInstruction("HOLD RIGHT MOUSE AND CLICK LEFT TO FIRE WIRE"); break;
+	case 2: SetTutorialInstruction("SPACE ON A WALL TO KICK  SHIFT TO AIR DASH"); break;
+	case 3: SetTutorialInstruction("CHARGE LEFT MOUSE AND CUT THROUGH A ROBOT"); break;
+	case 4: SetTutorialInstruction("WIRE ONTO THE GIANT MACHINE AND BREAK ITS ARMOR"); break;
+	case 5: SetTutorialInstruction("KEEP MOVING TO RAISE YOUR CHAIN"); break;
 	default: break;
 	}
+}
+
+void WireGame::SpawnAnchors()
+{
+	World& world = GetWorld();
+	WireFactory* factory = world.FindFirst<WireFactory>();
+	if (factory == nullptr)
+	{
+		return;
+	}
+
+	// 工場設備の掛かり所です。動線に沿って置き、次に行くべき方向を光で示します。
+	const Vector3 anchorPoints[] = {
+		{ 0.0f, 30.0f, -58.0f },   // 侵入直後、まず上を見上げさせる
+		{ -18.0f, 34.0f, -34.0f },
+		{ 18.0f, 34.0f, -34.0f },
+		{ 0.0f, 36.0f, -8.0f },
+		{ -30.0f, 30.0f, 10.0f },
+		{ 30.0f, 34.0f, 16.0f },
+		{ 0.0f, 38.0f, 30.0f },
+		{ -38.0f, 32.0f, 52.0f },
+		{ 38.0f, 36.0f, 52.0f },
+		{ 0.0f, 38.0f, 80.0f },
+	};
+
+	for (const Vector3& point : anchorPoints)
+	{
+		WireAnchor* anchor = world.Spawn<WireAnchor>();
+		anchor->SetPosition(point);
+		anchor->SetRadius(2.6f);
+		anchor->SetColors({ 0.10f, 0.78f, 1.0f, 0.80f }, { 1.0f, 1.0f, 1.0f, 0.95f });
+		m_Anchors.push_back(anchor);
+	}
+}
+
+void WireGame::SpawnEnemies()
+{
+	World& world = GetWorld();
+
+	// 中央の作業区画に配置します。高所を移動する動線上で出会うようにしてあります。
+	const Vector3 enemyPoints[] = {
+		{ -26.0f, 15.0f, 0.0f },
+		{ -22.0f, 15.0f, 6.0f },
+		{ 26.0f, 19.0f, 6.0f },
+		{ 0.0f, 26.0f, 12.0f },
+		{ 4.0f, 26.0f, 16.0f },
+	};
+
+	m_EnemyTotal = 0;
+	for (const Vector3& point : enemyPoints)
+	{
+		WireEnemy* enemy = world.Spawn<WireEnemy>();
+		enemy->SetPosition(point);
+		enemy->OnPlaced();
+		++m_EnemyTotal;
+	}
+}
+
+void WireGame::SpawnWorkers()
+{
+	World& world = GetWorld();
+	WireGiantMachine* machine = m_Machine;
+
+	// 1人目: 中央区画のロック機構の中。扉を斬れば解放されます。
+	{
+		WireLockGate* gate = world.Spawn<WireLockGate>();
+		gate->Setup({ 0.0f, 27.5f, 14.0f }, { 3.4f, 3.0f, 1.0f }, 200);
+
+		WireWorker* worker = world.Spawn<WireWorker>();
+		worker->SetPosition({ 0.0f, 25.6f, 18.0f });
+		// 扉オブジェクトの生死を条件にします。壊れると自動で解放されます。
+		worker->SetCondition(
+			[&world]()
+			{
+				return world.FindFirst<WireLockGate>() == nullptr;
+			},
+			"BREAK THE LOCK GATE");
+		m_Workers.push_back(worker);
+	}
+
+	// 2人目: 小型ロボットに囲まれている。周囲の敵を全滅させると解放されます。
+	{
+		WireWorker* worker = world.Spawn<WireWorker>();
+		worker->SetPosition({ -26.0f, 14.6f, -4.0f });
+		worker->SetCondition(
+			[this]() { return GetRemainingEnemyCount() == 0; },
+			"CLEAR ALL ROBOTS");
+		m_Workers.push_back(worker);
+	}
+
+	// 3人目: 巨大機械の背中。機械を停止させると救助ルートが開きます。
+	if (machine != nullptr)
+	{
+		WireWorker* worker = world.Spawn<WireWorker>();
+		worker->SetPosition(machine->GetRescueRoutePosition());
+		worker->SetRescueRadius(6.0f);
+		worker->SetCondition(
+			[machine]() { return machine->IsDisabled(); },
+			"SHUT DOWN THE GIANT MACHINE");
+		m_Workers.push_back(worker);
+	}
+}
+
+void WireGame::BuildStage()
+{
+	World& world = GetWorld();
+
+	world.Spawn<Sky>();
+	WireFactory* factory = world.Spawn<WireFactory>();
+	world.Spawn<ParticleSystem>();
+
+	WirePlayer* player = world.Spawn<WirePlayer>();
+	player->SetPosition(factory->GetSpawnPoint());
+	world.Spawn<WireSword>();
+	world.Spawn<WireTpsCamera>();
+
+	m_Machine = world.Spawn<WireGiantMachine>();
+	m_Machine->Place(kMachinePosition);
+
+	SpawnAnchors();
+	SpawnEnemies();
+	SpawnWorkers();
+
+	m_RespawnPosition = factory->GetSpawnPoint();
 }
 
 void WireGame::Init()
@@ -109,119 +221,140 @@ void WireGame::Init()
 	Collider::SetDebugDrawEnabled(false);
 	World& world = GetWorld();
 
-	WirePlayer* player = world.Spawn<WirePlayer>();
-	world.Spawn<WireSword>();
-	world.Spawn<WireTpsCamera>();
-	world.Spawn<Sky>();
-	world.Spawn<WireStage>();
-	world.Spawn<ParticleSystem>();
-	WireCity* city = world.Spawn<WireCity>();
-	for (const Vector3& location : city->GetDeliveryLocations())
-	{
-		WireAnchor* marker = world.Spawn<WireAnchor>();
-		marker->SetPosition(location);
-		marker->SetScale({ 2.2f, 2.2f, 2.2f });
-		marker->SetRadius(2.8f);
-		marker->SetColors({ 1.0f, 0.48f, 0.06f, 0.88f }, { 1.0f, 0.96f, 0.56f, 1.0f });
-		m_DeliveryMarkers.push_back(marker);
-	}
-	m_Delivered.assign(m_DeliveryMarkers.size(), false);
+	BuildStage();
 
 	world.Spawn<WireReticle>();
 	world.Spawn<WireBlinkGauge>();
-	m_Hud = world.Spawn<WireDeliveryHud>();
-	m_Hud->SetProgress(0, static_cast<int>(m_DeliveryMarkers.size()));
-	m_TutorialTitle = world.Spawn<AlphabetText>();
-	m_TutorialTitle->SetText("TUTORIAL");
-	m_TutorialTitle->SetPosition({ 36, SCREEN_HEIGHT - 105.0f, 0 });
-	m_TutorialTitle->SetGlyphSize(25);
-	m_TutorialTitle->SetGlyphAdvance(20);
-	m_TutorialTitle->SetColor({ 1.0f,0.72f,0.18f,1.0f });
-	m_TutorialInstruction = world.Spawn<AlphabetText>();
-	m_TutorialInstruction->SetPosition({ 36, SCREEN_HEIGHT - 66.0f, 0 });
-	m_TutorialInstruction->SetGlyphSize(27);
-	m_TutorialInstruction->SetGlyphAdvance(21);
-	m_TutorialInstruction->SetColor({ 0.82f,0.94f,1.0f,1.0f });
-	SetTutorialInstruction("WASD TO MOVE");
-	m_TutorialStep = 0;
-	m_TutorialCompleteTime = 0.0f;
-	m_PauseTitle = world.Spawn<AlphabetText>();
-	m_PauseTitle->SetText("PAUSE");
-	m_PauseTitle->SetPosition({ SCREEN_WIDTH * 0.5f - 120.0f, SCREEN_HEIGHT * 0.5f - 55.0f, 0 });
-	m_PauseTitle->SetGlyphSize(58);
-	m_PauseTitle->SetGlyphAdvance(47);
-	m_PauseTitle->SetColor({ 1.0f,0.72f,0.18f,1.0f });
-	m_PauseTitle->SetVisible(false);
-	m_PauseInstruction = world.Spawn<AlphabetText>();
-	m_PauseInstruction->SetText("TAB TO RESUME");
-	m_PauseInstruction->SetPosition({ SCREEN_WIDTH * 0.5f - 180.0f, SCREEN_HEIGHT * 0.5f + 28.0f, 0 });
-	m_PauseInstruction->SetGlyphSize(30);
-	m_PauseInstruction->SetGlyphAdvance(25);
-	m_PauseInstruction->SetColor({ 0.86f,0.95f,1.0f,1.0f });
-	m_PauseInstruction->SetVisible(false);
+	m_Hud = world.Spawn<WireMissionHud>();
+	m_Hud->SetProgress(0, static_cast<int>(m_Workers.size()));
 
-	// デバッグ表示はReleaseビルドでも生成しますが、F1を押すまで非表示のままです。
-	auto addDebugLine = [&world](float y, float size, const XMFLOAT4& color)
+	auto addLabel = [&world](const char* text, const Vector3& position,
+		float size, const XMFLOAT4& color, bool visible)
 	{
 		AlphabetText* label = world.Spawn<AlphabetText>();
-		label->SetPosition({ 36, y, 0 });
+		label->SetText(text);
+		label->SetPosition(position);
 		label->SetGlyphSize(size);
 		label->SetGlyphAdvance(size * 0.78f);
 		label->SetColor(color);
-		label->SetVisible(false);
+		label->SetVisible(visible);
 		return label;
 	};
-	// HUDのLIFE表示より下に置き、通常のHUDと重ならないようにします。
-	m_DebugHelp1 = addDebugLine(152.0f, 18.0f, { 0.45f,1.0f,0.58f,0.90f });
-	m_DebugHelp1->SetText(WireDebugTools::GetHelpLine1());
-	m_DebugHelp2 = addDebugLine(177.0f, 18.0f, { 0.45f,1.0f,0.58f,0.90f });
-	m_DebugHelp2->SetText(WireDebugTools::GetHelpLine2());
-	m_DebugStatus = addDebugLine(202.0f, 17.0f, { 0.55f,0.78f,1.0f,0.88f });
 
-	SpawnEnemies();
+	m_TutorialTitle = addLabel("TUTORIAL", { 36, SCREEN_HEIGHT - 152.0f, 0 }, 24,
+		{ 1.0f,0.72f,0.18f,1.0f }, true);
+	m_TutorialInstruction = addLabel("WASD TO MOVE", { 36, SCREEN_HEIGHT - 124.0f, 0 }, 24,
+		{ 0.82f,0.94f,1.0f,1.0f }, true);
+	m_PauseTitle = addLabel("PAUSE",
+		{ SCREEN_WIDTH * 0.5f - 120.0f, SCREEN_HEIGHT * 0.5f - 55.0f, 0 }, 58,
+		{ 1.0f,0.72f,0.18f,1.0f }, false);
+	m_PauseInstruction = addLabel("TAB TO RESUME",
+		{ SCREEN_WIDTH * 0.5f - 180.0f, SCREEN_HEIGHT * 0.5f + 28.0f, 0 }, 30,
+		{ 0.86f,0.95f,1.0f,1.0f }, false);
 
-	// 登った屋上をチェックポイントとして扱い、落下時は最も高く到達した屋上へ戻します。
-	m_RespawnPosition = player->GetPosition();
+	// デバッグ表示はReleaseでも生成しますが、F1を押すまで非表示です。
+	m_DebugHelp1 = addLabel(WireDebugTools::GetHelpLine1(), { 36, 152, 0 }, 18,
+		{ 0.45f,1.0f,0.58f,0.90f }, false);
+	m_DebugHelp2 = addLabel(WireDebugTools::GetHelpLine2(), { 36, 177, 0 }, 18,
+		{ 0.45f,1.0f,0.58f,0.90f }, false);
+	m_DebugStatus = addLabel("", { 36, 202, 0 }, 17, { 0.55f,0.78f,1.0f,0.88f }, false);
+
+	m_TutorialStep = 0;
+	m_TutorialCompleteTime = 0.0f;
+	SetTutorialInstruction("WASD TO MOVE");
+
 	m_ElapsedSeconds = 0.0f;
 	m_ResultDelay = 0.0f;
 	m_Completed = false;
 	m_Failed = false;
+	m_Objective = Objective::ReachHigh;
 	WireDebugTools::ResetForNewGame();
-}
-
-void WireGame::SpawnEnemies()
-{
-	World& world = GetWorld();
-	WireCity* city = world.FindFirst<WireCity>();
-	if (city == nullptr)
-	{
-		return;
-	}
-
-	// 配達地点の屋上にだけ敵を置き、目的地と敵の存在を結び付けます。
-	// 開始地点(地上)には置かないため、操作に慣れる前に襲われることはありません。
-	const WireEnemyTuning& tuning = GetWireGameplayTuning().Enemy;
-	const std::vector<Vector3>& locations = city->GetDeliveryLocations();
-	m_EnemyTotal = 0;
-	for (size_t index = 1; index < locations.size(); ++index)
-	{
-		for (int slot = 0; slot < tuning.CountPerRooftop; ++slot)
-		{
-			// 配達マーカーの真上に重ならないよう、円状にずらして配置します。
-			const float angle = XM_2PI * static_cast<float>(slot)
-				/ static_cast<float>((std::max)(tuning.CountPerRooftop, 1));
-			const float offset = tuning.PatrolRadius * 0.55f;
-			WireEnemy* enemy = world.Spawn<WireEnemy>();
-			enemy->SetPosition(locations[index]
-				+ Vector3(cosf(angle) * offset, 0.0f, sinf(angle) * offset));
-			enemy->OnPlaced();
-			++m_EnemyTotal;
-		}
-	}
 }
 
 void WireGame::Uninit()
 {
+	m_Workers.clear();
+	m_Anchors.clear();
+	m_Machine = nullptr;
+}
+
+int WireGame::GetRemainingEnemyCount() const
+{
+	return static_cast<int>(const_cast<WireGame*>(this)->GetWorld().FindAll<WireEnemy>().size());
+}
+
+int WireGame::GetRescuedCount() const
+{
+	int count = 0;
+	for (const WireWorker* worker : m_Workers)
+	{
+		if (worker->IsRescued())
+		{
+			++count;
+		}
+	}
+	return count;
+}
+
+const char* WireGame::GetObjectiveText() const
+{
+	switch (m_Objective)
+	{
+	case Objective::ReachHigh:     return "GET UP HIGH INTO THE FACTORY";
+	case Objective::DefeatRobots:  return "CUT THROUGH THE SECURITY ROBOTS";
+	case Objective::BreakArmor:    return "BREAK THE GIANT MACHINE ARMOR";
+	case Objective::BreakCore:     return "DESTROY THE EXPOSED CONTROL CORE";
+	case Objective::RescueWorkers: return "REACH THE WORKERS AND RESCUE THEM";
+	default:                       return "ALL WORKERS RESCUED";
+	}
+}
+
+void WireGame::UpdateObjective()
+{
+	const Objective previous = m_Objective;
+
+	// 目的は現在の状態から毎フレーム導きます。順序に依存しないので、
+	// プレイヤーが想定と違う順番で進めても表示が破綻しません。
+	if (GetRescuedCount() >= static_cast<int>(m_Workers.size()))
+	{
+		m_Objective = Objective::Complete;
+	}
+	else if (m_Machine != nullptr && m_Machine->IsDisabled())
+	{
+		m_Objective = Objective::RescueWorkers;
+	}
+	else if (m_Machine != nullptr && m_Machine->GetPhase() == WireGiantMachine::Phase::Exposed)
+	{
+		m_Objective = Objective::BreakCore;
+	}
+	else if (GetRemainingEnemyCount() == 0)
+	{
+		m_Objective = Objective::BreakArmor;
+	}
+	else if (m_TutorialStep >= 2)
+	{
+		m_Objective = Objective::DefeatRobots;
+	}
+	else
+	{
+		m_Objective = Objective::ReachHigh;
+	}
+
+	if (previous == m_Objective || m_Hud == nullptr)
+	{
+		return;
+	}
+
+	m_Hud->SetObjective(GetObjectiveText());
+	// 段階が進んだ節目だけ通知を出します。出しすぎると読まれなくなるためです。
+	if (m_Objective == Objective::BreakCore)
+	{
+		m_Hud->ShowNotice("CORE EXPOSED");
+	}
+	else if (m_Objective == Objective::RescueWorkers)
+	{
+		m_Hud->ShowNotice("MACHINE SHUT DOWN");
+	}
 }
 
 void WireGame::Update()
@@ -235,9 +368,9 @@ void WireGame::Update()
 	if (m_Completed || m_Failed)
 	{
 		m_ResultDelay += GameTime::GetDeltaTime();
-		if (m_ResultDelay >= 1.1f)
+		if (m_ResultDelay >= 1.4f)
 		{
-			ChangeScene<WireResultScene>(m_ElapsedSeconds, g_BestDeliveryTime, m_Completed);
+			ChangeScene<WireResultScene>(m_ElapsedSeconds, g_BestClearTime, m_Completed);
 		}
 		return;
 	}
@@ -260,88 +393,56 @@ void WireGame::Update()
 	player->SetDamageDisabled(WireDebugTools::IsInvincibleEnabled());
 	if (player->IsDead())
 	{
-		// 敵にHPを削り切られた場合はゲームオーバーです。
-		// クリア時と同じ遅延を挟み、被弾演出を見せてからリザルトへ移ります。
 		m_Failed = true;
 		return;
 	}
 
-	const WireStageTuning& stage = GetWireGameplayTuning().Stage;
-	if (player->GetPosition().y < stage.OriginY - stage.FallDepth)
+	// 工場の床より下へ落ちたら、最後の安全地点へ戻します。
+	if (player->GetPosition().y < GetWireGameplayTuning().Stage.FallResetY)
 	{
 		player->Respawn(m_RespawnPosition);
 	}
-
-	// 今までの復帰地点より高い屋上へ着地した場合だけチェックポイントを更新します。
+	// 接地している場所を復帰地点として更新し、進んだ分をやり直させません。
 	if (player->IsOnGround())
 	{
-		for (WirePlatform* platform : GetWorld().FindAll<WirePlatform>())
-		{
-			const float topY = platform->GetTopY();
-			if (topY <= m_RespawnPosition.y + 1.0f
-				|| !platform->ContainsXZ(player->GetPosition(), 0.0f)
-				|| std::abs(player->GetPosition().y - topY) > stage.CheckpointHeightTolerance)
-			{
-				continue;
-			}
+		m_RespawnPosition = player->GetPosition();
+	}
 
-			const Vector3 center = platform->GetPosition();
-			m_RespawnPosition = { center.x, topY, center.z };
-			break;
+	m_ElapsedSeconds += GameTime::GetDeltaTime();
+
+	// 救助判定。条件を満たした作業員に近づくと救助されます。
+	const int previousRescued = GetRescuedCount();
+	for (WireWorker* worker : m_Workers)
+	{
+		if (worker->TryRescue(*player) && m_Hud != nullptr)
+		{
+			m_Hud->ShowNotice("WORKER RESCUED");
 		}
 	}
+	const int rescued = GetRescuedCount();
 
-	if (!m_Completed)
-	{
-		m_ElapsedSeconds += GameTime::GetDeltaTime();
-		if (m_Hud != nullptr) m_Hud->SetElapsedTime(m_ElapsedSeconds);
-	}
-
-	int deliveredCount = 0;
-	bool deliveredThisFrame = false;
-	for (size_t index = 0; index < m_DeliveryMarkers.size(); ++index)
-	{
-		if (m_Delivered[index])
-		{
-			deliveredCount++;
-			continue;
-		}
-		WireAnchor* marker = m_DeliveryMarkers[index];
-		if (marker == nullptr || (marker->GetPosition() - player->GetPosition()).length() > kDeliveryRadius)
-		{
-			continue;
-		}
-
-		m_Delivered[index] = true;
-		deliveredCount++;
-		deliveredThisFrame = true;
-		marker->SetDestroy();
-		EmitGoalCelebration(marker->GetPosition());
-	}
-	if (deliveredThisFrame && m_Hud != nullptr)
-	{
-		m_Hud->SetProgress(deliveredCount, static_cast<int>(m_DeliveryMarkers.size()));
-		m_Hud->ShowDelivered();
-	}
-
-	if (!m_Completed && deliveredCount == static_cast<int>(m_DeliveryMarkers.size()))
-	{
-		m_Completed = true;
-		if (g_BestDeliveryTime <= 0.0f || m_ElapsedSeconds < g_BestDeliveryTime)
-		{
-			g_BestDeliveryTime = m_ElapsedSeconds;
-		}
-		if (m_Hud != nullptr) m_Hud->ShowComplete(m_ElapsedSeconds, g_BestDeliveryTime);
-		EmitGoalCelebration(player->GetPosition());
-	}
+	UpdateObjective();
 
 	if (m_Hud != nullptr)
 	{
+		m_Hud->SetProgress(rescued, static_cast<int>(m_Workers.size()));
 		m_Hud->SetHealth(player->GetHealth(), player->GetMaxHealth());
+		m_Hud->SetMomentum(player->GetMomentumRank(), player->GetMomentumProgress01());
+		m_Hud->SetElapsedTime(m_ElapsedSeconds);
+		m_Hud->SetSpeed(player->GetSpeed());
 	}
 
-	const int defeatedCount = m_EnemyTotal - static_cast<int>(GetWorld().FindAll<WireEnemy>().size());
-	UpdateTutorial(deliveredCount, defeatedCount);
+	if (rescued > previousRescued && rescued >= static_cast<int>(m_Workers.size()))
+	{
+		m_Completed = true;
+		if (g_BestClearTime <= 0.0f || m_ElapsedSeconds < g_BestClearTime)
+		{
+			g_BestClearTime = m_ElapsedSeconds;
+		}
+		if (m_Hud != nullptr) m_Hud->ShowComplete();
+	}
+
+	UpdateTutorial();
 }
 
 bool WireGame::HandleDebugSceneRequest()
@@ -355,10 +456,10 @@ bool WireGame::HandleDebugSceneRequest()
 		ChangeScene<WireGame>();
 		return true;
 	case WireDebugTools::SceneRequest::ResultCleared:
-		ChangeScene<WireResultScene>(m_ElapsedSeconds, g_BestDeliveryTime, true);
+		ChangeScene<WireResultScene>(m_ElapsedSeconds, g_BestClearTime, true);
 		return true;
 	case WireDebugTools::SceneRequest::ResultGameOver:
-		ChangeScene<WireResultScene>(m_ElapsedSeconds, g_BestDeliveryTime, false);
+		ChangeScene<WireResultScene>(m_ElapsedSeconds, g_BestClearTime, false);
 		return true;
 	default:
 		return false;
@@ -381,40 +482,46 @@ void WireGame::UpdateDebugOverlay()
 		return;
 	}
 
-	// AlphabetTextはA-Zと空白だけを表示できるため、状態は英字の語で並べます。
+	// AlphabetTextはA-Zと空白のみのため、状態は英字の語で並べます。
 	std::string status = "COLLIDER ";
 	status += Collider::GetDebugDrawEnabled() ? "ON" : "OFF";
-	status += "   INVINCIBLE ";
+	status += "  INVINCIBLE ";
 	status += WireDebugTools::IsInvincibleEnabled() ? "ON" : "OFF";
-	status += "   SPEED ";
-	const float timeScale = WireDebugTools::GetTimeScale();
-	status += timeScale < 1.0f ? "SLOW" : (timeScale > 1.0f ? "FAST" : "NORMAL");
-	if (GameTime::IsPaused())
-	{
-		status += "   PAUSED PRESS F THREE TO STEP";
-	}
+
 	WirePlayer* player = GetWorld().FindFirst<WirePlayer>();
 	if (player != nullptr)
 	{
-		status += player->IsOnGround() ? "   GROUNDED" : "   AIRBORNE";
+		// 速度は数字を使えないため、段階を語で表します。
+		const float speed = player->GetSpeed();
+		status += "  SPEED ";
+		if (speed < 8.0f) status += "SLOW";
+		else if (speed < 20.0f) status += "MID";
+		else if (speed < 34.0f) status += "FAST";
+		else status += "BLAZING";
 
-		// 最も近い敵の状態を出し、思考ルーチンの遷移を画面で確認できるようにします。
-		const WireEnemy* nearest = nullptr;
-		float nearestDistance = 0.0f;
-		for (WireEnemy* enemy : GetWorld().FindAll<WireEnemy>())
-		{
-			const float distance = (enemy->GetPosition() - player->GetPosition()).length();
-			if (nearest == nullptr || distance < nearestDistance)
-			{
-				nearest = enemy;
-				nearestDistance = distance;
-			}
-		}
-		if (nearest != nullptr)
-		{
-			status += "   NEAREST ENEMY ";
-			status += nearest->GetStateName();
-		}
+		status += player->IsOnGround() ? "  GROUNDED" : "  AIRBORNE";
+		status += player->CanWallKick() ? "  WALLKICK READY" : "";
+		status += "  DASH ";
+		status += player->GetAirBlinkChargesRemaining() > 0 ? "READY" : "USED";
+
+		// いま狙っているワイヤー対象の種別です。
+		status += "  WIRE ";
+		const WireTargetHit& preview = player->GetWireAimPreview();
+		if (!preview.Valid) status += "NONE";
+		else if (preview.Target == nullptr) status += "SURFACE";
+		else status += "ANCHOR";
+
+		status += "  CHAIN ";
+		const int rank = player->GetMomentumRank();
+		if (rank <= 0) status += "ZERO";
+		else if (rank == 1) status += "ONE";
+		else if (rank == 2) status += "TWO";
+		else if (rank == 3) status += "THREE";
+		else status += "MAX";
+	}
+	if (GameTime::IsPaused())
+	{
+		status += "  PAUSED PRESS F THREE TO STEP";
 	}
 	m_DebugStatus->SetText(status);
 }

@@ -3,6 +3,8 @@
 #include "world.h"
 #include "particleSystem.h"
 #include "wireGrappleAbility.h"
+#include "wireFactory.h"
+#include "wireGiantMachine.h"
 #include "wirePlatform.h"
 #include "wirePlayer.h"
 #include "wirePlayerInput.h"
@@ -57,6 +59,14 @@ void WirePlayerMovement::Update(
 		cameraRight = Flatten(Vector3::cross({ 0.0f, 1.0f, 0.0f }, camera->GetAimDirection()));
 	}
 
+	// 壁接触の鮮度とクールダウンを進めます。接地したら壁の記憶を捨てます。
+	m_WallContactTime = std::max(0.0f, m_WallContactTime - dt);
+	m_WallKickCooldown = std::max(0.0f, m_WallKickCooldown - dt);
+	if (m_OnGround)
+	{
+		m_LastKickedNormal = { 0.0f, 0.0f, 0.0f };
+	}
+
 	UpdateBlink(player, dt, input, cameraForward, cameraRight);
 	if (m_BlinkTimeRemaining > 0.0f)
 	{
@@ -87,10 +97,19 @@ void WirePlayerMovement::Update(
 		}
 	}
 
-	if (input.JumpPressed && m_OnGround)
+	// ジャンプ入力は、接地中は通常ジャンプ、空中で壁に触れていれば壁蹴りになります。
+	// 同じボタンに集約することで「壁に当たったら蹴る」が反射的に出せます。
+	if (input.JumpPressed)
 	{
-		player.m_Velocity.y = GetWireGameplayTuning().Movement.JumpVelocity;
-		player.m_Scale = { GetWireGameplayTuning().Movement.JumpSquashXZ, GetWireGameplayTuning().Movement.JumpStretchY, GetWireGameplayTuning().Movement.JumpSquashXZ };
+		if (m_OnGround)
+		{
+			player.m_Velocity.y = GetWireGameplayTuning().Movement.JumpVelocity;
+			player.m_Scale = { GetWireGameplayTuning().Movement.JumpSquashXZ, GetWireGameplayTuning().Movement.JumpStretchY, GetWireGameplayTuning().Movement.JumpSquashXZ };
+		}
+		else
+		{
+			TryWallKick(player, moveDirection);
+		}
 	}
 
 	const float damping = m_OnGround ? GetWireGameplayTuning().Movement.GroundDamping : GetWireGameplayTuning().Movement.AirDamping;
@@ -215,6 +234,7 @@ void WirePlayerMovement::StartBlink(WirePlayer& player, const Vector3& direction
 		camera->AddFovKick(GetWireGameplayTuning().Camera.BlinkFovKick);
 	}
 
+	player.NotifyMomentumAction();
 	m_BlinkDirection = blinkDirection;
 	m_BlinkTimeRemaining = GetWireGameplayTuning().Movement.BlinkDuration;
 	m_BlinkCooldown = GetWireGameplayTuning().Movement.BlinkCooldown;
@@ -305,6 +325,124 @@ void WirePlayerMovement::EmitBlinkShockwave(const Vector3& position, const Vecto
 	}
 }
 
+void WirePlayerMovement::NotifyWallContact(const Vector3& wallNormal)
+{
+	if (wallNormal.length() <= kVectorEpsilon)
+	{
+		return;
+	}
+
+	m_WallNormal = wallNormal;
+	m_WallContactTime = GetWireGameplayTuning().WallKick.ContactMemoryTime;
+}
+
+bool WirePlayerMovement::CanWallKickNow() const
+{
+	const WireWallKickTuning& tuning = GetWireGameplayTuning().WallKick;
+	if (m_OnGround || m_WallContactTime <= 0.0f || m_WallKickCooldown > 0.0f)
+	{
+		return false;
+	}
+
+	// 直前と同じ壁は蹴れません。1枚の壁で無限に登れてしまうのを防ぎます。
+	// 向かい合う壁を交互に蹴る動きは成立します。
+	return Vector3::dot(m_WallNormal, m_LastKickedNormal) < tuning.SameWallRejectDot;
+}
+
+bool WirePlayerMovement::TryWallKick(WirePlayer& player, const Vector3& moveDirection)
+{
+	if (!CanWallKickNow())
+	{
+		return false;
+	}
+
+	const WireWallKickTuning& tuning = GetWireGameplayTuning().WallKick;
+	const Vector3 normal = m_WallNormal;
+
+	// 壁から離れる成分は必ず確保しつつ、入力方向があればそちらへ寄せます。
+	// 「壁で跳ね返る」だけでなく「壁を使って行きたい方へ曲がる」ができるようにするためです。
+	Vector3 kickDirection = normal;
+	if (moveDirection.length() > kVectorEpsilon)
+	{
+		Vector3 desired = moveDirection;
+		desired.normalize();
+		// 壁にめり込む向きの入力は、壁に沿う成分だけを残します。
+		const float into = Vector3::dot(desired, normal);
+		if (into < 0.0f)
+		{
+			desired -= normal * into;
+		}
+		kickDirection = normal * tuning.NormalWeight + desired * tuning.InputWeight;
+	}
+	kickDirection.y = 0.0f;
+	if (kickDirection.length() <= kVectorEpsilon)
+	{
+		kickDirection = normal;
+	}
+	kickDirection.normalize();
+
+	// 入ってきた勢いを引き継ぎます。速く来たほど速く弾かれるので、
+	// ワイヤーからの高速侵入がそのまま次の移動速度になります。
+	const Vector3 horizontal{ player.m_Velocity.x, 0.0f, player.m_Velocity.z };
+	const float carried = std::clamp(
+		horizontal.length() * tuning.SpeedCarryRatio, tuning.MinKickSpeed, tuning.MaxKickSpeed);
+
+	player.m_Velocity.x = kickDirection.x * carried;
+	player.m_Velocity.z = kickDirection.z * carried;
+	player.m_Velocity.y = std::max(player.m_Velocity.y, 0.0f) + tuning.UpSpeed;
+
+	player.m_Rotation.y = LerpAngle(
+		player.m_Rotation.y, atan2f(kickDirection.x, kickDirection.z), 0.7f);
+	player.m_Scale = { tuning.SquashXZ, tuning.StretchY, tuning.SquashXZ };
+
+	m_LastKickedNormal = normal;
+	m_WallContactTime = 0.0f;
+	m_WallKickCooldown = tuning.Cooldown;
+	// 壁を蹴ると空中ダッシュが回復します。壁 → ダッシュ → ワイヤーと繋げるためです。
+	m_AirBlinkChargesUsed = 0;
+
+	EmitWallKickEffect(player, normal);
+	if (WireTpsCamera* camera = player.GetWorld().FindFirst<WireTpsCamera>())
+	{
+		camera->AddShake(GetWireGameplayTuning().Camera.WallKickShake);
+		camera->AddFovKick(GetWireGameplayTuning().Camera.WallKickFovKick);
+	}
+	player.NotifyMomentumAction();
+	return true;
+}
+
+void WirePlayerMovement::EmitWallKickEffect(WirePlayer& player, const Vector3& normal)
+{
+	// 蹴った壁面から扇状に火花を出し、接触点を明示します。
+	const int count = GetWireGameplayTuning().WallKick.ParticleCount;
+	Vector3 along = Vector3::cross(normal, { 0.0f, 1.0f, 0.0f });
+	if (along.length() <= kVectorEpsilon)
+	{
+		along = { 1.0f, 0.0f, 0.0f };
+	}
+	along.normalize();
+
+	const Vector3 origin = player.m_Position + Vector3(0.0f, 1.0f, 0.0f) - normal * 0.5f;
+	for (int i = 0; i < count; ++i)
+	{
+		const float spread = RandomFloat(-1.0f, 1.0f);
+		const float lift = RandomFloat(-0.35f, 1.0f);
+		Vector3 velocity = normal * RandomFloat(3.0f, 9.0f)
+			+ along * (spread * 6.0f)
+			+ Vector3(0.0f, lift * 5.0f, 0.0f);
+		ParticleSystem::Emit(
+			origin,
+			velocity,
+			0.13f,
+			20,
+			(i % 4 == 0)
+				? XMFLOAT4(1.0f, 1.0f, 1.0f, 0.9f)
+				: XMFLOAT4(1.0f, 0.76f, 0.32f, 0.85f),
+			-6.0f,
+			0.94f);
+	}
+}
+
 void WirePlayerMovement::EmitLandingImpact(WirePlayer& player, float impactSpeed)
 {
 	const WireCameraTuning& camera = GetWireGameplayTuning().Camera;
@@ -343,6 +481,40 @@ void WirePlayerMovement::ResolvePlatformLanding(WirePlayer& player, const Vector
 {
 	if (player.m_Velocity.y > 0.0f)
 	{
+		return;
+	}
+
+	// 工場形状と巨大機械の両方から、足元にある一番高い天面を探します。
+	// 機械の肩や腕にも同じ仕組みで着地できるため、機体が足場として機能します。
+	const float footMargin = GetWireGameplayTuning().Movement.PlayerFootMargin;
+	const float fallDistance = std::max(0.0f, previousPosition.y - player.m_Position.y)
+		+ GetWireGameplayTuning().Movement.PlatformLandingGrace;
+	float groundY = 0.0f;
+	bool foundGround = false;
+
+	if (WireFactory* factory = player.GetWorld().FindFirst<WireFactory>())
+	{
+		foundGround = factory->GetBlockField().FindGroundBelow(
+			player.m_Position, footMargin, fallDistance, groundY);
+	}
+	if (WireGiantMachine* machine = player.GetWorld().FindFirst<WireGiantMachine>())
+	{
+		float machineGroundY = 0.0f;
+		if (machine->FindGroundBelow(player.m_Position, footMargin, fallDistance, machineGroundY)
+			&& (!foundGround || machineGroundY > groundY))
+		{
+			groundY = machineGroundY;
+			foundGround = true;
+		}
+	}
+
+	if (foundGround && player.m_Position.y <= groundY)
+	{
+		const float impactSpeed = -player.m_Velocity.y;
+		player.m_Position.y = groundY;
+		player.m_Velocity.y = 0.0f;
+		m_OnGround = true;
+		EmitLandingImpact(player, impactSpeed);
 		return;
 	}
 

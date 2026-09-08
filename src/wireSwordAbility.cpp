@@ -3,6 +3,7 @@
 #include "collider.h"
 #include "gameTime.h"
 #include "score.h"
+#include "wireBreakable.h"
 #include "wireEnemy.h"
 #include "wireGrappleAbility.h"
 #include "wirePlayer.h"
@@ -74,6 +75,8 @@ void WireSwordAbility::Cancel()
 {
 	m_Charging = false;
 	m_ChargeTime = 0.0f;
+	// 被弾やリスポーンで斬り抜けが残ると、制御不能なまま飛び続けてしまいます。
+	m_DashThroughTimer = 0.0f;
 }
 
 void WireSwordAbility::StartCharge(const WirePlayer& player)
@@ -91,40 +94,20 @@ void WireSwordAbility::ReleaseAttack(WirePlayer& player)
 	const float range = GetWireGameplayTuning().Sword.BaseRange + GetWireGameplayTuning().Sword.RangeBonus * chargeRatio;
 	const Vector3 attackOrigin = player.m_Position + Vector3(0.0f, GetWireGameplayTuning().Sword.AttackOriginHeight, 0.0f);
 
-	int totalDamage = 0;
-	const Vector3 attackEnd = attackOrigin + forward * range;
-	for (Collider* collider : player.GetWorld().GetCollisionWorld().QueryCapsule(
-		attackOrigin,
-		attackEnd,
-		GetWireGameplayTuning().Sword.HitRadius,
-		WireCollisionLayers::Enemy))
-	{
-		WireEnemy* enemy = dynamic_cast<WireEnemy*>(collider->GetOwner());
-		if (enemy == nullptr)
-		{
-			continue;
-		}
-		const Vector3 enemyCenter = enemy->GetHitCenter();
-		const Vector3 toEnemy = enemyCenter - attackOrigin;
-		const float projected = std::clamp(Vector3::dot(toEnemy, forward), 0.0f, range);
-		if (projected <= GetWireGameplayTuning().Sword.HitProjectionMin)
-		{
-			continue;
-		}
+	// 連鎖段階で威力が上がります。動き続けるほど硬い装甲を割れる、という関係です。
+	const int scaledDamage = static_cast<int>(damage * player.GetMomentumDamageScale());
+	const int hitCount = DamageBreakables(player, attackOrigin, forward, range, scaledDamage, chargeRatio);
 
-		enemy->OnSwordHit(damage, forward);
-		WireSlashEffect* effect = player.GetWorld().Spawn<WireSlashEffect>();
-		effect->Setup(enemyCenter - forward * GetWireGameplayTuning().Sword.SlashEffectBackstep, forward, chargeRatio);
-		totalDamage += damage;
-	}
-
-	if (totalDamage > 0)
+	if (hitCount > 0)
 	{
+		// 当たったら止まらず、狙った方向へ斬り抜けます。
+		// 「敵の前で止まって連打」が最適解にならないための中心的な仕組みです。
+		BeginDashThrough(player, forward, chargeRatio);
+		player.NotifyMomentumAction();
 		if (Score* score = player.GetWorld().FindFirst<Score>())
 		{
-			score->Add(totalDamage);
+			score->Add(scaledDamage * hitCount);
 		}
-		player.m_Velocity += forward * (GetWireGameplayTuning().Sword.HitBoostBase + chargeRatio * GetWireGameplayTuning().Sword.HitBoostCharge);
 
 		// 当たった瞬間にカメラを揺らし、斬った方向と逆へ押し戻します。
 		// ヒットストップだけでは「止まった」としか感じないため、動きを一緒に返します。
@@ -146,6 +129,78 @@ void WireSwordAbility::ReleaseAttack(WirePlayer& player)
 	m_SwingChargeRatio = chargeRatio;
 	m_SwingTimer = GetWireGameplayTuning().Sword.SwingDuration;
 	player.m_Scale = { GetWireGameplayTuning().Sword.SwingScaleXZ, GetWireGameplayTuning().Sword.SwingScaleY, GetWireGameplayTuning().Sword.SwingScaleXZ };
+}
+
+int WireSwordAbility::DamageBreakables(
+	WirePlayer& player, const Vector3& origin, const Vector3& forward,
+	float range, int damage, float chargeRatio)
+{
+	const WireSwordTuning& tuning = GetWireGameplayTuning().Sword;
+	int hitCount = 0;
+
+	// 敵・装甲・ケーブル・ロックを区別せず、破壊対象として一括で処理します。
+	// 対象を増やしてもこの関数は変わりません。
+	for (IWireBreakable* breakable : player.GetWorld().FindAll<IWireBreakable>())
+	{
+		if (!breakable->IsBreakableAlive())
+		{
+			continue;
+		}
+
+		const Vector3 center = breakable->GetBreakableCenter();
+		const Vector3 toTarget = center - origin;
+		// 前方への射影で距離を測り、線分と点の距離で当たりを見ます。
+		const float projected = Vector3::dot(toTarget, forward);
+		if (projected <= tuning.HitProjectionMin || projected > range)
+		{
+			continue;
+		}
+		const Vector3 nearest = origin + forward * projected;
+		if ((center - nearest).length() > tuning.HitRadius + breakable->GetBreakableRadius())
+		{
+			continue;
+		}
+
+		breakable->ApplyBreakDamage(damage, forward);
+		WireSlashEffect* effect = player.GetWorld().Spawn<WireSlashEffect>();
+		effect->Setup(center - forward * tuning.SlashEffectBackstep, forward, chargeRatio);
+		++hitCount;
+	}
+
+	return hitCount;
+}
+
+void WireSwordAbility::BeginDashThrough(
+	WirePlayer& player, const Vector3& forward, float chargeRatio)
+{
+	const WireSwordTuning& tuning = GetWireGameplayTuning().Sword;
+
+	// 入ってきた速度を土台にし、溜めた分だけ上乗せします。
+	// ワイヤーで高速接近してから斬るほど、遠くまで抜けられます。
+	const float incoming = player.m_Velocity.length();
+	m_DashSpeed = std::clamp(
+		incoming * tuning.DashCarryRatio + tuning.DashBaseSpeed + chargeRatio * tuning.DashChargeSpeed,
+		tuning.DashBaseSpeed,
+		tuning.DashMaxSpeed);
+	m_DashDirection = forward;
+	m_DashThroughTimer = tuning.DashDuration;
+
+	// 斬り抜けが終わった時点でも勢いが残るよう、速度そのものも更新します。
+	player.m_Velocity = m_DashDirection * m_DashSpeed;
+}
+
+bool WireSwordAbility::ApplyDashThrough(WirePlayer& player, float dt)
+{
+	if (m_DashThroughTimer <= 0.0f)
+	{
+		return false;
+	}
+
+	m_DashThroughTimer = std::max(0.0f, m_DashThroughTimer - dt);
+	// 斬り抜け中は重力と減速を受けず、まっすぐ抜けます。
+	// 空中で敵を斬ってもその場に落ちないため、次のワイヤーへ繋げられます。
+	player.m_Velocity = m_DashDirection * m_DashSpeed;
+	return true;
 }
 
 int WireSwordAbility::CalculateDamage() const

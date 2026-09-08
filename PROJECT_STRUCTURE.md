@@ -36,9 +36,24 @@ cells. Query results retain registration order for deterministic behavior.
 - `wirePlayerMovement.*`: movement, jump, and blink
 - `wireGrappleAbility.*`: aiming, anchor selection, and wire motion
 - `wireSwordAbility.*`: charge attacks, collision queries, and damage
-- `wirePlayerPresentation.*`: player-specific wire rendering
-- `wireEnemy.*`: rooftop patrol/chase/attack state machine
+- `wirePlayerPresentation.*`: player-specific wire rendering and speed lines
+- `wireEnemy.*`: patrol/chase/attack state machine (small factory robot)
 - `wireDebugTools.*`: shared debug keys, opt-in and available in Release
+
+Wire Action の中心的な抽象は次の2つです。どちらも「対象側がインターフェースを
+実装する」形にしてあるため、設備や敵を増やしてもワイヤー・剣のコードは変わりません。
+
+- `wireTarget.h` の `IWireTarget`: ワイヤーを掛けられるもの。設備アンカー、
+  ロック機構、巨大機械の各部位が実装します。狙いの解決 (`WireTargeting`) は
+  厳密なレイキャストではなく視線コーン内のスコアリングで、高速移動中に
+  ピクセル単位で狙わせないための入力補正になっています。
+- `wireBreakable.h` の `IWireBreakable`: 剣で壊せるもの。小型ロボット、装甲、
+  弱点、ロック機構が実装します。
+
+ステージ形状は `wireBlockField.*` の AABB 集合で表し、レイキャスト・押し出し・
+着地判定を提供します。押し出しは接触面の法線を返し、壁蹴りがこれを使います。
+`wireFactory.*`(静的な工場) と `wireGiantMachine.*`(動く巨大機械) が同じ関数を
+共有するため、機体の肩や腕にも床と同じ仕組みで着地できます。
 - remaining `wire*` actors, world objects, camera, effects, and UI
 
 ### BattingCenter (`BattingCenter.vcxproj`)
