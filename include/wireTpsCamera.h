@@ -34,6 +34,11 @@ private:
 	Vector3 m_ShakenPosition{ 0.0f, 0.0f, 0.0f };
 	Vector3 m_ShakenTarget{ 0.0f, 0.0f, 0.0f };
 
+	// 地形判定でレイを飛ばす起点です。プレイヤーの体の位置を使います。
+	// 注視点は先読みで前方へずらしてあり、壁際では壁の内側に入ってしまうため、
+	// 起点には使えません(内側から飛ばすと距離0で当たり、正しく手前へ寄せられない)。
+	Vector3 m_CollisionPivot{ 0.0f, 0.0f, 0.0f };
+
 	void UpdateImpactState(float dt);
 	void ApplyImpactToView(float dt);
 	// 注視点からカメラ位置へ地形を調べ、壁や設備の内側へ入る場合は手前へ戻します。
@@ -53,6 +58,9 @@ public:
 	Vector3 GetAimOrigin() const { return m_Position; }
 	Vector3 GetAimDirection() const;
 	void SnapOnNextLateUpdate() { m_TargetInitialized = false; }
+	// 描画位置がプレイヤーにどれだけ近いかです。壁際で寄り切ったときに
+	// プレイヤーモデルを非表示にする判断に使います(顔の内側が映るのを防ぐ)。
+	float GetDistanceToPlayer() const { return (m_ShakenPosition - m_CollisionPivot).length(); }
 
 	// 着地・被弾・撃破などの衝撃で画面を揺らします。traumaは0-1で加算され、上限で飽和します。
 	void AddShake(float trauma);

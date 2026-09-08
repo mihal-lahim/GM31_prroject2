@@ -3,6 +3,7 @@
 
 #include "graphicsResourceFactory.h"
 #include "renderer.h"
+#include "wireBoxMesh.h"
 
 #include <cmath>
 
@@ -29,62 +30,8 @@ void WireFactory::AddBox(
 	std::vector<VERTEX_3D>& vertices, std::vector<unsigned int>& indices,
 	const Vector3& center, const Vector3& halfSize, const XMFLOAT4& color)
 {
-	const unsigned int base = static_cast<unsigned int>(vertices.size());
-
-	// 面ごとに法線と明るさを変え、テクスチャ無しでも立体が読めるようにします。
-	struct Face
-	{
-		Vector3 Normal;
-		Vector3 Right;
-		Vector3 Up;
-		float Shade;
-	};
-	const Face faces[6] = {
-		{ {  0,  1,  0 }, { 1, 0, 0 }, { 0, 0, 1 }, 1.00f },
-		{ {  0, -1,  0 }, { 1, 0, 0 }, { 0, 0,-1 }, 0.45f },
-		{ {  1,  0,  0 }, { 0, 0,-1 }, { 0, 1, 0 }, 0.78f },
-		{ { -1,  0,  0 }, { 0, 0, 1 }, { 0, 1, 0 }, 0.70f },
-		{ {  0,  0,  1 }, { 1, 0, 0 }, { 0, 1, 0 }, 0.86f },
-		{ {  0,  0, -1 }, {-1, 0, 0 }, { 0, 1, 0 }, 0.62f },
-	};
-
-	for (const Face& face : faces)
-	{
-		const Vector3 faceCenter{
-			center.x + face.Normal.x * halfSize.x,
-			center.y + face.Normal.y * halfSize.y,
-			center.z + face.Normal.z * halfSize.z };
-		const Vector3 right{
-			face.Right.x * halfSize.x, face.Right.y * halfSize.y, face.Right.z * halfSize.z };
-		const Vector3 up{
-			face.Up.x * halfSize.x, face.Up.y * halfSize.y, face.Up.z * halfSize.z };
-		const XMFLOAT4 shaded{
-			color.x * face.Shade, color.y * face.Shade, color.z * face.Shade, color.w };
-
-		const unsigned int faceBase = static_cast<unsigned int>(vertices.size());
-		const Vector3 corners[4] = {
-			faceCenter - right - up,
-			faceCenter + right - up,
-			faceCenter + right + up,
-			faceCenter - right + up };
-		const XMFLOAT2 uvs[4] = { {0,1}, {1,1}, {1,0}, {0,0} };
-		for (int i = 0; i < 4; ++i)
-		{
-			VERTEX_3D vertex{};
-			vertex.Position = { corners[i].x, corners[i].y, corners[i].z };
-			vertex.Normal = { face.Normal.x, face.Normal.y, face.Normal.z };
-			vertex.Diffuse = shaded;
-			vertex.TexCoord = uvs[i];
-			vertices.push_back(vertex);
-		}
-		indices.push_back(faceBase + 0);
-		indices.push_back(faceBase + 2);
-		indices.push_back(faceBase + 1);
-		indices.push_back(faceBase + 0);
-		indices.push_back(faceBase + 3);
-		indices.push_back(faceBase + 2);
-	}
-	(void)base;
+	// 巻き順を含む生成処理は共通ヘルパーに集約しています。
+	WireBoxMesh::Append(vertices, indices, center, halfSize, color);
 }
 
 void WireFactory::BuildGeometry()

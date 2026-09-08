@@ -15,10 +15,14 @@
 
 namespace
 {
-	// カメラを壁の手前で止めるための余白と、寄りすぎ防止の最低距離です。
+	// カメラを壁の手前で止めるための余白です。
 	constexpr float kCameraCollisionEpsilon = 0.001f;
-	constexpr float kCameraCollisionMargin = 0.85f;
-	constexpr float kMinCameraDistance = 1.6f;
+	constexpr float kCameraCollisionMargin = 0.55f;
+	// 障害物が無いときに保つ距離です。狭い場所ではこれより寄ります。
+	constexpr float kPreferredMinDistance = 1.6f;
+	// 障害物がある場合に許す最小距離です。ここを大きくすると、壁より手前で
+	// 止めきれずカメラが壁の内側へ入り、壁が透けて見えます。
+	constexpr float kHardMinDistance = 0.25f;
 
 	Vector3 MakeCameraForward(float yaw, float pitch)
 	{
@@ -79,6 +83,7 @@ void WireTpsCamera::Init()
 	m_Roll = 0.0f;
 	m_ShakenPosition = m_Position;
 	m_ShakenTarget = m_Target;
+	m_CollisionPivot = m_Target;
 	Mouse_Reset();
 }
 
@@ -169,7 +174,8 @@ void WireTpsCamera::LateUpdate()
 
 	// 補間の目標位置を先に地形へ合わせておくと、収束が速く挙動も安定します。
 	// ただしこれだけでは不十分で、実際に描画する位置は後段でもう一度クランプします。
-	desiredPosition = ClampAgainstGeometry(desiredTarget, desiredPosition);
+	m_CollisionPivot = playerPosition + Vector3(0.0f, tuning.NormalTargetHeight, 0.0f);
+	desiredPosition = ClampAgainstGeometry(m_CollisionPivot, desiredPosition);
 
 	const bool snapBackFromWireAim = wireActive && m_CloseAimActiveLastFrame;
 	if (!m_TargetInitialized || snapBackFromWireAim)
@@ -217,9 +223,9 @@ void WireTpsCamera::LateUpdate()
 	GameObject::LateUpdate();
 }
 
-Vector3 WireTpsCamera::ClampAgainstGeometry(const Vector3& target, const Vector3& position) const
+Vector3 WireTpsCamera::ClampAgainstGeometry(const Vector3& pivot, const Vector3& position) const
 {
-	Vector3 backward = position - target;
+	Vector3 backward = position - pivot;
 	const float length = backward.length();
 	if (length <= kCameraCollisionEpsilon)
 	{
@@ -227,7 +233,9 @@ Vector3 WireTpsCamera::ClampAgainstGeometry(const Vector3& target, const Vector3
 	}
 	backward /= length;
 
+	// 何にも当たらなければ元の距離のままです。
 	float allowed = length;
+	bool blocked = false;
 	World& world = const_cast<WireTpsCamera*>(this)->GetWorld();
 
 	// 工場の壁・床・足場
@@ -235,9 +243,10 @@ Vector3 WireTpsCamera::ClampAgainstGeometry(const Vector3& target, const Vector3
 	{
 		Vector3 hitPosition;
 		Vector3 hitNormal;
-		if (factory->GetBlockField().Raycast(target, backward, length, hitPosition, hitNormal))
+		if (factory->GetBlockField().Raycast(pivot, backward, length, hitPosition, hitNormal))
 		{
-			allowed = (std::min)(allowed, (hitPosition - target).length() - kCameraCollisionMargin);
+			allowed = (std::min)(allowed, (hitPosition - pivot).length() - kCameraCollisionMargin);
+			blocked = true;
 		}
 	}
 
@@ -256,16 +265,21 @@ Vector3 WireTpsCamera::ClampAgainstGeometry(const Vector3& target, const Vector3
 			block.HalfSize = part->GetHalfSize();
 			float distance = 0.0f;
 			Vector3 normal;
-			if (WireBlockField::RaycastBlock(block, target, backward, length, distance, normal))
+			if (WireBlockField::RaycastBlock(block, pivot, backward, length, distance, normal))
 			{
 				allowed = (std::min)(allowed, distance - kCameraCollisionMargin);
+				blocked = true;
 			}
 		}
 	}
 
-	// 近づけすぎるとプレイヤーの内部に入るため、最低距離を確保します。
-	allowed = std::clamp(allowed, kMinCameraDistance, length);
-	return target + backward * allowed;
+	// 遮蔽がある場合は、壁より手前へ確実に収めることを優先します。
+	// ここで通常時と同じ最低距離(1.6m)を強制すると、壁が近いほどカメラが
+	// 壁の内側へ押し戻され、内向きの面が裏面カリングで消えて壁が透けます。
+	// 遮蔽が無い場合だけ、寄りすぎ防止の最低距離を保ちます。
+	const float minimum = blocked ? kHardMinDistance : (std::min)(kPreferredMinDistance, length);
+	allowed = std::clamp(allowed, minimum, length);
+	return pivot + backward * allowed;
 }
 
 void WireTpsCamera::AddShake(float trauma)
@@ -329,7 +343,7 @@ void WireTpsCamera::ApplyImpactToView(float dt)
 	// 補間の目標だけを見ていると、追従の遅れや揺れ・パンチの分だけカメラが
 	// 壁の内側へ入り、壁の内向きの面が裏面カリングで消えて透けて見えます。
 	m_ShakenPosition = ClampAgainstGeometry(
-		m_ShakenTarget, m_Position + offset + m_PunchOffset);
+		m_CollisionPivot, m_Position + offset + m_PunchOffset);
 }
 
 void WireTpsCamera::Draw()
