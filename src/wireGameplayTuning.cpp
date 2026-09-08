@@ -123,6 +123,11 @@ const WireGameplayTuning& GetWireGameplayTuning()
 		sword.SlashEffectBackstep = Float("wire.sword.slash_effect_backstep", sword.SlashEffectBackstep);
 		sword.HitBoostBase = Float("wire.sword.hit_boost_base", sword.HitBoostBase);
 		sword.HitBoostCharge = Float("wire.sword.hit_boost_charge", sword.HitBoostCharge);
+		sword.DashDuration = Float("wire.sword.dash_duration", sword.DashDuration);
+		sword.DashBaseSpeed = Float("wire.sword.dash_base_speed", sword.DashBaseSpeed);
+		sword.DashChargeSpeed = Float("wire.sword.dash_charge_speed", sword.DashChargeSpeed);
+		sword.DashCarryRatio = Float("wire.sword.dash_carry_ratio", sword.DashCarryRatio);
+		sword.DashMaxSpeed = Float("wire.sword.dash_max_speed", sword.DashMaxSpeed);
 
 		auto& camera = value.Camera;
 		camera.BaseFov = Float("wire.camera.base_fov", camera.BaseFov);
@@ -178,6 +183,8 @@ const WireGameplayTuning& GetWireGameplayTuning()
 		camera.BlinkFovKick = Float("wire.camera.blink_fov_kick", camera.BlinkFovKick);
 		camera.WireAttachShake = Float("wire.camera.wire_attach_shake", camera.WireAttachShake);
 		camera.WireAttachFovKick = Float("wire.camera.wire_attach_fov_kick", camera.WireAttachFovKick);
+		camera.WallKickShake = Float("wire.camera.wall_kick_shake", camera.WallKickShake);
+		camera.WallKickFovKick = Float("wire.camera.wall_kick_fov_kick", camera.WallKickFovKick);
 		camera.DamageShake = Float("wire.camera.damage_shake", camera.DamageShake);
 		camera.SpeedLineStartSpeed = Float("wire.camera.speed_line_start_speed", camera.SpeedLineStartSpeed);
 		camera.SpeedLineFullSpeed = Float("wire.camera.speed_line_full_speed", camera.SpeedLineFullSpeed);
@@ -187,14 +194,7 @@ const WireGameplayTuning& GetWireGameplayTuning()
 		camera.SpeedLineSpeed = Float("wire.camera.speed_line_speed", camera.SpeedLineSpeed);
 
 		auto& stage = value.Stage;
-		stage.OriginX = FloatInRange("wire.stage.origin_x", stage.OriginX, -1000.0f, 1000.0f);
-		stage.OriginY = FloatInRange("wire.stage.origin_y", stage.OriginY, -1000.0f, 1000.0f);
-		stage.OriginZ = FloatInRange("wire.stage.origin_z", stage.OriginZ, -1000.0f, 1000.0f);
-		stage.FallDepth = FloatInRange("wire.stage.fall_depth", stage.FallDepth, 4.0f, 200.0f);
-		// 400mを超えると標準配置のアンカー間隔がワイヤー射程を超えるため、安全な上限を設けます。
-		stage.FinishOffsetZ = FloatInRange("wire.stage.finish_offset_z", stage.FinishOffsetZ, 50.0f, 400.0f);
-		stage.CheckpointHeightTolerance = FloatInRange(
-			"wire.stage.checkpoint_height_tolerance", stage.CheckpointHeightTolerance, 0.1f, 5.0f);
+		stage.FallResetY = FloatInRange("wire.stage.fall_reset_y", stage.FallResetY, -500.0f, 0.0f);
 		stage.GoalParticleCount = Integer("wire.stage.goal_particle_count", stage.GoalParticleCount);
 
 		auto& enemy = value.Enemy;
@@ -216,6 +216,28 @@ const WireGameplayTuning& GetWireGameplayTuning()
 		enemy.KnockbackUpSpeed = Float("wire.enemy.knockback_up_speed", enemy.KnockbackUpSpeed);
 		enemy.EdgeMargin = Float("wire.enemy.edge_margin", enemy.EdgeMargin);
 		enemy.DeathParticleCount = Integer("wire.enemy.death_particle_count", enemy.DeathParticleCount);
+
+		auto& wallKick = value.WallKick;
+		wallKick.ContactMemoryTime = Float("wire.wallkick.contact_memory_time", wallKick.ContactMemoryTime);
+		wallKick.Cooldown = Float("wire.wallkick.cooldown", wallKick.Cooldown);
+		wallKick.SameWallRejectDot = FloatInRange("wire.wallkick.same_wall_reject_dot", wallKick.SameWallRejectDot, -1.0f, 1.0f);
+		wallKick.NormalWeight = Float("wire.wallkick.normal_weight", wallKick.NormalWeight);
+		wallKick.InputWeight = Float("wire.wallkick.input_weight", wallKick.InputWeight);
+		wallKick.SpeedCarryRatio = Float("wire.wallkick.speed_carry_ratio", wallKick.SpeedCarryRatio);
+		wallKick.MinKickSpeed = Float("wire.wallkick.min_kick_speed", wallKick.MinKickSpeed);
+		wallKick.MaxKickSpeed = Float("wire.wallkick.max_kick_speed", wallKick.MaxKickSpeed);
+		wallKick.UpSpeed = Float("wire.wallkick.up_speed", wallKick.UpSpeed);
+		wallKick.SquashXZ = Float("wire.wallkick.squash_xz", wallKick.SquashXZ);
+		wallKick.StretchY = Float("wire.wallkick.stretch_y", wallKick.StretchY);
+		wallKick.ParticleCount = Integer("wire.wallkick.particle_count", wallKick.ParticleCount);
+
+		auto& momentum = value.Momentum;
+		momentum.ActionsPerRank = Integer("wire.momentum.actions_per_rank", momentum.ActionsPerRank);
+		momentum.MaxRank = Integer("wire.momentum.max_rank", momentum.MaxRank);
+		momentum.DecayTime = Float("wire.momentum.decay_time", momentum.DecayTime);
+		momentum.SpeedBonusPerRank = Float("wire.momentum.speed_bonus_per_rank", momentum.SpeedBonusPerRank);
+		momentum.DamageBonusPerRank = Float("wire.momentum.damage_bonus_per_rank", momentum.DamageBonusPerRank);
+		momentum.GroundedDecayScale = Float("wire.momentum.grounded_decay_scale", momentum.GroundedDecayScale);
 
 		auto& health = value.Health;
 		health.MaxHealth = Integer("wire.health.max_health", health.MaxHealth);
@@ -269,6 +291,11 @@ const WireGameplayTuning& GetWireGameplayTuning()
 		sword.HitRadius = (std::max)(sword.HitRadius, 0.01f);
 		sword.HitStopScale = std::clamp(sword.HitStopScale, 0.0f, 1.0f);
 		sword.ChargeScaleLerp = std::clamp(sword.ChargeScaleLerp, 0.0f, 1.0f);
+		sword.DashDuration = (std::max)(sword.DashDuration, 0.0f);
+		sword.DashBaseSpeed = (std::max)(sword.DashBaseSpeed, 0.0f);
+		// 上限が基礎速度を下回ると、斬り抜けが逆に減速してしまいます。
+		sword.DashMaxSpeed = (std::max)(sword.DashMaxSpeed, sword.DashBaseSpeed);
+		sword.DashCarryRatio = (std::max)(sword.DashCarryRatio, 0.0f);
 
 		camera.BaseFov = std::clamp(camera.BaseFov, 0.1f, 3.0f);
 		camera.MaxWireFov = std::clamp(camera.MaxWireFov, camera.BaseFov, 3.0f);
@@ -306,10 +333,6 @@ const WireGameplayTuning& GetWireGameplayTuning()
 		camera.SpeedLineMaxPerFrame = std::clamp(camera.SpeedLineMaxPerFrame, 0, 64);
 		camera.SpeedLineSpread = (std::max)(camera.SpeedLineSpread, 0.0f);
 
-		stage.FallDepth = (std::max)(stage.FallDepth, 4.0f);
-		stage.FinishOffsetZ = (std::max)(stage.FinishOffsetZ, 1.0f);
-		stage.CheckpointHeightTolerance = std::clamp(
-			stage.CheckpointHeightTolerance, 0.1f, 5.0f);
 		stage.GoalParticleCount = std::clamp(stage.GoalParticleCount, 0, 1000);
 
 		// HPが0だと生成直後に死ぬため、最低1を保証します。
@@ -330,17 +353,30 @@ const WireGameplayTuning& GetWireGameplayTuning()
 		enemy.EdgeMargin = (std::max)(enemy.EdgeMargin, 0.0f);
 		enemy.DeathParticleCount = std::clamp(enemy.DeathParticleCount, 0, 1000);
 
+		wallKick.ContactMemoryTime = (std::max)(wallKick.ContactMemoryTime, 0.0f);
+		wallKick.Cooldown = (std::max)(wallKick.Cooldown, 0.0f);
+		wallKick.MinKickSpeed = (std::max)(wallKick.MinKickSpeed, 0.0f);
+		// 下限が上限を超えると速度が反転するため、必ず上限を下限以上にします。
+		wallKick.MaxKickSpeed = (std::max)(wallKick.MaxKickSpeed, wallKick.MinKickSpeed);
+		wallKick.SpeedCarryRatio = (std::max)(wallKick.SpeedCarryRatio, 0.0f);
+		wallKick.ParticleCount = std::clamp(wallKick.ParticleCount, 0, 200);
+
+		// 0だと除算になるため最低1です。段階数も1以上を保証します。
+		momentum.ActionsPerRank = (std::max)(momentum.ActionsPerRank, 1);
+		momentum.MaxRank = std::clamp(momentum.MaxRank, 1, 9);
+		momentum.DecayTime = (std::max)(momentum.DecayTime, 0.1f);
+		momentum.SpeedBonusPerRank = std::clamp(momentum.SpeedBonusPerRank, 0.0f, 1.0f);
+		momentum.DamageBonusPerRank = std::clamp(momentum.DamageBonusPerRank, 0.0f, 2.0f);
+		momentum.GroundedDecayScale = (std::max)(momentum.GroundedDecayScale, 1.0f);
+
 		// 最大HPが0だと開始と同時にゲームオーバーになるため、最低1を保証します。
 		health.MaxHealth = (std::max)(health.MaxHealth, 1);
 		health.InvincibleTime = (std::max)(health.InvincibleTime, 0.0f);
 		health.HitBlinkInterval = (std::max)(health.HitBlinkInterval, 0.01f);
 		health.HitStopScale = std::clamp(health.HitStopScale, 0.0f, 1.0f);
 
-		// コース原点や全長を調整しても、プレイヤー座標のクランプでゴール前に止まらないようにします。
-		movement.WorldBoundsX = (std::max)(movement.WorldBoundsX, std::abs(stage.OriginX) + 48.0f);
-		movement.WorldBoundsZ = (std::max)(
-			movement.WorldBoundsZ, std::abs(stage.OriginZ) + stage.FinishOffsetZ + 20.0f);
-
+		// 工場の外周より内側でクランプされると壁の手前で止まってしまうため、
+		// 境界はステージ側の広さに合わせて設定します(検証は下限のみ)。
 		tuning = value;
 		loadedGeneration = currentGeneration;
 	}

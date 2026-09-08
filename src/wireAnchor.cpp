@@ -137,6 +137,9 @@ void WireAnchor::Uninit()
 void WireAnchor::Update()
 {
 	m_Pulse += GameTime::GetDeltaTime() * kPulseSpeed;
+	// 狙われている間だけ立ち上がり、外れると滑らかに戻る強調値です。
+	// 狙い側は毎フレームSetHighlightedを呼ぶだけでよくなります。
+	m_Highlight = (std::max)(0.0f, m_Highlight - GameTime::GetDeltaTime() * 6.0f);
 	GameObject::Update();
 }
 
@@ -166,8 +169,18 @@ void WireAnchor::Draw()
 
 	const float anchorScale = std::max(1.0f, LargestScaleComponent(m_Scale));
 	const float pulse = 0.5f + 0.5f * sinf(m_Pulse);
-	const float outerSize = kBillboardBaseSize * anchorScale * (1.0f + pulse * kOuterPulseAmount);
+	// 狙われている地点は一回り大きく明るく出し、掛けられる場所を即座に判別させます。
+	const float highlightScale = 1.0f + m_Highlight * 0.55f;
+	const float outerSize = kBillboardBaseSize * anchorScale * highlightScale
+		* (1.0f + pulse * kOuterPulseAmount);
 	const float innerSize = outerSize * (0.46f + pulse * kInnerPulseAmount);
+	const float glow = 1.0f + m_Highlight * 1.4f;
+	const XMFLOAT4 outerColor{
+		m_OuterColor.x * glow, m_OuterColor.y * glow, m_OuterColor.z * glow, m_OuterColor.w };
+	const XMFLOAT4 innerColor{
+		m_InnerColor.x * glow, m_InnerColor.y * glow, m_InnerColor.z * glow, m_InnerColor.w };
+	// 掛けられない状態の設備は暗く沈め、狙っても無駄だと分かるようにします。
+	const float activeFade = m_Active ? 1.0f : 0.22f;
 
 	Renderer::SetAddBlendEnable(true);
 	Renderer::SetDepthEnable(false);
@@ -176,13 +189,13 @@ void WireAnchor::Draw()
 		s_VertexBuffer.Get(),
 		m_Position,
 		outerSize,
-		m_OuterColor,
+		XMFLOAT4{ outerColor.x, outerColor.y, outerColor.z, outerColor.w * activeFade },
 		invView);
 	DrawBillboardLayer(
 		s_VertexBuffer.Get(),
 		m_Position,
 		innerSize,
-		m_InnerColor,
+		XMFLOAT4{ innerColor.x, innerColor.y, innerColor.z, innerColor.w * activeFade },
 		invView);
 
 	Renderer::SetDepthEnable(true);

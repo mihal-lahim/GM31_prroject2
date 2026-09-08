@@ -4,17 +4,25 @@
 #include "world.h"
 #include "animationModel.h"
 #include "wirePlayerInput.h"
-#include "wireCity.h"
+#include "wireFactory.h"
+#include "wireGiantMachine.h"
 #include "wireTpsCamera.h"
 #include "wireGameplayTuning.h"
 
 #include <algorithm>
 
+namespace
+{
+	// プレイヤーを押し出す際の半径です。工場の壁・設備で共通に使います。
+	constexpr float kPlayerCollisionRadius = 0.85f;
+}
+
 void WirePlayer::Init()
 {
 	m_Layer = Layer::World;
-	const WireStageTuning& stage = GetWireGameplayTuning().Stage;
-	m_Position = { stage.OriginX, stage.OriginY, stage.OriginZ };
+	// 実際の開始位置はステージ側がSetPositionで与えます。
+	// ここはステージ未生成でも安全に初期化できるようにするための仮位置です。
+	m_Position = { 0.0f, 0.0f, 0.0f };
 	m_Rotation = { 0.0f, 0.0f, 0.0f };
 	m_Scale = { 1.0f, 1.0f, 1.0f };
 	m_Health = GetWireGameplayTuning().Health.MaxHealth;
@@ -52,16 +60,41 @@ void WirePlayer::Update()
 		m_Grapple.Update(*this, dt, input, camera);
 	}
 	m_Sword.Update(*this, dt, input, m_Grapple);
+	// 斬り抜けは移動・重力の後に適用し、速度を上書きします。
+	// ここで最後に書くことで、命中した瞬間に落下や減速へ引き戻されません。
+	m_Sword.ApplyDashThrough(*this, dt);
 
 	const Vector3 previousPosition = m_Position;
 	m_Position += m_Velocity * dt;
-	if (WireCity* city = GetWorld().FindFirst<WireCity>())
+
+	// 工場形状との押し出しを行い、壁に当たったことを移動側へ伝えます。
+	// 壁蹴りはこの通知を使うため、衝突解決と壁蹴りが同じ接触情報を共有します。
+	if (WireFactory* factory = GetWorld().FindFirst<WireFactory>())
 	{
-		city->ResolvePlayerCollision(previousPosition, m_Position, m_Velocity);
+		const WireBlockField::Contact contact = factory->GetBlockField().ResolveSphere(
+			previousPosition, kPlayerCollisionRadius, m_Position, m_Velocity);
+		if (contact.IsWall)
+		{
+			m_Movement.NotifyWallContact(contact.Normal);
+		}
 	}
+
+	// 巨大機械も同じ扱いで押し出します。機体の側面も壁蹴りの対象になるので、
+	// 装甲を蹴って弱点側へ回り込む、といった動きが成立します。
+	if (WireGiantMachine* machine = GetWorld().FindFirst<WireGiantMachine>())
+	{
+		const WireBlockField::Contact contact = machine->ResolvePlayerCollision(
+			previousPosition, kPlayerCollisionRadius, m_Position, m_Velocity);
+		if (contact.IsWall)
+		{
+			m_Movement.NotifyWallContact(contact.Normal);
+		}
+	}
+
 	// 全面地面は設けず、実際に足場へ着地した場合だけ接地状態にします。
 	m_Movement.SetOnGround(false);
 	m_Movement.ResolvePlatformLanding(*this, previousPosition);
+	UpdateMomentum(dt);
 
 	m_Position.x = std::clamp(m_Position.x, -GetWireGameplayTuning().Movement.WorldBoundsX, GetWireGameplayTuning().Movement.WorldBoundsX);
 	m_Position.z = std::clamp(m_Position.z, -GetWireGameplayTuning().Movement.WorldBoundsZ, GetWireGameplayTuning().Movement.WorldBoundsZ);
@@ -121,6 +154,62 @@ void WirePlayer::Respawn(const Vector3& position)
 	{
 		camera->SnapOnNextLateUpdate();
 	}
+}
+
+void WirePlayer::NotifyMomentumAction()
+{
+	const WireMomentumTuning& tuning = GetWireGameplayTuning().Momentum;
+	m_MomentumActions = std::min(m_MomentumActions + 1, tuning.MaxRank * tuning.ActionsPerRank);
+	m_MomentumTimer = tuning.DecayTime;
+}
+
+void WirePlayer::UpdateMomentum(float dt)
+{
+	if (m_MomentumActions <= 0)
+	{
+		return;
+	}
+
+	const WireMomentumTuning& tuning = GetWireGameplayTuning().Momentum;
+	// 地上で止まっている間は早く落ちます。棒立ちが最適解にならないようにするためです。
+	const float horizontalSpeed = Vector3(m_Velocity.x, 0.0f, m_Velocity.z).length();
+	const bool loitering = m_Movement.IsOnGround() && horizontalSpeed < 4.0f;
+	m_MomentumTimer -= dt * (loitering ? tuning.GroundedDecayScale : 1.0f);
+	if (m_MomentumTimer > 0.0f)
+	{
+		return;
+	}
+
+	// 一気に0へ戻さず1段階ずつ落とし、立て直す余地を残します。
+	m_MomentumActions = std::max(0, m_MomentumActions - tuning.ActionsPerRank);
+	m_MomentumTimer = tuning.DecayTime;
+}
+
+int WirePlayer::GetMomentumRank() const
+{
+	const WireMomentumTuning& tuning = GetWireGameplayTuning().Momentum;
+	return std::min(m_MomentumActions / tuning.ActionsPerRank, tuning.MaxRank);
+}
+
+float WirePlayer::GetMomentumProgress01() const
+{
+	const WireMomentumTuning& tuning = GetWireGameplayTuning().Momentum;
+	if (GetMomentumRank() >= tuning.MaxRank)
+	{
+		return 1.0f;
+	}
+	return static_cast<float>(m_MomentumActions % tuning.ActionsPerRank)
+		/ static_cast<float>(tuning.ActionsPerRank);
+}
+
+float WirePlayer::GetMomentumDamageScale() const
+{
+	return 1.0f + GetMomentumRank() * GetWireGameplayTuning().Momentum.DamageBonusPerRank;
+}
+
+float WirePlayer::GetMomentumSpeedScale() const
+{
+	return 1.0f + GetMomentumRank() * GetWireGameplayTuning().Momentum.SpeedBonusPerRank;
 }
 
 int WirePlayer::GetMaxHealth() const

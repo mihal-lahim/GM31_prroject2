@@ -270,14 +270,27 @@ void WireEnemy::EmitDeathEffect() const
 
 void WireEnemy::OnSwordHit(int damage, const Vector3& hitDirection)
 {
+	ApplyBreakDamage(damage, hitDirection);
+}
+
+bool WireEnemy::ApplyBreakDamage(int damage, const Vector3& hitDirection)
+{
+	if (!IsBreakableAlive())
+	{
+		return false;
+	}
+
 	m_TotalDamage += damage;
 	m_HitReactionTime = kHitReactionDuration;
 	m_HitLean = std::clamp(-hitDirection.x * kHitLeanScale, -kMaxHitLean, kMaxHitLean);
 
 	m_Health -= damage;
-	if (m_Health <= 0)
+	if (m_Health > 0)
 	{
-		EmitDeathEffect();
-		SetDestroy();
+		return false;
 	}
+
+	EmitDeathEffect();
+	SetDestroy();
+	return true;
 }

@@ -1,12 +1,13 @@
 #pragma once
 
 #include "gameObject.h"
+#include "wireBreakable.h"
 
 class WirePlayer;
 
 // 屋上を巡回し、プレイヤーを見つけると追跡して接触攻撃する敵です。
 // 足場の縁で引き返すため、自分から落下することはありません。
-class WireEnemy : public GameObject
+class WireEnemy : public GameObject, public IWireBreakable
 {
 public:
 	enum class State
@@ -65,4 +66,11 @@ public:
 	// デバッグ表示用。思考ルーチンが動いていることを画面で確認できます。
 	const char* GetStateName() const;
 	int GetHealth() const { return m_Health; }
+
+	// 剣からは「破壊できる小型ロボット」として一律に扱われます。
+	Vector3 GetBreakableCenter() const override { return GetHitCenter(); }
+	float GetBreakableRadius() const override { return m_HitRadius; }
+	bool IsBreakableAlive() const override { return !m_Destroy && m_Health > 0; }
+	Kind GetBreakableKind() const override { return Kind::SmallRobot; }
+	bool ApplyBreakDamage(int damage, const Vector3& hitDirection) override;
 };

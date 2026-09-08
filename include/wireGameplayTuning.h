@@ -47,6 +47,42 @@ struct WireMovementTuning
 	float PlatformLandingGrace = 0.15f;
 };
 
+// 壁蹴り。勢いを落とさず次の移動へ繋ぐことが目的で、単独の登坂手段にはしません。
+struct WireWallKickTuning
+{
+	// 壁に触れてからこの時間内なら蹴れます。フレーム単位の精度を要求しないための猶予です。
+	float ContactMemoryTime = 0.22f;
+	float Cooldown = 0.18f;
+	// 直前に蹴った壁との法線内積がこの値以上なら「同じ壁」とみなして拒否します。
+	float SameWallRejectDot = 0.75f;
+	float NormalWeight = 1.0f;
+	float InputWeight = 1.25f;
+	// 入ってきた水平速度をどれだけ引き継ぐか。1に近いほど高速侵入が報われます。
+	float SpeedCarryRatio = 1.05f;
+	float MinKickSpeed = 17.0f;
+	float MaxKickSpeed = 46.0f;
+	float UpSpeed = 11.5f;
+	float SquashXZ = 0.82f;
+	float StretchY = 1.24f;
+	int ParticleCount = 26;
+};
+
+// 止まらず動き続けることを報いるための連鎖状態です。
+// ワイヤー・壁蹴り・空中ダッシュ・斬撃を続けるほど段階が上がります。
+struct WireMomentumTuning
+{
+	// このアクション数ごとに段階が1つ上がります。
+	int ActionsPerRank = 3;
+	int MaxRank = 4;
+	// 最後のアクションからこの時間何もしないと段階が落ちます。
+	float DecayTime = 3.2f;
+	// 段階ごとに増える移動速度と攻撃力の倍率です。
+	float SpeedBonusPerRank = 0.09f;
+	float DamageBonusPerRank = 0.16f;
+	// 地上で止まっている間は段階が早く落ちます。棒立ちを最適解にしないためです。
+	float GroundedDecayScale = 2.4f;
+};
+
 struct WireGrappleTuning
 {
 	float AimMaxTime = 2.0f;
@@ -97,6 +133,14 @@ struct WireSwordTuning
 	float SlashEffectBackstep = 0.25f;
 	float HitBoostBase = 2.0f;
 	float HitBoostCharge = 3.5f;
+
+	// 斬り抜け。命中した瞬間に前方へ抜け、戦闘で足が止まらないようにします。
+	float DashDuration = 0.20f;
+	float DashBaseSpeed = 26.0f;
+	float DashChargeSpeed = 16.0f;
+	// 入ってきた速度をどれだけ引き継ぐか。高速接近からの斬撃ほど遠くへ抜けます。
+	float DashCarryRatio = 0.72f;
+	float DashMaxSpeed = 58.0f;
 };
 
 struct WireCameraTuning
@@ -167,6 +211,8 @@ struct WireCameraTuning
 	float BlinkFovKick = 0.10f;
 	float WireAttachShake = 0.18f;
 	float WireAttachFovKick = 0.06f;
+	float WallKickShake = 0.20f;
+	float WallKickFovKick = 0.09f;
 	float DamageShake = 0.55f;
 
 	// --- 速度線 ---
@@ -212,16 +258,13 @@ struct WirePlayerHealthTuning
 	float HitStopScale = 0.14f;
 };
 
-// ステージ全体の位置と進行ルールです。
-// 個々の足場・アンカーはこの原点からの相対座標で配置するため、原点を変更してもコース全体がずれません。
+// ステージ進行のルールです。
+// 直線コース時代の到達距離やチェックポイント許容量は、工場ステージでは
+// 使わなくなったため削除しました。落下復帰の閾値だけが残ります。
 struct WireStageTuning
 {
-	float OriginX = 0.0f;
-	float OriginY = 0.0f;
-	float OriginZ = -12.0f;
-	float FallDepth = 24.0f;
-	float FinishOffsetZ = 237.0f;
-	float CheckpointHeightTolerance = 1.25f;
+	// この高さより下へ落ちたら、直近の安全地点へ戻します。
+	float FallResetY = -20.0f;
 	int GoalParticleCount = 120;
 };
 
@@ -234,6 +277,8 @@ struct WireGameplayTuning
 	WireStageTuning Stage;
 	WireEnemyTuning Enemy;
 	WirePlayerHealthTuning Health;
+	WireWallKickTuning WallKick;
+	WireMomentumTuning Momentum;
 };
 
 // RuntimeConfigの読込世代が変わると再構築される、読み取り専用の調整値です。
