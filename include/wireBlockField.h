@@ -60,4 +60,7 @@ public:
 		float radius, Vector3& position, Vector3& velocity);
 	static bool BlockGroundBelow(const Block& block, const Vector3& position,
 		float footMargin, float maxDrop, float& groundY);
+	// 箱1個へのレイキャストです。原点が箱の内側にある場合は距離0で当たりを返します。
+	static bool RaycastBlock(const Block& block, const Vector3& origin, const Vector3& direction,
+		float maxDistance, float& hitDistance, Vector3& hitNormal);
 };

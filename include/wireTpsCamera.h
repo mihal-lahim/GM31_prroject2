@@ -36,6 +36,8 @@ private:
 
 	void UpdateImpactState(float dt);
 	void ApplyImpactToView(float dt);
+	// 注視点からカメラ位置へ地形を調べ、壁や設備の内側へ入る場合は手前へ戻します。
+	Vector3 ClampAgainstGeometry(const Vector3& target, const Vector3& position) const;
 
 public:
 	void Init() override;

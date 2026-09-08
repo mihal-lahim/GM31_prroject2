@@ -11,6 +11,64 @@ namespace
 	constexpr float kTopGrace = 0.35f;
 }
 
+bool WireBlockField::RaycastBlock(
+	const Block& block, const Vector3& origin, const Vector3& direction,
+	float maxDistance, float& hitDistance, Vector3& hitNormal)
+{
+	const float boundsMin[3] = {
+		block.Center.x - block.HalfSize.x,
+		block.Center.y - block.HalfSize.y,
+		block.Center.z - block.HalfSize.z };
+	const float boundsMax[3] = {
+		block.Center.x + block.HalfSize.x,
+		block.Center.y + block.HalfSize.y,
+		block.Center.z + block.HalfSize.z };
+	const float rayOrigin[3] = { origin.x, origin.y, origin.z };
+	const float rayDirection[3] = { direction.x, direction.y, direction.z };
+
+	float nearDistance = 0.0f;
+	float farDistance = maxDistance;
+	int nearAxis = 0;
+	for (int axis = 0; axis < 3; ++axis)
+	{
+		if (std::abs(rayDirection[axis]) < kRayEpsilon)
+		{
+			if (rayOrigin[axis] < boundsMin[axis] || rayOrigin[axis] > boundsMax[axis])
+			{
+				return false;
+			}
+			continue;
+		}
+		float t0 = (boundsMin[axis] - rayOrigin[axis]) / rayDirection[axis];
+		float t1 = (boundsMax[axis] - rayOrigin[axis]) / rayDirection[axis];
+		if (t0 > t1) std::swap(t0, t1);
+		if (t0 > nearDistance)
+		{
+			nearDistance = t0;
+			nearAxis = axis;
+		}
+		farDistance = (std::min)(farDistance, t1);
+		if (nearDistance > farDistance)
+		{
+			return false;
+		}
+	}
+
+	if (nearDistance > maxDistance)
+	{
+		return false;
+	}
+
+	hitDistance = nearDistance;
+	// 交差した軸の、レイの進行方向と逆側を面の向きとします。
+	hitNormal = { 0.0f, 0.0f, 0.0f };
+	const float sign = rayDirection[nearAxis] > 0.0f ? -1.0f : 1.0f;
+	if (nearAxis == 0) hitNormal.x = sign;
+	else if (nearAxis == 1) hitNormal.y = sign;
+	else hitNormal.z = sign;
+	return true;
+}
+
 bool WireBlockField::Raycast(
 	const Vector3& origin, const Vector3& direction, float maxDistance,
 	Vector3& hitPosition, Vector3& hitNormal) const
@@ -21,56 +79,17 @@ bool WireBlockField::Raycast(
 
 	for (const Block& block : m_Blocks)
 	{
-		const float boundsMin[3] = {
-			block.Center.x - block.HalfSize.x,
-			block.Center.y - block.HalfSize.y,
-			block.Center.z - block.HalfSize.z };
-		const float boundsMax[3] = {
-			block.Center.x + block.HalfSize.x,
-			block.Center.y + block.HalfSize.y,
-			block.Center.z + block.HalfSize.z };
-		const float rayOrigin[3] = { origin.x, origin.y, origin.z };
-		const float rayDirection[3] = { direction.x, direction.y, direction.z };
-
-		float nearDistance = 0.0f;
-		float farDistance = closest;
-		int nearAxis = 0;
-		bool intersects = true;
-		for (int axis = 0; axis < 3; ++axis)
-		{
-			if (std::abs(rayDirection[axis]) < kRayEpsilon)
-			{
-				if (rayOrigin[axis] < boundsMin[axis] || rayOrigin[axis] > boundsMax[axis])
-				{
-					intersects = false;
-				}
-				continue;
-			}
-			float t0 = (boundsMin[axis] - rayOrigin[axis]) / rayDirection[axis];
-			float t1 = (boundsMax[axis] - rayOrigin[axis]) / rayDirection[axis];
-			if (t0 > t1) std::swap(t0, t1);
-			if (t0 > nearDistance)
-			{
-				nearDistance = t0;
-				nearAxis = axis;
-			}
-			farDistance = (std::min)(farDistance, t1);
-			if (nearDistance > farDistance) intersects = false;
-		}
-
-		if (!intersects || nearDistance < 0.0f || nearDistance >= closest)
+		float distance = 0.0f;
+		Vector3 normal;
+		if (!RaycastBlock(block, origin, direction, closest, distance, normal)
+			|| distance >= closest)
 		{
 			continue;
 		}
 
-		closest = nearDistance;
+		closest = distance;
+		closestNormal = normal;
 		found = true;
-		// 交差した軸の、レイの進行方向と逆側を面の向きとします。
-		closestNormal = { 0.0f, 0.0f, 0.0f };
-		const float sign = rayDirection[nearAxis] > 0.0f ? -1.0f : 1.0f;
-		if (nearAxis == 0) closestNormal.x = sign;
-		else if (nearAxis == 1) closestNormal.y = sign;
-		else closestNormal.z = sign;
 	}
 
 	if (found)

@@ -43,6 +43,17 @@ enum class RenderBlendMode
 	AlphaToCoverage
 };
 
+// 深度の扱いです。
+// TestOnly は加算合成のエフェクト用で、壁に隠れつつ深度は汚しません。
+// これが無いと、エフェクトを描くために深度を完全に切ることになり、
+// 壁の手前へ描かれて壁が透けて見えます。
+enum class RenderDepthMode
+{
+	Enabled,   // 深度テスト＋書き込み。通常の不透明物
+	TestOnly,  // 深度テストのみ。半透明・加算のエフェクト
+	Disabled   // 深度を使わない。画面座標のUIとデバッグ表示
+};
+
 
 
 // Direct3D 11のデバイスとフレーム開始/終了を一元管理します。
@@ -67,12 +78,13 @@ private:
 
 
 	static ComPtr<ID3D11DepthStencilState> m_DepthStateEnable;
+	static ComPtr<ID3D11DepthStencilState> m_DepthStateTestOnly;
 	static ComPtr<ID3D11DepthStencilState> m_DepthStateDisable;
 
 	static ComPtr<ID3D11BlendState>		m_BlendState;
 	static ComPtr<ID3D11BlendState>		m_BlendStateAdd;
 	static ComPtr<ID3D11BlendState>		m_BlendStateATC;
-	static bool m_DepthEnabled;
+	static RenderDepthMode m_DepthMode;
 	static RenderBlendMode m_BlendMode;
 
 
@@ -84,8 +96,14 @@ public:
 	static void Begin();
 	static void End();
 
-	static void SetDepthEnable(bool Enable);
-	static bool GetDepthEnabled() { return m_DepthEnabled; }
+	static void SetDepthMode(RenderDepthMode Mode);
+	static RenderDepthMode GetDepthMode() { return m_DepthMode; }
+	// 既存コード向けの互換APIです。新規コードはSetDepthModeを使用します。
+	static void SetDepthEnable(bool Enable)
+	{
+		SetDepthMode(Enable ? RenderDepthMode::Enabled : RenderDepthMode::Disabled);
+	}
+	static bool GetDepthEnabled() { return m_DepthMode != RenderDepthMode::Disabled; }
 	static void SetATCEnable(bool Enable);
 	static void SetWorldViewProjection2D();
 	static void SetWorldMatrix(XMMATRIX WorldMatrix);
@@ -115,7 +133,7 @@ class RendererStateScope
 private:
 	struct Snapshot;
 	std::unique_ptr<Snapshot> m_Snapshot;
-	bool m_DepthEnabled;
+	RenderDepthMode m_DepthMode;
 	RenderBlendMode m_BlendMode;
 
 public:
@@ -135,5 +153,6 @@ using VERTEX_3D = Engine::VERTEX_3D;
 using MATERIAL = Engine::MATERIAL;
 using LIGHT = Engine::LIGHT;
 using RenderBlendMode = Engine::RenderBlendMode;
+using RenderDepthMode = Engine::RenderDepthMode;
 using Renderer = Engine::Renderer;
 using RendererStateScope = Engine::RendererStateScope;
