@@ -15,6 +15,8 @@ namespace
 {
 	// プレイヤーを押し出す際の半径です。工場の壁・設備で共通に使います。
 	constexpr float kPlayerCollisionRadius = 0.85f;
+	// カメラがこれより近づいたらプレイヤーモデルを非表示にします。
+	constexpr float kHideModelCameraDistance = 1.3f;
 }
 
 void WirePlayer::Init()
@@ -108,7 +110,11 @@ void WirePlayer::Update()
 		const WirePlayerHealthTuning& health = GetWireGameplayTuning().Health;
 		const bool blinkOff = m_InvincibleTime > 0.0f
 			&& static_cast<int>(m_InvincibleTime / health.HitBlinkInterval) % 2 == 1;
-		m_AnimationModel->SetVisible(!blinkOff);
+		// 壁際でカメラがプレイヤーの内側まで寄ったときはモデルを消します。
+		// 顔や髪の裏側が画面いっぱいに映るより、消えるほうが視界を保てます。
+		const bool cameraInsidePlayer = camera != nullptr
+			&& camera->GetDistanceToPlayer() < kHideModelCameraDistance;
+		m_AnimationModel->SetVisible(!blinkOff && !cameraInsidePlayer);
 
 		const float horizontalSpeed = Vector3(m_Velocity.x, 0.0f, m_Velocity.z).length();
 		// 低速域でIdle/Runが頻繁に往復しないよう、切り替えにヒステリシスを持たせる。

@@ -50,6 +50,12 @@ Wire Action の中心的な抽象は次の2つです。どちらも「対象側�
 - `wireBreakable.h` の `IWireBreakable`: 剣で壊せるもの。小型ロボット、装甲、
   弱点、ロック機構が実装します。
 
+箱状の見た目は `wireBoxMesh.*` の一つの生成関数から作ります。工場・巨大機械の
+部位・ロック機構がそれぞれ同じ生成コードを複製していた時期に、側面4つの巻き順が
+裏向き(外から見るとカリングされ、箱の内側が透けて見える)という不具合も3箇所に
+複製されていました。集約後は面の基底の向きから巻き順を機械的に決めるので、
+手で並べた表が間違っていても壊れません。
+
 ステージ形状は `wireBlockField.*` の AABB 集合で表し、レイキャスト・押し出し・
 着地判定を提供します。押し出しは接触面の法線を返し、壁蹴りがこれを使います。
 `wireFactory.*`(静的な工場) と `wireGiantMachine.*`(動く巨大機械) が同じ関数を
@@ -147,6 +153,14 @@ Debug x64 outputs are:
 - `bin/x64/Debug/Engine/Engine.lib`
 - `bin/x64/Debug/WireAction/WireAction.exe`
 - `bin/x64/Debug/BattingCenter/BattingCenter.exe`
+
+## Crash reports
+
+`Engine::CrashReporter`(`crashReporter.*`)が未処理例外を捕まえ、実行ファイルの
+隣に `crash.log`(例外コード・発生アドレス・モジュール内オフセット)と
+`crash.dmp`(ミニダンプ)を書き出します。再現できない落ち方を報告するときは、
+この2ファイルを添えてください。`crash.dmp` を Visual Studio で開くと、発生時の
+呼び出し履歴とローカル変数がそのまま見えます。
 
 ## Self-tests
 

@@ -160,10 +160,14 @@ void WireGame::SpawnWorkers()
 		WireWorker* worker = world.Spawn<WireWorker>();
 		worker->SetPosition({ 0.0f, 25.6f, 18.0f });
 		// 扉オブジェクトの生死を条件にします。壊れると自動で解放されます。
+		//
+		// 条件はこの関数を抜けた後も毎フレーム評価されるため、
+		// ローカルの参照変数を参照キャプチャしてはいけません(変数自体が消えるため未定義動作)。
+		// Sceneは作業員より長生きするので、thisを捕まえてGetWorld()を呼びます。
 		worker->SetCondition(
-			[&world]()
+			[this]()
 			{
-				return world.FindFirst<WireLockGate>() == nullptr;
+				return GetWorld().FindFirst<WireLockGate>() == nullptr;
 			},
 			"BREAK THE LOCK GATE");
 		m_Workers.push_back(worker);

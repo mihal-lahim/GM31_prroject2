@@ -4,6 +4,7 @@
 #include "gameTime.h"
 #include "graphicsResourceFactory.h"
 #include "particleSystem.h"
+#include "wireBoxMesh.h"
 #include "wireTpsCamera.h"
 #include "world.h"
 
@@ -32,49 +33,11 @@ void WireLockGate::Uninit()
 
 void WireLockGate::BuildMesh()
 {
+	// 色はDrawでマテリアルとして与えるため、陰影だけを焼き込みます(shadeOnly)。
 	std::vector<VERTEX_3D> vertices;
 	std::vector<unsigned int> indices;
-
-	struct Face { Vector3 Normal; Vector3 Right; Vector3 Up; float Shade; };
-	const Face faces[6] = {
-		{ {  0,  1,  0 }, { 1, 0, 0 }, { 0, 0, 1 }, 1.00f },
-		{ {  0, -1,  0 }, { 1, 0, 0 }, { 0, 0,-1 }, 0.45f },
-		{ {  1,  0,  0 }, { 0, 0,-1 }, { 0, 1, 0 }, 0.80f },
-		{ { -1,  0,  0 }, { 0, 0, 1 }, { 0, 1, 0 }, 0.72f },
-		{ {  0,  0,  1 }, { 1, 0, 0 }, { 0, 1, 0 }, 0.90f },
-		{ {  0,  0, -1 }, {-1, 0, 0 }, { 0, 1, 0 }, 0.64f },
-	};
-
-	for (const Face& face : faces)
-	{
-		const Vector3 faceCenter{
-			face.Normal.x * m_HalfSize.x, face.Normal.y * m_HalfSize.y, face.Normal.z * m_HalfSize.z };
-		const Vector3 right{
-			face.Right.x * m_HalfSize.x, face.Right.y * m_HalfSize.y, face.Right.z * m_HalfSize.z };
-		const Vector3 up{
-			face.Up.x * m_HalfSize.x, face.Up.y * m_HalfSize.y, face.Up.z * m_HalfSize.z };
-
-		const unsigned int faceBase = static_cast<unsigned int>(vertices.size());
-		const Vector3 corners[4] = {
-			faceCenter - right - up, faceCenter + right - up,
-			faceCenter + right + up, faceCenter - right + up };
-		const XMFLOAT2 uvs[4] = { {0,1}, {1,1}, {1,0}, {0,0} };
-		for (int i = 0; i < 4; ++i)
-		{
-			VERTEX_3D vertex{};
-			vertex.Position = { corners[i].x, corners[i].y, corners[i].z };
-			vertex.Normal = { face.Normal.x, face.Normal.y, face.Normal.z };
-			vertex.Diffuse = { face.Shade, face.Shade, face.Shade, 1.0f };
-			vertex.TexCoord = uvs[i];
-			vertices.push_back(vertex);
-		}
-		indices.push_back(faceBase + 0);
-		indices.push_back(faceBase + 2);
-		indices.push_back(faceBase + 1);
-		indices.push_back(faceBase + 0);
-		indices.push_back(faceBase + 3);
-		indices.push_back(faceBase + 2);
-	}
+	WireBoxMesh::Append(vertices, indices, { 0.0f, 0.0f, 0.0f }, m_HalfSize,
+		{ 1.0f, 1.0f, 1.0f, 1.0f }, true);
 
 	D3D11_BUFFER_DESC vertexDesc{};
 	vertexDesc.Usage = D3D11_USAGE_DEFAULT;

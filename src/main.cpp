@@ -1,6 +1,7 @@
 
 
 #include "main.h"
+#include "crashReporter.h"
 #include "manager.h"
 #include "gameDefinition.h"
 #include "gameTime.h"
@@ -93,6 +94,8 @@ namespace
 int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow)
 {
 	(void)hPrevInstance;
+	// 落ちたときに原因を後から追えるよう、最初に例外の記録先を用意します。
+	Engine::CrashReporter::Install();
 	if (lpCmdLine != nullptr && strstr(lpCmdLine, "--self-test") != nullptr)
 	{
 		return RunEngineSelfTests() ? 0 : 1;
