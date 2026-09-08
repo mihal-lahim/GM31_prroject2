@@ -56,8 +56,8 @@ void WireResultScene::Init()
 	const XMFLOAT4 headingColor = m_Cleared
 		? XMFLOAT4{ 1.0f,0.72f,0.18f,1.0f }
 		: XMFLOAT4{ 1.0f,0.38f,0.32f,1.0f };
-	AddAlphabet(world, m_Cleared ? "ALL DELIVERED" : "GAME OVER",
-		{ m_Cleared ? 270.0f : 400.0f, 135.0f, 0.0f }, 64, 50, headingColor);
+	AddAlphabet(world, m_Cleared ? "ALL WORKERS RESCUED" : "RESCUE FAILED",
+		{ m_Cleared ? 150.0f : 320.0f, 135.0f, 0.0f }, 60, 47, headingColor);
 	AddAlphabet(world, "TIME", { 375,305,0 }, 42, 34, { 0.92f,0.97f,1.0f,1.0f });
 	AddTime(world, m_ClearTime, { 890,295,0 }, { 0.92f,0.97f,1.0f,1.0f });
 	AddAlphabet(world, "BEST", { 375,395,0 }, 42, 34, { 0.18f,0.86f,1.0f,1.0f });
@@ -66,7 +66,7 @@ void WireResultScene::Init()
 	m_TitlePrompt = AddAlphabet(world, "PRESS ENTER FOR TITLE", { 315,625,0 }, 28, 23, { 1.0f,0.82f,0.34f,1.0f });
 
 	KanjiText* kanji = world.Spawn<KanjiText>();
-	kanji->SetText(m_Cleared ? L"配達完了" : L"配達失敗");
+	kanji->SetText(m_Cleared ? L"救出完了" : L"救出失敗");
 	kanji->SetPosition({ 535,235,0 });
 	kanji->SetGlyphSize(42);
 	kanji->SetGlyphAdvance(44);

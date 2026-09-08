@@ -74,8 +74,9 @@ void WireMissionHud::Init()
 	setupLabel(m_OfLabel, "OF", { 285,37,0 }, 23, 18, kCyan);
 	setupNumber(m_TotalValue, 1, { 330,26,0 }, 42, -29, kWhite);
 
+	// 目的は最も読ませたい情報なので、他より一段大きく出します。
 	setupLabel(m_ObjectiveLabel, "OBJECTIVE", { 38,84,0 }, 22, 17, kGold);
-	setupLabel(m_ObjectiveValue, "", { 38,110,0 }, 24, 19, kWhite);
+	setupLabel(m_ObjectiveValue, "", { 38,112,0 }, 29, 23, kWhite);
 
 	setupLabel(m_TimeLabel, "TIME", { SCREEN_WIDTH - 300.0f,30,0 }, 32, 25, kCyan);
 	setupNumber(m_TimeValue, 6, { SCREEN_WIDTH - 35.0f,26,0 }, 42, -34, kWhite);
@@ -148,7 +149,7 @@ void WireMissionHud::Draw()
 	vertices.reserve(2400);
 
 	Rect(vertices, 22, 18, 380, 56, kPanel);
-	Rect(vertices, 22, 78, 560, 62, kPanel);
+	Rect(vertices, 22, 78, 680, 72, kPanel);
 	Rect(vertices, SCREEN_WIDTH - 312.0f, 18, 290, 56, kPanel);
 
 	// 体力ピップ

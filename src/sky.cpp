@@ -11,7 +11,7 @@ void Sky::Init()
 	m_Layer = Layer::World;
 	AddComponent<ModelRenderer>()->Load("assets\\model\\sky.obj");
 
-	m_Scale = { 100.0f, 100.0f, 100.0f };
+	m_Scale = { kDefaultRadius, kDefaultRadius, kDefaultRadius };
 }
 
 void Sky::Uninit()

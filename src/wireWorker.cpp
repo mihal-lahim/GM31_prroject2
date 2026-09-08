@@ -15,9 +15,12 @@
 
 namespace
 {
-	constexpr float kMarkerSize = 2.4f;
+	// 救助対象は「何をするゲームか」を伝える中心的な目印なので、
+	// 工場の端からでも位置が読める大きさと高さにしています。
+	constexpr float kMarkerSize = 4.0f;
 	constexpr float kPulseSpeed = 3.0f;
-	constexpr float kBeaconHeight = 3.2f;
+	constexpr float kBeaconHeight = 5.5f;
+	constexpr int kBeaconSegments = 9;
 
 	// 救助待ち(黄)・解放済み(水色)・救助済み(緑)で色を分け、状態を遠目に判別させます。
 	const XMFLOAT4 kLockedColor{ 1.0f, 0.74f, 0.16f, 0.90f };
@@ -67,8 +70,11 @@ void WireWorker::Init()
 		bd.BindFlags = D3D11_BIND_VERTEX_BUFFER;
 		D3D11_SUBRESOURCE_DATA sd{};
 		sd.pSysMem = vertex;
-		Engine::GraphicsResourceFactory::CreateBuffer(s_VertexBuffer, bd, &sd, "WireWorker");
-		Engine::GraphicsResourceFactory::CreateUnlitShaderPair(
+		// 生成の成否は下のIsDrawableでまとめて確認するため、個別の戻り値は使いません。
+		// 失敗時はファクトリ側が対象を空にしてログを残します。
+		(void)Engine::GraphicsResourceFactory::CreateBuffer(
+			s_VertexBuffer, bd, &sd, "WireWorker");
+		(void)Engine::GraphicsResourceFactory::CreateUnlitShaderPair(
 			s_VertexShader, s_VertexLayout, s_PixelShader, "WireWorker");
 		s_Texture = ResourceManager::LoadTexture(L"assets/texture/particle.png");
 	}
@@ -220,10 +226,11 @@ void WireWorker::Draw()
 	drawLayer(1.2f, kMarkerSize * 0.45f, 1.0f);
 	if (!m_Rescued)
 	{
-		for (int i = 1; i <= 5; ++i)
+		// 上空へ伸びる光柱です。障害物の陰にいても位置が分かります。
+		for (int i = 1; i <= kBeaconSegments; ++i)
 		{
-			const float t = static_cast<float>(i) / 5.0f;
-			drawLayer(1.2f + kBeaconHeight * i * 0.8f, kMarkerSize * 0.30f, (1.0f - t) * 0.7f);
+			const float t = static_cast<float>(i) / static_cast<float>(kBeaconSegments);
+			drawLayer(1.2f + kBeaconHeight * i, kMarkerSize * 0.34f, (1.0f - t * 0.75f) * 0.8f);
 		}
 	}
 

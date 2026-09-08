@@ -20,17 +20,20 @@ namespace
 			return { 0.16f, 0.17f, 0.20f, 1.0f };
 		}
 
+		// ステージ全体で色の意味を揃えます。
+		//   黄土 = 乗れる足場 / 橙 = 壊せる / 赤 = 弱点 / 灰 = ただの構造
+		// 色を見るだけで「乗るのか、斬るのか」が判断できるようにするためです。
 		switch (role)
 		{
 		case WireMachinePart::Role::Armor:
-			return { 0.42f, 0.46f, 0.54f, 1.0f };
+			return { 0.92f, 0.46f, 0.12f, 1.0f };
 		case WireMachinePart::Role::WeakPoint:
-			// 露出していない弱点は暗く、露出すると赤く光ります。
-			return exposed ? XMFLOAT4{ 1.0f, 0.28f, 0.22f, 1.0f } : XMFLOAT4{ 0.20f, 0.16f, 0.16f, 1.0f };
+			// 露出していない弱点は暗く沈め、露出すると赤く光ります。
+			return exposed ? XMFLOAT4{ 1.0f, 0.20f, 0.16f, 1.0f } : XMFLOAT4{ 0.20f, 0.16f, 0.16f, 1.0f };
 		case WireMachinePart::Role::Platform:
-			return { 0.30f, 0.40f, 0.30f, 1.0f };
+			return { 0.62f, 0.52f, 0.28f, 1.0f };
 		default:
-			return { 0.28f, 0.31f, 0.38f, 1.0f };
+			return { 0.30f, 0.33f, 0.40f, 1.0f };
 		}
 	}
 }
