@@ -34,20 +34,30 @@ void WireTitleScene::Init()
 	GameTime::SetPaused(false);
 	World& world = GetWorld();
 	world.Spawn<Polygon2D>()->Init(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, L"assets/texture/title.png");
-	AddAlphabet(world, "WIRE DELIVERY", { 250,170,0 }, 72, 56, { 1.0f,0.72f,0.18f,1.0f });
+	AddAlphabet(world, "STEEL RESCUE", { 285,140,0 }, 76, 58, { 1.0f,0.72f,0.18f,1.0f });
+	// ゲーム内容を一行で伝えます。タイトルだけでは何をする遊びか分からないためです。
+	AddAlphabet(world, "WIRE THROUGH THE RUNAWAY FACTORY",
+		{ 250,242,0 }, 26, 21, { 0.55f,0.90f,1.0f,1.0f });
+	AddAlphabet(world, "CUT A PATH AND RESCUE THE WORKERS",
+		{ 243,274,0 }, 26, 21, { 0.55f,0.90f,1.0f,1.0f });
+
 	m_StartPrompt = AddAlphabet(world, "PRESS ENTER", { 430,470,0 }, 42, 34, { 0.92f,0.97f,1.0f,1.0f });
-	AddAlphabet(world, "WASD MOVE SHIFT DASH", { 365,570,0 }, 28, 23, { 0.18f,0.86f,1.0f,1.0f });
+	// 移動を繋げる遊びであることを、操作表そのもので示します。
+	AddAlphabet(world, "WASD MOVE   SPACE JUMP AND WALL KICK   SHIFT AIR DASH",
+		{ 130,548,0 }, 22, 18, { 0.18f,0.86f,1.0f,1.0f });
+	AddAlphabet(world, "RIGHT MOUSE AIM   LEFT MOUSE WIRE OR SWORD",
+		{ 215,578,0 }, 22, 18, { 0.18f,0.86f,1.0f,1.0f });
 
 	KanaText* kana = world.Spawn<KanaText>();
-	kana->SetText(L"ワイヤーアクション");
-	kana->SetPosition({ 405,300,0 });
-	kana->SetGlyphSize(45);
-	kana->SetGlyphAdvance(43);
+	kana->SetText(L"コウジョウキュウシュツ");
+	kana->SetPosition({ 355,330,0 });
+	kana->SetGlyphSize(42);
+	kana->SetGlyphAdvance(40);
 	kana->SetColor({ 0.94f,0.97f,1.0f,1.0f });
 
 	KanjiText* kanji = world.Spawn<KanjiText>();
-	kanji->SetText(L"配達開始");
-	kanji->SetPosition({ 555,375,0 });
+	kanji->SetText(L"救出開始");
+	kanji->SetPosition({ 555,395,0 });
 	kanji->SetGlyphSize(38);
 	kanji->SetGlyphAdvance(42);
 	kanji->SetColor({ 1.0f,0.82f,0.34f,1.0f });

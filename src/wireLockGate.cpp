@@ -165,12 +165,13 @@ void WireLockGate::Draw()
 	Renderer::GetDeviceContext()->PSSetShader(m_PixelShader.Get(), nullptr, 0);
 	Renderer::SetWorldMatrix(XMMatrixTranslation(m_Position.x, m_Position.y, m_Position.z));
 
-	// 残り耐久が減るほど赤く濁らせ、あと何回斬れば壊れるかを色で伝えます。
+	// 壊せるものは橙。ステージ全体の色の意味に揃えています。
+	// 残り耐久が減るほど赤へ寄せ、あと何回斬れば壊れるかを色で伝えます。
 	const float ratio = static_cast<float>(m_Health) / static_cast<float>((std::max)(m_MaxHealth, 1));
 	XMFLOAT4 color{
-		0.85f - ratio * 0.25f,
-		0.30f + ratio * 0.35f,
-		0.22f + ratio * 0.30f,
+		0.95f,
+		0.18f + ratio * 0.30f,
+		0.10f + ratio * 0.06f,
 		1.0f };
 	color.x = (std::min)(1.0f, color.x + m_HitFlash * 0.7f);
 	color.y = (std::min)(1.0f, color.y + m_HitFlash * 0.7f);

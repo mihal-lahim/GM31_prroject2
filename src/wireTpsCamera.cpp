@@ -4,6 +4,7 @@
 #include "gameSettings.h"
 #include "gameTime.h"
 #include "renderer.h"
+#include "wireFactory.h"
 #include "wirePlayer.h"
 #include "world.h"
 #include "wireGameplayTuning.h"
@@ -12,6 +13,10 @@
 
 namespace
 {
+	// カメラを壁の手前で止めるための余白と、寄りすぎ防止の最低距離です。
+	constexpr float kCameraCollisionEpsilon = 0.001f;
+	constexpr float kCameraCollisionMargin = 0.85f;
+	constexpr float kMinCameraDistance = 1.6f;
 
 	Vector3 MakeCameraForward(float yaw, float pitch)
 	{
@@ -157,6 +162,36 @@ void WireTpsCamera::LateUpdate()
 			const float lift = minCameraY - desiredPosition.y;
 			desiredPosition.y += lift;
 			desiredTarget.y += lift;
+		}
+	}
+
+	// 注視点からカメラ位置へ向かって地形を調べ、壁や足場に入り込む場合は手前で止めます。
+	// これが無いと、狭い場所や壁際でカメラが構造物の内部に入り、
+	// 画面が単色で埋まって全体像がまったく見えなくなります。
+	{
+		Vector3 backward = desiredPosition - desiredTarget;
+		const float desiredLength = backward.length();
+		if (desiredLength > kCameraCollisionEpsilon)
+		{
+			backward /= desiredLength;
+			float allowed = desiredLength;
+
+			if (WireFactory* factory = GetWorld().FindFirst<WireFactory>())
+			{
+				Vector3 hitPosition;
+				Vector3 hitNormal;
+				if (factory->GetBlockField().Raycast(
+					desiredTarget, backward, desiredLength + kCameraCollisionMargin,
+					hitPosition, hitNormal))
+				{
+					allowed = (std::min)(allowed,
+						(hitPosition - desiredTarget).length() - kCameraCollisionMargin);
+				}
+			}
+
+			// 近づけすぎるとプレイヤーの内部に入るため、最低距離を確保します。
+			allowed = std::clamp(allowed, kMinCameraDistance, desiredLength);
+			desiredPosition = desiredTarget + backward * allowed;
 		}
 	}
 

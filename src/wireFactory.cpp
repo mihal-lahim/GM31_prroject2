@@ -15,10 +15,14 @@ namespace
 	constexpr float kWallHeight = 46.0f;
 	constexpr float kWallThickness = 3.0f;
 
+	// 色で役割を伝えます。全部が同じ灰色だと、どこに乗れてどこを蹴れるのかが
+	// 見て分からず、ゲーム内容がぱっと読めなくなるためです。
+	//   床・壁 = 暗い工業色 / 足場 = 明るい黄土 / 蹴れる壁 = 青 / 梁 = シアン
 	const XMFLOAT4 kFloorColor{ 0.13f, 0.16f, 0.21f, 1.0f };
 	const XMFLOAT4 kWallColor{ 0.17f, 0.20f, 0.26f, 1.0f };
-	const XMFLOAT4 kStructureColor{ 0.24f, 0.28f, 0.35f, 1.0f };
-	const XMFLOAT4 kAccentColor{ 0.30f, 0.42f, 0.52f, 1.0f };
+	const XMFLOAT4 kStructureColor{ 0.62f, 0.52f, 0.28f, 1.0f };
+	const XMFLOAT4 kKickWallColor{ 0.20f, 0.44f, 0.72f, 1.0f };
+	const XMFLOAT4 kBeamColor{ 0.22f, 0.62f, 0.72f, 1.0f };
 }
 
 void WireFactory::AddBox(
@@ -111,13 +115,15 @@ void WireFactory::BuildGeometry()
 		{ kFloorHalfX, kWallHeight * 0.5f, kWallThickness }, kWallColor, false);
 
 	// --- 侵入エリア。低い足場から徐々に高くなり、自然に上を目指させます ---
+	// 足場は動線の左右へ寄せています。正面に置くと開始直後の視界を塞ぎ、
+	// 奥の巨大機械という目標が見えなくなるためです。
 	addSolid({ 0.0f, 1.6f, -78.0f }, { 12.0f, 1.6f, 8.0f }, kStructureColor);
-	addSolid({ -16.0f, 4.5f, -62.0f }, { 7.0f, 4.5f, 7.0f }, kStructureColor);
-	addSolid({ 15.0f, 8.0f, -50.0f }, { 7.0f, 8.0f, 7.0f }, kStructureColor);
+	addSolid({ -30.0f, 4.5f, -62.0f }, { 7.0f, 4.5f, 7.0f }, kStructureColor);
+	addSolid({ 30.0f, 8.0f, -50.0f }, { 7.0f, 8.0f, 7.0f }, kStructureColor);
 
 	// --- 壁蹴りで登る隘路。左右の壁が近く、蹴って登れる幅にしてあります ---
-	addSolid({ -22.0f, 20.0f, -30.0f }, { 5.0f, 20.0f, 9.0f }, kAccentColor, false);
-	addSolid({ 22.0f, 20.0f, -30.0f }, { 5.0f, 20.0f, 9.0f }, kAccentColor, false);
+	addSolid({ -22.0f, 20.0f, -30.0f }, { 5.0f, 20.0f, 9.0f }, kKickWallColor, false);
+	addSolid({ 22.0f, 20.0f, -30.0f }, { 5.0f, 20.0f, 9.0f }, kKickWallColor, false);
 	addSolid({ 0.0f, 21.0f, -22.0f }, { 9.0f, 1.2f, 6.0f }, kStructureColor);
 	m_HighPerchPoints.push_back({ 0.0f, 22.2f, -22.0f });
 
@@ -141,10 +147,12 @@ void WireFactory::BuildGeometry()
 	for (int i = 0; i < 5; ++i)
 	{
 		const float z = -60.0f + i * 32.0f;
-		addSolid({ 0.0f, 40.0f, z }, { kFloorHalfX - 4.0f, 1.2f, 2.4f }, kAccentColor, false);
+		addSolid({ 0.0f, 40.0f, z }, { kFloorHalfX - 4.0f, 1.2f, 2.4f }, kBeamColor, false);
 	}
 
-	m_SpawnPoint = { 0.0f, 4.0f, -78.0f };
+	// 侵入台の手前寄りに立たせます。壁際すぎるとカメラが背後の壁に押し込まれ、
+	// 開始した瞬間に工場の全体像が見えなくなるためです。
+	m_SpawnPoint = { 0.0f, 4.0f, -74.0f };
 
 	D3D11_BUFFER_DESC vertexDesc{};
 	vertexDesc.Usage = D3D11_USAGE_DEFAULT;

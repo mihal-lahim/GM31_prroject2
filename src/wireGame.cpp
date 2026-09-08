@@ -196,7 +196,10 @@ void WireGame::BuildStage()
 {
 	World& world = GetWorld();
 
-	world.Spawn<Sky>();
+	// スカイドームは深度を書き込むため、半径がそのまま実質的な描画距離になります。
+	// 既定の100mでは工場(奥行き192m)の奥半分と巨大機械が空に隠れてしまうので、
+	// ステージの対角線を十分に超える値へ広げます(カメラのFarClipは1000m)。
+	world.Spawn<Sky>()->SetRadius(420.0f);
 	WireFactory* factory = world.Spawn<WireFactory>();
 	world.Spawn<ParticleSystem>();
 
@@ -340,12 +343,33 @@ void WireGame::UpdateObjective()
 		m_Objective = Objective::ReachHigh;
 	}
 
-	if (previous == m_Objective || m_Hud == nullptr)
+	if (m_Hud == nullptr)
 	{
 		return;
 	}
 
-	m_Hud->SetObjective(GetObjectiveText());
+	// 装甲破壊中は残り枚数を語で添えます。あと何枚かが分かると手が止まりません。
+	if (m_Objective == Objective::BreakArmor && m_Machine != nullptr)
+	{
+		static const char* const kRemainingWords[] = { "", " ONE LEFT", " TWO LEFT", " THREE LEFT" };
+		const int remaining = m_Machine->GetRemainingArmorCount();
+		std::string text = GetObjectiveText();
+		if (remaining >= 1 && remaining <= 3)
+		{
+			text += kRemainingWords[remaining];
+		}
+		m_Hud->SetObjective(text.c_str());
+	}
+	else
+	{
+		m_Hud->SetObjective(GetObjectiveText());
+	}
+
+	if (previous == m_Objective)
+	{
+		return;
+	}
+
 	// 段階が進んだ節目だけ通知を出します。出しすぎると読まれなくなるためです。
 	if (m_Objective == Objective::BreakCore)
 	{

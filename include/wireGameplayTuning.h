@@ -155,9 +155,9 @@ struct WireCameraTuning
 	float AimFov = 0.82f;
 	float NearClip = 0.1f;
 	float FarClip = 1000.0f;
-	float InitialHeight = 7.6f;
+	float InitialHeight = 6.0f;
 	float InitialDistance = -9.2f;
-	float InitialPitch = -0.68f;
+	float InitialPitch = -0.16f;   // 開始時は水平寄り。見下ろすと工場の全体像が見えないため
 	float NormalMinPitchDegrees = -68.0f;
 	float NormalMaxPitchDegrees = 6.0f;
 	float AimMinPitchDegrees = -88.0f;

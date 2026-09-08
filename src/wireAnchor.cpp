@@ -11,7 +11,9 @@
 
 namespace
 {
-	constexpr float kBillboardBaseSize = 2.7f;
+	// 工場は奥行きが広く、遠くのアンカーが点にしか見えないと次の行き先が読めません。
+	// 掛けられる場所を遠距離から判別させるため、大きめに出します。
+	constexpr float kBillboardBaseSize = 4.2f;
 	constexpr float kOuterPulseAmount = 0.18f;
 	constexpr float kInnerPulseAmount = 0.10f;
 	constexpr float kPulseSpeed = 3.8f;

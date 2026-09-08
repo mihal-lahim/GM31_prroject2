@@ -16,7 +16,7 @@ namespace
 	// 「肩と腕は掛かり所、胸と背の装甲を割ると制御コアが出る」構成です。
 	constexpr float kIdleSwaySpeed = 0.8f;
 	constexpr float kIdleSwayAmount = 0.55f;
-	constexpr float kRescueRouteHeight = 20.0f;
+	constexpr float kRescueRouteHeight = 31.0f;
 }
 
 WireMachinePart* WireGiantMachine::AddPart(
@@ -36,26 +36,31 @@ void WireGiantMachine::Init()
 
 	using Role = WireMachinePart::Role;
 
+	// 工場の天井(46m)に迫る高さにし、侵入地点から見上げた時点で
+	// 「あれが目標だ」と一目で分かる大きさにしています。
 	// --- 脚と胴。足場と掛かり所を兼ねる構造部です ---
-	AddPart(static_cast<int>(Role::Structure), { -7.0f, 5.0f, 0.0f }, { 3.2f, 5.0f, 3.2f }, 1);
-	AddPart(static_cast<int>(Role::Structure), { 7.0f, 5.0f, 0.0f }, { 3.2f, 5.0f, 3.2f }, 1);
-	AddPart(static_cast<int>(Role::Structure), { 0.0f, 13.0f, 0.0f }, { 7.5f, 4.0f, 5.0f }, 1);
+	AddPart(static_cast<int>(Role::Structure), { -11.0f, 8.0f, 0.0f }, { 5.0f, 8.0f, 5.0f }, 1);
+	AddPart(static_cast<int>(Role::Structure), { 11.0f, 8.0f, 0.0f }, { 5.0f, 8.0f, 5.0f }, 1);
+	AddPart(static_cast<int>(Role::Structure), { 0.0f, 21.0f, 0.0f }, { 12.0f, 6.5f, 8.0f }, 1);
 
 	// --- 肩。ワイヤーで飛び移るための高い掛かり所です ---
-	AddPart(static_cast<int>(Role::Platform), { -11.5f, 19.0f, 0.0f }, { 4.0f, 1.6f, 4.0f }, 1);
-	AddPart(static_cast<int>(Role::Platform), { 11.5f, 19.0f, 0.0f }, { 4.0f, 1.6f, 4.0f }, 1);
+	AddPart(static_cast<int>(Role::Platform), { -18.0f, 30.0f, 0.0f }, { 6.0f, 2.2f, 6.0f }, 1);
+	AddPart(static_cast<int>(Role::Platform), { 18.0f, 30.0f, 0.0f }, { 6.0f, 2.2f, 6.0f }, 1);
 
 	// --- 腕。大きく張り出し、周囲を飛び回る足場になります ---
-	AddPart(static_cast<int>(Role::Platform), { -16.0f, 14.0f, 6.0f }, { 2.6f, 1.4f, 7.0f }, 1);
-	AddPart(static_cast<int>(Role::Platform), { 16.0f, 14.0f, 6.0f }, { 2.6f, 1.4f, 7.0f }, 1);
+	AddPart(static_cast<int>(Role::Platform), { -25.0f, 22.0f, 9.0f }, { 3.6f, 2.0f, 11.0f }, 1);
+	AddPart(static_cast<int>(Role::Platform), { 25.0f, 22.0f, 9.0f }, { 3.6f, 2.0f, 11.0f }, 1);
+
+	// --- 頭部。てっぺんの目印になります ---
+	AddPart(static_cast<int>(Role::Platform), { 0.0f, 34.0f, 0.0f }, { 5.0f, 3.0f, 5.0f }, 1);
 
 	// --- 装甲。すべて割ると弱点が露出します ---
-	AddPart(static_cast<int>(Role::Armor), { 0.0f, 17.0f, -5.4f }, { 6.0f, 3.4f, 1.4f }, 260);
-	AddPart(static_cast<int>(Role::Armor), { 0.0f, 17.0f, 5.4f }, { 6.0f, 3.4f, 1.4f }, 260);
-	AddPart(static_cast<int>(Role::Armor), { 0.0f, 23.0f, 0.0f }, { 5.0f, 2.4f, 4.4f }, 320);
+	AddPart(static_cast<int>(Role::Armor), { 0.0f, 24.0f, -8.6f }, { 9.5f, 5.5f, 2.0f }, 260);
+	AddPart(static_cast<int>(Role::Armor), { 0.0f, 24.0f, 8.6f }, { 9.5f, 5.5f, 2.0f }, 260);
+	AddPart(static_cast<int>(Role::Armor), { 0.0f, 30.0f, 0.0f }, { 8.0f, 3.4f, 7.0f }, 320);
 
 	// --- 制御コア(弱点)。装甲が割れるまで攻撃できません ---
-	AddPart(static_cast<int>(Role::WeakPoint), { 0.0f, 18.0f, 0.0f }, { 2.6f, 2.6f, 2.6f }, 420);
+	AddPart(static_cast<int>(Role::WeakPoint), { 0.0f, 24.0f, 0.0f }, { 4.2f, 4.2f, 4.2f }, 420);
 }
 
 void WireGiantMachine::Uninit()
@@ -248,5 +253,5 @@ bool WireGiantMachine::FindGroundBelow(
 Vector3 WireGiantMachine::GetRescueRoutePosition() const
 {
 	// 背中側の高い位置です。弱点を壊すとここへ到達できるようになります。
-	return m_Position + Vector3(0.0f, kRescueRouteHeight, -6.5f);
+	return m_Position + Vector3(0.0f, kRescueRouteHeight, -11.0f);
 }
