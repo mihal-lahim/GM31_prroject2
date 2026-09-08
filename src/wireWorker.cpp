@@ -200,7 +200,7 @@ void WireWorker::Draw()
 	const float alphaScale = m_Rescued ? 0.35f : 1.0f;
 
 	Renderer::SetAddBlendEnable(true);
-	Renderer::SetDepthEnable(false);
+	Renderer::SetDepthMode(RenderDepthMode::TestOnly);
 
 	auto drawLayer = [&](float height, float size, float alpha)
 	{
@@ -234,6 +234,6 @@ void WireWorker::Draw()
 		}
 	}
 
-	Renderer::SetDepthEnable(true);
+	Renderer::SetDepthMode(RenderDepthMode::Enabled);
 	Renderer::SetAddBlendEnable(false);
 }

@@ -244,7 +244,7 @@ void ParticleSystem::Draw()
 	Renderer::SetMaterial(material);
 	Renderer::SetWorldMatrix(XMMatrixIdentity());
 	Renderer::SetAddBlendEnable(true);
-	Renderer::SetDepthEnable(false);
+	Renderer::SetDepthMode(RenderDepthMode::TestOnly);
 	ID3D11ShaderResourceView* texture = s_Texture->Get();
 	Renderer::GetDeviceContext()->PSSetShaderResources(0, 1, &texture);
 
@@ -254,6 +254,6 @@ void ParticleSystem::Draw()
 	Renderer::GetDeviceContext()->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 	Renderer::GetDeviceContext()->Draw(static_cast<UINT>(vertices.size()), 0);
 
-	Renderer::SetDepthEnable(true);
+	Renderer::SetDepthMode(RenderDepthMode::Enabled);
 	Renderer::SetAddBlendEnable(false);
 }

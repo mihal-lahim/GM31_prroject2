@@ -5,6 +5,8 @@
 #include "gameTime.h"
 #include "renderer.h"
 #include "wireFactory.h"
+#include "wireGiantMachine.h"
+#include "wireMachinePart.h"
 #include "wirePlayer.h"
 #include "world.h"
 #include "wireGameplayTuning.h"
@@ -165,35 +167,9 @@ void WireTpsCamera::LateUpdate()
 		}
 	}
 
-	// 注視点からカメラ位置へ向かって地形を調べ、壁や足場に入り込む場合は手前で止めます。
-	// これが無いと、狭い場所や壁際でカメラが構造物の内部に入り、
-	// 画面が単色で埋まって全体像がまったく見えなくなります。
-	{
-		Vector3 backward = desiredPosition - desiredTarget;
-		const float desiredLength = backward.length();
-		if (desiredLength > kCameraCollisionEpsilon)
-		{
-			backward /= desiredLength;
-			float allowed = desiredLength;
-
-			if (WireFactory* factory = GetWorld().FindFirst<WireFactory>())
-			{
-				Vector3 hitPosition;
-				Vector3 hitNormal;
-				if (factory->GetBlockField().Raycast(
-					desiredTarget, backward, desiredLength + kCameraCollisionMargin,
-					hitPosition, hitNormal))
-				{
-					allowed = (std::min)(allowed,
-						(hitPosition - desiredTarget).length() - kCameraCollisionMargin);
-				}
-			}
-
-			// 近づけすぎるとプレイヤーの内部に入るため、最低距離を確保します。
-			allowed = std::clamp(allowed, kMinCameraDistance, desiredLength);
-			desiredPosition = desiredTarget + backward * allowed;
-		}
-	}
+	// 補間の目標位置を先に地形へ合わせておくと、収束が速く挙動も安定します。
+	// ただしこれだけでは不十分で、実際に描画する位置は後段でもう一度クランプします。
+	desiredPosition = ClampAgainstGeometry(desiredTarget, desiredPosition);
 
 	const bool snapBackFromWireAim = wireActive && m_CloseAimActiveLastFrame;
 	if (!m_TargetInitialized || snapBackFromWireAim)
@@ -239,6 +215,57 @@ void WireTpsCamera::LateUpdate()
 	UpdateImpactState(dt);
 	ApplyImpactToView(dt);
 	GameObject::LateUpdate();
+}
+
+Vector3 WireTpsCamera::ClampAgainstGeometry(const Vector3& target, const Vector3& position) const
+{
+	Vector3 backward = position - target;
+	const float length = backward.length();
+	if (length <= kCameraCollisionEpsilon)
+	{
+		return position;
+	}
+	backward /= length;
+
+	float allowed = length;
+	World& world = const_cast<WireTpsCamera*>(this)->GetWorld();
+
+	// 工場の壁・床・足場
+	if (WireFactory* factory = world.FindFirst<WireFactory>())
+	{
+		Vector3 hitPosition;
+		Vector3 hitNormal;
+		if (factory->GetBlockField().Raycast(target, backward, length, hitPosition, hitNormal))
+		{
+			allowed = (std::min)(allowed, (hitPosition - target).length() - kCameraCollisionMargin);
+		}
+	}
+
+	// 巨大機械の部位。機体に張り付いたときも内部へ入り込まないようにします。
+	if (WireGiantMachine* machine = world.FindFirst<WireGiantMachine>())
+	{
+		for (const WireMachinePart* part : machine->GetParts())
+		{
+			if (part->IsBroken())
+			{
+				continue;
+			}
+
+			WireBlockField::Block block;
+			block.Center = part->GetPosition();
+			block.HalfSize = part->GetHalfSize();
+			float distance = 0.0f;
+			Vector3 normal;
+			if (WireBlockField::RaycastBlock(block, target, backward, length, distance, normal))
+			{
+				allowed = (std::min)(allowed, distance - kCameraCollisionMargin);
+			}
+		}
+	}
+
+	// 近づけすぎるとプレイヤーの内部に入るため、最低距離を確保します。
+	allowed = std::clamp(allowed, kMinCameraDistance, length);
+	return target + backward * allowed;
 }
 
 void WireTpsCamera::AddShake(float trauma)
@@ -296,8 +323,13 @@ void WireTpsCamera::ApplyImpactToView(float dt)
 		ShakeNoise(m_ShakePhase, 5.0f) * shake * tuning.ShakeMaxAngle * m_Distance
 	};
 
-	m_ShakenPosition = m_Position + offset + m_PunchOffset;
 	m_ShakenTarget = m_Target + targetOffset;
+
+	// 実際に描画する位置をここで確定させ、最後にもう一度地形へ合わせます。
+	// 補間の目標だけを見ていると、追従の遅れや揺れ・パンチの分だけカメラが
+	// 壁の内側へ入り、壁の内向きの面が裏面カリングで消えて透けて見えます。
+	m_ShakenPosition = ClampAgainstGeometry(
+		m_ShakenTarget, m_Position + offset + m_PunchOffset);
 }
 
 void WireTpsCamera::Draw()

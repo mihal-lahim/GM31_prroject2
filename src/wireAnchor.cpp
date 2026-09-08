@@ -185,7 +185,7 @@ void WireAnchor::Draw()
 	const float activeFade = m_Active ? 1.0f : 0.22f;
 
 	Renderer::SetAddBlendEnable(true);
-	Renderer::SetDepthEnable(false);
+	Renderer::SetDepthMode(RenderDepthMode::TestOnly);
 
 	DrawBillboardLayer(
 		s_VertexBuffer.Get(),
@@ -200,6 +200,6 @@ void WireAnchor::Draw()
 		XMFLOAT4{ innerColor.x, innerColor.y, innerColor.z, innerColor.w * activeFade },
 		invView);
 
-	Renderer::SetDepthEnable(true);
+	Renderer::SetDepthMode(RenderDepthMode::Enabled);
 	Renderer::SetAddBlendEnable(false);
 }

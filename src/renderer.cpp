@@ -23,13 +23,14 @@ ComPtr<ID3D11Buffer>			Renderer::m_LightBuffer{};
 
 
 ComPtr<ID3D11DepthStencilState> Renderer::m_DepthStateEnable{};
+ComPtr<ID3D11DepthStencilState> Renderer::m_DepthStateTestOnly{};
 ComPtr<ID3D11DepthStencilState> Renderer::m_DepthStateDisable{};
 
 
 ComPtr<ID3D11BlendState>		Renderer::m_BlendState{};
 ComPtr<ID3D11BlendState>		Renderer::m_BlendStateATC{};
 ComPtr<ID3D11BlendState>		Renderer::m_BlendStateAdd{}; 
-bool Renderer::m_DepthEnabled = true;
+RenderDepthMode Renderer::m_DepthMode = RenderDepthMode::Enabled;
 RenderBlendMode Renderer::m_BlendMode = RenderBlendMode::Alpha;
 
 namespace
@@ -241,6 +242,15 @@ bool Renderer::Init()
 		return false;
 	}
 
+	// 深度テストのみ。加算合成のエフェクトが壁に隠れつつ、深度を汚さないための状態です。
+	depthStencilDesc.DepthWriteMask = D3D11_DEPTH_WRITE_MASK_ZERO;
+	hr = m_Device->CreateDepthStencilState(&depthStencilDesc, m_DepthStateTestOnly.ReleaseAndGetAddressOf());
+	if (!CheckInitializationResult(hr, "ID3D11Device::CreateDepthStencilState(test only)"))
+	{
+		Uninit();
+		return false;
+	}
+
 	depthStencilDesc.DepthEnable = FALSE;
 	depthStencilDesc.DepthWriteMask	= D3D11_DEPTH_WRITE_MASK_ZERO;
 	hr = m_Device->CreateDepthStencilState(&depthStencilDesc, m_DepthStateDisable.ReleaseAndGetAddressOf());
@@ -381,6 +391,7 @@ void Renderer::Uninit()
 	m_BlendStateATC.Reset();
 	m_BlendState.Reset();
 	m_DepthStateDisable.Reset();
+	m_DepthStateTestOnly.Reset();
 	m_DepthStateEnable.Reset();
 	m_DepthStencilView.Reset();
 	m_RenderTargetView.Reset();
@@ -412,13 +423,21 @@ void Renderer::End()
 
 
 
-void Renderer::SetDepthEnable( bool Enable )
+void Renderer::SetDepthMode( RenderDepthMode Mode )
 {
-	m_DepthEnabled = Enable;
-	if( Enable )
-		m_DeviceContext->OMSetDepthStencilState( m_DepthStateEnable.Get(), NULL );
-	else
+	m_DepthMode = Mode;
+	switch( Mode )
+	{
+	case RenderDepthMode::TestOnly:
+		m_DeviceContext->OMSetDepthStencilState( m_DepthStateTestOnly.Get(), NULL );
+		break;
+	case RenderDepthMode::Disabled:
 		m_DeviceContext->OMSetDepthStencilState( m_DepthStateDisable.Get(), NULL );
+		break;
+	default:
+		m_DeviceContext->OMSetDepthStencilState( m_DepthStateEnable.Get(), NULL );
+		break;
+	}
 
 }
 
@@ -531,7 +550,7 @@ struct RendererStateScope::Snapshot
 
 RendererStateScope::RendererStateScope()
 	: m_Snapshot(std::make_unique<Snapshot>()),
-	m_DepthEnabled(Renderer::GetDepthEnabled()),
+	m_DepthMode(Renderer::GetDepthMode()),
 	m_BlendMode(Renderer::GetBlendMode())
 {
 	ID3D11DeviceContext* context = Renderer::GetDeviceContext();
@@ -608,7 +627,7 @@ void RendererStateScope::Restore() const
 		return;
 	}
 
-	Renderer::SetDepthEnable(m_DepthEnabled);
+	Renderer::SetDepthMode(m_DepthMode);
 	Renderer::SetBlendMode(m_BlendMode);
 	context->IASetInputLayout(m_Snapshot->InputLayout.Get());
 	context->IASetPrimitiveTopology(m_Snapshot->Topology);
