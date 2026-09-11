@@ -97,6 +97,7 @@
     <ClInclude Include="include\wirePlayerMovement.h" />
     <ClInclude Include="include\wirePlayerPresentation.h" />
     <ClInclude Include="include\wireReticle.h" />
+    <ClInclude Include="include\wireRobotRenderer.h" />
     <ClInclude Include="include\sky.h" />
     <ClInclude Include="include\wireSlashEffect.h" />
     <ClInclude Include="include\wireSword.h" />
@@ -131,6 +132,7 @@
     <ClCompile Include="src\wirePlayerMovement.cpp" />
     <ClCompile Include="src\wirePlayerPresentation.cpp" />
     <ClCompile Include="src\wireReticle.cpp" />
+    <ClCompile Include="src\wireRobotRenderer.cpp" />
     <ClCompile Include="src\sky.cpp" />
     <ClCompile Include="src\wireSlashEffect.cpp" />
     <ClCompile Include="src\wireSword.cpp" />
@@ -177,15 +179,6 @@
 	<RuntimeAsset Include="assets\model\city_anchors.obj">
 	  <TargetPath>assets\model\city_anchors.obj</TargetPath>
 	</RuntimeAsset>
-    <RuntimeAsset Include="assets\model\Akai.fbx">
-      <TargetPath>assets\model\Akai.fbx</TargetPath>
-    </RuntimeAsset>
-    <RuntimeAsset Include="assets\model\Akai_Idle.fbx">
-      <TargetPath>assets\model\Akai_Idle.fbx</TargetPath>
-    </RuntimeAsset>
-    <RuntimeAsset Include="assets\model\Akai_Run.fbx">
-      <TargetPath>assets\model\Akai_Run.fbx</TargetPath>
-    </RuntimeAsset>
     <RuntimeAsset Include="assets\model\box.mtl">
       <TargetPath>assets\model\box.mtl</TargetPath>
     </RuntimeAsset>
@@ -194,27 +187,6 @@
     </RuntimeAsset>
     <RuntimeAsset Include="assets\model\gravel.jpg">
       <TargetPath>assets\model\gravel.jpg</TargetPath>
-    </RuntimeAsset>
-    <RuntimeAsset Include="assets\model\player.obj">
-      <TargetPath>assets\model\player.obj</TargetPath>
-    </RuntimeAsset>
-    <RuntimeAsset Include="assets\model\player.mtl">
-      <TargetPath>assets\model\player.mtl</TargetPath>
-    </RuntimeAsset>
-    <RuntimeAsset Include="assets\model\wire_saber.obj">
-      <TargetPath>assets\model\wire_saber.obj</TargetPath>
-    </RuntimeAsset>
-    <RuntimeAsset Include="assets\model\wire_saber.mtl">
-      <TargetPath>assets\model\wire_saber.mtl</TargetPath>
-    </RuntimeAsset>
-    <RuntimeAsset Include="assets\model\sky.obj">
-      <TargetPath>assets\model\sky.obj</TargetPath>
-    </RuntimeAsset>
-    <RuntimeAsset Include="assets\model\sky.mtl">
-      <TargetPath>assets\model\sky.mtl</TargetPath>
-    </RuntimeAsset>
-    <RuntimeAsset Include="assets\model\sky.jpg">
-      <TargetPath>assets\model\sky.jpg</TargetPath>
     </RuntimeAsset>
     <RuntimeAsset Include="assets\texture\ground.png">
       <TargetPath>assets\texture\ground.png</TargetPath>

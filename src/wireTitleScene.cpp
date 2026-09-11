@@ -45,7 +45,7 @@ void WireTitleScene::Init()
 	// 移動を繋げる遊びであることを、操作表そのもので示します。
 	AddAlphabet(world, "WASD MOVE   SPACE JUMP AND WALL KICK   SHIFT AIR DASH",
 		{ 130,548,0 }, 22, 18, { 0.18f,0.86f,1.0f,1.0f });
-	AddAlphabet(world, "RIGHT MOUSE AIM   LEFT MOUSE WIRE OR SWORD",
+	AddAlphabet(world, "HOLD LEFT FOR WIRE RELEASE TO FLY",
 		{ 215,578,0 }, 22, 18, { 0.18f,0.86f,1.0f,1.0f });
 
 	KanaText* kana = world.Spawn<KanaText>();

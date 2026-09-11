@@ -41,7 +41,9 @@ void WireSwordAbility::Update(
 		m_SwingTimer = std::max(0.0f, m_SwingTimer - dt);
 	}
 
-	const bool swordAvailable = !input.AimDown && !grapple.IsAiming() && !grapple.IsActive();
+	// 左クリックは照準先にワイヤー候補があるときワイヤーを優先します。
+	// 候補が無い場所では従来どおり剣を溜められます。
+	const bool swordAvailable = !grapple.IsActive() && !grapple.IsFiring() && !grapple.IsAimingAtAnchor();
 	if (!swordAvailable)
 	{
 		Cancel();

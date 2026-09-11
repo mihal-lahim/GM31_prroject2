@@ -94,8 +94,7 @@ void WireTpsCamera::Uninit()
 
 void WireTpsCamera::PreUpdate()
 {
-	WirePlayer* player = GetWorld().FindFirst<WirePlayer>();
-	const bool closeAim = player != nullptr && player->IsAiming() && !player->IsWireActive();
+	const bool closeAim = false;
 	float mouseX = 0.0f;
 	float mouseY = 0.0f;
 	if (Mouse_ConsumeDelta(&mouseX, &mouseY))
@@ -126,7 +125,7 @@ void WireTpsCamera::LateUpdate()
 	}
 
 	const bool wireActive = player->IsWireActive();
-	const bool closeAim = player->IsAiming() && !wireActive;
+	const bool closeAim = false;
 
 	const Vector3 playerPosition = player->GetPosition();
 	const Vector3 forward = MakeCameraForward(m_Yaw, m_Pitch);
@@ -141,7 +140,7 @@ void WireTpsCamera::LateUpdate()
 		(player->GetSpeed() - tuning.FovBoostStartSpeed)
 		/ (tuning.FovBoostFullSpeed - tuning.FovBoostStartSpeed), 0.0f, 1.0f);
 
-	// 構え中は精密に狙う場面なので、速度による引きを効かせません。
+	// 将来別カメラへ拡張できるようcloseAim分岐は残しますが、現在は常時TPSです。
 	const float desiredDistance = tuning.NormalCameraDistance
 		+ (closeAim ? 0.0f : speedRatio * tuning.SpeedDistanceBoost);
 	m_Distance += (desiredDistance - m_Distance) * tuning.DistanceFollowLerp;

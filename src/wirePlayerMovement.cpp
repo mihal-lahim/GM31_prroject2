@@ -85,7 +85,7 @@ void WirePlayerMovement::Update(
 	{
 		moveDirection.normalize();
 		const float accel = m_OnGround ? GetWireGameplayTuning().Movement.GroundAcceleration : GetWireGameplayTuning().Movement.AirAcceleration;
-		const float aimScale = player.m_Grapple.IsAiming() ? GetWireGameplayTuning().Movement.AimMoveScale : 1.0f;
+		const float aimScale = 1.0f;
 		player.m_Velocity += moveDirection * (accel * aimScale * dt);
 
 		if (!player.m_Grapple.IsActive())
@@ -112,23 +112,11 @@ void WirePlayerMovement::Update(
 		}
 	}
 
-	const float damping = m_OnGround ? GetWireGameplayTuning().Movement.GroundDamping : GetWireGameplayTuning().Movement.AirDamping;
+	const float damping = m_OnGround ? GetWireGameplayTuning().Movement.GroundDamping
+		: (player.m_Grapple.IsActive() ? 0.0f : GetWireGameplayTuning().Movement.AirDamping);
 	player.m_Velocity.x += -player.m_Velocity.x * damping * dt;
 	player.m_Velocity.z += -player.m_Velocity.z * damping * dt;
-	if (player.m_Grapple.IsAiming() && !player.m_Grapple.IsActive())
-	{
-		const float aimBrake = std::clamp(
-			GetWireGameplayTuning().Movement.AimHorizontalDamping * dt, 0.0f, 1.0f);
-		player.m_Velocity.x *= 1.0f - aimBrake;
-		player.m_Velocity.z *= 1.0f - aimBrake;
-	}
-	const bool aimFalling = player.m_Grapple.IsAiming() && !player.m_Grapple.IsActive() && !m_OnGround;
-	player.m_Velocity.y += GetWireGameplayTuning().Movement.Gravity * (aimFalling ? GetWireGameplayTuning().Movement.AimGravityScale : 1.0f) * dt;
-	if (aimFalling && player.m_Velocity.y < GetWireGameplayTuning().Movement.AimFallSpeedLimit)
-	{
-		// 構え中の下限が0なら、上昇が収まった位置で落下せずホバリングします。
-		player.m_Velocity.y = GetWireGameplayTuning().Movement.AimFallSpeedLimit;
-	}
+	player.m_Velocity.y += GetWireGameplayTuning().Movement.Gravity * dt;
 
 	player.m_Scale.x += (1.0f - player.m_Scale.x) * GetWireGameplayTuning().Movement.ScaleRecoverLerp;
 	player.m_Scale.y += (1.0f - player.m_Scale.y) * GetWireGameplayTuning().Movement.ScaleRecoverLerp;

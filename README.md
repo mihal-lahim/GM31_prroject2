@@ -73,9 +73,9 @@ asset manifest, so building one game does not package the other game's assets.
 - `Space`: 接地中はジャンプ、空中で壁に触れていると**壁蹴り**
 - `Shift` + movement: 空中ダッシュ（着地・壁蹴り・ワイヤー接続で回復）
 - Mouse: camera
-- Hold right mouse: aim
-- Left mouse while aiming: fire the wire
-- Hold/release left mouse while not aiming: charge/release sword attack
+- Hold left mouse on a highlighted target: instantly fire and keep the wire connected
+- Release left mouse: cut the wire while preserving momentum
+- Hold/release left mouse away from a valid target: charge/release sword attack
 - `Tab`: pause
 
 ワイヤーは工場の壁・床だけでなく、設備アンカー・ロック機構・巨大機械の各部位にも

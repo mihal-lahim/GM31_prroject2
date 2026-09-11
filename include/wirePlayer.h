@@ -6,8 +6,6 @@
 #include "wirePlayerPresentation.h"
 #include "wireSwordAbility.h"
 
-class AnimationModel;
-
 class WirePlayer : public GameObject
 {
 private:
@@ -20,10 +18,6 @@ private:
 	WireGrappleAbility m_Grapple;
 	WireSwordAbility m_Sword;
 	WirePlayerPresentation m_Presentation;
-	AnimationModel* m_AnimationModel = nullptr;
-	float m_AnimationTick = 0.0f;
-	bool m_UsingRunAnimation = false;
-
 	int m_Health = 1;
 	float m_InvincibleTime = 0.0f;
 
@@ -34,6 +28,9 @@ private:
 
 	// デバッグ用の無敵。有効な間はTakeDamageを無視します。
 	bool m_DamageDisabled = false;
+	float m_WireReleasePoseTime = 0.0f;
+	float m_WireReleaseRollSign = 1.0f;
+	float m_WireReleasePoseIntensity = 0.0f;
 
 public:
 	void Init() override;
@@ -54,6 +51,7 @@ public:
 
 	// ワイヤー接続・壁蹴り・空中ダッシュ・斬撃の成功時に呼び、連鎖を伸ばします。
 	void NotifyMomentumAction();
+	void NotifyWireReleased(const Vector3& anchor);
 	int GetMomentumRank() const;
 	// 次の段階までの進捗(0-1)です。UIゲージが使います。
 	float GetMomentumProgress01() const;
@@ -65,7 +63,7 @@ public:
 	bool IsWireActive() const { return m_Grapple.IsActive(); }
 	bool IsWireVisible() const { return m_Grapple.IsActive() || m_Grapple.IsFiring(); }
 	bool IsAimingAtAnchor() const { return m_Grapple.IsAimingAtAnchor(); }
-	bool IsSwordReady() const { return !m_Grapple.IsAiming() && !m_Grapple.IsActive(); }
+	bool IsSwordReady() const { return !m_Grapple.IsActive(); }
 	bool IsSwordCharging() const { return m_Sword.IsCharging(); }
 	bool IsSwordSwinging() const { return m_Sword.IsSwinging(); }
 	float GetAimTimeRatio() const { return m_Grapple.GetAimTimeRatio(); }
@@ -77,8 +75,16 @@ public:
 	Vector3 GetWireEnd() const { return m_Grapple.GetWireEnd(); }
 	float GetBlinkCooldownRatio() const { return m_Movement.GetBlinkCooldownRatio01(); }
 	bool CanBlinkNow() const { return m_Movement.CanBlinkNow(); }
+	bool IsAirDashing() const { return m_Movement.IsBlinking(); }
 	int GetAirBlinkChargesRemaining() const { return m_Movement.GetAirBlinkChargesRemaining(); }
 	// デバッグ表示とUI用。壁蹴りの可否と、いま狙っているワイヤー対象です。
 	bool CanWallKick() const { return m_Movement.CanWallKickNow(); }
 	const WireTargetHit& GetWireAimPreview() const { return m_Grapple.GetAimPreview(); }
+	float GetWireDistance() const { return IsWireVisible() ? (m_Grapple.GetAnchor() - m_Position).length() : 0.0f; }
+	float GetWireTension() const { return m_Grapple.GetTension(); }
+	float GetWireTangentialSpeed() const { return m_Grapple.GetTangentialSpeed(); }
+	float GetWireVelocityScale() const { return m_Grapple.GetLastVelocityScale(); }
+	float GetWireReleasePose01() const;
+	float GetWireReleaseRollSign() const { return m_WireReleaseRollSign; }
+	float GetWireReleasePoseIntensity() const { return m_WireReleasePoseIntensity; }
 };

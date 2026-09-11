@@ -18,12 +18,16 @@ namespace
 
 	// 色で役割を伝えます。全部が同じ灰色だと、どこに乗れてどこを蹴れるのかが
 	// 見て分からず、ゲーム内容がぱっと読めなくなるためです。
-	//   床・壁 = 暗い工業色 / 足場 = 明るい黄土 / 蹴れる壁 = 青 / 梁 = シアン
-	const XMFLOAT4 kFloorColor{ 0.13f, 0.16f, 0.21f, 1.0f };
-	const XMFLOAT4 kWallColor{ 0.17f, 0.20f, 0.26f, 1.0f };
-	const XMFLOAT4 kStructureColor{ 0.62f, 0.52f, 0.28f, 1.0f };
-	const XMFLOAT4 kKickWallColor{ 0.20f, 0.44f, 0.72f, 1.0f };
-	const XMFLOAT4 kBeamColor{ 0.22f, 0.62f, 0.72f, 1.0f };
+	//   建築 = クリーム / 搬送 = 水色 / 加工 = 黄色 / 動力 = オレンジ / 管理 = 黄緑
+	const XMFLOAT4 kFloorColor{ 0.72f, 0.78f, 0.82f, 1.0f };
+	const XMFLOAT4 kWallColor{ 0.91f, 0.89f, 0.80f, 1.0f };
+	const XMFLOAT4 kStructureColor{ 1.00f, 0.72f, 0.18f, 1.0f };
+	const XMFLOAT4 kKickWallColor{ 0.22f, 0.78f, 0.94f, 1.0f };
+	const XMFLOAT4 kBeamColor{ 0.52f, 0.88f, 0.30f, 1.0f };
+	const XMFLOAT4 kCreamColor{ 0.98f, 0.95f, 0.84f, 1.0f };
+	const XMFLOAT4 kConveyorColor{ 0.18f, 0.72f, 0.92f, 1.0f };
+	const XMFLOAT4 kPowerColor{ 1.00f, 0.42f, 0.18f, 1.0f };
+	const XMFLOAT4 kPinkColor{ 1.00f, 0.42f, 0.68f, 1.0f };
 }
 
 void WireFactory::AddBox(
@@ -46,6 +50,10 @@ void WireFactory::BuildGeometry()
 	{
 		AddBox(vertices, indices, center, halfSize, color);
 		m_BlockField.Add(center, halfSize, landable);
+	};
+	auto addDecoration = [&](const Vector3& center, const Vector3& halfSize, const XMFLOAT4& color)
+	{
+		AddBox(vertices, indices, center, halfSize, color);
 	};
 
 	// --- 床 ---
@@ -96,6 +104,31 @@ void WireFactory::BuildGeometry()
 		const float z = -60.0f + i * 32.0f;
 		addSolid({ 0.0f, 40.0f, z }, { kFloorHalfX - 4.0f, 1.2f, 2.4f }, kBeamColor, false);
 	}
+
+	// --- 巨大なおもちゃ工場らしさを作る非衝突シルエット ---
+	// 搬送ライン。水色の長いベルトとクリーム色の支持脚を繰り返し、奥行きを強調します。
+	for (int i = 0; i < 6; ++i)
+	{
+		const float z = -68.0f + i * 25.0f;
+		addDecoration({ -43.0f, 7.0f, z }, { 14.0f, 0.8f, 3.2f }, kConveyorColor);
+		addDecoration({ -52.0f, 3.2f, z }, { 1.0f, 3.2f, 1.0f }, kCreamColor);
+		addDecoration({ -34.0f, 3.2f, z }, { 1.0f, 3.2f, 1.0f }, kCreamColor);
+		// 箱詰め製品はピンク・黄緑を交互にし、同じ機械の繰り返しをポップに見せます。
+		addDecoration({ -47.0f + (i % 3) * 4.0f, 9.0f, z }, { 1.5f, 1.2f, 1.5f },
+			i % 2 == 0 ? kPinkColor : kBeamColor);
+	}
+	// 右壁沿いの角型ダクトと大型ピストン。曲面を使わず、巨大さは太い断面で表現します。
+	addDecoration({ 49.0f, 31.0f, 0.0f }, { 3.0f, 3.0f, 78.0f }, kCreamColor);
+	for (int i = 0; i < 5; ++i)
+	{
+		const float z = -55.0f + i * 28.0f;
+		addDecoration({ 42.0f, 24.0f, z }, { 6.0f, 2.4f, 4.0f }, kPowerColor);
+		addDecoration({ 42.0f, 16.0f, z }, { 2.2f, 8.0f, 2.2f }, kCreamColor);
+	}
+	// 天井クレーン。遠景でも読める大きなコの字と機能色の吊りブロックです。
+	addDecoration({ 0.0f, 43.0f, 18.0f }, { 48.0f, 1.8f, 2.8f }, kPinkColor);
+	addDecoration({ 12.0f, 36.0f, 18.0f }, { 2.2f, 6.0f, 2.2f }, kCreamColor);
+	addDecoration({ 12.0f, 29.0f, 18.0f }, { 4.0f, 2.0f, 4.0f }, kPowerColor);
 
 	// 侵入台の手前寄りに立たせます。壁際すぎるとカメラが背後の壁に押し込まれ、
 	// 開始した瞬間に工場の全体像が見えなくなるためです。

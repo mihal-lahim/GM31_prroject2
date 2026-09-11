@@ -106,6 +106,42 @@ struct WireGrappleTuning
 	float ReleaseSquashXZ = 0.78f;
 	float ReleaseStretchY = 1.28f;
 	float AnchorAimScoreWeight = 2.0f;
+	// アーケード寄りの振り子制御。接続時は半径方向だけを整理し、接線速度を残します。
+	float RopeLengthScale = 0.96f;
+	float MinRopeLength = 3.0f;
+	float RadialDamping = 4.0f;
+	float ConstraintStrength = 34.0f;
+	float SwingInputAcceleration = 20.0f;
+	float AttachVelocityKeep = 0.98f;
+	float AttachMinSpeed = 12.0f;
+	float RewireBonus = 2.0f;
+	float RewireBonusWindow = 1.15f;
+	float RewireMaxSpeed = 58.0f;
+	float ReleasePoseDuration = 0.28f;
+	float ReleasePoseRoll = 0.62f;
+	float ReleasePoseTwist = 0.32f;
+	float ReleaseLimbLag = 0.48f;
+};
+
+struct WireAnimationTuning
+{
+	float RunCycleSpeed = 4.8f;
+	float WalkSwing = 0.30f;
+	float RunSwing = 0.56f;
+	float JumpStretch = 0.22f;
+	float JumpPoseDuration = 0.34f;
+	float JumpArmRaise = 2.35f;
+	float JumpArmSpread = 0.42f;
+	float JumpAnticipation = 0.12f;
+	float FallTilt = 0.30f;
+	float HighSpeedLean = 0.48f;
+	float WireSwingRoll = 0.52f;
+	float LimbLag = 0.42f;
+	float LandDuration = 0.22f;
+	float LandSquash = 0.30f;
+	float ShootDuration = 0.16f;
+	float StumbleDuration = 0.20f;
+	float HighSpeedStart = 24.0f;
 };
 
 struct WireSwordTuning
@@ -158,8 +194,8 @@ struct WireCameraTuning
 	float InitialHeight = 6.0f;
 	float InitialDistance = -9.2f;
 	float InitialPitch = -0.16f;   // 開始時は水平寄り。見下ろすと工場の全体像が見えないため
-	float NormalMinPitchDegrees = -68.0f;
-	float NormalMaxPitchDegrees = 6.0f;
+	float NormalMinPitchDegrees = -88.0f;
+	float NormalMaxPitchDegrees = 88.0f;
 	float AimMinPitchDegrees = -88.0f;
 	float AimMaxPitchDegrees = 88.0f;
 	float NormalPitchMouseScale = 0.62f;
@@ -279,6 +315,7 @@ struct WireGameplayTuning
 	WirePlayerHealthTuning Health;
 	WireWallKickTuning WallKick;
 	WireMomentumTuning Momentum;
+	WireAnimationTuning Animation;
 };
 
 // RuntimeConfigの読込世代が変わると再構築される、読み取り専用の調整値です。

@@ -3,7 +3,6 @@
 #include "gameTime.h"
 #include "keyboard_utf8.h"
 #include "particleSystem.h"
-#include "sky.h"
 #include "alphabetText.h"
 #include "collider.h"
 #include "mouseInput.h"
@@ -82,7 +81,7 @@ void WireGame::UpdateTutorial()
 	++m_TutorialStep;
 	switch (m_TutorialStep)
 	{
-	case 1: SetTutorialInstruction("HOLD RIGHT MOUSE AND CLICK LEFT TO FIRE WIRE"); break;
+	case 1: SetTutorialInstruction("LOOK AT AN ANCHOR HOLD LEFT TO WIRE RELEASE TO FLY"); break;
 	case 2: SetTutorialInstruction("SPACE ON A WALL TO KICK  SHIFT TO AIR DASH"); break;
 	case 3: SetTutorialInstruction("CHARGE LEFT MOUSE AND CUT THROUGH A ROBOT"); break;
 	case 4: SetTutorialInstruction("WIRE ONTO THE GIANT MACHINE AND BREAK ITS ARMOR"); break;
@@ -203,13 +202,14 @@ void WireGame::BuildStage()
 	// スカイドームは深度を書き込むため、半径がそのまま実質的な描画距離になります。
 	// 既定の100mでは工場(奥行き192m)の奥半分と巨大機械が空に隠れてしまうので、
 	// ステージの対角線を十分に超える値へ広げます(カメラのFarClipは1000m)。
-	world.Spawn<Sky>()->SetRadius(420.0f);
+	// 背景はレンダラの明るい空色を使い、写実的な配布スカイドームを使用しません。
 	WireFactory* factory = world.Spawn<WireFactory>();
 	world.Spawn<ParticleSystem>();
 
 	WirePlayer* player = world.Spawn<WirePlayer>();
 	player->SetPosition(factory->GetSpawnPoint());
-	world.Spawn<WireSword>();
+	// おもちゃロボのシルエットを優先し、剣の携行モデルは表示しません。
+	// 攻撃ロジックは既存ステージ進行との互換のため維持します。
 	world.Spawn<WireTpsCamera>();
 
 	m_Machine = world.Spawn<WireGiantMachine>();
@@ -526,6 +526,17 @@ void WireGame::UpdateDebugOverlay()
 		else if (speed < 20.0f) status += "MID";
 		else if (speed < 34.0f) status += "FAST";
 		else status += "BLAZING";
+
+		status += "  TANGENT ";
+		const float tangentSpeed = player->GetWireTangentialSpeed();
+		if (tangentSpeed < 8.0f) status += "LOW";
+		else if (tangentSpeed < 24.0f) status += "MID";
+		else status += "HIGH";
+		status += "  TENSION ";
+		const float tension = player->GetWireTension();
+		if (tension < 12.0f) status += "SLACK";
+		else if (tension < 55.0f) status += "TAUT";
+		else status += "HIGH";
 
 		status += player->IsOnGround() ? "  GROUNDED" : "  AIRBORNE";
 		status += player->CanWallKick() ? "  WALLKICK READY" : "";

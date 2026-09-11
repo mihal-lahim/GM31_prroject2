@@ -27,10 +27,10 @@ namespace
 		return std::clamp(static_cast<int>(seconds * 100.0f), 0, 999999);
 	}
 
-	const XMFLOAT4 kPanel{ 0.025f, 0.04f, 0.065f, 0.80f };
-	const XMFLOAT4 kCyan{ 0.15f, 0.88f, 1.0f, 1.0f };
-	const XMFLOAT4 kWhite{ 0.94f, 0.97f, 1.0f, 1.0f };
-	const XMFLOAT4 kGold{ 1.0f, 0.72f, 0.18f, 1.0f };
+	const XMFLOAT4 kPanel{ 0.95f, 0.91f, 0.76f, 0.92f };
+	const XMFLOAT4 kCyan{ 0.08f, 0.55f, 0.72f, 1.0f };
+	const XMFLOAT4 kWhite{ 0.08f, 0.16f, 0.22f, 1.0f };
+	const XMFLOAT4 kGold{ 0.96f, 0.45f, 0.10f, 1.0f };
 }
 
 void WireMissionHud::Init()
@@ -165,7 +165,7 @@ void WireMissionHud::Draw()
 			const float x = 112.0f + i * (pipWidth + pipGap);
 			const XMFLOAT4 color = i < m_Health
 				? XMFLOAT4{ 1.0f,0.34f,0.40f,0.96f }
-				: XMFLOAT4{ 0.22f,0.14f,0.18f,0.85f };
+				: XMFLOAT4{ 0.76f,0.72f,0.66f,0.85f };
 			Rect(vertices, x, SCREEN_HEIGHT - 47.0f, pipWidth, pipHeight, color);
 		}
 	}
@@ -173,7 +173,7 @@ void WireMissionHud::Draw()
 	// 連鎖ゲージ。段階が上がるほど明るく、長くなります。
 	{
 		constexpr float barWidth = 190.0f;
-		Rect(vertices, 140, SCREEN_HEIGHT - 92.0f, barWidth, 14.0f, { 0.05f,0.07f,0.10f,0.85f });
+		Rect(vertices, 140, SCREEN_HEIGHT - 92.0f, barWidth, 14.0f, { 0.70f,0.76f,0.78f,0.90f });
 		const float fill = m_MomentumRank > 0 ? 1.0f : m_MomentumProgress;
 		const XMFLOAT4 chainColor = m_MomentumRank > 0
 			? XMFLOAT4{ 1.0f, 0.62f + m_MomentumRank * 0.08f, 0.20f, 0.95f }
@@ -188,13 +188,13 @@ void WireMissionHud::Draw()
 
 	if (m_NoticeTime > 0.0f)
 	{
-		Rect(vertices, SCREEN_WIDTH * 0.5f - 330.0f, 126, 660, 62, { 0.02f,0.06f,0.08f,0.86f });
+		Rect(vertices, SCREEN_WIDTH * 0.5f - 330.0f, 126, 660, 62, { 0.96f,0.88f,0.62f,0.94f });
 	}
 	if (m_Complete)
 	{
 		Rect(vertices, 0, 0, static_cast<float>(SCREEN_WIDTH), static_cast<float>(SCREEN_HEIGHT),
-			{ 0.01f,0.02f,0.04f,0.70f });
-		Rect(vertices, SCREEN_WIDTH * 0.5f - 380.0f, 200, 760, 140, { 0.025f,0.055f,0.075f,0.96f });
+			{ 0.18f,0.64f,0.78f,0.52f });
+		Rect(vertices, SCREEN_WIDTH * 0.5f - 380.0f, 200, 760, 140, { 0.98f,0.92f,0.72f,0.98f });
 	}
 
 	if (vertices.empty() || vertices.size() > kMaxVertices) return;
