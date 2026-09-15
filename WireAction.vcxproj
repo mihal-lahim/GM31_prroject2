@@ -117,6 +117,7 @@
     <ClCompile Include="src\wireGameDefinition.cpp" />
     <ClCompile Include="src\wireAnchor.cpp" />
     <ClCompile Include="src\wireBlinkGauge.cpp" />
+    <ClCompile Include="src\wireHealthUI.cpp" />
 	<ClCompile Include="src\wireBlockField.cpp" />
 	<ClCompile Include="src\wireBoxMesh.cpp" />
 	<ClCompile Include="src\wireChatBox.cpp" />

@@ -30,6 +30,9 @@ private:
 	State m_State = State::Patrol;
 	Vector3 m_Home{ 0.0f, 0.0f, 0.0f };
 	Vector3 m_MoveDirection{ 0.0f, 0.0f, 1.0f };
+	float m_HoverTime = 0.0f;
+	float m_ChaseTargetY = 0.0f;
+	bool m_Chasing = false;
 	Vector3 m_Velocity{ 0.0f, 0.0f, 0.0f };
 	float m_PatrolTurnTimer = 0.0f;
 	float m_AttackCooldown = 0.0f;

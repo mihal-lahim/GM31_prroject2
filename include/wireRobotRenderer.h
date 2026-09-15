@@ -8,7 +8,7 @@
 class WireRobotRenderer : public Component
 {
 public:
-	enum class Style { Player, TroubleBot };
+	enum class Style { Player, TroubleBot, Drone };
 
 private:
 	Style m_Style;

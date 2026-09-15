@@ -29,6 +29,7 @@ public:
 		Vector3 Spawn{ 0.0f, 0.0f, 0.0f };
 		Vector3 Guide{ 0.0f, 0.0f, 0.0f };
 		Vector3 WireAnchor{ 0.0f, 0.0f, 0.0f };
+		Vector3 FinishAnchor{ 0.0f, 0.0f, 0.0f };
 		Vector3 KickWallGap{ 0.0f, 0.0f, 0.0f };
 		Vector3 Finish{ 0.0f, 0.0f, 0.0f };
 	};

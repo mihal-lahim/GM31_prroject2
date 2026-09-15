@@ -222,6 +222,33 @@ void WireRobotRenderer::Draw()
 			* XMMatrixTranslation(pivot.x, pivot.y, pivot.z));
 	};
 
+	if (m_Style == Style::Drone)
+	{
+		const XMFLOAT4 droneBody{ 0.38f, 0.22f, 0.52f, 1.0f };
+		const XMFLOAT4 droneWing{ 0.72f, 0.30f, 0.58f, 1.0f };
+		const XMFLOAT4 droneEye{ 1.0f, 0.25f, 0.20f, 1.0f };
+		const XMFLOAT4 droneAntenna{ 0.90f, 0.85f, 0.70f, 1.0f };
+		const float hover = sinf(m_AnimationTime * 2.0f) * 0.15f;
+		const float tilt = sinf(m_AnimationTime * 1.3f) * 0.08f;
+		const float wingFlap = sinf(m_AnimationTime * 12.0f) * 0.35f;
+		const XMMATRIX droneBody_ = Rotation(tilt, 0.0f, tilt * 0.5f)
+			* XMMatrixTranslation(0.0f, hover, 0.0f);
+		drawBox({ 0.55f, 0.40f, 0.45f }, droneBody, XMMatrixTranslation(0.0f, 0.9f, 0.0f) * droneBody_);
+		drawBox({ 0.14f, 0.14f, 0.06f }, droneEye, XMMatrixTranslation(0.0f, 1.02f, 0.52f) * droneBody_);
+		drawBox({ 0.06f, 0.22f, 0.06f }, droneAntenna, XMMatrixTranslation(-0.18f, 1.48f, 0.0f) * droneBody_);
+		drawBox({ 0.06f, 0.18f, 0.06f }, droneAntenna, XMMatrixTranslation(0.18f, 1.42f, 0.0f) * droneBody_);
+		auto drawWing = [&](float side)
+		{
+			const XMMATRIX wingPivot = XMMatrixTranslation(-side * 0.3f, 0.0f, 0.0f)
+				* Rotation(0.0f, 0.0f, side * wingFlap)
+				* XMMatrixTranslation(side * 0.85f, 1.0f, 0.0f) * droneBody_;
+			drawBox({ 0.38f, 0.06f, 0.28f }, droneWing, wingPivot);
+		};
+		drawWing(-1.0f);
+		drawWing(1.0f);
+		return;
+	}
+
 	const XMFLOAT4 bodyColor = m_Style == Style::Player ? kCyan : kYellow;
 	const XMFLOAT4 accent = m_Style == Style::Player ? kLime : kCoral;
 	const float armLag = animation.LimbLag * highSpeed * 0.32f;

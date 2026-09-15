@@ -281,8 +281,11 @@ struct WireEnemyTuning
 	int ContactDamage = 1;
 	float KnockbackSpeed = 13.0f;
 	float KnockbackUpSpeed = 5.5f;
-	float EdgeMargin = 1.2f;        // 足場の縁からこれだけ内側で引き返します
+	float EdgeMargin = 1.2f;
 	int DeathParticleCount = 46;
+	float HoverHeight = 6.0f;
+	float HoverAmplitude = 1.5f;
+	float HoverSpeed = 2.0f;
 };
 
 struct WirePlayerHealthTuning

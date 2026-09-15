@@ -40,10 +40,10 @@ void WireEnemy::Init()
 	m_Health = GetWireGameplayTuning().Enemy.Health;
 	m_PatrolTurnTimer = GetWireGameplayTuning().Enemy.PatrolTurnInterval;
 
-	AddComponent<WireRobotRenderer>(WireRobotRenderer::Style::TroubleBot);
+	AddComponent<WireRobotRenderer>(WireRobotRenderer::Style::Drone);
 	AddComponent<Collider>()
 		->SetSphere(m_HitRadius)
-		->SetOffset({ 0.0f, m_BaseScale.y * kHitCenterHeightScale, 0.0f })
+		->SetOffset({ 0.0f, m_BaseScale.y * 0.9f, 0.0f })
 		->SetCollisionLayer(WireCollisionLayers::Enemy)
 		->SetUseOwnerScale(false)
 		->SetDebugDraw(false);
@@ -56,8 +56,10 @@ void WireEnemy::Uninit()
 
 void WireEnemy::OnPlaced()
 {
+	const WireEnemyTuning& tuning = GetWireGameplayTuning().Enemy;
 	m_Home = m_Position;
-	ResolvePatrolArea();
+	m_Home.y += tuning.HoverHeight;
+	m_Position.y = m_Home.y;
 }
 
 void WireEnemy::ResolvePatrolArea()
@@ -113,27 +115,19 @@ void WireEnemy::TurnPatrolDirection(float angle)
 void WireEnemy::ApplyMovement(const Vector3& desiredDirection, float speed, float dt)
 {
 	const WireEnemyTuning& tuning = GetWireGameplayTuning().Enemy;
-	const Vector3 desiredVelocity = desiredDirection * speed;
-	const Vector3 difference = desiredVelocity - m_Velocity;
+	Vector3 desiredVelocity = desiredDirection * speed;
+	const Vector3 difference = desiredVelocity - Vector3{ m_Velocity.x, 0.0f, m_Velocity.z };
 	const float maxChange = tuning.Acceleration * dt;
 	const float length = difference.length();
-	m_Velocity += (length > maxChange && length > 0.0f)
+	Vector3 accel = (length > maxChange && length > 0.0f)
 		? difference * (maxChange / length)
 		: difference;
+	m_Velocity.x += accel.x;
+	m_Velocity.z += accel.z;
 
-	const Vector3 nextPosition = m_Position + m_Velocity * dt;
-	if (IsInsideArea(nextPosition))
-	{
-		m_Position = nextPosition;
-	}
-	else
-	{
-		// 範囲外へ出る場合は進まず、向きだけ反転して次フレームから戻ります。
-		m_MoveDirection = -m_MoveDirection;
-		m_Velocity = { 0.0f, 0.0f, 0.0f };
-	}
+	m_Position.x += m_Velocity.x * dt;
+	m_Position.z += m_Velocity.z * dt;
 
-	// 進行方向へ滑らかに向き直ります。
 	if (desiredDirection.length() > 0.0f)
 	{
 		const float targetYaw = atan2f(desiredDirection.x, desiredDirection.z);
@@ -149,15 +143,13 @@ void WireEnemy::UpdateThinking(WirePlayer* player, float dt)
 	const WireEnemyTuning& tuning = GetWireGameplayTuning().Enemy;
 	m_AttackCooldown = (std::max)(0.0f, m_AttackCooldown - dt);
 
-	// プレイヤーが見えるかどうかを、水平距離と高さの両方で判定します。
-	// 高さを見ることで、別の屋上にいる敵がまとめて反応するのを防ぎます。
 	float distance = 0.0f;
 	bool playerVisible = false;
 	if (player != nullptr)
 	{
-		const Vector3 playerPosition = player->GetPosition();
-		distance = HorizontalDistance(playerPosition, m_Position);
-		playerVisible = std::abs(playerPosition.y - m_Position.y) <= tuning.DetectHeightRange;
+		const Vector3 toPlayer = player->GetPosition() - m_Position;
+		distance = toPlayer.length();
+		playerVisible = distance <= tuning.DetectRadius * 1.5f;
 	}
 
 	switch (m_State)
@@ -166,13 +158,14 @@ void WireEnemy::UpdateThinking(WirePlayer* player, float dt)
 		if (playerVisible && distance <= tuning.DetectRadius)
 		{
 			m_State = State::Chase;
+			m_Chasing = true;
 			break;
 		}
+		m_Chasing = false;
 		m_PatrolTurnTimer -= dt;
 		if (m_PatrolTurnTimer <= 0.0f)
 		{
 			m_PatrolTurnTimer = tuning.PatrolTurnInterval;
-			// 一定間隔で90度ずつ向きを変え、屋上を四角く巡回します。
 			TurnPatrolDirection(XM_PIDIV2);
 		}
 		ApplyMovement(m_MoveDirection, tuning.PatrolSpeed, dt);
@@ -184,30 +177,32 @@ void WireEnemy::UpdateThinking(WirePlayer* player, float dt)
 		if (!playerVisible || distance > tuning.LoseRadius)
 		{
 			m_State = State::Patrol;
+			m_Chasing = false;
 			m_PatrolTurnTimer = tuning.PatrolTurnInterval;
 			break;
 		}
+		m_Chasing = true;
 
 		Vector3 toPlayer = player->GetPosition() - m_Position;
-		toPlayer.y = 0.0f;
-		toPlayer.normalize();
-		m_MoveDirection = toPlayer;
+		if (toPlayer.length() > 0.001f) toPlayer.normalize();
+		m_MoveDirection = { toPlayer.x, 0.0f, toPlayer.z };
+		if (m_MoveDirection.length() > 0.001f) m_MoveDirection.normalize();
 
 		if (distance <= tuning.AttackRadius)
 		{
 			m_State = State::Attack;
-			// 接触中は踏み込まず、攻撃間隔ごとにダメージを与えます。
 			ApplyMovement({ 0.0f, 0.0f, 0.0f }, 0.0f, dt);
 			if (m_AttackCooldown <= 0.0f)
 			{
 				m_AttackCooldown = tuning.AttackInterval;
-				player->TakeDamage(tuning.ContactDamage, toPlayer);
+				player->TakeDamage(tuning.ContactDamage, m_MoveDirection);
 			}
 		}
 		else
 		{
 			m_State = State::Chase;
-			ApplyMovement(toPlayer, tuning.ChaseSpeed, dt);
+			ApplyMovement(m_MoveDirection, tuning.ChaseSpeed, dt);
+			m_ChaseTargetY = player->GetPosition().y + 1.5f;
 		}
 		break;
 	}
@@ -217,7 +212,20 @@ void WireEnemy::UpdateThinking(WirePlayer* player, float dt)
 void WireEnemy::Update()
 {
 	const float dt = GameTime::GetDeltaTime();
+	const WireEnemyTuning& tuning = GetWireGameplayTuning().Enemy;
 	UpdateThinking(GetWorld().FindFirst<WirePlayer>(), dt);
+
+	m_HoverTime += dt;
+	if (m_Chasing)
+	{
+		const float dy = m_ChaseTargetY - m_Position.y;
+		m_Position.y += dy * std::clamp(tuning.Acceleration * dt * 0.15f, 0.0f, 1.0f);
+	}
+	else
+	{
+		const float homeReturn = (m_Home.y - m_Position.y) * std::clamp(dt * 2.0f, 0.0f, 1.0f);
+		m_Position.y += homeReturn + sinf(m_HoverTime * tuning.HoverSpeed) * tuning.HoverAmplitude * dt;
+	}
 
 	m_HitReactionTime = std::max(0.0f, m_HitReactionTime - dt);
 	m_HitLean += -m_HitLean * kHitLeanRecovery * dt;

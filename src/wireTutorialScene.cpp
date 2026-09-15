@@ -100,6 +100,11 @@ void WireTutorialScene::Init()
 	anchor->SetPosition(points.WireAnchor);
 	anchor->SetRadius(3.0f);
 
+	// ゴールへ向かうための第2アンカー
+	WireAnchor* finishAnchor = world.Spawn<WireAnchor>();
+	finishAnchor->SetPosition(points.FinishAnchor);
+	finishAnchor->SetRadius(3.0f);
+
 	m_FinishPoint = points.Finish;
 
 	m_Chat = world.Spawn<WireChatBox>();

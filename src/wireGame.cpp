@@ -6,7 +6,10 @@
 #include "wireAnchor.h"
 #include "wireBlinkGauge.h"
 #include "wireDebugTools.h"
+#include "wireEnemy.h"
 #include "wireFactory.h"
+#include "wireHealthUI.h"
+#include "wireGameplayTuning.h"
 #include "wireMissionHud.h"
 #include "wirePlayer.h"
 #include "wireResultScene.h"
@@ -70,14 +73,27 @@ void WireGame::Init()
         anchor->SetColors(point.Shortcut ? XMFLOAT4{1.0f,0.48f,0.08f,0.9f}
             : XMFLOAT4{0.08f,0.82f,1.0f,0.9f}, {1,1,1,1});
     }
+    const int enemiesPerRooftop = GetWireGameplayTuning().Enemy.CountPerRooftop;
+    for (const auto& perch : factory->GetHighPerchPoints())
+    {
+        for (int i = 0; i < enemiesPerRooftop; ++i)
+        {
+            auto* enemy = world.Spawn<WireEnemy>();
+            float offset = (i - (enemiesPerRooftop - 1) * 0.5f) * 2.5f;
+            enemy->SetPosition(perch + Vector3{ offset, 1.2f, 0.0f });
+            enemy->OnPlaced();
+        }
+    }
+
     auto* player = world.Spawn<WirePlayer>();
     m_Checkpoint = factory->GetSpawnPoint();
     player->Respawn(m_Checkpoint);
-    player->SetDamageDisabled(true);
+    player->SetDamageDisabled(false);
     m_PreviousPosition = m_Checkpoint;
     world.Spawn<WireTpsCamera>();
     world.Spawn<WireReticle>();
     world.Spawn<WireBlinkGauge>();
+    world.Spawn<WireHealthUI>();
     m_Hud = world.Spawn<WireMissionHud>();
     m_BestTime = ReadBest();
     m_Hud->SetBestTime(m_BestTime);
@@ -124,6 +140,13 @@ void WireGame::Update()
     m_Pause->SetVisible(GameTime::IsPaused());
     auto* player = GetWorld().FindFirst<WirePlayer>();
     if (!player) return;
+    if (player->IsDead() && !m_Run.Finished)
+    {
+        m_ResultDelay += GameTime::GetDeltaTime();
+        if (m_ResultDelay > 1.0f)
+            ChangeScene<WireResultScene>(player->GetPosition().y, m_BestTime, false, true);
+        return;
+    }
         if (!GameTime::IsPaused() && !m_Started && (Keyboard_IsKeyDown(KK_W) || Keyboard_IsKeyDown(KK_A)
         || Keyboard_IsKeyDown(KK_S) || Keyboard_IsKeyDown(KK_D) || Keyboard_IsKeyDown(KK_SPACE) || player->IsWireActive()))
     {

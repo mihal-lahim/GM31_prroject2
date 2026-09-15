@@ -80,6 +80,9 @@ void WireFactory::BuildGeometry()
 		addSolid({ -18.0f, 9.0f, -14.0f }, { 2.0f, 9.0f, 5.0f }, kKickWallColor, false);
 		addSolid({ -10.0f, 9.0f, -14.0f }, { 2.0f, 9.0f, 5.0f }, kKickWallColor, false);
 
+		// ゴールへの中継足場。ワイヤー練習台からゴールまでの経路を繋ぎます。
+		addSolid({ 8.0f, 4.5f, 14.0f }, { 3.5f, 1.0f, 3.5f }, kBeamColor);
+
 		// 練習の最後に目指す高台
 		addSolid({ 16.0f, 4.0f, 20.0f }, { 5.0f, 4.0f, 5.0f }, kStructureColor);
 
@@ -87,6 +90,7 @@ void WireFactory::BuildGeometry()
 		m_TrainingPoints.Spawn = m_SpawnPoint;
 		m_TrainingPoints.Guide = { 4.5f, 0.0f, -18.0f };
 		m_TrainingPoints.WireAnchor = { 0.0f, 20.5f, 8.0f };
+		m_TrainingPoints.FinishAnchor = { 12.0f, 14.0f, 17.0f };
 		m_TrainingPoints.KickWallGap = { -14.0f, 0.0f, -14.0f };
 		m_TrainingPoints.Finish = { 16.0f, 8.0f, 20.0f };
 	}

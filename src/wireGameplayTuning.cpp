@@ -249,6 +249,9 @@ const WireGameplayTuning& GetWireGameplayTuning()
 		enemy.KnockbackUpSpeed = Float("wire.enemy.knockback_up_speed", enemy.KnockbackUpSpeed);
 		enemy.EdgeMargin = Float("wire.enemy.edge_margin", enemy.EdgeMargin);
 		enemy.DeathParticleCount = Integer("wire.enemy.death_particle_count", enemy.DeathParticleCount);
+		enemy.HoverHeight = Float("wire.enemy.hover_height", enemy.HoverHeight);
+		enemy.HoverAmplitude = Float("wire.enemy.hover_amplitude", enemy.HoverAmplitude);
+		enemy.HoverSpeed = Float("wire.enemy.hover_speed", enemy.HoverSpeed);
 
 		auto& wallKick = value.WallKick;
 		wallKick.ContactMemoryTime = Float("wire.wallkick.contact_memory_time", wallKick.ContactMemoryTime);
