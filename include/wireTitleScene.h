@@ -2,12 +2,12 @@
 
 #include "scene.h"
 
-class AlphabetText;
+class DynamicText;
 
 class WireTitleScene : public Scene
 {
 private:
-	AlphabetText* m_StartPrompt = nullptr;
+	DynamicText* m_StartLine = nullptr;
 	float m_AnimationTime = 0.0f;
 
 public:

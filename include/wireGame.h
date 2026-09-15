@@ -46,23 +46,20 @@ private:
 	int m_EnemyTotal = 0;
 	Objective m_Objective = Objective::ReachHigh;
 
-	AlphabetText* m_TutorialTitle = nullptr;
-	AlphabetText* m_TutorialInstruction = nullptr;
 	AlphabetText* m_PauseTitle = nullptr;
 	AlphabetText* m_PauseInstruction = nullptr;
 	AlphabetText* m_DebugHelp1 = nullptr;
 	AlphabetText* m_DebugHelp2 = nullptr;
 	AlphabetText* m_DebugStatus = nullptr;
-	int m_TutorialStep = 0;
-	float m_TutorialCompleteTime = 0.0f;
+	// 侵入直後の「高所へ上がる」目的を達成したか。操作説明は練習場に任せ、
+	// 本編は目的の一行だけを出します。
+	bool m_ReachedHigh = false;
 
 	void BuildStage();
 	void SpawnAnchors();
 	void SpawnEnemies();
 	void SpawnWorkers();
 	void UpdateObjective();
-	void UpdateTutorial();
-	void SetTutorialInstruction(const char* instruction);
 	void UpdateDebugOverlay();
 	bool HandleDebugSceneRequest();
 
@@ -76,6 +73,6 @@ public:
 	void Draw() override;
 
 	Objective GetObjective() const { return m_Objective; }
-	// UIに出す目的の文言です。A-Zと空白のみで構成します。
-	const char* GetObjectiveText() const;
+	// UIに出す目的の文言です。一行で読める短い日本語にします。
+	const wchar_t* GetObjectiveText() const;
 };

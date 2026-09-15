@@ -80,5 +80,7 @@ public:
 	int GetAirBlinkChargesRemaining() const { return m_Movement.GetAirBlinkChargesRemaining(); }
 	// デバッグ表示とUI用。壁蹴りの可否と、いま狙っているワイヤー対象です。
 	bool CanWallKick() const { return m_Movement.CanWallKickNow(); }
+	int GetBlinkCount() const { return m_Movement.GetBlinkCount(); }
+	int GetWallKickCount() const { return m_Movement.GetWallKickCount(); }
 	const WireTargetHit& GetWireAimPreview() const { return m_Grapple.GetAimPreview(); }
 };

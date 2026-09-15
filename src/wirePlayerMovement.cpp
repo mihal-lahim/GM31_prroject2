@@ -235,6 +235,7 @@ void WirePlayerMovement::StartBlink(WirePlayer& player, const Vector3& direction
 	}
 
 	player.NotifyMomentumAction();
+	++m_BlinkCount;
 	m_BlinkDirection = blinkDirection;
 	m_BlinkTimeRemaining = GetWireGameplayTuning().Movement.BlinkDuration;
 	m_BlinkCooldown = GetWireGameplayTuning().Movement.BlinkCooldown;
@@ -398,6 +399,7 @@ bool WirePlayerMovement::TryWallKick(WirePlayer& player, const Vector3& moveDire
 	m_LastKickedNormal = normal;
 	m_WallContactTime = 0.0f;
 	m_WallKickCooldown = tuning.Cooldown;
+	++m_WallKickCount;
 	// 壁を蹴ると空中ダッシュが回復します。壁 → ダッシュ → ワイヤーと繋げるためです。
 	m_AirBlinkChargesUsed = 0;
 

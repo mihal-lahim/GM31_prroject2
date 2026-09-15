@@ -14,7 +14,28 @@
 // 生成し、ここは床・壁・大きな構造物の形状と描画だけを担当します。
 class WireFactory : public GameObject
 {
+public:
+	// 同じ衝突・描画の仕組みで、本編の工場と練習場を切り替えます。
+	enum class Layout
+	{
+		Factory,
+		Training
+	};
+
+	// 練習場で案内に使う位置です。形状と一緒にここで決め、シーン側で座標を重複させません。
+	struct TrainingPoints
+	{
+		Vector3 Spawn{ 0.0f, 0.0f, 0.0f };
+		Vector3 Guide{ 0.0f, 0.0f, 0.0f };
+		Vector3 WireAnchor{ 0.0f, 0.0f, 0.0f };
+		Vector3 KickWallGap{ 0.0f, 0.0f, 0.0f };
+		Vector3 DummyGate{ 0.0f, 0.0f, 0.0f };
+		Vector3 Worker{ 0.0f, 0.0f, 0.0f };
+	};
+
 private:
+	Layout m_Layout = Layout::Factory;
+	TrainingPoints m_TrainingPoints;
 	ComPtr<ID3D11Buffer> m_VertexBuffer;
 	ComPtr<ID3D11Buffer> m_IndexBuffer;
 	ComPtr<ID3D11InputLayout> m_VertexLayout;
@@ -32,11 +53,14 @@ private:
 		const Vector3& center, const Vector3& halfSize, const XMFLOAT4& color);
 
 public:
+	explicit WireFactory(Layout layout = Layout::Factory) : m_Layout(layout) {}
+
 	void Init() override;
 	void Uninit() override;
 	void Draw() override;
 
 	const WireBlockField& GetBlockField() const { return m_BlockField; }
+	const TrainingPoints& GetTrainingPoints() const { return m_TrainingPoints; }
 
 	Vector3 GetSpawnPoint() const { return m_SpawnPoint; }
 	const std::vector<Vector3>& GetHighPerchPoints() const { return m_HighPerchPoints; }

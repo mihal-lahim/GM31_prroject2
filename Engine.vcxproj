@@ -41,6 +41,7 @@
     <ClInclude Include="include\gameObject.h" />
     <ClInclude Include="include\gameSettings.h" />
 	<ClInclude Include="include\crashReporter.h" />
+	<ClInclude Include="include\dynamicText.h" />
 	<ClInclude Include="include\gameTime.h" />
 	<ClInclude Include="include\graphicsResourceFactory.h" />
     <ClInclude Include="include\keyboard_utf8.h" />
@@ -74,6 +75,7 @@
     <ClCompile Include="src\engineSelfTests.cpp" />
     <ClCompile Include="src\gameSettings.cpp" />
 	<ClCompile Include="src\crashReporter.cpp" />
+	<ClCompile Include="src\dynamicText.cpp" />
 	<ClCompile Include="src\gameTime.cpp" />
 	<ClCompile Include="src\graphicsResourceFactory.cpp" />
     <ClCompile Include="src\keyboard_utf8.cpp" />

@@ -48,6 +48,40 @@ void WireFactory::BuildGeometry()
 		m_BlockField.Add(center, halfSize, landable);
 	};
 
+	if (m_Layout == Layout::Training)
+	{
+		// 練習場。教える操作ごとに1つずつ仕掛けを置いた、見渡せる広さの部屋です。
+		constexpr float kHalfX = 30.0f;
+		constexpr float kHalfZ = 34.0f;
+		constexpr float kHeight = 30.0f;
+		addSolid({ 0.0f, -1.5f, 0.0f }, { kHalfX, 1.5f, kHalfZ }, kFloorColor);
+		addSolid({ -kHalfX, kHeight * 0.5f, 0.0f }, { kWallThickness, kHeight * 0.5f, kHalfZ }, kWallColor, false);
+		addSolid({ kHalfX, kHeight * 0.5f, 0.0f }, { kWallThickness, kHeight * 0.5f, kHalfZ }, kWallColor, false);
+		addSolid({ 0.0f, kHeight * 0.5f, -kHalfZ }, { kHalfX, kHeight * 0.5f, kWallThickness }, kWallColor, false);
+		addSolid({ 0.0f, kHeight * 0.5f, kHalfZ }, { kHalfX, kHeight * 0.5f, kWallThickness }, kWallColor, false);
+
+		// ワイヤー練習用の高い足場と、その上の梁
+		addSolid({ 0.0f, 9.0f, 8.0f }, { 6.0f, 1.2f, 5.0f }, kStructureColor);
+		addSolid({ 0.0f, 22.0f, 8.0f }, { 10.0f, 1.0f, 2.0f }, kBeamColor, false);
+
+		// 壁蹴り練習用の向かい合う2枚の壁。間隔6mで、交互に蹴れば登れます。
+		addSolid({ -18.0f, 9.0f, -14.0f }, { 2.0f, 9.0f, 5.0f }, kKickWallColor, false);
+		addSolid({ -10.0f, 9.0f, -14.0f }, { 2.0f, 9.0f, 5.0f }, kKickWallColor, false);
+
+		// 斬撃練習の扉を置く台と、救助練習の作業員が立つ台
+		addSolid({ 16.0f, 2.0f, -12.0f }, { 5.0f, 2.0f, 5.0f }, kStructureColor);
+		addSolid({ 16.0f, 4.0f, 20.0f }, { 5.0f, 4.0f, 5.0f }, kStructureColor);
+
+		m_SpawnPoint = { 0.0f, 1.0f, -24.0f };
+		m_TrainingPoints.Spawn = m_SpawnPoint;
+		m_TrainingPoints.Guide = { 4.5f, 0.0f, -18.0f };
+		m_TrainingPoints.WireAnchor = { 0.0f, 20.5f, 8.0f };
+		m_TrainingPoints.KickWallGap = { -14.0f, 0.0f, -14.0f };
+		m_TrainingPoints.DummyGate = { 16.0f, 7.0f, -12.0f };
+		m_TrainingPoints.Worker = { 16.0f, 8.0f, 20.0f };
+	}
+	else
+	{
 	// --- 床 ---
 	addSolid({ 0.0f, -1.5f, 0.0f }, { kFloorHalfX, 1.5f, kFloorHalfZ }, kFloorColor);
 
@@ -100,6 +134,7 @@ void WireFactory::BuildGeometry()
 	// 侵入台の手前寄りに立たせます。壁際すぎるとカメラが背後の壁に押し込まれ、
 	// 開始した瞬間に工場の全体像が見えなくなるためです。
 	m_SpawnPoint = { 0.0f, 4.0f, -74.0f };
+	}
 
 	D3D11_BUFFER_DESC vertexDesc{};
 	vertexDesc.Usage = D3D11_USAGE_DEFAULT;

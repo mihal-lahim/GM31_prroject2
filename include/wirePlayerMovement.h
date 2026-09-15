@@ -19,6 +19,9 @@ private:
 	// 空中で消費した回数。着地またはワイヤー接続で0に戻ります。
 	int m_AirBlinkChargesUsed = 0;
 	bool m_BlinkInputHeld = false;
+	// チュートリアルが「実際にやったか」を判定するための累計です。
+	int m_BlinkCount = 0;
+	int m_WallKickCount = 0;
 
 	// 壁蹴り用。直近で触れた壁の法線と、その鮮度です。
 	// 接触した瞬間ちょうどに入力しなくても蹴れるよう、猶予時間を持たせています。
@@ -64,4 +67,6 @@ public:
 	// クールダウン完了かつチャージがあり、いま入力すればブリンクできる状態です。
 	bool CanBlinkNow() const;
 	int GetAirBlinkChargesRemaining() const;
+	int GetBlinkCount() const { return m_BlinkCount; }
+	int GetWallKickCount() const { return m_WallKickCount; }
 };

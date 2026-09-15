@@ -36,61 +36,6 @@ namespace
 	float g_BestClearTime = 0.0f;
 }
 
-void WireGame::SetTutorialInstruction(const char* instruction)
-{
-	if (m_TutorialInstruction != nullptr)
-	{
-		m_TutorialInstruction->SetText(instruction);
-	}
-}
-
-void WireGame::UpdateTutorial()
-{
-	if (m_TutorialStep >= 5)
-	{
-		m_TutorialCompleteTime += GameTime::GetDeltaTime();
-		if (m_TutorialCompleteTime >= 2.5f)
-		{
-			if (m_TutorialTitle != nullptr) m_TutorialTitle->SetVisible(false);
-			if (m_TutorialInstruction != nullptr) m_TutorialInstruction->SetVisible(false);
-		}
-		return;
-	}
-
-	WirePlayer* player = GetWorld().FindFirst<WirePlayer>();
-	if (player == nullptr)
-	{
-		return;
-	}
-
-	// 移動を繋げる順に教えます。実際にその操作をするまで次へ進みません。
-	bool completedStep = false;
-	switch (m_TutorialStep)
-	{
-	case 0:
-		completedStep = Keyboard_IsKeyDown(KK_W) || Keyboard_IsKeyDown(KK_A)
-			|| Keyboard_IsKeyDown(KK_S) || Keyboard_IsKeyDown(KK_D);
-		break;
-	case 1: completedStep = player->IsWireActive(); break;
-	case 2: completedStep = player->GetMomentumRank() >= 1; break;
-	case 3: completedStep = m_EnemyTotal - GetRemainingEnemyCount() > 0; break;
-	case 4: completedStep = m_Machine != nullptr && m_Machine->GetRemainingArmorCount() < m_Machine->GetTotalArmorCount(); break;
-	default: break;
-	}
-	if (!completedStep) return;
-
-	++m_TutorialStep;
-	switch (m_TutorialStep)
-	{
-	case 1: SetTutorialInstruction("HOLD RIGHT MOUSE AND CLICK LEFT TO FIRE WIRE"); break;
-	case 2: SetTutorialInstruction("SPACE ON A WALL TO KICK  SHIFT TO AIR DASH"); break;
-	case 3: SetTutorialInstruction("CHARGE LEFT MOUSE AND CUT THROUGH A ROBOT"); break;
-	case 4: SetTutorialInstruction("WIRE ONTO THE GIANT MACHINE AND BREAK ITS ARMOR"); break;
-	case 5: SetTutorialInstruction("KEEP MOVING TO RAISE YOUR CHAIN"); break;
-	default: break;
-	}
-}
-
 void WireGame::SpawnAnchors()
 {
 	World& world = GetWorld();
@@ -248,10 +193,6 @@ void WireGame::Init()
 		return label;
 	};
 
-	m_TutorialTitle = addLabel("TUTORIAL", { 36, SCREEN_HEIGHT - 152.0f, 0 }, 24,
-		{ 1.0f,0.72f,0.18f,1.0f }, true);
-	m_TutorialInstruction = addLabel("WASD TO MOVE", { 36, SCREEN_HEIGHT - 124.0f, 0 }, 24,
-		{ 0.82f,0.94f,1.0f,1.0f }, true);
 	m_PauseTitle = addLabel("PAUSE",
 		{ SCREEN_WIDTH * 0.5f - 120.0f, SCREEN_HEIGHT * 0.5f - 55.0f, 0 }, 58,
 		{ 1.0f,0.72f,0.18f,1.0f }, false);
@@ -266,10 +207,7 @@ void WireGame::Init()
 		{ 0.45f,1.0f,0.58f,0.90f }, false);
 	m_DebugStatus = addLabel("", { 36, 202, 0 }, 17, { 0.55f,0.78f,1.0f,0.88f }, false);
 
-	m_TutorialStep = 0;
-	m_TutorialCompleteTime = 0.0f;
-	SetTutorialInstruction("WASD TO MOVE");
-
+	m_ReachedHigh = false;
 	m_ElapsedSeconds = 0.0f;
 	m_ResultDelay = 0.0f;
 	m_Completed = false;
@@ -303,16 +241,16 @@ int WireGame::GetRescuedCount() const
 	return count;
 }
 
-const char* WireGame::GetObjectiveText() const
+const wchar_t* WireGame::GetObjectiveText() const
 {
 	switch (m_Objective)
 	{
-	case Objective::ReachHigh:     return "GET UP HIGH INTO THE FACTORY";
-	case Objective::DefeatRobots:  return "CUT THROUGH THE SECURITY ROBOTS";
-	case Objective::BreakArmor:    return "BREAK THE GIANT MACHINE ARMOR";
-	case Objective::BreakCore:     return "DESTROY THE EXPOSED CONTROL CORE";
-	case Objective::RescueWorkers: return "REACH THE WORKERS AND RESCUE THEM";
-	default:                       return "ALL WORKERS RESCUED";
+	case Objective::ReachHigh:     return L"ワイヤーで高所へ上がれ";
+	case Objective::DefeatRobots:  return L"警備ロボットを斬り抜けろ";
+	case Objective::BreakArmor:    return L"巨大機械の装甲を壊せ";
+	case Objective::BreakCore:     return L"露出した制御コアを破壊しろ";
+	case Objective::RescueWorkers: return L"作業員のもとへ行き救助しろ";
+	default:                       return L"全員救助完了";
 	}
 }
 
@@ -338,7 +276,7 @@ void WireGame::UpdateObjective()
 	{
 		m_Objective = Objective::BreakArmor;
 	}
-	else if (m_TutorialStep >= 2)
+	else if (m_ReachedHigh)
 	{
 		m_Objective = Objective::DefeatRobots;
 	}
@@ -352,22 +290,13 @@ void WireGame::UpdateObjective()
 		return;
 	}
 
-	// 装甲破壊中は残り枚数を語で添えます。あと何枚かが分かると手が止まりません。
+	// 装甲破壊中は残り枚数を添えます。あと何枚かが分かると手が止まりません。
+	std::wstring text = GetObjectiveText();
 	if (m_Objective == Objective::BreakArmor && m_Machine != nullptr)
 	{
-		static const char* const kRemainingWords[] = { "", " ONE LEFT", " TWO LEFT", " THREE LEFT" };
-		const int remaining = m_Machine->GetRemainingArmorCount();
-		std::string text = GetObjectiveText();
-		if (remaining >= 1 && remaining <= 3)
-		{
-			text += kRemainingWords[remaining];
-		}
-		m_Hud->SetObjective(text.c_str());
+		text += L"　あと " + std::to_wstring(m_Machine->GetRemainingArmorCount()) + L" 枚";
 	}
-	else
-	{
-		m_Hud->SetObjective(GetObjectiveText());
-	}
+	m_Hud->SetObjective(text);
 
 	if (previous == m_Objective)
 	{
@@ -377,11 +306,11 @@ void WireGame::UpdateObjective()
 	// 段階が進んだ節目だけ通知を出します。出しすぎると読まれなくなるためです。
 	if (m_Objective == Objective::BreakCore)
 	{
-		m_Hud->ShowNotice("CORE EXPOSED");
+		m_Hud->ShowNotice(L"制御コア露出！");
 	}
 	else if (m_Objective == Objective::RescueWorkers)
 	{
-		m_Hud->ShowNotice("MACHINE SHUT DOWN");
+		m_Hud->ShowNotice(L"巨大機械 停止！");
 	}
 }
 
@@ -435,6 +364,11 @@ void WireGame::Update()
 	{
 		m_RespawnPosition = player->GetPosition();
 	}
+	// 最初の目的「高所へ上がる」は、実際に高さを稼いだ時点で達成とします。
+	if (player->GetPosition().y > 12.0f)
+	{
+		m_ReachedHigh = true;
+	}
 
 	m_ElapsedSeconds += GameTime::GetDeltaTime();
 
@@ -444,7 +378,7 @@ void WireGame::Update()
 	{
 		if (worker->TryRescue(*player) && m_Hud != nullptr)
 		{
-			m_Hud->ShowNotice("WORKER RESCUED");
+			m_Hud->ShowNotice(L"作業員を救助！");
 		}
 	}
 	const int rescued = GetRescuedCount();
@@ -469,8 +403,6 @@ void WireGame::Update()
 		}
 		if (m_Hud != nullptr) m_Hud->ShowComplete();
 	}
-
-	UpdateTutorial();
 }
 
 bool WireGame::HandleDebugSceneRequest()

@@ -39,6 +39,15 @@ cells. Query results retain registration order for deterministic behavior.
 - `wirePlayerPresentation.*`: player-specific wire rendering and speed lines
 - `wireEnemy.*`: patrol/chase/attack state machine (small factory robot)
 - `wireDebugTools.*`: shared debug keys, opt-in and available in Release
+- `wireTutorialScene.*`: practice ground before the main stage; `wireChatBox.*`
+  shows the guide's one-line instructions, `wireGuide.*` is the guide character
+- `wireFactory.*` builds either the main factory or the training ground
+  (`WireFactory::Layout`) with the same collision and rendering
+
+日本語の案内文・目的表示には Engine の `dynamicText.*` を使います。GDI で文字列を
+実行時にテクスチャへ描くため、漢字・かな・濁音・記号・英数が一文で使えます。
+アトラス方式の `kanaText` は清音しか持たず「で」「ジャンプ」が空白になるため、
+自然な文が必要な場面には向きません。
 
 Wire Action の中心的な抽象は次の2つです。どちらも「対象側がインターフェースを
 実装する」形にしてあるため、設備や敵を増やしてもワイヤー・剣のコードは変わりません。

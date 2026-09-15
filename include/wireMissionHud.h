@@ -1,6 +1,7 @@
 #pragma once
 
 #include "alphabetText.h"
+#include "dynamicText.h"
 #include "gameObject.h"
 #include "score.h"
 
@@ -28,16 +29,16 @@ private:
 	float m_NoticeTime = 0.0f;
 	float m_Speed = 0.0f;
 	bool m_Complete = false;
-	std::string m_ObjectiveText;
-	std::string m_NoticeText;
+	std::wstring m_ObjectiveText;
 
 	AlphabetText m_RescuedLabel;
 	AlphabetText m_OfLabel;
 	AlphabetText m_ObjectiveLabel;
-	AlphabetText m_ObjectiveValue;
-	AlphabetText m_NoticeLabel;
+	// 目的・通知・完了は自然な日本語が要るので、実行時描画のテキストを使います。
+	DynamicText m_ObjectiveValue;
+	DynamicText m_NoticeLabel;
 	AlphabetText m_ChainLabel;
-	AlphabetText m_CompleteLabel;
+	DynamicText m_CompleteLabel;
 	AlphabetText m_TimeLabel;
 	Score m_RescuedValue;
 	Score m_TotalValue;
@@ -50,12 +51,12 @@ public:
 	void Draw() override;
 
 	void SetProgress(int rescued, int total);
-	void SetObjective(const char* text);
+	void SetObjective(const std::wstring& text);
 	void SetHealth(int current, int max);
 	void SetMomentum(int rank, float progress01);
 	void SetElapsedTime(float seconds) { m_ElapsedSeconds = seconds; }
 	void SetSpeed(float speed) { m_Speed = speed; }
 	// 中央に一時的な通知を出します。救助成功や装甲破壊の合図に使います。
-	void ShowNotice(const char* text);
+	void ShowNotice(const std::wstring& text);
 	void ShowComplete();
 };

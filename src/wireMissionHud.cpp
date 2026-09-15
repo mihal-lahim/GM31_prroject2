@@ -13,13 +13,16 @@ namespace
 {
 	constexpr int kMaxVertices = 8192;
 
+	// 画面座標(yは下向き)で時計回りに並べます。このレンダラは裏面をカリングするため、
+	// 反時計回りだと矩形が丸ごと消えます。旧配達HUDから複製した並びは裏向きで、
+	// パネル・体力ピップ・連鎖ゲージが一度も描かれていませんでした。
 	void Rect(std::vector<VERTEX_3D>& out, float x, float y, float w, float h, const XMFLOAT4& color)
 	{
-		const VERTEX_3D a{ {x,y,0}, {0,0,-1}, color, {0,0} };
-		const VERTEX_3D b{ {x + w,y,0}, {0,0,-1}, color, {0,0} };
-		const VERTEX_3D c{ {x + w,y + h,0}, {0,0,-1}, color, {0,0} };
-		const VERTEX_3D d{ {x,y + h,0}, {0,0,-1}, color, {0,0} };
-		out.insert(out.end(), { a,c,b,a,d,c });
+		const VERTEX_3D a{ {x,y,0}, {0,0,-1}, color, {0,0} };          // 左上
+		const VERTEX_3D b{ {x + w,y,0}, {0,0,-1}, color, {0,0} };      // 右上
+		const VERTEX_3D c{ {x + w,y + h,0}, {0,0,-1}, color, {0,0} };  // 右下
+		const VERTEX_3D d{ {x,y + h,0}, {0,0,-1}, color, {0,0} };      // 左下
+		out.insert(out.end(), { a,b,c, a,c,d });
 	}
 
 	int TimeToCentiseconds(float seconds)
@@ -76,18 +79,37 @@ void WireMissionHud::Init()
 
 	// 目的は最も読ませたい情報なので、他より一段大きく出します。
 	setupLabel(m_ObjectiveLabel, "OBJECTIVE", { 38,84,0 }, 22, 17, kGold);
-	setupLabel(m_ObjectiveValue, "", { 38,112,0 }, 29, 23, kWhite);
+	m_ObjectiveValue.Init();
+	m_ObjectiveValue.SetFontSize(30);
+	m_ObjectiveValue.SetPosition({ 38,106,0 });
+	m_ObjectiveValue.SetColor(kWhite);
 
 	setupLabel(m_TimeLabel, "TIME", { SCREEN_WIDTH - 300.0f,30,0 }, 32, 25, kCyan);
 	setupNumber(m_TimeValue, 6, { SCREEN_WIDTH - 35.0f,26,0 }, 42, -34, kWhite);
 
-	setupLabel(m_ChainLabel, "CHAIN", { 38, SCREEN_HEIGHT - 96.0f, 0 }, 24, 19, kGold);
-	setupLabel(m_NoticeLabel, "", { 0,0,0 }, 44, 35, kGold);
-	setupLabel(m_CompleteLabel, "ALL WORKERS RESCUED",
-		{ SCREEN_WIDTH * 0.5f - 350.0f, 230.0f, 0 }, 52, 41, kGold);
+	// 左下は下から「空中ダッシュゲージ / 体力 / 連鎖」の順に積みます。ゲージと重ねません。
+	setupLabel(m_ChainLabel, "CHAIN", { 38, SCREEN_HEIGHT - 138.0f, 0 }, 24, 19, kGold);
+	m_NoticeLabel.Init();
+	m_NoticeLabel.SetFontSize(44);
+	m_NoticeLabel.SetAlign(DynamicText::Align::Center);
+	m_NoticeLabel.SetPosition({ SCREEN_WIDTH * 0.5f, 132.0f, 0 });
+	m_NoticeLabel.SetColor(kGold);
+
+	m_CompleteLabel.Init();
+	m_CompleteLabel.SetText(L"全員救助完了");
+	m_CompleteLabel.SetFontSize(60);
+	m_CompleteLabel.SetAlign(DynamicText::Align::Center);
+	m_CompleteLabel.SetPosition({ SCREEN_WIDTH * 0.5f, 228.0f, 0 });
+	m_CompleteLabel.SetColor(kGold);
 }
 
-void WireMissionHud::Uninit() { GameObject::Uninit(); }
+void WireMissionHud::Uninit()
+{
+	m_ObjectiveValue.Uninit();
+	m_NoticeLabel.Uninit();
+	m_CompleteLabel.Uninit();
+	GameObject::Uninit();
+}
 
 void WireMissionHud::Update()
 {
@@ -102,9 +124,9 @@ void WireMissionHud::SetProgress(int rescued, int total)
 	m_TotalValue.SetValue(total);
 }
 
-void WireMissionHud::SetObjective(const char* text)
+void WireMissionHud::SetObjective(const std::wstring& text)
 {
-	if (text == nullptr || m_ObjectiveText == text)
+	if (m_ObjectiveText == text)
 	{
 		return;
 	}
@@ -124,17 +146,9 @@ void WireMissionHud::SetMomentum(int rank, float progress01)
 	m_MomentumProgress = std::clamp(progress01, 0.0f, 1.0f);
 }
 
-void WireMissionHud::ShowNotice(const char* text)
+void WireMissionHud::ShowNotice(const std::wstring& text)
 {
-	if (text == nullptr)
-	{
-		return;
-	}
-	m_NoticeText = text;
-	m_NoticeLabel.SetText(m_NoticeText);
-	// 文字数から中央寄せの位置を求めます。通知ごとに長さが違うためです。
-	const float width = static_cast<float>(m_NoticeText.size()) * 35.0f;
-	m_NoticeLabel.SetPosition({ SCREEN_WIDTH * 0.5f - width * 0.5f, 138.0f, 0.0f });
+	m_NoticeLabel.SetText(text);
 	m_NoticeTime = 1.8f;
 }
 
@@ -159,30 +173,30 @@ void WireMissionHud::Draw()
 		constexpr float pipHeight = 14.0f;
 		constexpr float pipGap = 6.0f;
 		const float pipsWidth = m_MaxHealth * pipWidth + (m_MaxHealth - 1) * pipGap;
-		Rect(vertices, 22, SCREEN_HEIGHT - 58.0f, 100.0f + pipsWidth, 36, kPanel);
+		Rect(vertices, 22, SCREEN_HEIGHT - 104.0f, 100.0f + pipsWidth, 36, kPanel);
 		for (int i = 0; i < m_MaxHealth; ++i)
 		{
 			const float x = 112.0f + i * (pipWidth + pipGap);
 			const XMFLOAT4 color = i < m_Health
 				? XMFLOAT4{ 1.0f,0.34f,0.40f,0.96f }
 				: XMFLOAT4{ 0.22f,0.14f,0.18f,0.85f };
-			Rect(vertices, x, SCREEN_HEIGHT - 47.0f, pipWidth, pipHeight, color);
+			Rect(vertices, x, SCREEN_HEIGHT - 93.0f, pipWidth, pipHeight, color);
 		}
 	}
 
 	// 連鎖ゲージ。段階が上がるほど明るく、長くなります。
 	{
 		constexpr float barWidth = 190.0f;
-		Rect(vertices, 140, SCREEN_HEIGHT - 92.0f, barWidth, 14.0f, { 0.05f,0.07f,0.10f,0.85f });
+		Rect(vertices, 140, SCREEN_HEIGHT - 134.0f, barWidth, 14.0f, { 0.05f,0.07f,0.10f,0.85f });
 		const float fill = m_MomentumRank > 0 ? 1.0f : m_MomentumProgress;
 		const XMFLOAT4 chainColor = m_MomentumRank > 0
 			? XMFLOAT4{ 1.0f, 0.62f + m_MomentumRank * 0.08f, 0.20f, 0.95f }
 			: XMFLOAT4{ 0.30f, 0.72f, 0.95f, 0.85f };
-		Rect(vertices, 140, SCREEN_HEIGHT - 92.0f, barWidth * fill, 14.0f, chainColor);
+		Rect(vertices, 140, SCREEN_HEIGHT - 134.0f, barWidth * fill, 14.0f, chainColor);
 		// 段階の数だけ小さな印を並べます。数字を読ませずに段階が分かります。
 		for (int i = 0; i < m_MomentumRank; ++i)
 		{
-			Rect(vertices, 140 + i * 22.0f, SCREEN_HEIGHT - 112.0f, 16.0f, 10.0f, chainColor);
+			Rect(vertices, 140 + i * 22.0f, SCREEN_HEIGHT - 154.0f, 16.0f, 10.0f, chainColor);
 		}
 	}
 
