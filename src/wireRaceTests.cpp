@@ -1,6 +1,8 @@
 #include "wireRace.h"
 #include "wireSwingPhysics.h"
 #include "wireBlockField.h"
+#include "gameTime.h"
+#include "cameraView.h"
 #include <fstream>
 #include <limits>
 
