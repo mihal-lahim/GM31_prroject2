@@ -18,7 +18,7 @@ namespace
 	{
 		if (broken)
 		{
-			return { 0.16f, 0.17f, 0.20f, 1.0f };
+			return { 0.66f, 0.70f, 0.72f, 1.0f };
 		}
 
 		// ステージ全体で色の意味を揃えます。
@@ -27,14 +27,14 @@ namespace
 		switch (role)
 		{
 		case WireMachinePart::Role::Armor:
-			return { 0.92f, 0.46f, 0.12f, 1.0f };
+			return { 1.0f, 0.50f, 0.20f, 1.0f };
 		case WireMachinePart::Role::WeakPoint:
 			// 露出していない弱点は暗く沈め、露出すると赤く光ります。
-			return exposed ? XMFLOAT4{ 1.0f, 0.20f, 0.16f, 1.0f } : XMFLOAT4{ 0.20f, 0.16f, 0.16f, 1.0f };
+			return exposed ? XMFLOAT4{ 1.0f, 0.30f, 0.58f, 1.0f } : XMFLOAT4{ 0.62f, 0.58f, 0.60f, 1.0f };
 		case WireMachinePart::Role::Platform:
-			return { 0.62f, 0.52f, 0.28f, 1.0f };
+			return { 0.28f, 0.82f, 0.96f, 1.0f };
 		default:
-			return { 0.30f, 0.33f, 0.40f, 1.0f };
+			return { 0.94f, 0.91f, 0.80f, 1.0f };
 		}
 	}
 }

@@ -9,7 +9,7 @@
 #include "wirePlayer.h"
 #include "particleSystem.h"
 #include "renderer.h"
-#include "modelRenderer.h"
+#include "wireRobotRenderer.h"
 #include "world.h"
 
 #include <algorithm>
@@ -40,10 +40,7 @@ void WireEnemy::Init()
 	m_Health = GetWireGameplayTuning().Enemy.Health;
 	m_PatrolTurnTimer = GetWireGameplayTuning().Enemy.PatrolTurnInterval;
 
-	ModelRenderer* renderer = AddComponent<ModelRenderer>();
-	renderer->Load("assets\\model\\player.obj");
-	renderer->SetUseOwnerTransform(true);
-	renderer->SetRotationOffset({ 0.0f, XM_PI, 0.0f });
+	AddComponent<WireRobotRenderer>(WireRobotRenderer::Style::TroubleBot);
 	AddComponent<Collider>()
 		->SetSphere(m_HitRadius)
 		->SetOffset({ 0.0f, m_BaseScale.y * kHitCenterHeightScale, 0.0f })

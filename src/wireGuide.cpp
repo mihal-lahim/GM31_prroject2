@@ -2,7 +2,7 @@
 #include "wireGuide.h"
 
 #include "gameTime.h"
-#include "modelRenderer.h"
+#include "wireRobotRenderer.h"
 #include "wirePlayer.h"
 #include "world.h"
 
@@ -13,10 +13,7 @@ void WireGuide::Init()
 	m_Layer = Layer::World;
 	m_Scale = { 1.1f, 1.1f, 1.1f };
 
-	ModelRenderer* renderer = AddComponent<ModelRenderer>();
-	renderer->Load("assets\\model\\player.obj");
-	renderer->SetUseOwnerTransform(true);
-	renderer->SetRotationOffset({ 0.0f, XM_PI, 0.0f });
+	AddComponent<WireRobotRenderer>(WireRobotRenderer::Style::Player);
 }
 
 void WireGuide::Uninit()

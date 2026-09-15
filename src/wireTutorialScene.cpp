@@ -4,7 +4,7 @@
 #include "gameTime.h"
 #include "keyboard_utf8.h"
 #include "particleSystem.h"
-#include "sky.h"
+
 #include "wireAnchor.h"
 #include "wireBlinkGauge.h"
 #include "wireChatBox.h"
@@ -17,7 +17,7 @@
 #include "wirePlayer.h"
 #include "wireResultScene.h"
 #include "wireReticle.h"
-#include "wireSword.h"
+
 #include "wireTitleScene.h"
 #include "wireTpsCamera.h"
 #include "wireWorker.h"
@@ -49,13 +49,13 @@ void WireTutorialScene::BuildSteps()
 		{ L"Space でジャンプ。",
 			[player]() { WirePlayer* p = player(); return p != nullptr
 				&& !p->IsOnGround() && p->GetVelocity().y > 2.0f; } },
-		{ L"右クリックで構えて、光る点に左クリック。ワイヤーだ。",
+		{ L"光る点を狙い左クリック長押し。離すとワイヤーを切れる。",
 			[player]() { WirePlayer* p = player(); return p != nullptr && p->IsWireActive(); } },
 		{ L"青い壁に触れて Space。壁蹴りで登れる。",
 			[player]() { WirePlayer* p = player(); return p != nullptr && p->GetWallKickCount() >= 1; } },
 		{ L"空中で Shift。空中ダッシュで軌道を直せる。",
 			[player]() { WirePlayer* p = player(); return p != nullptr && p->GetBlinkCount() >= 1; } },
-		{ L"左クリック長押しで溜めて、離して斬る。赤い扉を壊せ。",
+		{ L"右クリックを押しながら左長押し→離して斬る。赤い扉を壊せ。",
 			[&world]() { return world.FindFirst<WireLockGate>() == nullptr; } },
 		{ L"光の柱の作業員に近づけば救助できる。",
 			[this]() { return m_Worker != nullptr && m_Worker->IsRescued(); } },
@@ -81,7 +81,7 @@ void WireTutorialScene::Init()
 	Collider::SetDebugDrawEnabled(false);
 	World& world = GetWorld();
 
-	world.Spawn<Sky>()->SetRadius(200.0f);
+	// 本編と同じ空色の背景を使います。
 	WireFactory* factory = world.Spawn<WireFactory>(WireFactory::Layout::Training);
 	world.Spawn<ParticleSystem>();
 	const WireFactory::TrainingPoints& points = factory->GetTrainingPoints();
@@ -89,7 +89,7 @@ void WireTutorialScene::Init()
 	WirePlayer* player = world.Spawn<WirePlayer>();
 	player->SetPosition(points.Spawn);
 	m_SpawnPoint = points.Spawn;
-	world.Spawn<WireSword>();
+
 	world.Spawn<WireTpsCamera>();
 	world.Spawn<WireReticle>();
 	world.Spawn<WireBlinkGauge>();

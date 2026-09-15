@@ -19,6 +19,11 @@ private:
 	bool m_AimingAtAnchor = false;
 	float m_AimTimeRemaining = 2.0f;
 	float m_Cooldown = 0.0f;
+	float m_RopeLength = 0.0f;
+	float m_Tension = 0.0f;
+	float m_TangentialSpeed = 0.0f;
+	float m_LastVelocityScale = 1.0f;
+	float m_RewireWindow = 0.0f;
 
 	// 接続中の対象です。動く設備や巨大機械の部位に掛けた場合、
 	// アンカー位置は毎フレームここから取り直します。
@@ -30,6 +35,7 @@ private:
 
 	WireTargetHit FindTarget(World& world, const WireTpsCamera* camera) const;
 	void Start(WirePlayer& player, const WireTpsCamera* camera);
+	void Attach(WirePlayer& player);
 	void UpdateAttachedAnchor(WirePlayer& player);
 
 public:
@@ -47,4 +53,8 @@ public:
 	// UI・デバッグ表示用に、いま狙っている対象を公開します。
 	const WireTargetHit& GetAimPreview() const { return m_AimPreview; }
 	IWireTarget* GetAttachedTarget() const { return m_AttachedTarget; }
+	float GetRopeLength() const { return m_RopeLength; }
+	float GetTension() const { return m_Tension; }
+	float GetTangentialSpeed() const { return m_TangentialSpeed; }
+	float GetLastVelocityScale() const { return m_LastVelocityScale; }
 };

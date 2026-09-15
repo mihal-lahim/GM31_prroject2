@@ -83,28 +83,20 @@ void WireReticle::Update()
 void WireReticle::Draw()
 {
 	WirePlayer* player = GetWorld().FindFirst<WirePlayer>();
-	if (player == nullptr || !player->IsAiming() || player->IsWireActive())
+	if (player == nullptr)
 	{
 		return;
 	}
 
 	const float cx = SCREEN_WIDTH * 0.5f;
 	const float cy = SCREEN_HEIGHT * 0.5f;
-	const float aimRatio = player->GetAimTimeRatio();
-	const float gap = (player->IsAimingAtAnchor() ? 8.0f : 12.0f) + (1.0f - aimRatio) * 4.0f;
-	const float length = (player->IsAimingAtAnchor() ? 34.0f : 24.0f) * (0.72f + aimRatio * 0.28f);
+	const float aimRatio = player->IsAimingAtAnchor() ? 1.0f : 0.0f;
+	const float gap = player->IsAimingAtAnchor() ? 8.0f : 12.0f;
+	const float length = player->IsAimingAtAnchor() ? 34.0f : 24.0f;
 	const XMFLOAT4 readyColor = player->IsAimingAtAnchor()
 		? XMFLOAT4(0.35f, 1.0f, 0.75f, 1.0f)
 		: XMFLOAT4(0.85f, 0.92f, 1.0f, 0.9f);
-	const XMFLOAT4 warningColor = XMFLOAT4(1.0f, 0.35f, 0.2f, 1.0f);
-	const float warningBlend = std::clamp((0.35f - aimRatio) / 0.35f, 0.0f, 1.0f);
-	const XMFLOAT4 color
-	{
-		readyColor.x + (warningColor.x - readyColor.x) * warningBlend,
-		readyColor.y + (warningColor.y - readyColor.y) * warningBlend,
-		readyColor.z + (warningColor.z - readyColor.z) * warningBlend,
-		readyColor.w
-	};
+	const XMFLOAT4 color = readyColor;
 
 	VERTEX_3D timerParticles[kTimerParticleCount * kTimerParticleVerticesPerParticle]{};
 	const int activeParticleCount = static_cast<int>(ceilf(aimRatio * kTimerParticleCount));

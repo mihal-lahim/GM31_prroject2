@@ -7,6 +7,7 @@
 #include "wirePlayerInput.h"
 #include "wireTpsCamera.h"
 #include "wireGameplayTuning.h"
+#include "particleSystem.h"
 
 #include <algorithm>
 
@@ -45,42 +46,19 @@ namespace
 void WireGrappleAbility::UpdateAim(
 	WirePlayer& player,
 	float dt,
-	const WirePlayerInputState& input,
+	const WirePlayerInputState& /*input*/,
 	const WireTpsCamera* camera)
 {
-	if (input.AimPressed)
-	{
-		m_AimTimeRemaining = GetWireGameplayTuning().Grapple.AimMaxTime;
-	}
-
 	m_AimingAtAnchor = false;
 	if (m_Cooldown > 0.0f)
 	{
 		m_Cooldown = std::max(0.0f, m_Cooldown - dt);
 	}
 
-	if (!input.AimDown)
-	{
-		// 右クリックを離したら、次に構えるための制限時間を回復します。
-		m_AimTimeRemaining = GetWireGameplayTuning().Grapple.AimMaxTime;
-		m_Aiming = false;
-		return;
-	}
-
-	if (m_Active || m_Firing)
-	{
-		// 先端の飛翔中と接続後は、右クリックを離すまで制限時間を消費しません。
-		m_Aiming = true;
-		return;
-	}
-
-	// 制限時間は、アンカーを探して構えている間だけ減少します。
-	m_Aiming = m_AimTimeRemaining > 0.0f;
-	if (!m_Aiming)
-	{
-		return;
-	}
-	m_AimTimeRemaining = std::max(0.0f, m_AimTimeRemaining - dt);
+	// ワイヤーは常時準備状態です。構え時間や右クリック依存を持たせません。
+	m_Aiming = true;
+	m_AimTimeRemaining = GetWireGameplayTuning().Grapple.AimMaxTime;
+	m_RewireWindow = std::max(0.0f, m_RewireWindow - dt);
 
 	if (camera != nullptr)
 	{
@@ -104,12 +82,16 @@ void WireGrappleAbility::Update(
 	const WirePlayerInputState& input,
 	const WireTpsCamera* camera)
 {
-	if (camera != nullptr && m_Aiming && input.AttackPressed && m_Cooldown <= 0.0f)
+	if (camera != nullptr && input.AttackPressed && !input.AimDown && m_Cooldown <= 0.0f)
 	{
-		Start(player, camera);
+		if (m_AimPreview.Valid)
+		{
+			Start(player, camera);
+		}
 	}
-
-	if (!m_Aiming)
+	// ワイヤーは左クリックを押している間だけ維持します。離したフレームで
+	// 現在の接線速度を保ったまま切り、空中移動へ即座につなげます。
+	if (!input.AttackDown && (m_Active || m_Firing))
 	{
 		Cancel(player, true);
 	}
@@ -123,6 +105,7 @@ void WireGrappleAbility::Update(
 			m_HookTip = m_Anchor;
 			m_Firing = false;
 			m_Active = true;
+			Attach(player);
 			player.m_Movement.RestoreAirBlinkCharges();
 
 			// フックが刺さった瞬間に軽い衝撃を返し、接続できたことを手で分かるようにします。
@@ -132,12 +115,6 @@ void WireGrappleAbility::Update(
 				tpsCamera->AddFovKick(GetWireGameplayTuning().Camera.WireAttachFovKick);
 			}
 			player.NotifyMomentumAction();
-			Vector3 launchDirection = m_Anchor - (player.m_Position + Vector3(0.0f, GetWireGameplayTuning().Grapple.OriginHeight, 0.0f));
-			if (launchDirection.length() > kVectorEpsilon)
-			{
-				launchDirection.normalize();
-				player.m_Velocity += launchDirection * GetWireGameplayTuning().Grapple.LaunchImpulse;
-			}
 		}
 		else
 		{
@@ -167,8 +144,24 @@ void WireGrappleAbility::Update(
 	}
 
 	toAnchor.normalize();
-	player.m_Velocity += toAnchor * (GetWireGameplayTuning().Grapple.PullAcceleration * dt);
-	player.m_Velocity = ClampLength(player.m_Velocity, GetWireGameplayTuning().Grapple.MaxSpeed);
+	const WireGrappleTuning& tuning = GetWireGameplayTuning().Grapple;
+	const Vector3 awayFromAnchor = -toAnchor;
+	const float radialSpeed = Vector3::dot(player.m_Velocity, awayFromAnchor);
+	Vector3 tangentialVelocity = player.m_Velocity - awayFromAnchor * radialSpeed;
+	m_TangentialSpeed = tangentialVelocity.length();
+	const float stretch = (std::max)(0.0f, distance - m_RopeLength);
+	m_Tension = stretch * tuning.ConstraintStrength
+		+ (std::max)(0.0f, radialSpeed) * tuning.RadialDamping
+		+ (m_TangentialSpeed * m_TangentialSpeed) / (std::max)(distance, 1.0f);
+	// 張ったロープは外向き速度だけを消し、接線方向の勢いは保持します。
+	if (distance >= m_RopeLength && radialSpeed > 0.0f)
+	{
+		player.m_Velocity -= awayFromAnchor * std::min(radialSpeed, radialSpeed * tuning.RadialDamping * dt);
+	}
+	player.m_Velocity += toAnchor * ((tuning.PullAcceleration + stretch * tuning.ConstraintStrength
+		+ m_TangentialSpeed * m_TangentialSpeed / (std::max)(distance, 1.0f)) * dt);
+	// 入力加速はMovement側で接線成分として加わる。ここでは安全上限だけを適用します。
+	player.m_Velocity = ClampLength(player.m_Velocity, tuning.RewireMaxSpeed);
 
 	const Vector3 flatDirection = Flatten(toAnchor);
 	if (flatDirection.length() > kVectorEpsilon)
@@ -186,6 +179,7 @@ void WireGrappleAbility::Cancel(WirePlayer& player, bool addBoost)
 
 	if (addBoost && m_Active)
 	{
+		player.NotifyWireReleased(m_Anchor);
 		Vector3 boostDirection = player.m_Velocity;
 		if (boostDirection.length() < kReleaseDirectionEpsilon)
 		{
@@ -205,6 +199,8 @@ void WireGrappleAbility::Cancel(WirePlayer& player, bool addBoost)
 	m_Active = false;
 	m_Firing = false;
 	m_AttachedTarget = nullptr;
+	m_Tension = 0.0f;
+	m_TangentialSpeed = 0.0f;
 }
 
 WireTargetHit WireGrappleAbility::FindTarget(World& world, const WireTpsCamera* camera) const
@@ -228,6 +224,13 @@ void WireGrappleAbility::Start(WirePlayer& player, const WireTpsCamera* camera)
 		return;
 	}
 
+	const bool rewiring = m_Active || m_Firing;
+	if (rewiring)
+	{
+		// 解除ブーストを挟まず同じ入力でアンカーだけを交換します。
+		m_Active = false;
+		m_Firing = false;
+	}
 	m_Anchor = hit.AnchorPosition;
 	m_AttachedTarget = hit.Target;
 	// 動く対象に掛けた場合に備え、対象基準の相対位置を覚えておきます。
@@ -235,9 +238,68 @@ void WireGrappleAbility::Start(WirePlayer& player, const WireTpsCamera* camera)
 		? hit.AnchorPosition - hit.Target->GetWireAnchorPosition()
 		: Vector3{ 0.0f, 0.0f, 0.0f };
 	m_HookTip = player.m_Position + Vector3(0.0f, GetWireGameplayTuning().Grapple.OriginHeight, 0.0f);
-	m_Firing = true;
-	m_Active = false;
+	// 入力レスポンスを最優先し、命中可能な照準では同フレーム接続します。
+	m_HookTip = m_Anchor;
+	m_Firing = false;
+	m_Active = true;
+	Attach(player);
+	if (rewiring && m_RewireWindow > 0.0f)
+	{
+		Vector3 direction = player.m_Velocity;
+		if (direction.length() > kVectorEpsilon)
+		{
+			direction.normalize();
+			player.m_Velocity = ClampLength(player.m_Velocity + direction * GetWireGameplayTuning().Grapple.RewireBonus,
+				GetWireGameplayTuning().Grapple.RewireMaxSpeed);
+		}
+	}
+	m_RewireWindow = GetWireGameplayTuning().Grapple.RewireBonusWindow;
 	m_Cooldown = GetWireGameplayTuning().Grapple.StartCooldown;
+}
+
+void WireGrappleAbility::Attach(WirePlayer& player)
+{
+	const WireGrappleTuning& tuning = GetWireGameplayTuning().Grapple;
+	const Vector3 origin = player.m_Position + Vector3(0.0f, tuning.OriginHeight, 0.0f);
+	Vector3 toAnchor = m_Anchor - origin;
+	const float distance = toAnchor.length();
+	m_RopeLength = (std::max)(tuning.MinRopeLength, distance * tuning.RopeLengthScale);
+	const float before = player.m_Velocity.length();
+	if (distance > kVectorEpsilon)
+	{
+		toAnchor /= distance;
+		const float outward = Vector3::dot(player.m_Velocity, -toAnchor);
+		if (outward > 0.0f)
+		{
+			player.m_Velocity += toAnchor * outward;
+		}
+		const float keptTarget = (std::max)(tuning.AttachMinSpeed, before * tuning.AttachVelocityKeep);
+		const float after = player.m_Velocity.length();
+		if (after > kVectorEpsilon && after < keptTarget)
+		{
+			player.m_Velocity *= keptTarget / after;
+		}
+		else if (after <= kVectorEpsilon)
+		{
+			player.m_Velocity = toAnchor * keptTarget;
+		}
+	}
+	m_LastVelocityScale = before > kVectorEpsilon ? player.m_Velocity.length() / before : 1.0f;
+	player.m_Movement.RestoreAirBlinkCharges();
+	player.NotifyMomentumAction();
+	if (WireTpsCamera* camera = player.GetWorld().FindFirst<WireTpsCamera>())
+	{
+		camera->AddShake(GetWireGameplayTuning().Camera.WireAttachShake);
+		camera->AddFovKick(GetWireGameplayTuning().Camera.WireAttachFovKick);
+	}
+	// 接続点から短い火花を放ち、即時接続でも射出・命中の瞬間を読み取れるようにします。
+	for (int i = 0; i < 12; ++i)
+	{
+		const float angle = XM_2PI * static_cast<float>(i) / 12.0f;
+		Vector3 sparkVelocity{ cosf(angle) * 4.0f, 2.0f + (i % 3), sinf(angle) * 4.0f };
+		ParticleSystem::Emit(m_Anchor, sparkVelocity, 0.09f, 14,
+			{ 0.30f, 0.92f, 1.0f, 0.95f }, -7.0f, 0.91f);
+	}
 }
 
 void WireGrappleAbility::UpdateAttachedAnchor(WirePlayer& player)

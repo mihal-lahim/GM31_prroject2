@@ -2,12 +2,12 @@
 
 #include "gameTime.h"
 #include "world.h"
-#include "animationModel.h"
 #include "wirePlayerInput.h"
 #include "wireFactory.h"
 #include "wireGiantMachine.h"
 #include "wireTpsCamera.h"
 #include "wireGameplayTuning.h"
+#include "wireRobotRenderer.h"
 
 #include <algorithm>
 
@@ -15,8 +15,6 @@ namespace
 {
 	// プレイヤーを押し出す際の半径です。工場の壁・設備で共通に使います。
 	constexpr float kPlayerCollisionRadius = 0.85f;
-	// カメラがこれより近づいたらプレイヤーモデルを非表示にします。
-	constexpr float kHideModelCameraDistance = 1.3f;
 }
 
 void WirePlayer::Init()
@@ -29,21 +27,16 @@ void WirePlayer::Init()
 	m_Scale = { 1.0f, 1.0f, 1.0f };
 	m_Health = GetWireGameplayTuning().Health.MaxHealth;
 	m_InvincibleTime = 0.0f;
+	m_WireReleasePoseTime = 0.0f;
+	m_WireReleasePoseIntensity = 0.0f;
 
-	m_AnimationModel = AddComponent<AnimationModel>();
-	m_AnimationModel->SetModelScale(0.01f);
-	m_AnimationModel->SetModelYawOffset(GetWireGameplayTuning().Movement.PlayerModelYawOffset);
-	m_AnimationModel->Load("assets\\model\\Akai.fbx");
-	m_AnimationModel->LoadAnimation("assets\\model\\Akai_Idle.fbx", "Idle");
-	m_AnimationModel->LoadAnimation("assets\\model\\Akai_Run.fbx", "Run");
-	m_AnimationModel->Update("Idle", 0);
+	AddComponent<WireRobotRenderer>(WireRobotRenderer::Style::Player);
 	m_Presentation.Init();
 }
 
 void WirePlayer::Uninit()
 {
 	m_Presentation.Uninit();
-	m_AnimationModel = nullptr;
 	GameObject::Uninit();
 }
 
@@ -102,37 +95,9 @@ void WirePlayer::Update()
 	m_Position.z = std::clamp(m_Position.z, -GetWireGameplayTuning().Movement.WorldBoundsZ, GetWireGameplayTuning().Movement.WorldBoundsZ);
 
 	m_InvincibleTime = std::max(0.0f, m_InvincibleTime - dt);
+	m_WireReleasePoseTime = std::max(0.0f, m_WireReleasePoseTime - dt);
 	m_Presentation.Update(*this, dt, camera);
 
-	if (m_AnimationModel != nullptr)
-	{
-		// 無敵時間中は一定間隔で描画を止め、被弾したことが見て分かるようにします。
-		const WirePlayerHealthTuning& health = GetWireGameplayTuning().Health;
-		const bool blinkOff = m_InvincibleTime > 0.0f
-			&& static_cast<int>(m_InvincibleTime / health.HitBlinkInterval) % 2 == 1;
-		// 壁際でカメラがプレイヤーの内側まで寄ったときはモデルを消します。
-		// 顔や髪の裏側が画面いっぱいに映るより、消えるほうが視界を保てます。
-		const bool cameraInsidePlayer = camera != nullptr
-			&& camera->GetDistanceToPlayer() < kHideModelCameraDistance;
-		m_AnimationModel->SetVisible(!blinkOff && !cameraInsidePlayer);
-
-		const float horizontalSpeed = Vector3(m_Velocity.x, 0.0f, m_Velocity.z).length();
-		// 低速域でIdle/Runが頻繁に往復しないよう、切り替えにヒステリシスを持たせる。
-		const bool useRunAnimation = m_UsingRunAnimation
-			? horizontalSpeed > 0.15f
-			: horizontalSpeed > 0.35f;
-		if (useRunAnimation != m_UsingRunAnimation)
-		{
-			m_UsingRunAnimation = useRunAnimation;
-			m_AnimationTick = 0.0f;
-		}
-
-		// 追加されたIdle/Run FBXはいずれも60 ticks/秒で書き出されている。
-		m_AnimationTick += dt * 60.0f;
-		m_AnimationModel->Update(
-			m_UsingRunAnimation ? "Run" : "Idle",
-			static_cast<int>(m_AnimationTick));
-	}
 	GameObject::Update();
 }
 
@@ -146,15 +111,7 @@ void WirePlayer::Respawn(const Vector3& position)
 	m_Velocity = { 0.0f, 0.0f, 0.0f };
 	m_Scale = { 1.0f, 1.0f, 1.0f };
 	m_Movement.SetOnGround(true);
-	m_UsingRunAnimation = false;
-	m_AnimationTick = 0.0f;
 	m_InvincibleTime = 0.0f;
-	if (m_AnimationModel != nullptr)
-	{
-		// 点滅表示のまま復帰しないよう、可視状態へ戻します。
-		m_AnimationModel->SetVisible(true);
-		m_AnimationModel->Update("Idle", 0);
-	}
 
 	if (WireTpsCamera* camera = GetWorld().FindFirst<WireTpsCamera>())
 	{
@@ -167,6 +124,26 @@ void WirePlayer::NotifyMomentumAction()
 	const WireMomentumTuning& tuning = GetWireGameplayTuning().Momentum;
 	m_MomentumActions = std::min(m_MomentumActions + 1, tuning.MaxRank * tuning.ActionsPerRank);
 	m_MomentumTimer = tuning.DecayTime;
+}
+
+void WirePlayer::NotifyWireReleased(const Vector3& anchor)
+{
+	m_WireReleasePoseTime = GetWireGameplayTuning().Grapple.ReleasePoseDuration;
+	m_WireReleasePoseIntensity = std::clamp(m_Velocity.length() / 42.0f, 0.35f, 1.0f);
+	Vector3 ropeDirection = anchor - m_Position;
+	Vector3 travel = m_Velocity;
+	ropeDirection.y = 0.0f;
+	travel.y = 0.0f;
+	const float turn = ropeDirection.x * travel.z - ropeDirection.z * travel.x;
+	m_WireReleaseRollSign = turn < 0.0f ? -1.0f : 1.0f;
+}
+
+float WirePlayer::GetWireReleasePose01() const
+{
+	const float duration = GetWireGameplayTuning().Grapple.ReleasePoseDuration;
+	return duration > 0.0f
+		? std::clamp(m_WireReleasePoseTime / duration, 0.0f, 1.0f)
+		: 0.0f;
 }
 
 void WirePlayer::UpdateMomentum(float dt)
