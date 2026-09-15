@@ -19,7 +19,7 @@
 
 #include "wireTitleScene.h"
 #include "wireTpsCamera.h"
-
+#include "sky.h"
 
 #include <cmath>
 
@@ -83,6 +83,8 @@ void WireTutorialScene::Init()
 	// 本編と同じ空色の背景を使います。
 	WireFactory* factory = world.Spawn<WireFactory>(WireFactory::Layout::Training);
 	world.Spawn<ParticleSystem>();
+	auto* sky = world.Spawn<Sky>();
+	sky->SetRadius(200.0f);
 	const WireFactory::TrainingPoints& points = factory->GetTrainingPoints();
 
 	WirePlayer* player = world.Spawn<WirePlayer>();

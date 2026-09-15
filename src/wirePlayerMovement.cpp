@@ -4,7 +4,6 @@
 #include "particleSystem.h"
 #include "wireGrappleAbility.h"
 #include "wireFactory.h"
-#include "wireGiantMachine.h"
 #include "wirePlatform.h"
 #include "wirePlayer.h"
 #include "wirePlayerInput.h"
@@ -499,17 +498,6 @@ void WirePlayerMovement::ResolvePlatformLanding(WirePlayer& player, const Vector
 		foundGround = factory->GetBlockField().FindGroundBelow(
 			Vector3{player.m_Position.x, previousPosition.y, player.m_Position.z}, footMargin, fallDistance, groundY);
 	}
-	if (WireGiantMachine* machine = player.GetWorld().FindFirst<WireGiantMachine>())
-	{
-		float machineGroundY = 0.0f;
-		if (machine->FindGroundBelow(player.m_Position, footMargin, fallDistance, machineGroundY)
-			&& (!foundGround || machineGroundY > groundY))
-		{
-			groundY = machineGroundY;
-			foundGround = true;
-		}
-	}
-
 	if (foundGround && player.m_Position.y <= groundY)
 	{
 		const float impactSpeed = -player.m_Velocity.y;

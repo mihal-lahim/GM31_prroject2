@@ -5,8 +5,6 @@
 #include "gameTime.h"
 #include "renderer.h"
 #include "wireFactory.h"
-#include "wireGiantMachine.h"
-#include "wireMachinePart.h"
 #include "wirePlayer.h"
 #include "world.h"
 #include "wireGameplayTuning.h"
@@ -246,29 +244,6 @@ Vector3 WireTpsCamera::ClampAgainstGeometry(const Vector3& pivot, const Vector3&
 		{
 			allowed = (std::min)(allowed, (hitPosition - pivot).length() - kCameraCollisionMargin);
 			blocked = true;
-		}
-	}
-
-	// 巨大機械の部位。機体に張り付いたときも内部へ入り込まないようにします。
-	if (WireGiantMachine* machine = world.FindFirst<WireGiantMachine>())
-	{
-		for (const WireMachinePart* part : machine->GetParts())
-		{
-			if (part->IsBroken())
-			{
-				continue;
-			}
-
-			WireBlockField::Block block;
-			block.Center = part->GetPosition();
-			block.HalfSize = part->GetHalfSize();
-			float distance = 0.0f;
-			Vector3 normal;
-			if (WireBlockField::RaycastBlock(block, pivot, backward, length, distance, normal))
-			{
-				allowed = (std::min)(allowed, distance - kCameraCollisionMargin);
-				blocked = true;
-			}
 		}
 	}
 

@@ -13,13 +13,13 @@
 
 namespace
 {
-	constexpr float kHeartSize = 22.0f;
-	constexpr float kHeartSpacing = 8.0f;
+	constexpr float kHeartSize = 34.0f;
+	constexpr float kHeartSpacing = 10.0f;
 	constexpr float kLeftMargin = 34.0f;
-	constexpr float kTopMargin = 110.0f;
+	constexpr float kTopMargin = 140.0f;
 	constexpr float kFlashDuration = 0.35f;
 
-	void PushVertex(VERTEX_3D* out, float x, float y, const XMFLOAT4& color)
+	void PushVert(VERTEX_3D* out, float x, float y, const XMFLOAT4& color)
 	{
 		out->Position = { x, y, 0.0f };
 		out->Normal = { 0.0f, 0.0f, 1.0f };
@@ -27,45 +27,50 @@ namespace
 		out->TexCoord = { 0.0f, 0.0f };
 	}
 
-	int BuildHeart(VERTEX_3D* vertices, float cx, float cy, float size, const XMFLOAT4& color)
+	int BuildHeart(VERTEX_3D* verts, float cx, float cy, float size, const XMFLOAT4& color)
 	{
 		const float s = size * 0.5f;
-		const float topY = cy - s * 0.2f;
-		const float bottomY = cy + s * 1.3f;
-		const float midY = cy - s * 0.55f;
-		const float bulgeY = cy - s * 1.05f;
-		const float innerX = s * 0.12f;
-		const float outerX = s * 1.05f;
-		const float bulgeX = s * 0.55f;
+
+		const float btmX = cx,             btmY = cy + s * 1.15f;
+		const float lx   = cx - s * 1.0f,  ly   = cy;
+		const float ltx  = cx - s * 1.0f,  lty  = cy - s * 0.85f;
+		const float lpx  = cx - s * 0.42f, lpy  = cy - s * 0.50f;
+		const float clx  = cx,             cly  = cy - s * 0.15f;
+		const float rpx  = cx + s * 0.42f, rpy  = cy - s * 0.50f;
+		const float rtx  = cx + s * 1.0f,  rty  = cy - s * 0.85f;
+		const float rx   = cx + s * 1.0f,  ry   = cy;
+
 		int v = 0;
 
-		PushVertex(&vertices[v++], cx, bottomY, color);
-		PushVertex(&vertices[v++], cx + outerX, topY, color);
-		PushVertex(&vertices[v++], cx - outerX, topY, color);
+		// lower-left body
+		PushVert(&verts[v++], btmX, btmY, color);
+		PushVert(&verts[v++], lx,   ly,   color);
+		PushVert(&verts[v++], clx,  cly,  color);
 
-		PushVertex(&vertices[v++], cx - outerX, topY, color);
-		PushVertex(&vertices[v++], cx - bulgeX, midY, color);
-		PushVertex(&vertices[v++], cx - outerX, bulgeY, color);
+		// lower-right body
+		PushVert(&verts[v++], btmX, btmY, color);
+		PushVert(&verts[v++], clx,  cly,  color);
+		PushVert(&verts[v++], rx,   ry,   color);
 
-		PushVertex(&vertices[v++], cx - outerX, topY, color);
-		PushVertex(&vertices[v++], cx - innerX, topY, color);
-		PushVertex(&vertices[v++], cx - bulgeX, midY, color);
+		// left lobe outer
+		PushVert(&verts[v++], lx,  ly,  color);
+		PushVert(&verts[v++], ltx, lty, color);
+		PushVert(&verts[v++], lpx, lpy, color);
 
-		PushVertex(&vertices[v++], cx - innerX, topY, color);
-		PushVertex(&vertices[v++], cx, topY, color);
-		PushVertex(&vertices[v++], cx - bulgeX, midY, color);
+		// left lobe inner
+		PushVert(&verts[v++], lx,  ly,  color);
+		PushVert(&verts[v++], lpx, lpy, color);
+		PushVert(&verts[v++], clx, cly, color);
 
-		PushVertex(&vertices[v++], cx + outerX, topY, color);
-		PushVertex(&vertices[v++], cx + outerX, bulgeY, color);
-		PushVertex(&vertices[v++], cx + bulgeX, midY, color);
+		// right lobe inner
+		PushVert(&verts[v++], clx, cly, color);
+		PushVert(&verts[v++], rpx, rpy, color);
+		PushVert(&verts[v++], rx,  ry,  color);
 
-		PushVertex(&vertices[v++], cx + outerX, topY, color);
-		PushVertex(&vertices[v++], cx + bulgeX, midY, color);
-		PushVertex(&vertices[v++], cx + innerX, topY, color);
-
-		PushVertex(&vertices[v++], cx + innerX, topY, color);
-		PushVertex(&vertices[v++], cx + bulgeX, midY, color);
-		PushVertex(&vertices[v++], cx, topY, color);
+		// right lobe outer
+		PushVert(&verts[v++], rpx, rpy, color);
+		PushVert(&verts[v++], rtx, rty, color);
+		PushVert(&verts[v++], rx,  ry,  color);
 
 		return v;
 	}
@@ -74,7 +79,6 @@ namespace
 void WireHealthUI::Init()
 {
 	m_Layer = Layer::UI;
-	SetRenderCategory(RenderCategory::Overlay);
 
 	VERTEX_3D vertices[kMaxVertices]{};
 	D3D11_BUFFER_DESC bufferDesc{};

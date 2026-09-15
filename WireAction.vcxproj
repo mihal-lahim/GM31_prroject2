@@ -74,7 +74,7 @@
     <ClInclude Include="include\wireCollisionLayers.h" />
     <ClInclude Include="include\wireAnchor.h" />
     <ClInclude Include="include\wireBlinkGauge.h" />
-	<ClInclude Include="include\procedural_city.hpp" />
+	<ClInclude Include="include\wireHealthUI.h" />
 	<ClInclude Include="include\wireBlockField.h" />
 	<ClInclude Include="include\wireBoxMesh.h" />
 	<ClInclude Include="include\wireBreakable.h" />
@@ -83,12 +83,8 @@
 	<ClInclude Include="include\wireTutorialScene.h" />
 	<ClInclude Include="include\wireDebugTools.h" />
 	<ClInclude Include="include\wireFactory.h" />
-	<ClInclude Include="include\wireGiantMachine.h" />
-	<ClInclude Include="include\wireLockGate.h" />
-	<ClInclude Include="include\wireMachinePart.h" />
 	<ClInclude Include="include\wireMissionHud.h" />
 	<ClInclude Include="include\wireTarget.h" />
-	<ClInclude Include="include\wireWorker.h" />
 	<ClInclude Include="include\wireTitleScene.h" />
 	<ClInclude Include="include\wireResultScene.h" />
     <ClInclude Include="include\wireEnemy.h" />
@@ -125,12 +121,8 @@
 	<ClCompile Include="src\wireTutorialScene.cpp" />
 	<ClCompile Include="src\wireDebugTools.cpp" />
 	<ClCompile Include="src\wireFactory.cpp" />
-	<ClCompile Include="src\wireGiantMachine.cpp" />
-	<ClCompile Include="src\wireLockGate.cpp" />
-	<ClCompile Include="src\wireMachinePart.cpp" />
 	<ClCompile Include="src\wireMissionHud.cpp" />
 	<ClCompile Include="src\wireTarget.cpp" />
-	<ClCompile Include="src\wireWorker.cpp" />
 	<ClCompile Include="src\wireTitleScene.cpp" />
 	<ClCompile Include="src\wireResultScene.cpp" />
     <ClCompile Include="src\wireEnemy.cpp" />
@@ -184,23 +176,23 @@
     <RuntimeAsset Include="assets\model\box.obj">
       <TargetPath>assets\model\box.obj</TargetPath>
     </RuntimeAsset>
-	<RuntimeAsset Include="assets\model\city_test.obj">
-	  <TargetPath>assets\model\city_test.obj</TargetPath>
-	</RuntimeAsset>
-	<RuntimeAsset Include="assets\model\city_anchors.obj">
-	  <TargetPath>assets\model\city_anchors.obj</TargetPath>
-	</RuntimeAsset>
     <RuntimeAsset Include="assets\model\box.mtl">
       <TargetPath>assets\model\box.mtl</TargetPath>
     </RuntimeAsset>
-    <RuntimeAsset Include="assets\model\grass.jpg">
-      <TargetPath>assets\model\grass.jpg</TargetPath>
+    <RuntimeAsset Include="assets\model\sky.obj">
+      <TargetPath>assets\model\sky.obj</TargetPath>
     </RuntimeAsset>
-    <RuntimeAsset Include="assets\model\gravel.jpg">
-      <TargetPath>assets\model\gravel.jpg</TargetPath>
+    <RuntimeAsset Include="assets\model\sky.mtl">
+      <TargetPath>assets\model\sky.mtl</TargetPath>
     </RuntimeAsset>
-    <RuntimeAsset Include="assets\texture\ground.png">
-      <TargetPath>assets\texture\ground.png</TargetPath>
+    <RuntimeAsset Include="assets\model\sky.jpg">
+      <TargetPath>assets\model\sky.jpg</TargetPath>
+    </RuntimeAsset>
+    <RuntimeAsset Include="assets\model\wire_saber.obj">
+      <TargetPath>assets\model\wire_saber.obj</TargetPath>
+    </RuntimeAsset>
+    <RuntimeAsset Include="assets\model\wire_saber.mtl">
+      <TargetPath>assets\model\wire_saber.mtl</TargetPath>
     </RuntimeAsset>
 	<RuntimeAsset Include="assets\texture\alphabet.png">
 	  <TargetPath>assets\texture\alphabet.png</TargetPath>

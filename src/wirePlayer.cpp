@@ -4,7 +4,6 @@
 #include "world.h"
 #include "wirePlayerInput.h"
 #include "wireFactory.h"
-#include "wireGiantMachine.h"
 #include "wireTpsCamera.h"
 #include "wireGameplayTuning.h"
 #include "wireRobotRenderer.h"
@@ -71,17 +70,6 @@ void WirePlayer::Update()
 		}
 	}
 
-	// 巨大機械も同じ扱いで押し出します。機体の側面も壁蹴りの対象になるので、
-	// 装甲を蹴って弱点側へ回り込む、といった動きが成立します。
-	if (WireGiantMachine* machine = GetWorld().FindFirst<WireGiantMachine>())
-	{
-		const WireBlockField::Contact contact = machine->ResolvePlayerCollision(
-			previousPosition, kPlayerCollisionRadius, m_Position, m_Velocity);
-		if (contact.IsWall)
-		{
-			m_Movement.NotifyWallContact(contact.Normal);
-		}
-	}
 
 	// 全面地面は設けず、実際に足場へ着地した場合だけ接地状態にします。
 	m_Movement.SetOnGround(false);

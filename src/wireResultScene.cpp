@@ -25,8 +25,8 @@ void WireResultScene::Init()
     {
         line(L"GAME OVER",115,70,{1.0f,0.30f,0.25f,1});
         line(L"到達高度  " + std::to_wstring(static_cast<int>(m_ClearTime)) + L"m",270,42,{1,1,1,1});
-        line(L"Enter / R  リトライ",450,36,{1,1,1,1});
-        line(L"Esc  タイトル",520,24,{0.75f,0.9f,1,1});
+        line(L"Enter  タイトル     R  リトライ",450,36,{1,1,1,1});
+        line(L"Esc  ゲーム終了",520,24,{0.75f,0.9f,1,1});
     }
     else
     {
@@ -37,13 +37,13 @@ void WireResultScene::Init()
         else if (m_BestTime>0 && m_ClearTime>m_BestTime+0.005f)
             line(L"自己ベストまで あと " + WireRace::FormatTime(m_ClearTime-m_BestTime),425,26,{1,0.8f,0.5f,1});
         else line(L"BEST TIME!",425,30,{1,0.8f,0.5f,1});
-        line(L"Enter / R  もう一度走る",535,36,{1,1,1,1});
-        line(L"Esc  タイトル",595,24,{0.75f,0.9f,1,1});
+        line(L"Enter  タイトル     R  もう一度走る",535,36,{1,1,1,1});
+        line(L"Esc  ゲーム終了",595,24,{0.75f,0.9f,1,1});
     }
 }
 void WireResultScene::Update()
 {
-    if (Keyboard_IsKeyDownTrigger(KK_ENTER) || Keyboard_IsKeyDownTrigger(KK_R)) ChangeScene<WireGame>();
-    else if (Keyboard_IsKeyDownTrigger(KK_ESCAPE)) ChangeScene<WireTitleScene>();
+    if (Keyboard_IsKeyDownTrigger(KK_R)) ChangeScene<WireGame>();
+    else if (Keyboard_IsKeyDownTrigger(KK_ENTER)) ChangeScene<WireTitleScene>();
 }
 

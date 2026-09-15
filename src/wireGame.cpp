@@ -16,6 +16,7 @@
 #include "wireReticle.h"
 #include "wireTitleScene.h"
 #include "wireTpsCamera.h"
+#include "sky.h"
 #include <filesystem>
 #include <fstream>
 #include <cstdlib>
@@ -65,6 +66,8 @@ void WireGame::Init()
     World& world = GetWorld();
     auto* factory = world.Spawn<WireFactory>();
     world.Spawn<ParticleSystem>();
+    auto* sky = world.Spawn<Sky>();
+    sky->SetRadius(500.0f);
     for (const auto& point : factory->GetRaceAnchors())
     {
         auto* anchor = world.Spawn<WireAnchor>();
