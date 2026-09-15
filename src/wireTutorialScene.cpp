@@ -13,14 +13,13 @@
 #include "wireGame.h"
 #include "wireGameplayTuning.h"
 #include "wireGuide.h"
-#include "wireLockGate.h"
 #include "wirePlayer.h"
 #include "wireResultScene.h"
 #include "wireReticle.h"
 
 #include "wireTitleScene.h"
 #include "wireTpsCamera.h"
-#include "wireWorker.h"
+
 
 #include <cmath>
 
@@ -55,10 +54,10 @@ void WireTutorialScene::BuildSteps()
 			[player]() { WirePlayer* p = player(); return p != nullptr && p->GetWallKickCount() >= 1; } },
 		{ L"空中で Shift。空中ダッシュで軌道を直せる。",
 			[player]() { WirePlayer* p = player(); return p != nullptr && p->GetBlinkCount() >= 1; } },
-		{ L"右クリックを押しながら左長押し→離して斬る。赤い扉を壊せ。",
-			[&world]() { return world.FindFirst<WireLockGate>() == nullptr; } },
-		{ L"光の柱の作業員に近づけば救助できる。",
-			[this]() { return m_Worker != nullptr && m_Worker->IsRescued(); } },
+		{ L"ワイヤーで加速し、上昇中に左を離そう。",
+			[player]() { auto* p = player(); return p && !p->IsWireActive() && p->GetWireReleasePose01() > 0.0f && p->GetVelocity().y > 8.0f; } },
+        { L"奥の高台へ登ろう。ここが練習のゴール。",
+            [this,player]() { auto* p = player(); return p && p->IsOnGround() && (p->GetPosition()-m_FinishPoint).length() < 5.0f; } },
 	};
 }
 
@@ -101,12 +100,7 @@ void WireTutorialScene::Init()
 	anchor->SetPosition(points.WireAnchor);
 	anchor->SetRadius(3.0f);
 
-	WireLockGate* gate = world.Spawn<WireLockGate>();
-	gate->Setup(points.DummyGate, { 3.0f, 3.0f, 1.0f }, 120);
-
-	m_Worker = world.Spawn<WireWorker>();
-	m_Worker->SetPosition(points.Worker);
-	// 条件なし。近づくだけで救助できます。
+	m_FinishPoint = points.Finish;
 
 	m_Chat = world.Spawn<WireChatBox>();
 	m_Chat->SetSpeaker(kGuideName);
@@ -124,7 +118,7 @@ void WireTutorialScene::Uninit()
 {
 	m_Steps.clear();
 	m_Chat = nullptr;
-	m_Worker = nullptr;
+
 }
 
 bool WireTutorialScene::HandleDebugSceneRequest()
@@ -143,6 +137,7 @@ bool WireTutorialScene::HandleDebugSceneRequest()
 
 void WireTutorialScene::Update()
 {
+	if (Keyboard_IsKeyDownTrigger(KK_ESCAPE)) { ChangeScene<WireTitleScene>(); return; }
 	if (HandleDebugSceneRequest())
 	{
 		return;
@@ -172,10 +167,7 @@ void WireTutorialScene::Update()
 	{
 		player->Respawn(m_SpawnPoint);
 	}
-	for (WireWorker* worker : GetWorld().FindAll<WireWorker>())
-	{
-		worker->TryRescue(*player);
-	}
+
 
 	// 達成直後は「よし！」を見せてから次の案内へ移ります。
 	if (m_PraiseTime > 0.0f)
@@ -189,7 +181,7 @@ void WireTutorialScene::Update()
 				m_Finished = true;
 				if (m_Chat != nullptr)
 				{
-					m_Chat->SetMessage(L"訓練終了！　現場へ向かえ。");
+					m_Chat->SetMessage(L"練習クリア！　300mの頂上へ挑戦しよう。");
 					m_Chat->SetFooter(L"");
 				}
 			}

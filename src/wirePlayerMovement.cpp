@@ -86,7 +86,14 @@ void WirePlayerMovement::Update(
 		moveDirection.normalize();
 		const float accel = m_OnGround ? GetWireGameplayTuning().Movement.GroundAcceleration : GetWireGameplayTuning().Movement.AirAcceleration;
 		const float aimScale = 1.0f;
-		player.m_Velocity += moveDirection * (accel * aimScale * dt);
+		if (player.m_Grapple.IsActive())
+        {
+            Vector3 radial = player.GetWireAnchor() - player.m_Position;
+            if (radial.length() > kVectorEpsilon) radial.normalize();
+            const Vector3 tangentInput = moveDirection - radial * Vector3::dot(moveDirection,radial);
+            player.m_Velocity += tangentInput * GetWireGameplayTuning().Grapple.SwingInputAcceleration * dt;
+        }
+        else player.m_Velocity += moveDirection * (accel * aimScale * dt);
 
 		if (!player.m_Grapple.IsActive())
 		{
@@ -234,8 +241,13 @@ void WirePlayerMovement::StartBlink(WirePlayer& player, const Vector3& direction
 		GetWireGameplayTuning().Movement.BlinkCarryMaxSpeed);
 	m_BlinkTravelSpeed = std::clamp(
 		player.m_Velocity.length(), GetWireGameplayTuning().Movement.BlinkSpeed, carryCap);
-	player.m_Velocity = m_BlinkDirection * m_BlinkTravelSpeed;
-	player.m_Position += m_BlinkDirection * GetWireGameplayTuning().Movement.BlinkStepDistance;
+	// ダッシュでも上昇の勢いを残し、空中の進行方向だけを変えます。
+    const float upSpeed=std::clamp(player.m_Velocity.y,0.0f,m_BlinkTravelSpeed*0.9f);
+    const float flatSpeed=sqrtf(std::max(0.0f,m_BlinkTravelSpeed*m_BlinkTravelSpeed-upSpeed*upSpeed));
+    m_BlinkDirection=m_BlinkDirection*flatSpeed+Vector3{0,upSpeed,0};
+    m_BlinkDirection.normalize();
+    player.m_Velocity=m_BlinkDirection*m_BlinkTravelSpeed;
+    player.m_Position += m_BlinkDirection * GetWireGameplayTuning().Movement.BlinkStepDistance;
 	player.m_Position.x = std::clamp(player.m_Position.x, -GetWireGameplayTuning().Movement.WorldBoundsX, GetWireGameplayTuning().Movement.WorldBoundsX);
 	player.m_Position.z = std::clamp(player.m_Position.z, -GetWireGameplayTuning().Movement.WorldBoundsZ, GetWireGameplayTuning().Movement.WorldBoundsZ);
 	player.m_Rotation.y = LerpAngle(
@@ -485,7 +497,7 @@ void WirePlayerMovement::ResolvePlatformLanding(WirePlayer& player, const Vector
 	if (WireFactory* factory = player.GetWorld().FindFirst<WireFactory>())
 	{
 		foundGround = factory->GetBlockField().FindGroundBelow(
-			player.m_Position, footMargin, fallDistance, groundY);
+			Vector3{player.m_Position.x, previousPosition.y, player.m_Position.z}, footMargin, fallDistance, groundY);
 	}
 	if (WireGiantMachine* machine = player.GetWorld().FindFirst<WireGiantMachine>())
 	{
@@ -530,3 +542,4 @@ void WirePlayerMovement::ResolvePlatformLanding(WirePlayer& player, const Vector
 		return;
 	}
 }
+

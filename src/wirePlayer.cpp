@@ -54,10 +54,7 @@ void WirePlayer::Update()
 	{
 		m_Grapple.Update(*this, dt, input, camera);
 	}
-	m_Sword.Update(*this, dt, input, m_Grapple);
-	// 斬り抜けは移動・重力の後に適用し、速度を上書きします。
-	// ここで最後に書くことで、命中した瞬間に落下や減速へ引き戻されません。
-	m_Sword.ApplyDashThrough(*this, dt);
+	// レースでは斬撃を実行せず、左クリックをワイヤー専用にします。
 
 	const Vector3 previousPosition = m_Position;
 	m_Position += m_Velocity * dt;

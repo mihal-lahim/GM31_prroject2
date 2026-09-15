@@ -93,6 +93,9 @@
 	<ClInclude Include="include\wireResultScene.h" />
     <ClInclude Include="include\wireEnemy.h" />
     <ClInclude Include="include\wireGame.h" />
+    <ClInclude Include="include\wireRace.h" />
+    <ClInclude Include="include\wireMenuBackdrop.h" />
+    <ClInclude Include="include\wireSwingPhysics.h" />
     <ClInclude Include="include\wireGrappleAbility.h" />
     <ClInclude Include="include\wirePlatform.h" />
     <ClInclude Include="include\wirePlayer.h" />
@@ -131,6 +134,7 @@
 	<ClCompile Include="src\wireResultScene.cpp" />
     <ClCompile Include="src\wireEnemy.cpp" />
     <ClCompile Include="src\wireGame.cpp" />
+    <ClCompile Include="src\wireRaceTests.cpp" />
     <ClCompile Include="src\wireGrappleAbility.cpp" />
     <ClCompile Include="src\wirePlatform.cpp" />
     <ClCompile Include="src\wirePlayer.cpp" />
@@ -229,3 +233,4 @@
   </Target>
   <ImportGroup Label="ExtensionTargets" />
 </Project>
+

@@ -8,20 +8,20 @@ inline constexpr int kMaxAirBlinkCharges = 4;
 
 struct WireMovementTuning
 {
-	float WorldBoundsX = 52.0f;
-	float WorldBoundsZ = 52.0f;
+	float WorldBoundsX = 80.0f;
+	float WorldBoundsZ = 80.0f;
 	float PlayerModelYawOffset = 3.14159265f;
 	float Gravity = -42.0f;
 	float GroundAcceleration = 66.0f;
 	float AirAcceleration = 24.0f;
 	float GroundDamping = 6.4f;
-	float AirDamping = 1.0f;
+	float AirDamping = 0.08f;
 	float JumpVelocity = 14.5f;
 	float AimMoveScale = 0.34f;
 	float AimHorizontalDamping = 24.0f;
 	float AimGravityScale = 0.42f;
 	float AimFallSpeedLimit = 0.0f; // 構え中の最低下降速度。0なら落下せず空中で静止する
-	float BlinkStepDistance = 3.2f;
+	float BlinkStepDistance = 0.0f;
 	float BlinkSpeed = 38.0f;
 	// ブリンクは現在速度を新しい方向へ引き継ぎます(勢い保存)。これはその上限です。
 	float BlinkCarryMaxSpeed = 55.0f;
@@ -87,33 +87,33 @@ struct WireGrappleTuning
 {
 	float AimMaxTime = 2.0f;
 	float HookSpeed = 82.0f;
-	float PullAcceleration = 88.0f;
+	float PullAcceleration = 8.0f;
 	float MaxSpeed = 42.0f;
 	float ReleaseBoost = 8.5f;
-	float ReleaseUpBoost = 3.0f;
-	float ReleaseMaxSpeed = 50.0f;
+	float ReleaseUpBoost = 8.0f;
+	float ReleaseMaxSpeed = 68.0f;
 	float StopDistance = 1.6f; // 接続を切る距離ではなく、近距離で牽引を止める範囲
-	float MaxDistance = 42.0f;
+	float MaxDistance = 60.0f;
 	float AimConeDot = 0.82f;
 	float OriginHeight = 1.0f;
 	float AnchorMinDistance = 0.1f;
 	float AnchorDistancePenalty = 0.012f;
 	float AnchorRadiusBonus = 0.05f;
 	float NoAnchorCooldown = 0.10f;
-	float StartCooldown = 0.16f;
+	float StartCooldown = 0.04f;
 	float LaunchImpulse = 9.0f;
 	float TurnLerp = 0.30f;
 	float ReleaseSquashXZ = 0.78f;
 	float ReleaseStretchY = 1.28f;
 	float AnchorAimScoreWeight = 2.0f;
 	// アーケード寄りの振り子制御。接続時は半径方向だけを整理し、接線速度を残します。
-	float RopeLengthScale = 0.96f;
+	float RopeLengthScale = 1.0f;
 	float MinRopeLength = 3.0f;
 	float RadialDamping = 4.0f;
 	float ConstraintStrength = 34.0f;
-	float SwingInputAcceleration = 20.0f;
+	float SwingInputAcceleration = 38.0f;
 	float AttachVelocityKeep = 0.98f;
-	float AttachMinSpeed = 12.0f;
+	float AttachMinSpeed = 8.0f;
 	float RewireBonus = 2.0f;
 	float RewireBonusWindow = 1.15f;
 	float RewireMaxSpeed = 58.0f;
@@ -193,7 +193,7 @@ struct WireCameraTuning
 	float FarClip = 1000.0f;
 	float InitialHeight = 6.0f;
 	float InitialDistance = -9.2f;
-	float InitialPitch = -0.16f;   // 開始時は水平寄り。見下ろすと工場の全体像が見えないため
+	float InitialPitch = 0.38f;   // 開始時は水平寄り。見下ろすと工場の全体像が見えないため
 	float NormalMinPitchDegrees = -88.0f;
 	float NormalMaxPitchDegrees = 88.0f;
 	float AimMinPitchDegrees = -88.0f;
@@ -320,3 +320,5 @@ struct WireGameplayTuning
 
 // RuntimeConfigの読込世代が変わると再構築される、読み取り専用の調整値です。
 const WireGameplayTuning& GetWireGameplayTuning();
+
+

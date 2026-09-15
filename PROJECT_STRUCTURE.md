@@ -27,49 +27,28 @@ cells. Query results retain registration order for deterministic behavior.
 
 ### WireAction (`WireAction.vcxproj`)
 
-`WireAction` builds `WireAction.exe` and contains only the wire-action game:
+`WireAction` is a vertical, single-player time attack race.
 
-- `wireGameDefinition.cpp`: window title and initial scene
-- `wireGame.*`: scene composition
-- `wirePlayer.*`: player orchestration
-- `wirePlayerInput.*`: device input sampling
-- `wirePlayerMovement.*`: movement, jump, and blink
-- `wireGrappleAbility.*`: aiming, anchor selection, and wire motion
-- `wireSwordAbility.*`: charge attacks, collision queries, and damage
-- `wirePlayerPresentation.*`: player-specific wire rendering and speed lines
-- `wireEnemy.*`: patrol/chase/attack state machine (small factory robot)
-- `wireDebugTools.*`: shared debug keys, opt-in and available in Release
-- `wireTutorialScene.*`: practice ground before the main stage; `wireChatBox.*`
-  shows the guide's one-line instructions, `wireGuide.*` is the guide character
-- `wireFactory.*` builds either the main factory or the training ground
-  (`WireFactory::Layout`) with the same collision and rendering
+- `wireGame.*`: race scene, fixed safe respawns, summit finish, persisted personal best.
+- `wireRace.h`: render-independent race clock and swept goal-volume intersection.
+- `wireFactory.*`: 300m tower, outside platforms, central shortcuts, elevators and moving boxes.
+  Moving collision boxes, rendering and attached anchor positions use the same transforms.
+- `wireGrappleAbility.*`: immediate attachment, moving targets, momentum-preserving release.
+- `wireSwingPhysics.h`: numerical rope integration and ascent-dependent release assistance.
+- `wirePlayerMovement.*`: tangent input, jumping, wall kicks, aerial direction changes and landings.
+- `wirePlayer.*`, `wireRobotRenderer.*`, `wirePlayerPresentation.*`: toy robot and wire feedback.
+- `wireMissionHud.*`: race time, altitude, speed, best time and short movement feedback.
+- `wireTitleScene.*`, `wireResultScene.*`, `wireMenuBackdrop.h`: race / retry / optional practice menus.
+- `wireTutorialScene.*`, `wireChatBox.*`, `wireGuide.*`: optional movement and swing practice.
+- `wireRaceTests.cpp`: numerical regressions and optional real-render scene-loop tests.
 
-日本語の案内文・目的表示には Engine の `dynamicText.*` を使います。GDI で文字列を
-実行時にテクスチャへ描くため、漢字・かな・濁音・記号・英数が一文で使えます。
-アトラス方式の `kanaText` は清音しか持たず「で」「ジャンプ」が空白になるため、
-自然な文が必要な場面には向きません。
+`GameDefinition` provides optional self-test/render-test callbacks so Engine never includes game headers.
+Japanese and formatted time text use Engine's `dynamicText.*` renderer.
+Legacy enemies, sword abilities, breakable parts and workers remain available as unused implementations;
+the race and practice scenes do not spawn them or run sword attacks.
 
-Wire Action の中心的な抽象は次の2つです。どちらも「対象側がインターフェースを
-実装する」形にしてあるため、設備や敵を増やしてもワイヤー・剣のコードは変わりません。
-
-- `wireTarget.h` の `IWireTarget`: ワイヤーを掛けられるもの。設備アンカー、
-  ロック機構、巨大機械の各部位が実装します。狙いの解決 (`WireTargeting`) は
-  厳密なレイキャストではなく視線コーン内のスコアリングで、高速移動中に
-  ピクセル単位で狙わせないための入力補正になっています。
-- `wireBreakable.h` の `IWireBreakable`: 剣で壊せるもの。小型ロボット、装甲、
-  弱点、ロック機構が実装します。
-
-箱状の見た目は `wireBoxMesh.*` の一つの生成関数から作ります。工場・巨大機械の
-部位・ロック機構がそれぞれ同じ生成コードを複製していた時期に、側面4つの巻き順が
-裏向き(外から見るとカリングされ、箱の内側が透けて見える)という不具合も3箇所に
-複製されていました。集約後は面の基底の向きから巻き順を機械的に決めるので、
-手で並べた表が間違っていても壊れません。
-
-ステージ形状は `wireBlockField.*` の AABB 集合で表し、レイキャスト・押し出し・
-着地判定を提供します。押し出しは接触面の法線を返し、壁蹴りがこれを使います。
-`wireFactory.*`(静的な工場) と `wireGiantMachine.*`(動く巨大機械) が同じ関数を
-共有するため、機体の肩や腕にも床と同じ仕組みで着地できます。
-- remaining `wire*` actors, world objects, camera, effects, and UI
+`IWireTarget` represents anchor points, including moving machinery. `WireBlockField` supplies surface
+raycasts, body collision and landing queries. `wireBoxMesh` supplies the shared box geometry.
 
 ### BattingCenter (`BattingCenter.vcxproj`)
 
@@ -199,3 +178,4 @@ the exact three-project solution shape.
 6. Define game-specific collision layer bits outside Engine.
 7. Reuse engine interfaces such as `ICameraView`; do not add game-specific
    types to Engine.
+

@@ -2,6 +2,9 @@
 
 #include "wireTitleScene.h"
 
+bool RunWireRaceSelfTests();
+bool RunWireRaceRenderTests();
+
 namespace
 {
 	std::unique_ptr<Scene> CreateInitialScene()
@@ -14,11 +17,14 @@ const GameDefinition& GetGameDefinition()
 {
 	static const GameDefinition definition =
 	{
-		"Wire Action TPS",
+		"Toy Wire - Sky Race",
 		"assets/config/wire.cfg",
 		"assets/config/wire-gameplay.cfg",
-		CreateInitialScene
+		CreateInitialScene,
+        RunWireRaceSelfTests,
+        RunWireRaceRenderTests
 	};
 
 	return definition;
 }
+

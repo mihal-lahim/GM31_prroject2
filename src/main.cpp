@@ -98,7 +98,8 @@ int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLi
 	Engine::CrashReporter::Install();
 	if (lpCmdLine != nullptr && strstr(lpCmdLine, "--self-test") != nullptr)
 	{
-		return RunEngineSelfTests() ? 0 : 1;
+		const auto& definition = GetGameDefinition();
+		return RunEngineSelfTests() && (definition.RunSelfTests == nullptr || definition.RunSelfTests()) ? 0 : 1;
 	}
 
 	const GameDefinition& gameDefinition = GetGameDefinition();
@@ -144,7 +145,8 @@ int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLi
 		return -1;
 	}
 
-	ShowWindow(g_Window, nCmdShow);
+	const bool renderTest = lpCmdLine != nullptr && strstr(lpCmdLine, "--render-test") != nullptr;
+	ShowWindow(g_Window, renderTest ? SW_HIDE : nCmdShow);
 	UpdateWindow(g_Window);
 	Keyboard_Initialize();
 	Mouse_Initialize(g_Window);
@@ -158,6 +160,15 @@ int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLi
 		return -1;
 	}
 
+	if (renderTest)
+	{
+		const bool passed = gameDefinition.RunRenderTests != nullptr && gameDefinition.RunRenderTests();
+		Manager::Uninit();
+		Mouse_SetCursorCaptured(false);
+		DestroyWindow(g_Window);
+		UnregisterClass(CLASS_NAME, wcex.hInstance);
+		return passed ? 0 : 1;
+	}
 	constexpr double kFixedDeltaSeconds = 1.0 / 60.0;
 	constexpr double kMaximumFrameSeconds = 0.25;
 	constexpr int kMaximumCatchUpSteps = 5;
@@ -270,7 +281,3 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 
 	return DefWindowProc(hWnd, uMsg, wParam, lParam);
 }
-
-
-
-

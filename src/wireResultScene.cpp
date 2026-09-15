@@ -1,109 +1,39 @@
 #include "wireResultScene.h"
-
-#include "alphabetText.h"
+#include "dynamicText.h"
 #include "gameTime.h"
-#include "kanjiText.h"
 #include "keyboard_utf8.h"
-#include "main.h"
-#include "polygon2D.h"
-#include "score.h"
-#include "wireDebugTools.h"
+#include "wireFactory.h"
+#include "wireMenuBackdrop.h"
 #include "wireGame.h"
+#include "wireRace.h"
 #include "wireTitleScene.h"
 #include "world.h"
-
-#include <algorithm>
-#include <cmath>
-
-namespace
-{
-	int Centiseconds(float seconds)
-	{
-		return std::clamp(static_cast<int>(seconds * 100.0f), 0, 999999);
-	}
-
-	AlphabetText* AddAlphabet(World& world, const char* text, const Vector3& position,
-		float size, float advance, const XMFLOAT4& color)
-	{
-		AlphabetText* label = world.Spawn<AlphabetText>();
-		label->SetText(text);
-		label->SetPosition(position);
-		label->SetGlyphSize(size);
-		label->SetGlyphAdvance(advance);
-		label->SetColor(color);
-		return label;
-	}
-
-	Score* AddTime(World& world, float seconds, const Vector3& position, const XMFLOAT4& color)
-	{
-		Score* score = world.Spawn<Score>();
-		score->SetDigitCount(6);
-		score->SetValue(Centiseconds(seconds));
-		score->SetPosition(position);
-		score->SetGlyphSize(58);
-		score->SetGlyphAdvance(-48);
-		score->SetColor(color);
-		return score;
-	}
-}
-
 void WireResultScene::Init()
 {
-	GameTime::SetPaused(false);
-	World& world = GetWorld();
-	world.Spawn<Polygon2D>()->Init(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, L"assets/texture/result.png");
-	// ゲームオーバーは赤系、クリアは金系にし、一目で結果が分かるようにします。
-	const XMFLOAT4 headingColor = m_Cleared
-		? XMFLOAT4{ 1.0f,0.72f,0.18f,1.0f }
-		: XMFLOAT4{ 1.0f,0.38f,0.32f,1.0f };
-	AddAlphabet(world, m_Cleared ? "ALL WORKERS RESCUED" : "RESCUE FAILED",
-		{ m_Cleared ? 150.0f : 320.0f, 135.0f, 0.0f }, 60, 47, headingColor);
-	AddAlphabet(world, "TIME", { 375,305,0 }, 42, 34, { 0.92f,0.97f,1.0f,1.0f });
-	AddTime(world, m_ClearTime, { 890,295,0 }, { 0.92f,0.97f,1.0f,1.0f });
-	AddAlphabet(world, "BEST", { 375,395,0 }, 42, 34, { 0.18f,0.86f,1.0f,1.0f });
-	AddTime(world, m_BestTime, { 890,385,0 }, { 0.18f,0.86f,1.0f,1.0f });
-	m_RetryPrompt = AddAlphabet(world, "PRESS R TO RETRY", { 375,570,0 }, 34, 27, { 0.92f,0.97f,1.0f,1.0f });
-	m_TitlePrompt = AddAlphabet(world, "PRESS ENTER FOR TITLE", { 315,625,0 }, 28, 23, { 1.0f,0.82f,0.34f,1.0f });
-
-	KanjiText* kanji = world.Spawn<KanjiText>();
-	kanji->SetText(m_Cleared ? L"救出完了" : L"救出失敗");
-	kanji->SetPosition({ 535,235,0 });
-	kanji->SetGlyphSize(42);
-	kanji->SetGlyphAdvance(44);
-	kanji->SetColor({ 1.0f,0.82f,0.34f,1.0f });
-	m_AnimationTime = 0.0f;
+    GameTime::SetPaused(false);
+    auto& world = GetWorld();
+    world.Spawn<WireFactory>();
+    world.Spawn<WireCourseOverview>();
+    world.Spawn<WireMenuShade>();
+    auto line = [&world](const std::wstring& text,float y,int size,XMFLOAT4 color)
+    {
+        auto* label = world.Spawn<DynamicText>();
+        label->SetText(text); label->SetPosition({SCREEN_WIDTH*0.5f,y,0});
+        label->SetAlign(DynamicText::Align::Center); label->SetFontSize(size); label->SetColor(color);
+    };
+    line(m_RecordEligible ? L"GOAL / 300m" : L"PRACTICE",115,70,{1,0.78f,0.25f,1});
+    line(WireRace::FormatTime(m_ClearTime),255,68,{1,1,1,1});
+    line(L"BEST  " + WireRace::FormatTime(m_BestTime),365,32,{0.5f,0.93f,1,1});
+    if (!m_RecordEligible) line(L"デバッグ走行は自己ベストに保存されません",425,22,{1,0.8f,0.5f,1});
+    else if (m_BestTime>0 && m_ClearTime>m_BestTime+0.005f)
+        line(L"自己ベストまで あと " + WireRace::FormatTime(m_ClearTime-m_BestTime),425,26,{1,0.8f,0.5f,1});
+    else line(L"BEST TIME!",425,30,{1,0.8f,0.5f,1});
+    line(L"Enter / R  もう一度走る",535,36,{1,1,1,1});
+    line(L"Esc  タイトル",595,24,{0.75f,0.9f,1,1});
 }
-
-void WireResultScene::Uninit() {}
-
 void WireResultScene::Update()
 {
-	switch (WireDebugTools::Update())
-	{
-	case WireDebugTools::SceneRequest::Title: ChangeScene<WireTitleScene>(); return;
-	case WireDebugTools::SceneRequest::Game: ChangeScene<WireGame>(); return;
-	default: break;
-	}
-
-	m_AnimationTime += GameTime::GetDeltaTime();
-	const float pulse = 0.5f + 0.5f * sinf(m_AnimationTime * 3.6f);
-	if (m_RetryPrompt != nullptr)
-	{
-		m_RetryPrompt->SetPosition({ 375.0f, 570.0f + sinf(m_AnimationTime * 2.0f) * 5.0f, 0.0f });
-		m_RetryPrompt->SetColor({ 0.72f + pulse * 0.25f, 0.84f + pulse * 0.13f, 1.0f, 0.62f + pulse * 0.38f });
-	}
-	if (m_TitlePrompt != nullptr)
-	{
-		m_TitlePrompt->SetColor({ 1.0f, 0.68f + pulse * 0.18f, 0.22f, 0.58f + pulse * 0.42f });
-	}
-	if (Keyboard_IsKeyDownTrigger(KK_R))
-	{
-		ChangeScene<WireGame>();
-	}
-	else if (Keyboard_IsKeyDownTrigger(KK_ENTER))
-	{
-		ChangeScene<WireTitleScene>();
-	}
+    if (Keyboard_IsKeyDownTrigger(KK_ENTER) || Keyboard_IsKeyDownTrigger(KK_R)) ChangeScene<WireGame>();
+    else if (Keyboard_IsKeyDownTrigger(KK_ESCAPE)) ChangeScene<WireTitleScene>();
 }
 
-void WireResultScene::Draw() {}

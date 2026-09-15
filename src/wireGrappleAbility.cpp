@@ -7,6 +7,7 @@
 #include "wirePlayerInput.h"
 #include "wireTpsCamera.h"
 #include "wireGameplayTuning.h"
+#include "wireSwingPhysics.h"
 #include "particleSystem.h"
 
 #include <algorithm>
@@ -82,7 +83,7 @@ void WireGrappleAbility::Update(
 	const WirePlayerInputState& input,
 	const WireTpsCamera* camera)
 {
-	if (camera != nullptr && input.AttackPressed && !input.AimDown && m_Cooldown <= 0.0f)
+	if (camera != nullptr && input.AttackPressed && m_Cooldown <= 0.0f)
 	{
 		if (m_AimPreview.Valid)
 		{
@@ -145,23 +146,7 @@ void WireGrappleAbility::Update(
 
 	toAnchor.normalize();
 	const WireGrappleTuning& tuning = GetWireGameplayTuning().Grapple;
-	const Vector3 awayFromAnchor = -toAnchor;
-	const float radialSpeed = Vector3::dot(player.m_Velocity, awayFromAnchor);
-	Vector3 tangentialVelocity = player.m_Velocity - awayFromAnchor * radialSpeed;
-	m_TangentialSpeed = tangentialVelocity.length();
-	const float stretch = (std::max)(0.0f, distance - m_RopeLength);
-	m_Tension = stretch * tuning.ConstraintStrength
-		+ (std::max)(0.0f, radialSpeed) * tuning.RadialDamping
-		+ (m_TangentialSpeed * m_TangentialSpeed) / (std::max)(distance, 1.0f);
-	// 張ったロープは外向き速度だけを消し、接線方向の勢いは保持します。
-	if (distance >= m_RopeLength && radialSpeed > 0.0f)
-	{
-		player.m_Velocity -= awayFromAnchor * std::min(radialSpeed, radialSpeed * tuning.RadialDamping * dt);
-	}
-	player.m_Velocity += toAnchor * ((tuning.PullAcceleration + stretch * tuning.ConstraintStrength
-		+ m_TangentialSpeed * m_TangentialSpeed / (std::max)(distance, 1.0f)) * dt);
-	// 入力加速はMovement側で接線成分として加わる。ここでは安全上限だけを適用します。
-	player.m_Velocity = ClampLength(player.m_Velocity, tuning.RewireMaxSpeed);
+	WireSwing::Integrate(player.m_Velocity, toAnchor * distance, m_RopeLength, dt, tuning, m_TangentialSpeed, m_Tension);
 
 	const Vector3 flatDirection = Flatten(toAnchor);
 	if (flatDirection.length() > kVectorEpsilon)
@@ -180,20 +165,9 @@ void WireGrappleAbility::Cancel(WirePlayer& player, bool addBoost)
 	if (addBoost && m_Active)
 	{
 		player.NotifyWireReleased(m_Anchor);
-		Vector3 boostDirection = player.m_Velocity;
-		if (boostDirection.length() < kReleaseDirectionEpsilon)
-		{
-			boostDirection = m_Anchor - (player.m_Position + Vector3(0.0f, GetWireGameplayTuning().Grapple.OriginHeight, 0.0f));
-		}
-
-		if (boostDirection.length() > kReleaseDirectionEpsilon)
-		{
-			boostDirection.normalize();
-			player.m_Velocity += boostDirection * GetWireGameplayTuning().Grapple.ReleaseBoost;
-			player.m_Velocity.y += GetWireGameplayTuning().Grapple.ReleaseUpBoost;
-			player.m_Velocity = ClampLength(player.m_Velocity, GetWireGameplayTuning().Grapple.ReleaseMaxSpeed);
-			player.m_Scale = { GetWireGameplayTuning().Grapple.ReleaseSquashXZ, GetWireGameplayTuning().Grapple.ReleaseStretchY, GetWireGameplayTuning().Grapple.ReleaseSquashXZ };
-		}
+        player.m_Velocity = WireSwing::Release(player.m_Velocity,GetWireGameplayTuning().Grapple);
+        player.m_Scale = {GetWireGameplayTuning().Grapple.ReleaseSquashXZ,
+            GetWireGameplayTuning().Grapple.ReleaseStretchY,GetWireGameplayTuning().Grapple.ReleaseSquashXZ};
 	}
 
 	m_Active = false;
@@ -281,7 +255,12 @@ void WireGrappleAbility::Attach(WirePlayer& player)
 		}
 		else if (after <= kVectorEpsilon)
 		{
-			player.m_Velocity = toAnchor * keptTarget;
+			// 静止状態からも振り始められる接線方向の小さなキックです。
+            Vector3 tangent{cosf(player.m_Rotation.y),0,-sinf(player.m_Rotation.y)};
+            tangent -= toAnchor * Vector3::dot(tangent,toAnchor);
+            if (tangent.length() < kVectorEpsilon) tangent = Vector3::cross(toAnchor,{0,1,0});
+            if (tangent.length() > kVectorEpsilon) tangent.normalize();
+            player.m_Velocity = tangent * tuning.AttachMinSpeed;
 		}
 	}
 	m_LastVelocityScale = before > kVectorEpsilon ? player.m_Velocity.length() / before : 1.0f;

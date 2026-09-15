@@ -1,115 +1,70 @@
-# GM31 DirectX 11 Game Framework
+# TOY WIRE / SKY RACE
 
-This repository contains a small DirectX 11 engine and two game applications:
-Wire Action and Batting Center.
+小さなおもちゃロボが、300mのポップ工場をワイヤーで駆け上がる、一人用タイムアタックです。
 
-## Wire Action
+## 遊び方
 
-暴走して巨大機械のように変形したハイテク工場を、ワイヤーと剣で高速に駆け回り、
-取り残された作業員を救出するアクションゲームです。
+- タイトルで Enter：レース。T：練習場。
+- WASD：移動。Space：ジャンプ／壁蹴り。
+- マウス：視点。左クリック長押し：即ワイヤー接続。離す：解除。
+- ワイヤー中に移動入力で振り子を加速し、上昇中に解除すると高く飛べます。
+- Shift＋移動：空中ダッシュ。接続・着地・壁蹴りで回復します。
+- R：最下部からリトライ。Tab：ポーズ。Esc：タイトル。
+- 結果画面の Enter / R：すぐに再走。
 
-主役は「高速で立体的に移動する気持ちよさ」なので、各アクションは独立した機能では
-なく一連の流れとして繋がるように作られています。
+移動・ジャンプ・ワイヤーの最初の操作から計測し、頂上のチェッカーゲートへ入るとゴール。
+タイムは「分:秒.百分の一秒」で表示します。評価はクリアタイムだけです。
+戦闘・剣・救助・HP・ミッションはレースでは使用しません。
 
-    ワイヤーで高速接近 → 壁蹴りで方向転換 → 空中ダッシュで軌道修正
-      → 剣で斬り抜け → そのまま次のワイヤーへ
+## ルート
 
-これらを続けると連鎖(CHAIN)の段階が上がり、移動速度と攻撃力が増えます。逆に地上で
-止まっていると段階は早く落ちるため、立ち止まって攻撃を連打することが最適行動には
-なりません。
+水色の足場は12.5m刻みの外周ルート。大きな足場を経由して着実に登れます。
+オレンジの中央クレーンは40m刻みの近道。解除のタイミングと空中の刺し直しで外周を短縮できます。
+昇降台や動く吊り箱も、乗ったりワイヤーを掛けたりできます。
 
-### 画面の流れ
+50mごとの黄緑の踊り場に着地すると復帰地点を保存します。
+落下中もワイヤーを使え、途中の足場に着地できます。コース下へ落ち切った場合だけ復帰地点へ戻ります。
+復帰時にもタイムは止まりません。Rはタイムもリセットします。
 
-タイトル（Enter）→ **練習場** → 本編 → リザルト → タイトル。
+自己ベストは `%LOCALAPPDATA%/ToyWireRace/tower-v1.txt` に保存します。
+デバッグの時間倍率・無敵・コマ送りを使った走行は記録対象外です。
+コース変更時には `WireRace::CourseVersion` と保存ファイル名を更新して記録を分離します。
 
-練習場では案内役のキャラクターが画面下のチャットで一言ずつ操作を教えます。
-移動 → ジャンプ → ワイヤー → 壁蹴り → 空中ダッシュ → 斬撃 → 救助 の順で、
-実際にその操作をするまで次へ進みません。全て終えると本編へ移ります。
-本編には操作説明を出さず、目的の一行だけを表示します。
-（開発用に `F8` で本編へ直行できます）
+## 開発
 
-### テストステージの流れ
+Visual Studioで `GM31_prroject2.slnx` を開き、WireActionを起動プロジェクトにします。
+同じソリューションのBattingCenterは独立したゲームです。
 
-工場侵入 → ワイヤーで高所へ → 壁蹴りと空中ダッシュで進む → 小型ロボットを斬り抜けで
-撃破 → 巨大機械へワイヤー → 装甲を破壊 → 露出した制御コアを破壊 → 開いた救助ルートで
-作業員を救助 → 全員救助でクリア。
-
-作業員は3人で、救助条件がそれぞれ違います(ロック機構の破壊 / 周囲の敵の全滅 /
-巨大機械の停止)。条件は `WireWorker::SetCondition` に関数として渡すので、Workerの
-コードを変えずに条件を追加できます。
-
-## Build
-
-Open `GM31_prroject2.slnx` in Visual Studio 2022 and select either
-`WireAction` or `BattingCenter` as the startup project.
-
-From a Developer PowerShell:
+Developer PowerShell:
 
 ```powershell
 msbuild GM31_prroject2.slnx /p:Configuration=Debug /p:Platform=x64 /m
-```
-
-To build only one game, build its `.vcxproj`. Project references automatically
-build `Engine.lib` first.
-
-## Tests
-
-After building, run the Engine self-tests through either application:
-
-```powershell
 bin\x64\Debug\WireAction\WireAction.exe --self-test
 bin\x64\Debug\BattingCenter\BattingCenter.exe --self-test
 ```
 
-The self-test mode does not create a game window. It validates World lifecycle,
-component lifecycle guarantees, per-World collision isolation and spatial
-index updates, deferred spawning, render ordering, GameTime behavior, and
-shared WAV/model resource caching. RuntimeConfigの再読込、範囲補正、整数検証も確認します。
+自己テストは共通の音声アセットがあるリポジトリ直下から実行してください。
+WireActionではエンジンのテストに加え、時計・ゴール交差・振り子・慣性・落下判定を検証します。
+`self-test-race.log` に各項目の結果を出します。
 
-Runtime defaults are data-driven in `assets/config/batting.cfg` and
-`assets/config/wire.cfg`. Each application project has an explicit runtime
-asset manifest, so building one game does not package the other game's assets.
+```powershell
+bin\x64\Debug\WireAction\WireAction.exe --render-test
+```
 
-ゲームプレイの調整値は `assets/config/batting-gameplay.cfg` と
-`assets/config/wire-gameplay.cfg` に分離されています。設定に存在しない値は
-コード側の既定値を使います。非数値や危険な範囲の値は警告を出して既定値または
-安全な範囲へ補正するため、調整ミスだけでゲームがクラッシュしにくい構成です。
-通常の調整はソース側の設定ファイルを編集して再ビルドしてください。設定APIを
-再読込した場合はTuningも同じプロセス内で更新されます。
+描画テストは非表示のウィンドウで実際のDirectX描画と画面遷移を実行し、実行ファイルの隣に
+`race-*.png` と `render-test-race.log` を保存して終了します。GPUとWindowsの描画環境が必要です。
 
-## Wire Action controls
+移動とワイヤーの調整は `assets/config/wire-gameplay.cfg`、画面設定は `assets/config/wire.cfg`。
+調整後は再ビルドしてアセットを実行フォルダーへ反映してください。
+`wireRace.h` は描画と入力から独立したレース状態、`wireSwingPhysics.h` は数値検証可能なワイヤー物理です。
 
-- `WASD`: move
-- `Space`: 接地中はジャンプ、空中で壁に触れていると**壁蹴り**
-- `Shift` + movement: 空中ダッシュ（着地・壁蹴り・ワイヤー接続で回復）
-- Mouse: camera
-- Hold left mouse on a highlighted target: instantly fire and keep the wire connected
-- Release left mouse: cut the wire while preserving momentum
-- Hold/release left mouse away from a valid target: charge/release sword attack
-- Hold right mouse while charging/releasing left mouse: prioritize sword attacks even when aiming at a wire target
-- `Tab`: pause
+## 次のプレイテストで見ること
 
-ワイヤーは工場の壁・床だけでなく、設備アンカー・ロック機構・巨大機械の各部位にも
-掛かります。狙える対象は視線に入ると光ります。動く部位に掛けた場合はアンカーが追従
-するため、腕にぶら下がったまま振り回されます。
+1. 初見でも水色の次の足場を見つけられるか。
+2. 上昇中の解除を覚えたとき、明確に到達高度とタイムが変わるか。
+3. 落下後にアンカーを見つけて復帰できるか。
+4. 再走時に「次はこの足場を飛ばす」という狙いが生まれるか。
 
-剣は敵のHPを削るだけの武器ではなく、装甲・ケーブル・ロック機構を破壊して道を開く
-突破手段です。命中すると前方へ斬り抜けるので、空中で敵を斬ってもその場に落ちず、
-そのまま次のワイヤーへ繋げられます。
-
-工場のロボットは接触するとダメージを与えます。HPが0になるとゲームオーバーです。
-
-## Wire Action debug tools
-
-審査・検証用のデバッグ機能はReleaseビルドでも使用できます。既定ではすべてOFFで、
-`F1` を押すまで通常プレイの画面には現れません。タイトル画面に有効化キーを表示しています。
-
-- `F1`: デバッグ表示のON/OFF（現在速度・ワイヤー対象・接地状態・壁蹴り可否・空中ダッシュ残量・連鎖段階）
-- `F2`: コリジョン表示
-- `F3`: コマ送り（`Tab` でポーズ中のみ）
-- `F4`: 無敵
-- `F5`: タイムスケール切替（0.25倍 / 1倍 / 2倍）
-- `F7`〜`F10`: シーン指定（タイトル / ゲーム / クリア / ゲームオーバー）
-
-See `PROJECT_STRUCTURE.md` for dependency rules, lifecycle details, and output
-layout.
+現段階の物理・コースは最初のプレイ可能な調整です。数値テストと描画テストだけでは面白さや
+初見難易度は確定しないため、実プレイで足場間隔・カメラ・加速量を詰めます。
+ゴースト・オンラインランキング・同時対戦は未実装です。

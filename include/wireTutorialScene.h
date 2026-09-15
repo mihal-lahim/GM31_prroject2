@@ -7,7 +7,7 @@
 #include <vector>
 
 class WireChatBox;
-class WireWorker;
+
 
 // 本編の前に通る練習場です。
 //
@@ -30,7 +30,7 @@ private:
 	float m_FinishTime = 0.0f;
 	bool m_Finished = false;
 	WireChatBox* m_Chat = nullptr;
-	WireWorker* m_Worker = nullptr;
+	Vector3 m_FinishPoint{};
 	Vector3 m_SpawnPoint{};
 
 	void BuildSteps();

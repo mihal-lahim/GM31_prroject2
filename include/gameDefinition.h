@@ -11,6 +11,8 @@ struct GameDefinition
 	const char* SettingsPath;
 	const char* GameplayConfigPath;
 	std::unique_ptr<Scene> (*CreateInitialScene)();
+	bool (*RunSelfTests)() = nullptr;
+	bool (*RunRenderTests)() = nullptr;
 };
 
 const GameDefinition& GetGameDefinition();
