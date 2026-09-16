@@ -41,14 +41,14 @@ function Add-AssetReference([System.Collections.Generic.HashSet[string]] $refere
 
 [xml] $solution = Get-Content (Join-Path $root 'GM31_prroject2.slnx')
 $actualProjects = @($solution.Solution.Project | ForEach-Object { $_.Path })
-$expectedProjects = @('Engine.vcxproj', 'WireAction.vcxproj', 'BattingCenter.vcxproj')
+$expectedProjects = @('Engine.vcxproj', 'WireAction.vcxproj', 'BattingCenter.vcxproj', 'ClassroomWalk.vcxproj')
 if (Compare-Object $expectedProjects $actualProjects) {
-    throw 'The solution must contain exactly Engine, WireAction, and BattingCenter.'
+    throw 'The solution must contain Engine, WireAction, BattingCenter, and ClassroomWalk.'
 }
 
 $gameHeaders = [System.Collections.Generic.HashSet[string]]::new(
     [System.StringComparer]::OrdinalIgnoreCase)
-foreach ($projectPath in @('WireAction.vcxproj', 'BattingCenter.vcxproj')) {
+foreach ($projectPath in @('WireAction.vcxproj', 'BattingCenter.vcxproj', 'ClassroomWalk.vcxproj')) {
     foreach ($header in Read-ProjectItems $projectPath 'ClInclude') {
         [void] $gameHeaders.Add((Split-Path $header -Leaf))
     }
@@ -70,7 +70,7 @@ if ($violations.Count -gt 0) {
     throw ($violations -join [Environment]::NewLine)
 }
 
-foreach ($projectPath in @('WireAction.vcxproj', 'BattingCenter.vcxproj')) {
+foreach ($projectPath in @('WireAction.vcxproj', 'BattingCenter.vcxproj', 'ClassroomWalk.vcxproj')) {
     if ((Get-Content (Join-Path $root $projectPath) -Raw) -match 'assets\\\*\*\\\*\.\*') {
         throw "$projectPath uses a wildcard asset copy instead of an explicit manifest."
     }
@@ -82,7 +82,7 @@ $engineSources = @(Read-ProjectItems 'Engine.vcxproj' 'ClCompile')
 $engineSources = @($engineSources | Where-Object {
     -not [string]::IsNullOrWhiteSpace($_) -and (Split-Path $_ -Leaf) -ne 'engineSelfTests.cpp'
 })
-foreach ($projectPath in @('WireAction.vcxproj', 'BattingCenter.vcxproj')) {
+foreach ($projectPath in @('WireAction.vcxproj', 'BattingCenter.vcxproj', 'ClassroomWalk.vcxproj')) {
     $assets = @(Read-RuntimeAssets $projectPath)
     $targetPaths = [System.Collections.Generic.HashSet[string]]::new(
         [System.StringComparer]::OrdinalIgnoreCase)

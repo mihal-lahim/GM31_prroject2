@@ -129,21 +129,7 @@ void AnimationModel::Draw()
 	context->VSSetShader(m_VertexShader.Get(), nullptr, 0);
 	context->PSSetShader(m_PixelShader.Get(), nullptr, 0);
 
-	Vector3 position{};
-	Vector3 rotation{};
-	Vector3 scale{ 1.0f, 1.0f, 1.0f };
-	if (m_GameObject != nullptr)
-	{
-		position = m_GameObject->GetPosition();
-		rotation = m_GameObject->GetRotation();
-		scale = m_GameObject->GetScale();
-	}
-
-	const XMMATRIX world =
-		XMMatrixScaling(scale.x * m_ModelScale, scale.y * m_ModelScale, scale.z * m_ModelScale)
-		* XMMatrixRotationRollPitchYaw(rotation.x, rotation.y + m_ModelYawOffset, rotation.z)
-		* XMMatrixTranslation(position.x, position.y, position.z);
-	Renderer::SetWorldMatrix(world);
+	Renderer::SetWorldMatrix(GetWorldMatrix());
 
 	// プリミティブトポロジ設定
 	context->IASetPrimitiveTopology(
@@ -222,6 +208,7 @@ void AnimationModel::Load(const char* FileName)
 
 	//変形後頂点配列生成
 	m_DeformVertex = new std::vector<DEFORM_VERTEX>[m_AiScene->mNumMeshes];
+	m_SkinTransforms.resize(m_AiScene->mNumMeshes);
 
 	//再帰的にボーン生成
 	CreateBone(m_AiScene->mRootNode);
@@ -307,6 +294,7 @@ void AnimationModel::Load(const char* FileName)
 			{
 				deformVertex.BoneName[b] = "";
 				deformVertex.BoneWeight[b] = 0.0f;
+				deformVertex.BoneIndex[b] = -1;
 				deformVertex.BoneOffsetMatrix[b] = aiMatrix4x4();
 			}
 
@@ -327,11 +315,30 @@ void AnimationModel::Load(const char* FileName)
 				int num = m_DeformVertex[m][weight.mVertexId].BoneNum;
 
 				m_DeformVertex[m][weight.mVertexId].BoneWeight[num] = weight.mWeight;
+				m_DeformVertex[m][weight.mVertexId].BoneIndex[num] = static_cast<int>(b);
 				m_DeformVertex[m][weight.mVertexId].BoneName[num] = bone->mName.C_Str();
 				m_DeformVertex[m][weight.mVertexId].BoneOffsetMatrix[num] = bone->mOffsetMatrix;
 				m_DeformVertex[m][weight.mVertexId].BoneNum++;
 
 				assert(m_DeformVertex[m][weight.mVertexId].BoneNum <= 4);
+			}
+		}
+		for (unsigned int v = 0; v < mesh->mNumVertices; ++v)
+		{
+			const DEFORM_VERTEX& source = m_DeformVertex[m][v];
+			for (int influence = 0; influence < (std::min)(source.BoneNum, 4); ++influence)
+			{
+				if (source.BoneWeight[influence] < 0.25f) continue;
+				const std::string& name = source.BoneName[influence];
+				const int foot = name.find("LeftFoot") != std::string::npos
+					|| name.find("LeftToe") != std::string::npos ? 0
+					: name.find("RightFoot") != std::string::npos
+					|| name.find("RightToe") != std::string::npos ? 1 : -1;
+				if (foot >= 0)
+				{
+					m_FootVertexRefs[foot].emplace_back(m, v);
+					break;
+				}
 			}
 		}
 	}
@@ -438,6 +445,17 @@ void AnimationModel::Uninit()
 		aiReleaseImport(pair.second);
 	}
 	m_Animation.clear();
+	m_CurrentAnimation.clear();
+	m_BlendSourcePose.clear();
+	m_AnimationSeconds = 0.0f;
+	m_BlendSeconds = 0.0f;
+	m_BlendDuration = 0.0f;
+	m_GroundHeight = nullptr;
+	m_FootLocalVertices[0].clear();
+	m_FootLocalVertices[1].clear();
+	m_FootVertexRefs[0].clear();
+	m_FootVertexRefs[1].clear();
+	m_SkinTransforms.clear();
 	m_VertexLayout.Reset();
 	m_VertexShader.Reset();
 	m_PixelShader.Reset();
@@ -448,15 +466,64 @@ void AnimationModel::Uninit()
 
 
 
-void AnimationModel::Update(const char* AnimationName1, int Frame1)
+void AnimationModel::PlayAnimation(const char* name, float blendSeconds)
 {
-	if (AnimationName1 == nullptr || m_AiScene == nullptr || m_AiScene->mRootNode == nullptr
-		|| m_DeformVertex == nullptr || m_VertexBuffer == nullptr)
+	if (name == nullptr || m_CurrentAnimation == name)
 	{
 		return;
 	}
+	const auto foundScene = m_Animation.find(name);
+	if (foundScene == m_Animation.end() || foundScene->second == nullptr
+		|| foundScene->second->mNumAnimations == 0 || foundScene->second->mAnimations[0] == nullptr)
+	{
+		return;
+	}
+	const bool hasCurrentPose = !m_CurrentAnimation.empty();
+	m_BlendSourcePose.clear();
+	if (hasCurrentPose && blendSeconds > 0.0f)
+	{
+		for (const auto& [boneName, bone] : m_Bone)
+		{
+			m_BlendSourcePose.emplace(boneName, bone.AnimationMatrix);
+		}
+	}
+	m_CurrentAnimation = name;
+	m_AnimationSeconds = 0.0f;
+	m_BlendSeconds = 0.0f;
+	m_BlendDuration = hasCurrentPose ? (std::max)(blendSeconds, 0.0f) : 0.0f;
+}
 
-	const auto foundScene = m_Animation.find(AnimationName1);
+void AnimationModel::TickAnimation(float deltaSeconds, bool uploadMesh)
+{
+	if (m_CurrentAnimation.empty()) return;
+	const auto foundScene = m_Animation.find(m_CurrentAnimation);
+	if (foundScene == m_Animation.end() || foundScene->second == nullptr
+		|| foundScene->second->mNumAnimations == 0 || foundScene->second->mAnimations[0] == nullptr)
+	{
+		return;
+	}
+	const aiAnimation* animation = foundScene->second->mAnimations[0];
+	const float step = (std::max)(deltaSeconds, 0.0f);
+	m_AnimationSeconds += step;
+	m_BlendSeconds += step;
+	const double ticksPerSecond = animation->mTicksPerSecond > 0.0
+		? animation->mTicksPerSecond : 25.0;
+	const double duration = animation->mDuration > 0.0 ? animation->mDuration : 1.0;
+	const double animationTime = std::fmod(m_AnimationSeconds * ticksPerSecond, duration);
+	const float blendWeight = m_BlendDuration > 0.0f
+		? std::clamp(m_BlendSeconds / m_BlendDuration, 0.0f, 1.0f) : 1.0f;
+	ApplyAnimation(animation, animationTime, blendWeight, uploadMesh);
+	if (blendWeight >= 1.0f)
+	{
+		m_BlendSourcePose.clear();
+		m_BlendDuration = 0.0f;
+	}
+}
+
+void AnimationModel::Update(const char* animationName, int frame)
+{
+	if (animationName == nullptr) return;
+	const auto foundScene = m_Animation.find(animationName);
 	if (foundScene == m_Animation.end() || foundScene->second == nullptr
 		|| foundScene->second->mNumAnimations == 0 || foundScene->second->mAnimations[0] == nullptr)
 	{
@@ -465,7 +532,240 @@ void AnimationModel::Update(const char* AnimationName1, int Frame1)
 
 	const aiAnimation* animation = foundScene->second->mAnimations[0];
 	const double duration = animation->mDuration > 0.0 ? animation->mDuration : 1.0;
-	const double animationTime = std::fmod(static_cast<double>((std::max)(Frame1, 0)), duration);
+	const double animationTime = std::fmod(static_cast<double>((std::max)(frame, 0)), duration);
+	ApplyAnimation(animation, animationTime, 1.0f, true);
+}
+
+bool AnimationModel::GetRequiredGroundOffset(float (*heightAt)(float, float), float& offset) const
+{
+	if (heightAt == nullptr || m_GameObject == nullptr)
+	{
+		return false;
+	}
+	const XMMATRIX world = GetWorldMatrix();
+	bool found = false;
+	offset = -1000.0f;
+	for (const auto& foot : m_FootLocalVertices)
+	{
+		for (const Vector3& local : foot)
+		{
+			XMFLOAT3 point{};
+			XMStoreFloat3(&point, XMVector3TransformCoord(
+				XMVectorSet(local.x, local.y, local.z, 1.0f), world));
+			offset = (std::max)(offset, heightAt(point.x, point.z) - point.y);
+			found = true;
+		}
+	}
+	return found;
+}
+
+bool AnimationModel::GetFootClearance(float (*heightAt)(float, float), float (&clearance)[2]) const
+{
+	if (heightAt == nullptr || m_GameObject == nullptr
+		|| m_FootLocalVertices[0].empty() || m_FootLocalVertices[1].empty()) return false;
+	const XMMATRIX world = GetWorldMatrix();
+	for (int footIndex = 0; footIndex < 2; ++footIndex)
+	{
+		clearance[footIndex] = 1000.0f;
+		for (const Vector3& local : m_FootLocalVertices[footIndex])
+		{
+			XMFLOAT3 point{};
+			XMStoreFloat3(&point, XMVector3TransformCoord(
+				XMVectorSet(local.x, local.y, local.z, 1.0f), world));
+			clearance[footIndex] = (std::min)(clearance[footIndex],
+				point.y - heightAt(point.x, point.z));
+		}
+	}
+	return true;
+}
+
+XMMATRIX AnimationModel::GetWorldMatrix() const
+{
+	if (m_GameObject == nullptr) return XMMatrixIdentity();
+	const Vector3 position = m_GameObject->GetPosition();
+	const Vector3 rotation = m_GameObject->GetRotation();
+	const Vector3 scale = m_GameObject->GetScale();
+	return XMMatrixScaling(scale.x * m_ModelScale, scale.y * m_ModelScale, scale.z * m_ModelScale)
+		* XMMatrixRotationRollPitchYaw(rotation.x, rotation.y + m_ModelYawOffset, rotation.z)
+		* XMMatrixTranslation(position.x, position.y, position.z);
+}
+
+void AnimationModel::SolveLegIK(
+	const char* upperName, const char* lowerName, const char* footName, int footIndex)
+{
+	if (m_GroundHeight == nullptr || m_AiScene == nullptr || footIndex < 0 || footIndex > 1)
+		return;
+	aiNode* upperNode = m_AiScene->mRootNode->FindNode(upperName);
+	aiNode* lowerNode = m_AiScene->mRootNode->FindNode(lowerName);
+	aiNode* footNode = m_AiScene->mRootNode->FindNode(footName);
+	if (upperNode == nullptr || lowerNode == nullptr || footNode == nullptr
+		|| upperNode->mParent == nullptr || lowerNode->mParent != upperNode
+		|| footNode->mParent != lowerNode) return;
+	auto upper = m_Bone.find(upperName);
+	auto lower = m_Bone.find(lowerName);
+	auto foot = m_Bone.find(footName);
+	if (upper == m_Bone.end() || lower == m_Bone.end() || foot == m_Bone.end()) return;
+
+	const auto origin = aiVector3D(0.0f, 0.0f, 0.0f);
+	const aiVector3D hip = upper->second.Matrix * origin;
+	const aiVector3D knee = lower->second.Matrix * origin;
+	const aiVector3D ankle = foot->second.Matrix * origin;
+	const float upperLength = (knee - hip).Length();
+	const float lowerLength = (ankle - knee).Length();
+	if (upperLength < 0.001f || lowerLength < 0.001f) return;
+
+	aiMatrix4x4 rootInverse = m_AiScene->mRootNode->mTransformation;
+	rootInverse.Inverse();
+	const aiVector3D ankleModel = rootInverse * ankle;
+	const XMMATRIX world = GetWorldMatrix();
+	XMFLOAT3 ankleWorld{};
+	XMStoreFloat3(&ankleWorld, XMVector3TransformCoord(
+		XMVectorSet(ankleModel.x, ankleModel.y, ankleModel.z, 1.0f), world));
+	const float groundY = m_GroundHeight(ankleWorld.x, ankleWorld.z)
+		+ m_AnkleToSoleHeight[footIndex] - m_FootTargetCorrection[footIndex];
+	float ikWeight = std::clamp(m_FootIKStrength, 0.0f, 1.0f);
+	if (ikWeight < 1.0f)
+	{
+		// 走行中は接地脚を完全に合わせ、持ち上げた脚だけスイングを残す。
+		const float nearGround = std::clamp(
+			(0.28f - (ankleWorld.y - groundY)) / 0.18f, 0.0f, 1.0f);
+		ikWeight = nearGround;
+	}
+	m_FootIKWeight[footIndex] = ikWeight;
+	const float targetY = ankleWorld.y + ikWeight
+		* (groundY - ankleWorld.y);
+	XMFLOAT3 targetModel{};
+	XMStoreFloat3(&targetModel, XMVector3TransformCoord(
+		XMVectorSet(ankleWorld.x, targetY, ankleWorld.z, 1.0f),
+		XMMatrixInverse(nullptr, world)));
+	const aiVector3D targetRaw = m_AiScene->mRootNode->mTransformation
+		* aiVector3D(targetModel.x, targetModel.y, targetModel.z);
+	aiVector3D direction = targetRaw - hip;
+	const float unclampedDistance = direction.Length();
+	if (unclampedDistance < 0.001f) return;
+	direction /= unclampedDistance;
+	const float distance = std::clamp(unclampedDistance,
+		(std::abs)(upperLength - lowerLength) + 0.001f,
+		upperLength + lowerLength - 0.001f);
+	const aiVector3D reachableTarget = hip + direction * distance;
+	const float along = (upperLength * upperLength - lowerLength * lowerLength
+		+ distance * distance) / (2.0f * distance);
+	const float sideways = sqrtf((std::max)(0.0f, upperLength * upperLength - along * along));
+	aiVector3D bend = knee - hip - direction * ((knee - hip) * direction);
+	if (bend.SquareLength() < 0.0001f)
+	{
+		bend = aiVector3D(0.0f, 0.0f, 1.0f);
+		bend -= direction * (bend * direction);
+	}
+	if (bend.SquareLength() < 0.0001f)
+	{
+		bend = aiVector3D(1.0f, 0.0f, 0.0f);
+		bend -= direction * (bend * direction);
+	}
+	bend.Normalize();
+	const aiVector3D desiredKnee = hip + direction * along + bend * sideways;
+	const aiMatrix4x4 originalFootGlobal = foot->second.Matrix;
+
+	auto aimBone = [&](aiNode* node, BONE& bone,
+		const aiVector3D& currentDirection, const aiVector3D& wantedDirection)
+	{
+		aiVector3D from = currentDirection, to = wantedDirection;
+		if (from.SquareLength() < 0.0001f || to.SquareLength() < 0.0001f) return;
+		from.Normalize();
+		to.Normalize();
+		aiVector3D axis = from ^ to;
+		const float axisLength = axis.Length();
+		if (axisLength < 0.00001f) return;
+		axis /= axisLength;
+		const float angle = atan2f(axisLength, std::clamp(from * to, -1.0f, 1.0f));
+		aiMatrix4x4 delta;
+		aiMatrix4x4::Rotation(angle, axis, delta);
+		auto parent = m_Bone.find(node->mParent->mName.C_Str());
+		const aiMatrix4x4 parentGlobal = parent != m_Bone.end()
+			? parent->second.Matrix : aiMatrix4x4();
+		aiMatrix4x4 parentInverse = parentGlobal;
+		parentInverse.Inverse();
+		const aiMatrix4x4 oldLocal = bone.AnimationMatrix;
+		bone.AnimationMatrix = parentInverse * delta * parentGlobal * oldLocal;
+		bone.AnimationMatrix.a4 = oldLocal.a4;
+		bone.AnimationMatrix.b4 = oldLocal.b4;
+		bone.AnimationMatrix.c4 = oldLocal.c4;
+	};
+
+	aimBone(upperNode, upper->second, knee - hip, desiredKnee - hip);
+	UpdateBoneMatrix(m_AiScene->mRootNode, aiMatrix4x4());
+	const aiVector3D movedKnee = lower->second.Matrix * origin;
+	const aiVector3D movedAnkle = foot->second.Matrix * origin;
+	aimBone(lowerNode, lower->second, movedAnkle - movedKnee, reachableTarget - movedKnee);
+	UpdateBoneMatrix(m_AiScene->mRootNode, aiMatrix4x4());
+
+	// 脚を曲げても靴はアニメーション本来の向きを保つ。
+	aiMatrix4x4 lowerInverse = lower->second.Matrix;
+	lowerInverse.Inverse();
+	const aiMatrix4x4 wantedFootLocal = lowerInverse * originalFootGlobal;
+	aiVector3D wantedScale, wantedPosition, currentScale, currentPosition;
+	aiQuaternion wantedRotation, currentRotation;
+	wantedFootLocal.Decompose(wantedScale, wantedRotation, wantedPosition);
+	foot->second.AnimationMatrix.Decompose(currentScale, currentRotation, currentPosition);
+	foot->second.AnimationMatrix = aiMatrix4x4(currentScale, wantedRotation, currentPosition);
+}
+
+void AnimationModel::BuildSkinTransforms()
+{
+	aiMatrix4x4 rootInverse = m_AiScene->mRootNode->mTransformation;
+	rootInverse.Inverse();
+	for (unsigned int meshIndex = 0; meshIndex < m_AiScene->mNumMeshes; ++meshIndex)
+	{
+		const aiMesh* mesh = m_AiScene->mMeshes[meshIndex];
+		auto& transforms = m_SkinTransforms[meshIndex];
+		transforms.resize(mesh->mNumBones);
+		for (unsigned int boneIndex = 0; boneIndex < mesh->mNumBones; ++boneIndex)
+		{
+			const aiBone* source = mesh->mBones[boneIndex];
+			const auto found = m_Bone.find(source->mName.C_Str());
+			transforms[boneIndex] = found != m_Bone.end()
+				? rootInverse * found->second.Matrix * source->mOffsetMatrix
+				: aiMatrix4x4();
+		}
+	}
+}
+
+void AnimationModel::SampleFootVertices()
+{
+	if (m_AiScene == nullptr || m_DeformVertex == nullptr) return;
+	for (int foot = 0; foot < 2; ++foot)
+	{
+		m_FootLocalVertices[foot].clear();
+		m_FootLocalVertices[foot].reserve(m_FootVertexRefs[foot].size());
+		for (const auto& [meshIndex, vertexIndex] : m_FootVertexRefs[foot])
+		{
+			const DEFORM_VERTEX& source = m_DeformVertex[meshIndex][vertexIndex];
+			aiVector3D position{};
+			float totalWeight = 0.0f;
+			for (int influence = 0; influence < (std::min)(source.BoneNum, 4); ++influence)
+			{
+				const float weight = source.BoneWeight[influence];
+				const int boneIndex = source.BoneIndex[influence];
+				if (weight <= 0.0f || boneIndex < 0) continue;
+				position += (m_SkinTransforms[meshIndex][boneIndex] * source.Position) * weight;
+				totalWeight += weight;
+			}
+			position = totalWeight > 0.0f ? position / totalWeight : source.Position;
+			m_FootLocalVertices[foot].push_back({ position.x, position.y, position.z });
+		}
+	}
+}
+
+void AnimationModel::ApplyAnimation(const aiAnimation* animation, double animationTime,
+	float blendWeight, bool uploadMesh)
+{
+	if (animation == nullptr || m_AiScene == nullptr || m_AiScene->mRootNode == nullptr
+		|| m_DeformVertex == nullptr || m_VertexBuffer == nullptr)
+	{
+		return;
+	}
+	m_FootLocalVertices[0].clear();
+	m_FootLocalVertices[1].clear();
 
 	// 前のアニメーションで上書きしたローカル行列を、モデル本来の姿勢へ戻す。
 	auto resetLocalMatrices = [this](auto&& self, aiNode* node) -> void
@@ -511,8 +811,38 @@ void AnimationModel::Update(const char* AnimationName1, int Frame1)
 
 		foundBone->second.AnimationMatrix = aiMatrix4x4(scale, rotation, position);
 	}
+	if (blendWeight < 1.0f)
+	{
+		for (auto& [boneName, bone] : m_Bone)
+		{
+			const auto source = m_BlendSourcePose.find(boneName);
+			if (source == m_BlendSourcePose.end()) continue;
+			aiVector3D sourceScale, targetScale, sourcePosition, targetPosition;
+			aiQuaternion sourceRotation, targetRotation;
+			source->second.Decompose(sourceScale, sourceRotation, sourcePosition);
+			bone.AnimationMatrix.Decompose(targetScale, targetRotation, targetPosition);
+			aiQuaternion rotation;
+			aiQuaternion::Interpolate(rotation, sourceRotation, targetRotation, blendWeight);
+			bone.AnimationMatrix = aiMatrix4x4(
+				sourceScale + (targetScale - sourceScale) * blendWeight,
+				rotation.Normalize(),
+				sourcePosition + (targetPosition - sourcePosition) * blendWeight);
+		}
+	}
 
 	UpdateBoneMatrix(m_AiScene->mRootNode, aiMatrix4x4());
+	if (m_GroundHeight != nullptr && m_GameObject != nullptr)
+	{
+		SolveLegIK("mixamorig:LeftUpLeg", "mixamorig:LeftLeg", "mixamorig:LeftFoot", 0);
+		SolveLegIK("mixamorig:RightUpLeg", "mixamorig:RightLeg", "mixamorig:RightFoot", 1);
+		UpdateBoneMatrix(m_AiScene->mRootNode, aiMatrix4x4());
+	}
+	BuildSkinTransforms();
+	if (!uploadMesh)
+	{
+		SampleFootVertices();
+		return;
+	}
 
 	aiMatrix4x4 globalInverse = m_AiScene->mRootNode->mTransformation;
 	globalInverse.Inverse();
@@ -539,6 +869,10 @@ void AnimationModel::Update(const char* AnimationName1, int Frame1)
 		}
 
 		VERTEX_3D* vertices = static_cast<VERTEX_3D*>(mappedResource.pData);
+		std::vector<aiMatrix3x3> normalTransforms;
+		normalTransforms.reserve(m_SkinTransforms[meshIndex].size());
+		for (const aiMatrix4x4& transform : m_SkinTransforms[meshIndex])
+			normalTransforms.emplace_back(transform);
 		for (unsigned int vertexIndex = 0; vertexIndex < mesh->mNumVertices; ++vertexIndex)
 		{
 			const DEFORM_VERTEX& source = m_DeformVertex[meshIndex][vertexIndex];
@@ -550,17 +884,14 @@ void AnimationModel::Update(const char* AnimationName1, int Frame1)
 			for (int influenceIndex = 0; influenceIndex < influenceCount; ++influenceIndex)
 			{
 				const float weight = source.BoneWeight[influenceIndex];
-				const auto foundBone = m_Bone.find(source.BoneName[influenceIndex]);
-				if (weight <= 0.0f || foundBone == m_Bone.end())
+				const int boneIndex = source.BoneIndex[influenceIndex];
+				if (weight <= 0.0f || boneIndex < 0)
 				{
 					continue;
 				}
-
-				const aiMatrix4x4 transform = globalInverse
-					* foundBone->second.Matrix
-					* source.BoneOffsetMatrix[influenceIndex];
+				const aiMatrix4x4& transform = m_SkinTransforms[meshIndex][boneIndex];
 				position += (transform * source.Position) * weight;
-				normal += (aiMatrix3x3(transform) * source.Normal) * weight;
+				normal += (normalTransforms[boneIndex] * source.Normal) * weight;
 				totalWeight += weight;
 			}
 
@@ -575,6 +906,22 @@ void AnimationModel::Update(const char* AnimationName1, int Frame1)
 				position = source.Position;
 				normal = source.Normal;
 			}
+			bool belongsToFoot[2]{};
+			for (int influenceIndex = 0; influenceIndex < influenceCount; ++influenceIndex)
+			{
+				if (source.BoneWeight[influenceIndex] < 0.25f) continue;
+				const std::string& name = source.BoneName[influenceIndex];
+				const int footIndex = name.find("LeftFoot") != std::string::npos
+					|| name.find("LeftToe") != std::string::npos ? 0
+					: name.find("RightFoot") != std::string::npos
+					|| name.find("RightToe") != std::string::npos ? 1 : -1;
+				if (footIndex >= 0) belongsToFoot[footIndex] = true;
+			}
+			for (int footIndex = 0; footIndex < 2; ++footIndex)
+			{
+				if (belongsToFoot[footIndex])
+					m_FootLocalVertices[footIndex].push_back({ position.x, position.y, position.z });
+			}
 
 			vertices[vertexIndex].Position = XMFLOAT3(position.x, position.y, position.z);
 			vertices[vertexIndex].Normal = XMFLOAT3(normal.x, normal.y, normal.z);
@@ -585,6 +932,31 @@ void AnimationModel::Update(const char* AnimationName1, int Frame1)
 		}
 
 		context->Unmap(m_VertexBuffer[meshIndex], 0);
+	}
+	// 足首ボーンと靴底の距離をメッシュから測る。モデルごとのサイズ差に対応する。
+	const XMMATRIX world = GetWorldMatrix();
+	for (int footIndex = 0; footIndex < 2; ++footIndex)
+	{
+		if (m_FootLocalVertices[footIndex].empty()) continue;
+		const auto foot = m_Bone.find(footIndex == 0
+			? "mixamorig:LeftFoot" : "mixamorig:RightFoot");
+		if (foot == m_Bone.end()) continue;
+		const aiVector3D ankleLocal = globalInverse
+			* (foot->second.Matrix * aiVector3D(0.0f, 0.0f, 0.0f));
+		XMFLOAT3 ankleWorld{};
+		XMStoreFloat3(&ankleWorld, XMVector3TransformCoord(
+			XMVectorSet(ankleLocal.x, ankleLocal.y, ankleLocal.z, 1.0f), world));
+		float soleY = ankleWorld.y;
+		for (const Vector3& local : m_FootLocalVertices[footIndex])
+		{
+			XMFLOAT3 point{};
+			XMStoreFloat3(&point, XMVector3TransformCoord(
+				XMVectorSet(local.x, local.y, local.z, 1.0f), world));
+			soleY = (std::min)(soleY, point.y);
+		}
+		const float measured = std::clamp(ankleWorld.y - soleY, 0.03f, 0.35f);
+		m_AnkleToSoleHeight[footIndex] = m_AnkleToSoleHeight[footIndex] * 0.8f
+			+ measured * 0.2f;
 	}
 
 }

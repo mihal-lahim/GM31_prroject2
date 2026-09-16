@@ -188,6 +188,12 @@
     <RuntimeAsset Include="assets\model\sky.jpg">
       <TargetPath>assets\model\sky.jpg</TargetPath>
     </RuntimeAsset>
+    <RuntimeAsset Include="assets\model\grass.jpg">
+      <TargetPath>assets\model\grass.jpg</TargetPath>
+    </RuntimeAsset>
+    <RuntimeAsset Include="assets\model\gravel.jpg">
+      <TargetPath>assets\model\gravel.jpg</TargetPath>
+    </RuntimeAsset>
     <RuntimeAsset Include="assets\model\wire_saber.obj">
       <TargetPath>assets\model\wire_saber.obj</TargetPath>
     </RuntimeAsset>

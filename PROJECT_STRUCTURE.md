@@ -1,6 +1,6 @@
 # Project Structure
 
-The solution contains one reusable engine library and two independent games.
+The solution contains one reusable engine library and three independent applications.
 
 ## Projects
 
@@ -55,6 +55,13 @@ raycasts, body collision and landing queries. `wireBoxMesh` supplies the shared 
 `BattingCenter` builds `BattingCenter.exe` and contains the preserved batting
 game. Its initial scene is `Title`, registered by
 `battingGameDefinition.cpp`.
+
+### ClassroomWalk (`ClassroomWalk.vcxproj`)
+
+`ClassroomWalk` is a small teaching sample linked to `Engine.lib`. Its scene
+spawns a field, follow camera, and the previously unused `Akai.fbx` player.
+`Akai_Idle.fbx` plays while still and `Akai_Run.fbx` while moving. WASD or arrow
+keys walk on the field. The application packages only its own runtime assets.
 
 Building `WireAction` does not compile Batting Center sources. Building
 `BattingCenter` does not compile Wire Action sources. Both link the same
@@ -141,6 +148,7 @@ Debug x64 outputs are:
 - `bin/x64/Debug/Engine/Engine.lib`
 - `bin/x64/Debug/WireAction/WireAction.exe`
 - `bin/x64/Debug/BattingCenter/BattingCenter.exe`
+- `bin/x64/Debug/ClassroomWalk/ClassroomWalk.exe`
 
 ## Crash reports
 
