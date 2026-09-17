@@ -1,0 +1,325 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="Assets">
+      <UniqueIdentifier>{683686D2-8011-282C-F5EF-3E0E6093D4A4}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Assets\Audio">
+      <UniqueIdentifier>{AA918964-AC9D-0D4A-D86D-A090BBF49D92}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Assets\Configuration">
+      <UniqueIdentifier>{7CCA8498-010C-FE42-BFD6-855C9D731C6A}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Assets\Models">
+      <UniqueIdentifier>{55B462BC-3FBA-448A-A043-635063F81592}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Assets\Textures">
+      <UniqueIdentifier>{A265C0EA-7D25-ABA8-B320-E57E889CBAD0}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Code">
+      <UniqueIdentifier>{D53D639A-13BB-4320-3DB3-DFFE2491D8C8}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Code\Batting">
+      <UniqueIdentifier>{C7C56A45-B7E7-A207-5D34-FF21AA605DBF}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Code\Effects">
+      <UniqueIdentifier>{EF2B0584-2451-218A-D017-7618A2012D42}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Code\Game">
+      <UniqueIdentifier>{B0C5C600-2107-7D1E-D188-362C681DBFF6}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Code\Player">
+      <UniqueIdentifier>{AF368B8B-851D-5109-799C-F86F87EC0EB1}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Code\UI and Scenes">
+      <UniqueIdentifier>{974FEBB2-394A-B0C4-1C67-855EF05110AC}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Code\World">
+      <UniqueIdentifier>{DC30D2AE-0505-B1B0-8D35-6D0AA1F88C68}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Documentation">
+      <UniqueIdentifier>{8B350707-CEAE-A29D-5B37-1F2B39378565}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Documentation\Licenses">
+      <UniqueIdentifier>{6BFE1C61-F6AA-4463-96B5-B9C5F4FE6CFB}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Shaders">
+      <UniqueIdentifier>{E74D1F47-CFA9-FAED-91A4-4FFBCCAA50A5}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="src\baseballBall.cpp">
+      <Filter>Code\Batting</Filter>
+    </ClCompile>
+    <ClCompile Include="src\baseballBat.cpp">
+      <Filter>Code\Batting</Filter>
+    </ClCompile>
+    <ClCompile Include="src\battingTarget.cpp">
+      <Filter>Code\Batting</Filter>
+    </ClCompile>
+    <ClCompile Include="src\battingWall.cpp">
+      <Filter>Code\Batting</Filter>
+    </ClCompile>
+    <ClCompile Include="src\pitchingMachine.cpp">
+      <Filter>Code\Batting</Filter>
+    </ClCompile>
+    <ClCompile Include="src\baseballEffects.cpp">
+      <Filter>Code\Effects</Filter>
+    </ClCompile>
+    <ClCompile Include="src\explosion.cpp">
+      <Filter>Code\Effects</Filter>
+    </ClCompile>
+    <ClCompile Include="src\firework.cpp">
+      <Filter>Code\Effects</Filter>
+    </ClCompile>
+    <ClCompile Include="src\jumpEffect.cpp">
+      <Filter>Code\Effects</Filter>
+    </ClCompile>
+    <ClCompile Include="src\playerMoveParticle.cpp">
+      <Filter>Code\Effects</Filter>
+    </ClCompile>
+    <ClCompile Include="src\battingGameDefinition.cpp">
+      <Filter>Code\Game</Filter>
+    </ClCompile>
+    <ClCompile Include="src\battingGameplayTuning.cpp">
+      <Filter>Code\Game</Filter>
+    </ClCompile>
+    <ClCompile Include="src\game.cpp">
+      <Filter>Code\Game</Filter>
+    </ClCompile>
+    <ClCompile Include="src\gameSetup.cpp">
+      <Filter>Code\Game</Filter>
+    </ClCompile>
+    <ClCompile Include="src\main.cpp">
+      <Filter>Code\Game</Filter>
+    </ClCompile>
+    <ClCompile Include="src\camera.cpp">
+      <Filter>Code\Player</Filter>
+    </ClCompile>
+    <ClCompile Include="src\gameplayInputController.cpp">
+      <Filter>Code\Player</Filter>
+    </ClCompile>
+    <ClCompile Include="src\player.cpp">
+      <Filter>Code\Player</Filter>
+    </ClCompile>
+    <ClCompile Include="src\playerCollision.cpp">
+      <Filter>Code\Player</Filter>
+    </ClCompile>
+    <ClCompile Include="src\playerCombat.cpp">
+      <Filter>Code\Player</Filter>
+    </ClCompile>
+    <ClCompile Include="src\playerMovement.cpp">
+      <Filter>Code\Player</Filter>
+    </ClCompile>
+    <ClCompile Include="src\pauseMenu.cpp">
+      <Filter>Code\UI and Scenes</Filter>
+    </ClCompile>
+    <ClCompile Include="src\result.cpp">
+      <Filter>Code\UI and Scenes</Filter>
+    </ClCompile>
+    <ClCompile Include="src\title.cpp">
+      <Filter>Code\UI and Scenes</Filter>
+    </ClCompile>
+    <ClCompile Include="src\box.cpp">
+      <Filter>Code\World</Filter>
+    </ClCompile>
+    <ClCompile Include="src\bullet.cpp">
+      <Filter>Code\World</Filter>
+    </ClCompile>
+    <ClCompile Include="src\enemy.cpp">
+      <Filter>Code\World</Filter>
+    </ClCompile>
+    <ClCompile Include="src\field.cpp">
+      <Filter>Code\World</Filter>
+    </ClCompile>
+    <ClCompile Include="src\sky.cpp">
+      <Filter>Code\World</Filter>
+    </ClCompile>
+    <ClCompile Include="src\tree.cpp">
+      <Filter>Code\World</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="include\baseballBall.h">
+      <Filter>Code\Batting</Filter>
+    </ClInclude>
+    <ClInclude Include="include\baseballBat.h">
+      <Filter>Code\Batting</Filter>
+    </ClInclude>
+    <ClInclude Include="include\battingCollisionLayers.h">
+      <Filter>Code\Batting</Filter>
+    </ClInclude>
+    <ClInclude Include="include\battingTarget.h">
+      <Filter>Code\Batting</Filter>
+    </ClInclude>
+    <ClInclude Include="include\battingWall.h">
+      <Filter>Code\Batting</Filter>
+    </ClInclude>
+    <ClInclude Include="include\pitchingMachine.h">
+      <Filter>Code\Batting</Filter>
+    </ClInclude>
+    <ClInclude Include="include\baseballEffects.h">
+      <Filter>Code\Effects</Filter>
+    </ClInclude>
+    <ClInclude Include="include\explosion.h">
+      <Filter>Code\Effects</Filter>
+    </ClInclude>
+    <ClInclude Include="include\firework.h">
+      <Filter>Code\Effects</Filter>
+    </ClInclude>
+    <ClInclude Include="include\jumpEffect.h">
+      <Filter>Code\Effects</Filter>
+    </ClInclude>
+    <ClInclude Include="include\playerMoveParticle.h">
+      <Filter>Code\Effects</Filter>
+    </ClInclude>
+    <ClInclude Include="include\battingGameplayTuning.h">
+      <Filter>Code\Game</Filter>
+    </ClInclude>
+    <ClInclude Include="include\game.h">
+      <Filter>Code\Game</Filter>
+    </ClInclude>
+    <ClInclude Include="include\gameSetup.h">
+      <Filter>Code\Game</Filter>
+    </ClInclude>
+    <ClInclude Include="include\camera.h">
+      <Filter>Code\Player</Filter>
+    </ClInclude>
+    <ClInclude Include="include\gameplayInputController.h">
+      <Filter>Code\Player</Filter>
+    </ClInclude>
+    <ClInclude Include="include\player.h">
+      <Filter>Code\Player</Filter>
+    </ClInclude>
+    <ClInclude Include="include\pauseMenu.h">
+      <Filter>Code\UI and Scenes</Filter>
+    </ClInclude>
+    <ClInclude Include="include\result.h">
+      <Filter>Code\UI and Scenes</Filter>
+    </ClInclude>
+    <ClInclude Include="include\title.h">
+      <Filter>Code\UI and Scenes</Filter>
+    </ClInclude>
+    <ClInclude Include="include\box.h">
+      <Filter>Code\World</Filter>
+    </ClInclude>
+    <ClInclude Include="include\bullet.h">
+      <Filter>Code\World</Filter>
+    </ClInclude>
+    <ClInclude Include="include\enemy.h">
+      <Filter>Code\World</Filter>
+    </ClInclude>
+    <ClInclude Include="include\field.h">
+      <Filter>Code\World</Filter>
+    </ClInclude>
+    <ClInclude Include="include\sky.h">
+      <Filter>Code\World</Filter>
+    </ClInclude>
+    <ClInclude Include="include\tree.h">
+      <Filter>Code\World</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <FxCompile Include="shaders\unlitTexturePS.hlsl">
+      <Filter>Shaders</Filter>
+    </FxCompile>
+    <FxCompile Include="shaders\unlitTextureVS.hlsl">
+      <Filter>Shaders</Filter>
+    </FxCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <RuntimeAsset Include="assets\audio\bgm.wav">
+      <Filter>Assets\Audio</Filter>
+    </RuntimeAsset>
+    <RuntimeAsset Include="assets\audio\wan.wav">
+      <Filter>Assets\Audio</Filter>
+    </RuntimeAsset>
+    <RuntimeAsset Include="assets\config\batting-gameplay.cfg">
+      <Filter>Assets\Configuration</Filter>
+    </RuntimeAsset>
+    <RuntimeAsset Include="assets\config\batting.cfg">
+      <Filter>Assets\Configuration</Filter>
+    </RuntimeAsset>
+    <RuntimeAsset Include="assets\model\baseball_bat.mtl">
+      <Filter>Assets\Models</Filter>
+    </RuntimeAsset>
+    <RuntimeAsset Include="assets\model\baseball_bat.obj">
+      <Filter>Assets\Models</Filter>
+    </RuntimeAsset>
+    <RuntimeAsset Include="assets\model\batting_target.mtl">
+      <Filter>Assets\Models</Filter>
+    </RuntimeAsset>
+    <RuntimeAsset Include="assets\model\batting_target.obj">
+      <Filter>Assets\Models</Filter>
+    </RuntimeAsset>
+    <RuntimeAsset Include="assets\model\box.mtl">
+      <Filter>Assets\Models</Filter>
+    </RuntimeAsset>
+    <RuntimeAsset Include="assets\model\box.obj">
+      <Filter>Assets\Models</Filter>
+    </RuntimeAsset>
+    <RuntimeAsset Include="assets\model\bullet.mtl">
+      <Filter>Assets\Models</Filter>
+    </RuntimeAsset>
+    <RuntimeAsset Include="assets\model\bullet.obj">
+      <Filter>Assets\Models</Filter>
+    </RuntimeAsset>
+    <RuntimeAsset Include="assets\model\grass.jpg">
+      <Filter>Assets\Models</Filter>
+    </RuntimeAsset>
+    <RuntimeAsset Include="assets\model\gravel.jpg">
+      <Filter>Assets\Models</Filter>
+    </RuntimeAsset>
+    <RuntimeAsset Include="assets\model\player.mtl">
+      <Filter>Assets\Models</Filter>
+    </RuntimeAsset>
+    <RuntimeAsset Include="assets\model\player.obj">
+      <Filter>Assets\Models</Filter>
+    </RuntimeAsset>
+    <RuntimeAsset Include="assets\model\sky.jpg">
+      <Filter>Assets\Models</Filter>
+    </RuntimeAsset>
+    <RuntimeAsset Include="assets\model\sky.mtl">
+      <Filter>Assets\Models</Filter>
+    </RuntimeAsset>
+    <RuntimeAsset Include="assets\model\sky.obj">
+      <Filter>Assets\Models</Filter>
+    </RuntimeAsset>
+    <RuntimeAsset Include="assets\texture\alphabet.png">
+      <Filter>Assets\Textures</Filter>
+    </RuntimeAsset>
+    <RuntimeAsset Include="assets\texture\Explosion.png">
+      <Filter>Assets\Textures</Filter>
+    </RuntimeAsset>
+    <RuntimeAsset Include="assets\texture\ground.png">
+      <Filter>Assets\Textures</Filter>
+    </RuntimeAsset>
+    <RuntimeAsset Include="assets\texture\kana.png">
+      <Filter>Assets\Textures</Filter>
+    </RuntimeAsset>
+    <RuntimeAsset Include="assets\texture\kanji.png">
+      <Filter>Assets\Textures</Filter>
+    </RuntimeAsset>
+    <RuntimeAsset Include="assets\texture\number.png">
+      <Filter>Assets\Textures</Filter>
+    </RuntimeAsset>
+    <RuntimeAsset Include="assets\texture\particle.png">
+      <Filter>Assets\Textures</Filter>
+    </RuntimeAsset>
+    <RuntimeAsset Include="assets\texture\result.png">
+      <Filter>Assets\Textures</Filter>
+    </RuntimeAsset>
+    <RuntimeAsset Include="assets\texture\title.png">
+      <Filter>Assets\Textures</Filter>
+    </RuntimeAsset>
+    <RuntimeAsset Include="assets\texture\tree.png">
+      <Filter>Assets\Textures</Filter>
+    </RuntimeAsset>
+    <RuntimeAsset Include="licenses\DirectXTex-LICENSE.txt">
+      <Filter>Documentation\Licenses</Filter>
+    </RuntimeAsset>
+    <RuntimeAsset Include="THIRD_PARTY.md">
+      <Filter>Documentation\Licenses</Filter>
+    </RuntimeAsset>
+  </ItemGroup>
+</Project>

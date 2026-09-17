@@ -1,0 +1,249 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="Code">
+      <UniqueIdentifier>{26558374-33EB-FA2A-928D-FBA846012102}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Code\Audio">
+      <UniqueIdentifier>{37E38062-E07D-A4EC-46F3-AE4696884D14}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Code\Collision">
+      <UniqueIdentifier>{7722BDF0-EC9E-A5B2-B88F-9434908BDBAA}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Code\Configuration">
+      <UniqueIdentifier>{E875EF7A-1ED2-9800-F91D-84162448FB08}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Code\Core">
+      <UniqueIdentifier>{E453E0F7-E8C0-DDF5-2634-CDBB75E76C7D}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Code\Diagnostics">
+      <UniqueIdentifier>{72EEBC9C-DA99-81AA-AF0A-42B069F5E092}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Code\Input">
+      <UniqueIdentifier>{6A1549EC-A7BE-4406-2EC3-0BF0332DAB8E}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Code\Rendering">
+      <UniqueIdentifier>{4030C930-3633-CA6A-4308-784CCA9C9B22}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Code\Rendering\Effects">
+      <UniqueIdentifier>{730109BA-86AE-06F4-1C04-D87633F5137C}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Code\Rendering\Text">
+      <UniqueIdentifier>{089CC773-036E-38C9-3558-CFE72792B171}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Code\Resources">
+      <UniqueIdentifier>{4FAF9AFD-9D65-EDFB-1B49-68E90ABA4E53}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Code\Scenes">
+      <UniqueIdentifier>{610235C9-5663-E4D3-41E9-8865A9E704BB}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Code\Third Party">
+      <UniqueIdentifier>{960AE1F5-EC3F-931B-3D60-16D9632DFDF3}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="src\audio.cpp">
+      <Filter>Code\Audio</Filter>
+    </ClCompile>
+    <ClCompile Include="src\collider.cpp">
+      <Filter>Code\Collision</Filter>
+    </ClCompile>
+    <ClCompile Include="src\colliderDebugDraw.cpp">
+      <Filter>Code\Collision</Filter>
+    </ClCompile>
+    <ClCompile Include="src\colliderMath.cpp">
+      <Filter>Code\Collision</Filter>
+    </ClCompile>
+    <ClCompile Include="src\collisionWorld.cpp">
+      <Filter>Code\Collision</Filter>
+    </ClCompile>
+    <ClCompile Include="src\gameSettings.cpp">
+      <Filter>Code\Configuration</Filter>
+    </ClCompile>
+    <ClCompile Include="src\runtimeConfig.cpp">
+      <Filter>Code\Configuration</Filter>
+    </ClCompile>
+    <ClCompile Include="src\gameTime.cpp">
+      <Filter>Code\Core</Filter>
+    </ClCompile>
+    <ClCompile Include="src\manager.cpp">
+      <Filter>Code\Core</Filter>
+    </ClCompile>
+    <ClCompile Include="src\world.cpp">
+      <Filter>Code\Core</Filter>
+    </ClCompile>
+    <ClCompile Include="src\crashReporter.cpp">
+      <Filter>Code\Diagnostics</Filter>
+    </ClCompile>
+    <ClCompile Include="src\engineSelfTests.cpp">
+      <Filter>Code\Diagnostics</Filter>
+    </ClCompile>
+    <ClCompile Include="src\keyboard_utf8.cpp">
+      <Filter>Code\Input</Filter>
+    </ClCompile>
+    <ClCompile Include="src\mouseInput.cpp">
+      <Filter>Code\Input</Filter>
+    </ClCompile>
+    <ClCompile Include="src\modelRenderer.cpp">
+      <Filter>Code\Rendering</Filter>
+    </ClCompile>
+    <ClCompile Include="src\polygon2D.cpp">
+      <Filter>Code\Rendering</Filter>
+    </ClCompile>
+    <ClCompile Include="src\renderer.cpp">
+      <Filter>Code\Rendering</Filter>
+    </ClCompile>
+    <ClCompile Include="src\renderQueue.cpp">
+      <Filter>Code\Rendering</Filter>
+    </ClCompile>
+    <ClCompile Include="src\particleSystem.cpp">
+      <Filter>Code\Rendering\Effects</Filter>
+    </ClCompile>
+    <ClCompile Include="src\sceneFade.cpp">
+      <Filter>Code\Rendering\Effects</Filter>
+    </ClCompile>
+    <ClCompile Include="src\alphabetText.cpp">
+      <Filter>Code\Rendering\Text</Filter>
+    </ClCompile>
+    <ClCompile Include="src\dynamicText.cpp">
+      <Filter>Code\Rendering\Text</Filter>
+    </ClCompile>
+    <ClCompile Include="src\glyphRenderer2D.cpp">
+      <Filter>Code\Rendering\Text</Filter>
+    </ClCompile>
+    <ClCompile Include="src\kanaText.cpp">
+      <Filter>Code\Rendering\Text</Filter>
+    </ClCompile>
+    <ClCompile Include="src\kanjiText.cpp">
+      <Filter>Code\Rendering\Text</Filter>
+    </ClCompile>
+    <ClCompile Include="src\score.cpp">
+      <Filter>Code\Rendering\Text</Filter>
+    </ClCompile>
+    <ClCompile Include="src\graphicsResourceFactory.cpp">
+      <Filter>Code\Resources</Filter>
+    </ClCompile>
+    <ClCompile Include="src\objModelLoader.cpp">
+      <Filter>Code\Resources</Filter>
+    </ClCompile>
+    <ClCompile Include="src\resourceManager.cpp">
+      <Filter>Code\Resources</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="include\audio.h">
+      <Filter>Code\Audio</Filter>
+    </ClInclude>
+    <ClInclude Include="include\collider.h">
+      <Filter>Code\Collision</Filter>
+    </ClInclude>
+    <ClInclude Include="include\collisionWorld.h">
+      <Filter>Code\Collision</Filter>
+    </ClInclude>
+    <ClInclude Include="include\gameSettings.h">
+      <Filter>Code\Configuration</Filter>
+    </ClInclude>
+    <ClInclude Include="include\runtimeConfig.h">
+      <Filter>Code\Configuration</Filter>
+    </ClInclude>
+    <ClInclude Include="include\component.h">
+      <Filter>Code\Core</Filter>
+    </ClInclude>
+    <ClInclude Include="include\engineApi.h">
+      <Filter>Code\Core</Filter>
+    </ClInclude>
+    <ClInclude Include="include\engineCommon.h">
+      <Filter>Code\Core</Filter>
+    </ClInclude>
+    <ClInclude Include="include\gameDefinition.h">
+      <Filter>Code\Core</Filter>
+    </ClInclude>
+    <ClInclude Include="include\gameObject.h">
+      <Filter>Code\Core</Filter>
+    </ClInclude>
+    <ClInclude Include="include\gameTime.h">
+      <Filter>Code\Core</Filter>
+    </ClInclude>
+    <ClInclude Include="include\main.h">
+      <Filter>Code\Core</Filter>
+    </ClInclude>
+    <ClInclude Include="include\manager.h">
+      <Filter>Code\Core</Filter>
+    </ClInclude>
+    <ClInclude Include="include\Vector3.h">
+      <Filter>Code\Core</Filter>
+    </ClInclude>
+    <ClInclude Include="include\world.h">
+      <Filter>Code\Core</Filter>
+    </ClInclude>
+    <ClInclude Include="include\crashReporter.h">
+      <Filter>Code\Diagnostics</Filter>
+    </ClInclude>
+    <ClInclude Include="include\engineSelfTests.h">
+      <Filter>Code\Diagnostics</Filter>
+    </ClInclude>
+    <ClInclude Include="include\keyboard_utf8.h">
+      <Filter>Code\Input</Filter>
+    </ClInclude>
+    <ClInclude Include="include\mouseInput.h">
+      <Filter>Code\Input</Filter>
+    </ClInclude>
+    <ClInclude Include="include\cameraView.h">
+      <Filter>Code\Rendering</Filter>
+    </ClInclude>
+    <ClInclude Include="include\modelRenderer.h">
+      <Filter>Code\Rendering</Filter>
+    </ClInclude>
+    <ClInclude Include="include\polygon2D.h">
+      <Filter>Code\Rendering</Filter>
+    </ClInclude>
+    <ClInclude Include="include\renderer.h">
+      <Filter>Code\Rendering</Filter>
+    </ClInclude>
+    <ClInclude Include="include\renderQueue.h">
+      <Filter>Code\Rendering</Filter>
+    </ClInclude>
+    <ClInclude Include="include\particleSystem.h">
+      <Filter>Code\Rendering\Effects</Filter>
+    </ClInclude>
+    <ClInclude Include="include\sceneFade.h">
+      <Filter>Code\Rendering\Effects</Filter>
+    </ClInclude>
+    <ClInclude Include="include\alphabetText.h">
+      <Filter>Code\Rendering\Text</Filter>
+    </ClInclude>
+    <ClInclude Include="include\dynamicText.h">
+      <Filter>Code\Rendering\Text</Filter>
+    </ClInclude>
+    <ClInclude Include="include\glyphRenderer2D.h">
+      <Filter>Code\Rendering\Text</Filter>
+    </ClInclude>
+    <ClInclude Include="include\kanaText.h">
+      <Filter>Code\Rendering\Text</Filter>
+    </ClInclude>
+    <ClInclude Include="include\kanjiText.h">
+      <Filter>Code\Rendering\Text</Filter>
+    </ClInclude>
+    <ClInclude Include="include\score.h">
+      <Filter>Code\Rendering\Text</Filter>
+    </ClInclude>
+    <ClInclude Include="include\graphicsResourceFactory.h">
+      <Filter>Code\Resources</Filter>
+    </ClInclude>
+    <ClInclude Include="include\objModelLoader.h">
+      <Filter>Code\Resources</Filter>
+    </ClInclude>
+    <ClInclude Include="include\resourceManager.h">
+      <Filter>Code\Resources</Filter>
+    </ClInclude>
+    <ClInclude Include="include\scene.h">
+      <Filter>Code\Scenes</Filter>
+    </ClInclude>
+    <ClInclude Include="include\DirectXTex.h">
+      <Filter>Code\Third Party</Filter>
+    </ClInclude>
+    <ClInclude Include="include\DirectXTex.inl">
+      <Filter>Code\Third Party</Filter>
+    </ClInclude>
+  </ItemGroup>
+</Project>

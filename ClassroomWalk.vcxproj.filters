@@ -1,0 +1,151 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="Assets">
+      <UniqueIdentifier>{0F5C1FDE-1875-5880-BE7A-BDAADF005E48}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Assets\Configuration">
+      <UniqueIdentifier>{F355EC6C-CAD0-ED9E-E50C-AF80CC4DEEB6}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Assets\Models">
+      <UniqueIdentifier>{12889200-8735-4536-E388-CD24C31E202E}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Assets\Textures">
+      <UniqueIdentifier>{BF10BF0E-362D-4234-EF1B-5FF2AF05854C}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Code">
+      <UniqueIdentifier>{2D76088E-BD25-0F4C-C656-E8222FBD1204}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Code\Character">
+      <UniqueIdentifier>{F5261361-66BE-DEEF-0B2F-82AD5F16EDC7}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Code\Environment">
+      <UniqueIdentifier>{F399CCB3-8C4B-D361-5B29-E507781F8729}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Code\Game">
+      <UniqueIdentifier>{7CE555BC-6EF5-F1B2-D9B4-CCB8552A111A}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Dependencies">
+      <UniqueIdentifier>{C8F9DE4A-FB23-50D8-23E4-AB16D62E5C70}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Documentation">
+      <UniqueIdentifier>{8CC4EEFB-25BE-E3D9-EBE6-8C2F6EF0AA51}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Documentation\Licenses">
+      <UniqueIdentifier>{E0C11295-2053-9D8F-65BE-507949D25437}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Shaders">
+      <UniqueIdentifier>{D72B9F4B-C1F8-B929-6D4A-661F351BF891}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="src\animationModel.cpp">
+      <Filter>Code\Character</Filter>
+    </ClCompile>
+    <ClCompile Include="src\sky.cpp">
+      <Filter>Code\Environment</Filter>
+    </ClCompile>
+    <ClCompile Include="src\wave.cpp">
+      <Filter>Code\Environment</Filter>
+    </ClCompile>
+    <ClCompile Include="src\classroomGameDefinition.cpp">
+      <Filter>Code\Game</Filter>
+    </ClCompile>
+    <ClCompile Include="src\classroomRenderTest.cpp">
+      <Filter>Code\Game</Filter>
+    </ClCompile>
+    <ClCompile Include="src\classroomWalk.cpp">
+      <Filter>Code\Game</Filter>
+    </ClCompile>
+    <ClCompile Include="src\main.cpp">
+      <Filter>Code\Game</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="include\animationModel.h">
+      <Filter>Code\Character</Filter>
+    </ClInclude>
+    <ClInclude Include="include\sky.h">
+      <Filter>Code\Environment</Filter>
+    </ClInclude>
+    <ClInclude Include="include\wave.h">
+      <Filter>Code\Environment</Filter>
+    </ClInclude>
+    <ClInclude Include="include\classroomWalk.h">
+      <Filter>Code\Game</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <FxCompile Include="shaders\classroomTreePS.hlsl">
+      <Filter>Shaders</Filter>
+    </FxCompile>
+    <FxCompile Include="shaders\unlitTexturePS.hlsl">
+      <Filter>Shaders</Filter>
+    </FxCompile>
+    <FxCompile Include="shaders\unlitTextureVS.hlsl">
+      <Filter>Shaders</Filter>
+    </FxCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <RuntimeAsset Include="assets\config\classroom.cfg">
+      <Filter>Assets\Configuration</Filter>
+    </RuntimeAsset>
+    <RuntimeAsset Include="assets\model\Akai_Idle.fbx">
+      <Filter>Assets\Models</Filter>
+    </RuntimeAsset>
+    <RuntimeAsset Include="assets\model\Akai_Run.fbx">
+      <Filter>Assets\Models</Filter>
+    </RuntimeAsset>
+    <RuntimeAsset Include="assets\model\Akai.fbx">
+      <Filter>Assets\Models</Filter>
+    </RuntimeAsset>
+    <RuntimeAsset Include="assets\model\grass.jpg">
+      <Filter>Assets\Models</Filter>
+    </RuntimeAsset>
+    <RuntimeAsset Include="assets\model\sky.jpg">
+      <Filter>Assets\Models</Filter>
+    </RuntimeAsset>
+    <RuntimeAsset Include="assets\model\sky.mtl">
+      <Filter>Assets\Models</Filter>
+    </RuntimeAsset>
+    <RuntimeAsset Include="assets\model\sky.obj">
+      <Filter>Assets\Models</Filter>
+    </RuntimeAsset>
+    <RuntimeAsset Include="assets\texture\alphabet.png">
+      <Filter>Assets\Textures</Filter>
+    </RuntimeAsset>
+    <RuntimeAsset Include="assets\texture\grass.png">
+      <Filter>Assets\Textures</Filter>
+    </RuntimeAsset>
+    <RuntimeAsset Include="assets\texture\ground.png">
+      <Filter>Assets\Textures</Filter>
+    </RuntimeAsset>
+    <RuntimeAsset Include="assets\texture\kana.png">
+      <Filter>Assets\Textures</Filter>
+    </RuntimeAsset>
+    <RuntimeAsset Include="assets\texture\kanji.png">
+      <Filter>Assets\Textures</Filter>
+    </RuntimeAsset>
+    <RuntimeAsset Include="assets\texture\number.png">
+      <Filter>Assets\Textures</Filter>
+    </RuntimeAsset>
+    <RuntimeAsset Include="assets\texture\particle.png">
+      <Filter>Assets\Textures</Filter>
+    </RuntimeAsset>
+    <RuntimeAsset Include="assets\texture\tree.png">
+      <Filter>Assets\Textures</Filter>
+    </RuntimeAsset>
+    <RuntimeAsset Include="assets\texture\water.jpg">
+      <Filter>Assets\Textures</Filter>
+    </RuntimeAsset>
+    <RuntimeAsset Include="assimp-vc143-mt.dll">
+      <Filter>Dependencies</Filter>
+    </RuntimeAsset>
+    <RuntimeAsset Include="licenses\DirectXTex-LICENSE.txt">
+      <Filter>Documentation\Licenses</Filter>
+    </RuntimeAsset>
+    <RuntimeAsset Include="THIRD_PARTY.md">
+      <Filter>Documentation\Licenses</Filter>
+    </RuntimeAsset>
+  </ItemGroup>
+</Project>

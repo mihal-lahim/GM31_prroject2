@@ -1,0 +1,349 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="Assets">
+      <UniqueIdentifier>{B9082187-886A-FF29-8BCA-2CC398FB73E1}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Assets\Configuration">
+      <UniqueIdentifier>{310CA57D-2941-F42F-2640-A131AB8744F7}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Assets\Models">
+      <UniqueIdentifier>{F43D067F-5E3D-D94D-BF70-1F63095A7555}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Assets\Textures">
+      <UniqueIdentifier>{A64A8739-FE5B-67C7-7B96-E77DEBDBC92F}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Code">
+      <UniqueIdentifier>{226BC037-E98F-8065-5F5E-A46B5992E88D}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Code\Abilities">
+      <UniqueIdentifier>{514DA429-1E10-B91F-624F-5F5DD7CCF5B7}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Code\Abilities\Grapple">
+      <UniqueIdentifier>{C63D737A-B950-6898-F1BA-73FE942C8B90}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Code\Abilities\Sword">
+      <UniqueIdentifier>{DD2D387C-02F0-333A-9721-4670865F23B2}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Code\Collision">
+      <UniqueIdentifier>{3C0F581B-1627-3E1D-6138-B97F12909825}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Code\Diagnostics">
+      <UniqueIdentifier>{B5FBFA03-E890-1F71-0E2E-8C67126DD069}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Code\Game">
+      <UniqueIdentifier>{9C19BCBB-1597-A859-D530-A9B7406C29F1}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Code\Player">
+      <UniqueIdentifier>{717071DC-B8C8-23AA-CC54-54D0F7140D32}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Code\Scenes">
+      <UniqueIdentifier>{5542E2E4-6D8A-A1FE-D9B3-17509D4AB9B6}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Code\UI">
+      <UniqueIdentifier>{017FB87F-9067-2859-2460-CA2BDC67B1B1}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Code\World">
+      <UniqueIdentifier>{05AB3C27-152D-F331-DB6E-7B23A3AFB549}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Dependencies">
+      <UniqueIdentifier>{A6EF5017-455E-768D-5B01-BA63C9F1CED5}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Documentation">
+      <UniqueIdentifier>{9F12D74C-CF4E-B002-E30A-BD0088F71D6A}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Documentation\Licenses">
+      <UniqueIdentifier>{111B5520-4111-D782-5695-78E4DF316F3A}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Shaders">
+      <UniqueIdentifier>{D9775220-EAEC-B186-2101-96646C0798DE}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="src\wireAnchor.cpp">
+      <Filter>Code\Abilities\Grapple</Filter>
+    </ClCompile>
+    <ClCompile Include="src\wireGrappleAbility.cpp">
+      <Filter>Code\Abilities\Grapple</Filter>
+    </ClCompile>
+    <ClCompile Include="src\wireReticle.cpp">
+      <Filter>Code\Abilities\Grapple</Filter>
+    </ClCompile>
+    <ClCompile Include="src\wireSlashEffect.cpp">
+      <Filter>Code\Abilities\Sword</Filter>
+    </ClCompile>
+    <ClCompile Include="src\wireSword.cpp">
+      <Filter>Code\Abilities\Sword</Filter>
+    </ClCompile>
+    <ClCompile Include="src\wireSwordAbility.cpp">
+      <Filter>Code\Abilities\Sword</Filter>
+    </ClCompile>
+    <ClCompile Include="src\wireDebugTools.cpp">
+      <Filter>Code\Diagnostics</Filter>
+    </ClCompile>
+    <ClCompile Include="src\main.cpp">
+      <Filter>Code\Game</Filter>
+    </ClCompile>
+    <ClCompile Include="src\wireFactory.cpp">
+      <Filter>Code\Game</Filter>
+    </ClCompile>
+    <ClCompile Include="src\wireGame.cpp">
+      <Filter>Code\Game</Filter>
+    </ClCompile>
+    <ClCompile Include="src\wireGameDefinition.cpp">
+      <Filter>Code\Game</Filter>
+    </ClCompile>
+    <ClCompile Include="src\wireGameplayTuning.cpp">
+      <Filter>Code\Game</Filter>
+    </ClCompile>
+    <ClCompile Include="src\animationModel.cpp">
+      <Filter>Code\Player</Filter>
+    </ClCompile>
+    <ClCompile Include="src\wirePlayer.cpp">
+      <Filter>Code\Player</Filter>
+    </ClCompile>
+    <ClCompile Include="src\wirePlayerInput.cpp">
+      <Filter>Code\Player</Filter>
+    </ClCompile>
+    <ClCompile Include="src\wirePlayerMovement.cpp">
+      <Filter>Code\Player</Filter>
+    </ClCompile>
+    <ClCompile Include="src\wirePlayerPresentation.cpp">
+      <Filter>Code\Player</Filter>
+    </ClCompile>
+    <ClCompile Include="src\wireRobotRenderer.cpp">
+      <Filter>Code\Player</Filter>
+    </ClCompile>
+    <ClCompile Include="src\wireTpsCamera.cpp">
+      <Filter>Code\Player</Filter>
+    </ClCompile>
+    <ClCompile Include="src\wireRaceTests.cpp">
+      <Filter>Code\Scenes</Filter>
+    </ClCompile>
+    <ClCompile Include="src\wireResultScene.cpp">
+      <Filter>Code\Scenes</Filter>
+    </ClCompile>
+    <ClCompile Include="src\wireTitleScene.cpp">
+      <Filter>Code\Scenes</Filter>
+    </ClCompile>
+    <ClCompile Include="src\wireTutorialScene.cpp">
+      <Filter>Code\Scenes</Filter>
+    </ClCompile>
+    <ClCompile Include="src\wireBlinkGauge.cpp">
+      <Filter>Code\UI</Filter>
+    </ClCompile>
+    <ClCompile Include="src\wireChatBox.cpp">
+      <Filter>Code\UI</Filter>
+    </ClCompile>
+    <ClCompile Include="src\wireGuide.cpp">
+      <Filter>Code\UI</Filter>
+    </ClCompile>
+    <ClCompile Include="src\wireHealthUI.cpp">
+      <Filter>Code\UI</Filter>
+    </ClCompile>
+    <ClCompile Include="src\wireMissionHud.cpp">
+      <Filter>Code\UI</Filter>
+    </ClCompile>
+    <ClCompile Include="src\sky.cpp">
+      <Filter>Code\World</Filter>
+    </ClCompile>
+    <ClCompile Include="src\wireBlockField.cpp">
+      <Filter>Code\World</Filter>
+    </ClCompile>
+    <ClCompile Include="src\wireBoxMesh.cpp">
+      <Filter>Code\World</Filter>
+    </ClCompile>
+    <ClCompile Include="src\wireEnemy.cpp">
+      <Filter>Code\World</Filter>
+    </ClCompile>
+    <ClCompile Include="src\wirePlatform.cpp">
+      <Filter>Code\World</Filter>
+    </ClCompile>
+    <ClCompile Include="src\wireTarget.cpp">
+      <Filter>Code\World</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="include\wireAnchor.h">
+      <Filter>Code\Abilities\Grapple</Filter>
+    </ClInclude>
+    <ClInclude Include="include\wireGrappleAbility.h">
+      <Filter>Code\Abilities\Grapple</Filter>
+    </ClInclude>
+    <ClInclude Include="include\wireReticle.h">
+      <Filter>Code\Abilities\Grapple</Filter>
+    </ClInclude>
+    <ClInclude Include="include\wireSwingPhysics.h">
+      <Filter>Code\Abilities\Grapple</Filter>
+    </ClInclude>
+    <ClInclude Include="include\wireSlashEffect.h">
+      <Filter>Code\Abilities\Sword</Filter>
+    </ClInclude>
+    <ClInclude Include="include\wireSword.h">
+      <Filter>Code\Abilities\Sword</Filter>
+    </ClInclude>
+    <ClInclude Include="include\wireSwordAbility.h">
+      <Filter>Code\Abilities\Sword</Filter>
+    </ClInclude>
+    <ClInclude Include="include\wireCollisionLayers.h">
+      <Filter>Code\Collision</Filter>
+    </ClInclude>
+    <ClInclude Include="include\wireDebugTools.h">
+      <Filter>Code\Diagnostics</Filter>
+    </ClInclude>
+    <ClInclude Include="include\wireFactory.h">
+      <Filter>Code\Game</Filter>
+    </ClInclude>
+    <ClInclude Include="include\wireGame.h">
+      <Filter>Code\Game</Filter>
+    </ClInclude>
+    <ClInclude Include="include\wireGameplayTuning.h">
+      <Filter>Code\Game</Filter>
+    </ClInclude>
+    <ClInclude Include="include\animationModel.h">
+      <Filter>Code\Player</Filter>
+    </ClInclude>
+    <ClInclude Include="include\wirePlayer.h">
+      <Filter>Code\Player</Filter>
+    </ClInclude>
+    <ClInclude Include="include\wirePlayerInput.h">
+      <Filter>Code\Player</Filter>
+    </ClInclude>
+    <ClInclude Include="include\wirePlayerMovement.h">
+      <Filter>Code\Player</Filter>
+    </ClInclude>
+    <ClInclude Include="include\wirePlayerPresentation.h">
+      <Filter>Code\Player</Filter>
+    </ClInclude>
+    <ClInclude Include="include\wireRobotRenderer.h">
+      <Filter>Code\Player</Filter>
+    </ClInclude>
+    <ClInclude Include="include\wireTpsCamera.h">
+      <Filter>Code\Player</Filter>
+    </ClInclude>
+    <ClInclude Include="include\wireRace.h">
+      <Filter>Code\Scenes</Filter>
+    </ClInclude>
+    <ClInclude Include="include\wireResultScene.h">
+      <Filter>Code\Scenes</Filter>
+    </ClInclude>
+    <ClInclude Include="include\wireTitleScene.h">
+      <Filter>Code\Scenes</Filter>
+    </ClInclude>
+    <ClInclude Include="include\wireTutorialScene.h">
+      <Filter>Code\Scenes</Filter>
+    </ClInclude>
+    <ClInclude Include="include\wireBlinkGauge.h">
+      <Filter>Code\UI</Filter>
+    </ClInclude>
+    <ClInclude Include="include\wireChatBox.h">
+      <Filter>Code\UI</Filter>
+    </ClInclude>
+    <ClInclude Include="include\wireGuide.h">
+      <Filter>Code\UI</Filter>
+    </ClInclude>
+    <ClInclude Include="include\wireHealthUI.h">
+      <Filter>Code\UI</Filter>
+    </ClInclude>
+    <ClInclude Include="include\wireMenuBackdrop.h">
+      <Filter>Code\UI</Filter>
+    </ClInclude>
+    <ClInclude Include="include\wireMissionHud.h">
+      <Filter>Code\UI</Filter>
+    </ClInclude>
+    <ClInclude Include="include\sky.h">
+      <Filter>Code\World</Filter>
+    </ClInclude>
+    <ClInclude Include="include\wireBlockField.h">
+      <Filter>Code\World</Filter>
+    </ClInclude>
+    <ClInclude Include="include\wireBoxMesh.h">
+      <Filter>Code\World</Filter>
+    </ClInclude>
+    <ClInclude Include="include\wireBreakable.h">
+      <Filter>Code\World</Filter>
+    </ClInclude>
+    <ClInclude Include="include\wireEnemy.h">
+      <Filter>Code\World</Filter>
+    </ClInclude>
+    <ClInclude Include="include\wirePlatform.h">
+      <Filter>Code\World</Filter>
+    </ClInclude>
+    <ClInclude Include="include\wireTarget.h">
+      <Filter>Code\World</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <FxCompile Include="shaders\unlitTexturePS.hlsl">
+      <Filter>Shaders</Filter>
+    </FxCompile>
+    <FxCompile Include="shaders\unlitTextureVS.hlsl">
+      <Filter>Shaders</Filter>
+    </FxCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <RuntimeAsset Include="assets\config\wire-gameplay.cfg">
+      <Filter>Assets\Configuration</Filter>
+    </RuntimeAsset>
+    <RuntimeAsset Include="assets\config\wire.cfg">
+      <Filter>Assets\Configuration</Filter>
+    </RuntimeAsset>
+    <RuntimeAsset Include="assets\model\box.mtl">
+      <Filter>Assets\Models</Filter>
+    </RuntimeAsset>
+    <RuntimeAsset Include="assets\model\box.obj">
+      <Filter>Assets\Models</Filter>
+    </RuntimeAsset>
+    <RuntimeAsset Include="assets\model\grass.jpg">
+      <Filter>Assets\Models</Filter>
+    </RuntimeAsset>
+    <RuntimeAsset Include="assets\model\gravel.jpg">
+      <Filter>Assets\Models</Filter>
+    </RuntimeAsset>
+    <RuntimeAsset Include="assets\model\sky.jpg">
+      <Filter>Assets\Models</Filter>
+    </RuntimeAsset>
+    <RuntimeAsset Include="assets\model\sky.mtl">
+      <Filter>Assets\Models</Filter>
+    </RuntimeAsset>
+    <RuntimeAsset Include="assets\model\sky.obj">
+      <Filter>Assets\Models</Filter>
+    </RuntimeAsset>
+    <RuntimeAsset Include="assets\model\wire_saber.mtl">
+      <Filter>Assets\Models</Filter>
+    </RuntimeAsset>
+    <RuntimeAsset Include="assets\model\wire_saber.obj">
+      <Filter>Assets\Models</Filter>
+    </RuntimeAsset>
+    <RuntimeAsset Include="assets\texture\alphabet.png">
+      <Filter>Assets\Textures</Filter>
+    </RuntimeAsset>
+    <RuntimeAsset Include="assets\texture\kana.png">
+      <Filter>Assets\Textures</Filter>
+    </RuntimeAsset>
+    <RuntimeAsset Include="assets\texture\kanji.png">
+      <Filter>Assets\Textures</Filter>
+    </RuntimeAsset>
+    <RuntimeAsset Include="assets\texture\number.png">
+      <Filter>Assets\Textures</Filter>
+    </RuntimeAsset>
+    <RuntimeAsset Include="assets\texture\particle.png">
+      <Filter>Assets\Textures</Filter>
+    </RuntimeAsset>
+    <RuntimeAsset Include="assets\texture\result.png">
+      <Filter>Assets\Textures</Filter>
+    </RuntimeAsset>
+    <RuntimeAsset Include="assets\texture\title.png">
+      <Filter>Assets\Textures</Filter>
+    </RuntimeAsset>
+    <RuntimeAsset Include="assimp-vc143-mt.dll">
+      <Filter>Dependencies</Filter>
+    </RuntimeAsset>
+    <RuntimeAsset Include="licenses\DirectXTex-LICENSE.txt">
+      <Filter>Documentation\Licenses</Filter>
+    </RuntimeAsset>
+    <RuntimeAsset Include="THIRD_PARTY.md">
+      <Filter>Documentation\Licenses</Filter>
+    </RuntimeAsset>
+  </ItemGroup>
+</Project>
