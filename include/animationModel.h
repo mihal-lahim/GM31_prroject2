@@ -56,6 +56,7 @@ private:
 	float m_ModelYawOffset = 0.0f;
 	bool m_Visible = true;
 	float (*m_GroundHeight)(float, float) = nullptr;
+	Vector3 (*m_GroundNormal)(float, float) = nullptr;
 	float m_FootIKStrength = 1.0f;
 	float m_AnkleToSoleHeight[2]{ 0.12f, 0.12f };
 	float m_FootTargetCorrection[2]{};
@@ -84,9 +85,11 @@ public:
 	void LoadAnimation( const char *FileName, const char *Name );
 	void SetModelScale(float Scale) { m_ModelScale = Scale; }
 	void SetModelYawOffset(float YawOffset) { m_ModelYawOffset = YawOffset; }
-	void SetFootIK(float (*heightAt)(float, float), float strength = 1.0f)
+	void SetFootIK(float (*heightAt)(float, float), float strength = 1.0f,
+		Vector3 (*normalAt)(float, float) = nullptr)
 	{
 		m_GroundHeight = heightAt;
+		m_GroundNormal = normalAt;
 		m_FootIKStrength = strength;
 	}
 	// 被弾中の点滅など、更新は続けたまま描画だけを止めたい場合に使います。
@@ -100,6 +103,8 @@ public:
 	bool GetRequiredGroundOffset(float (*heightAt)(float, float), float& offset) const;
 	// 各足で地面に最も近いメッシュ頂点の高さ。正なら足が浮いている。
 	bool GetFootClearance(float (*heightAt)(float, float), float (&clearance)[2]) const;
+	// 靴の前後それぞれで、地面に最も近い頂点との距離を測る。
+	bool GetFootEndClearance(float (*heightAt)(float, float), float (&clearance)[2][2]) const;
 	void ResetFootTargetCorrection() { m_FootTargetCorrection[0] = m_FootTargetCorrection[1] = 0.0f; }
 	void AdjustFootTargetCorrection(int footIndex, float clearance)
 	{

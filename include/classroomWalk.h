@@ -5,6 +5,7 @@
 #include "resourceManager.h"
 #include "cameraView.h"
 #include "dynamicText.h"
+#include "wave.h"
 
 #include <chrono>
 
@@ -16,6 +17,7 @@ public:
 	void Init() override;
 	void Update() override;
 	bool GetFootClearance(float (&clearance)[2]) const;
+	bool GetFootEndClearance(float (&clearance)[2][2]) const;
 private:
 	AnimationModel* m_Model = nullptr;
 	void AlignFeetToField();

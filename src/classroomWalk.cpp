@@ -23,21 +23,44 @@ namespace
 
 	float HeightSample(float x, float z)
 	{
-		const float rolling = 0.42f * sinf(x * 0.23f) * cosf(z * 0.21f)
-			+ 0.18f * sinf(x * 0.57f + z * 0.31f);
-		// 基準ボーンと3つの丘ボーンで静的な地形をCPUスキニングする。
-		const float hillWeightA = 0.66f * expf(-((x + 10.0f) * (x + 10.0f)
-			+ (z - 13.0f) * (z - 13.0f)) / 90.0f);
-		const float hillWeightB = 0.78f * expf(-((x - 14.0f) * (x - 14.0f)
-			+ (z + 7.0f) * (z + 7.0f)) / 120.0f);
-		// 開始位置から+Zへ進むと急斜面に入る。足IKの確認用。
-		const float steepWeight = 0.85f * expf(-(x * x
-			+ (z - 14.0f) * (z - 14.0f)) / 18.0f);
-		const float baseWeight = 1.0f - hillWeightA - hillWeightB - steepWeight;
-		return rolling * baseWeight
-			+ (rolling + 2.9f) * hillWeightA
-			+ (rolling + 3.2f) * hillWeightB
-			+ (rolling + 5.0f) * steepWeight;
+		auto naturalHeight = [](float sampleX, float sampleZ)
+		{
+			const float rolling = 0.42f * sinf(sampleX * 0.23f) * cosf(sampleZ * 0.21f)
+				+ 0.18f * sinf(sampleX * 0.57f + sampleZ * 0.31f);
+			// 基準ボーンと3つの丘ボーンで静的な地形をCPUスキニングする。
+			const float hillWeightA = 0.66f * expf(-((sampleX + 10.0f) * (sampleX + 10.0f)
+				+ (sampleZ - 13.0f) * (sampleZ - 13.0f)) / 90.0f);
+			const float hillWeightB = 0.78f * expf(-((sampleX - 14.0f) * (sampleX - 14.0f)
+				+ (sampleZ + 7.0f) * (sampleZ + 7.0f)) / 120.0f);
+			// 開始位置から+Zへ進むと急斜面に入る。足IKの確認用。
+			const float steepWeight = 0.85f * expf(-(sampleX * sampleX
+				+ (sampleZ - 14.0f) * (sampleZ - 14.0f)) / 18.0f);
+			const float baseWeight = 1.0f - hillWeightA - hillWeightB - steepWeight;
+			return rolling * baseWeight
+				+ (rolling + 2.9f) * hillWeightA
+				+ (rolling + 3.2f) * hillWeightB
+				+ (rolling + 5.0f) * steepWeight;
+		};
+
+		const float distance = sqrtf((x - ClassroomLake::CenterX) * (x - ClassroomLake::CenterX)
+			+ (z - ClassroomLake::CenterZ) * (z - ClassroomLake::CenterZ));
+		const float natural = naturalHeight(x, z);
+		if (distance >= ClassroomLake::BasinRadius) return natural;
+
+		constexpr float floorHeight = ClassroomLake::WaterLevel - 1.45f;
+		constexpr float bankHeight = ClassroomLake::WaterLevel + 0.25f;
+		if (distance <= ClassroomLake::FloorRadius) return floorHeight;
+		if (distance < ClassroomLake::ShoreRadius)
+		{
+			const float edge = (distance - ClassroomLake::FloorRadius)
+				/ (ClassroomLake::ShoreRadius - ClassroomLake::FloorRadius);
+			const float smoothEdge = edge * edge * (3.0f - 2.0f * edge);
+			return floorHeight + (bankHeight - floorHeight) * smoothEdge;
+		}
+		const float edge = (distance - ClassroomLake::ShoreRadius)
+			/ (ClassroomLake::BasinRadius - ClassroomLake::ShoreRadius);
+		const float smoothEdge = edge * edge * (3.0f - 2.0f * edge);
+		return bankHeight + (natural - bankHeight) * smoothEdge;
 	}
 
 	float GridHeight(float x, float z)
@@ -72,7 +95,7 @@ void ClassroomPlayer::Init()
 	m_Model->SetModelScale(0.01f);
 	// Akai のモデル正面は -Z。移動角度の基準 (+Z) に合わせる。
 	m_Model->SetModelYawOffset(XM_PI);
-	m_Model->SetFootIK(ClassroomField::GetHeight);
+	m_Model->SetFootIK(ClassroomField::GetHeight, 1.0f, ClassroomField::GetNormal);
 	m_Model->PlayAnimation("Idle", 0.0f);
 	m_Model->TickAnimation(0.0f, false);
 	AlignFeetToField();
@@ -110,7 +133,8 @@ void ClassroomPlayer::Update()
 	grounded.y = ClassroomField::GetHeight(grounded.x, grounded.z);
 	SetPosition(grounded);
 	m_Model->PlayAnimation(moving ? "Run" : "Idle", 0.2f);
-	m_Model->SetFootIK(ClassroomField::GetHeight, moving ? 0.75f : 1.0f);
+	m_Model->SetFootIK(ClassroomField::GetHeight, moving ? 0.75f : 1.0f,
+		ClassroomField::GetNormal);
 	m_Model->TickAnimation(1.0f / 60.0f, false);
 	AlignFeetToField();
 	m_Model->TickAnimation(0.0f);
@@ -162,6 +186,12 @@ bool ClassroomPlayer::GetFootClearance(float (&clearance)[2]) const
 {
 	return m_Model != nullptr
 		&& m_Model->GetFootClearance(ClassroomField::GetHeight, clearance);
+}
+
+bool ClassroomPlayer::GetFootEndClearance(float (&clearance)[2][2]) const
+{
+	return m_Model != nullptr
+		&& m_Model->GetFootEndClearance(ClassroomField::GetHeight, clearance);
 }
 
 void ClassroomCamera::Init()
@@ -492,6 +522,7 @@ void ClassroomWalkScene::Init()
 	world.Spawn<ClassroomCamera>();
 	world.Spawn<Sky>()->SetRadius(90.0f);
 	world.Spawn<ClassroomField>();
+	world.Spawn<ClassroomWater>();
 	world.Spawn<ClassroomPlayer>();
 	world.Spawn<ClassroomFps>();
 	// 固定シード相当の配置にして、授業中も毎回同じ森を再現できるようにする。
@@ -503,6 +534,9 @@ void ClassroomWalkScene::Init()
 			const float x = -27.0f + column * 7.7f + static_cast<float>(hash % 7 - 3) * 0.42f;
 			const float z = -24.0f + row * 6.5f + static_cast<float>(hash % 5 - 2) * 0.48f;
 			if (std::abs(x) < 3.8f && z < 20.0f) continue;
+			const float pondDistance = std::sqrt((x - ClassroomLake::CenterX) * (x - ClassroomLake::CenterX)
+				+ (z - ClassroomLake::CenterZ) * (z - ClassroomLake::CenterZ));
+			if (pondDistance < 10.0f) continue;
 			ClassroomTree* tree = world.Spawn<ClassroomTree>();
 			tree->SetPosition({ x, ClassroomField::GetHeight(x, z), z });
 			const float size = 0.75f + static_cast<float>(hash % 6) * 0.09f;
@@ -517,6 +551,9 @@ void ClassroomWalkScene::Init()
 			const float x = -25.0f + column * 5.5f + static_cast<float>(hash % 5 - 2) * 0.36f;
 			const float z = -21.0f + row * 6.0f + static_cast<float>(hash % 7 - 3) * 0.31f;
 			if (std::abs(x) < 1.6f && z > -3.0f && z < 20.0f) continue;
+			const float pondDistance = std::sqrt((x - ClassroomLake::CenterX) * (x - ClassroomLake::CenterX)
+				+ (z - ClassroomLake::CenterZ) * (z - ClassroomLake::CenterZ));
+			if (pondDistance < 10.0f) continue;
 			ClassroomGrass* grass = world.Spawn<ClassroomGrass>();
 			grass->SetPosition({ x, ClassroomField::GetHeight(x, z) + 0.015f, z });
 			const float size = 0.72f + static_cast<float>(hash % 6) * 0.09f;

@@ -579,6 +579,42 @@ bool AnimationModel::GetFootClearance(float (*heightAt)(float, float), float (&c
 	return true;
 }
 
+bool AnimationModel::GetFootEndClearance(float (*heightAt)(float, float), float (&clearance)[2][2]) const
+{
+	if (heightAt == nullptr || m_GameObject == nullptr
+		|| m_FootLocalVertices[0].empty() || m_FootLocalVertices[1].empty()) return false;
+	const XMMATRIX world = GetWorldMatrix();
+	const float yaw = m_GameObject->GetRotation().y;
+	const float forwardX = sinf(yaw), forwardZ = cosf(yaw);
+	for (int footIndex = 0; footIndex < 2; ++footIndex)
+	{
+		float minimum = 1000.0f, maximum = -1000.0f;
+		for (const Vector3& local : m_FootLocalVertices[footIndex])
+		{
+			XMFLOAT3 point{};
+			XMStoreFloat3(&point, XMVector3TransformCoord(
+				XMVectorSet(local.x, local.y, local.z, 1.0f), world));
+			const float along = point.x * forwardX + point.z * forwardZ;
+			minimum = (std::min)(minimum, along);
+			maximum = (std::max)(maximum, along);
+		}
+		const float middle = (minimum + maximum) * 0.5f;
+		clearance[footIndex][0] = clearance[footIndex][1] = 1000.0f;
+		for (const Vector3& local : m_FootLocalVertices[footIndex])
+		{
+			XMFLOAT3 point{};
+			XMStoreFloat3(&point, XMVector3TransformCoord(
+				XMVectorSet(local.x, local.y, local.z, 1.0f), world));
+			const int end = point.x * forwardX + point.z * forwardZ < middle ? 0 : 1;
+			clearance[footIndex][end] = (std::min)(clearance[footIndex][end],
+				point.y - heightAt(point.x, point.z));
+		}
+		if (clearance[footIndex][0] == 1000.0f || clearance[footIndex][1] == 1000.0f)
+			return false;
+	}
+	return true;
+}
+
 XMMATRIX AnimationModel::GetWorldMatrix() const
 {
 	if (m_GameObject == nullptr) return XMMatrixIdentity();
@@ -699,10 +735,42 @@ void AnimationModel::SolveLegIK(
 	aimBone(lowerNode, lower->second, movedAnkle - movedKnee, reachableTarget - movedKnee);
 	UpdateBoneMatrix(m_AiScene->mRootNode, aiMatrix4x4());
 
-	// 脚を曲げても靴はアニメーション本来の向きを保つ。
+	// 脚を曲げた後、靴の元の向きに地面の傾きだけを加える。
+	// ワールドの上方向と地面法線をボーン空間へ移して回転を作る。
+	aiMatrix4x4 wantedFootGlobal = originalFootGlobal;
+	if (m_GroundNormal != nullptr && ikWeight > 0.0f)
+	{
+		const Vector3 groundNormal = m_GroundNormal(ankleWorld.x, ankleWorld.z);
+		const XMMATRIX inverseWorld = XMMatrixInverse(nullptr, world);
+		XMFLOAT3 modelUp{}, modelNormal{};
+		XMStoreFloat3(&modelUp, XMVector3TransformNormal(
+			XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f), inverseWorld));
+		XMStoreFloat3(&modelNormal, XMVector3TransformNormal(
+			XMVectorSet(groundNormal.x, groundNormal.y, groundNormal.z, 0.0f), inverseWorld));
+		const aiMatrix4x4& root = m_AiScene->mRootNode->mTransformation;
+		const aiVector3D rootOrigin = root * origin;
+		aiVector3D from = root * aiVector3D(modelUp.x, modelUp.y, modelUp.z) - rootOrigin;
+		aiVector3D to = root * aiVector3D(modelNormal.x, modelNormal.y, modelNormal.z) - rootOrigin;
+		if (from.SquareLength() > 0.0001f && to.SquareLength() > 0.0001f)
+		{
+			from.Normalize();
+			to.Normalize();
+			aiVector3D axis = from ^ to;
+			const float axisLength = axis.Length();
+			if (axisLength > 0.00001f)
+			{
+				axis /= axisLength;
+				const float angle = (std::min)(atan2f(axisLength,
+					std::clamp(from * to, -1.0f, 1.0f)), XMConvertToRadians(45.0f)) * ikWeight;
+				aiMatrix4x4 tilt;
+				aiMatrix4x4::Rotation(angle, axis, tilt);
+				wantedFootGlobal = tilt * originalFootGlobal;
+			}
+		}
+	}
 	aiMatrix4x4 lowerInverse = lower->second.Matrix;
 	lowerInverse.Inverse();
-	const aiMatrix4x4 wantedFootLocal = lowerInverse * originalFootGlobal;
+	const aiMatrix4x4 wantedFootLocal = lowerInverse * wantedFootGlobal;
 	aiVector3D wantedScale, wantedPosition, currentScale, currentPosition;
 	aiQuaternion wantedRotation, currentRotation;
 	wantedFootLocal.Decompose(wantedScale, wantedRotation, wantedPosition);
