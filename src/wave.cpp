@@ -95,14 +95,58 @@ void ClassroomWater::BuildMesh()
 	}
 }
 
+float ClassroomWater::WaveHeight(float x, float z, float time)
+{
+	const float length = sqrtf(x * x + z * z);
+	const float phase = length / kWaveLength - time / kWaveCycle;
+	const float shoreFade = std::clamp((ClassroomLake::WaterRadius - length) / 1.5f, 0.0f, 1.0f);
+	return kWaveAmplitude * shoreFade * sinf(kTwoPi * phase);
+}
+
+float ClassroomWater::GetSurfaceHeight(float x, float z, float time)
+{
+	x -= ClassroomLake::CenterX;
+	z -= ClassroomLake::CenterZ;
+	float angle = atan2f(z, x);
+	if (angle < 0.0f) angle += kTwoPi;
+	const int segment = (std::min)(static_cast<int>(angle / kTwoPi * kSegmentCount), kSegmentCount - 1);
+	const float a = kTwoPi * segment / kSegmentCount;
+	const float b = kTwoPi * (segment + 1) / kSegmentCount;
+	auto vertex = [time](float radius, float theta)
+	{
+		const float vx = radius * cosf(theta), vz = radius * sinf(theta);
+		return Vector3{ vx, WaveHeight(vx, vz, time), vz };
+	};
+	auto heightInTriangle = [x, z](Vector3 p, Vector3 q, Vector3 r, float& height)
+	{
+		const float determinant = (q.z - r.z) * (p.x - r.x) + (r.x - q.x) * (p.z - r.z);
+		if (std::abs(determinant) < 0.000001f) return false;
+		const float u = ((q.z - r.z) * (x - r.x) + (r.x - q.x) * (z - r.z)) / determinant;
+		const float v = ((r.z - p.z) * (x - r.x) + (p.x - r.x) * (z - r.z)) / determinant;
+		const float w = 1.0f - u - v;
+		if (u < -0.0001f || v < -0.0001f || w < -0.0001f) return false;
+		height = u * p.y + v * q.y + w * r.y;
+		return true;
+	};
+	// Use the same triangles as BuildMesh, including the center fan.
+	for (int ring = 0; ring < kRingCount; ++ring)
+	{
+		const float inner = ClassroomLake::WaterRadius * ring / kRingCount;
+		const float outer = ClassroomLake::WaterRadius * (ring + 1) / kRingCount;
+		const Vector3 p = vertex(inner, a), q = vertex(inner, b);
+		const Vector3 r = vertex(outer, a), s = vertex(outer, b);
+		float height;
+		if (heightInTriangle(p, q, r, height) || heightInTriangle(q, s, r, height))
+			return ClassroomLake::WaterLevel + height;
+	}
+	return ClassroomLake::WaterLevel;
+}
+
 void ClassroomWater::AnimateMesh(float time)
 {
 	auto heightAt = [time](float x, float z)
 	{
-		const float length = sqrtf(x * x + z * z);
-		const float phase = length / kWaveLength - time / kWaveCycle;
-		const float shoreFade = std::clamp((ClassroomLake::WaterRadius - length) / 1.5f, 0.0f, 1.0f);
-		return kWaveAmplitude * shoreFade * sinf(kTwoPi * phase);
+		return WaveHeight(x, z, time);
 	};
 	for (VERTEX_3D& vertex : m_Vertices)
 	{

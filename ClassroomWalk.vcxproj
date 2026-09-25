@@ -136,6 +136,10 @@
     <RuntimeAsset Include="assets\model\Akai_Run.fbx">
       <TargetPath>assets\model\Akai_Run.fbx</TargetPath>
     </RuntimeAsset>
+    <RuntimeAsset Include="assets\model\Jumping.fbx"><TargetPath>assets\model\Jumping.fbx</TargetPath></RuntimeAsset>
+    <RuntimeAsset Include="assets\model\Treading Water.fbx"><TargetPath>assets\model\Treading Water.fbx</TargetPath></RuntimeAsset>
+    <RuntimeAsset Include="assets\model\Swimming To Edge.fbx"><TargetPath>assets\model\Swimming To Edge.fbx</TargetPath></RuntimeAsset>
+    <RuntimeAsset Include="assets\model\Flair.fbx"><TargetPath>assets\model\Flair.fbx</TargetPath></RuntimeAsset>
     <RuntimeAsset Include="assets\model\grass.jpg">
       <TargetPath>assets\model\grass.jpg</TargetPath>
     </RuntimeAsset>

@@ -60,6 +60,7 @@
     <ClInclude Include="include\scene.h" />
     <ClInclude Include="include\score.h" />
 	<ClInclude Include="include\shaderCatalog.h" />
+	<ClInclude Include="include\shaderGalleryModes.h" />
 	<ClInclude Include="include\surfaceMaterial.h" />
 	<ClInclude Include="include\glyphRenderer2D.h" />
 	<ClInclude Include="include\alphabetText.h" />

@@ -22,9 +22,16 @@ public:
 	bool GetFootEndClearance(float (&clearance)[2][2]) const;
 	bool SetShaderDefinition(std::string_view id);
 	void UseDefaultShader();
+	std::string_view GetAnimationName() const;
+	bool GetSwimAnchor(Vector3& position) const;
 private:
 	AnimationModel* m_Model = nullptr;
 	bool m_ShaderPreview = false;
+	bool m_Dancing = false;
+	float m_VerticalSpeed = 0.0f;
+	float m_FootIKBlend = 1.0f;
+	float m_WaterAlignment = 0.0f;
+	float m_WaterModelOffset = 0.0f;
 	void AlignFeetToField();
 };
 

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <memory>
+#include <cstdint>
 
 class Scene;
 
@@ -13,6 +14,12 @@ struct GameDefinition
 	std::unique_ptr<Scene> (*CreateInitialScene)();
 	bool (*RunSelfTests)() = nullptr;
 	bool (*RunRenderTests)() = nullptr;
+	// Optional native editor UI. Engine owns frame/present order; applications own widgets.
+	bool (*InitializeUi)() = nullptr;
+	void (*ShutdownUi)() = nullptr;
+	void (*BeginUiFrame)() = nullptr;
+	void (*DrawUi)() = nullptr;
+	bool (*HandleWindowMessage)(unsigned int, std::uintptr_t, std::intptr_t) = nullptr;
 };
 
 const GameDefinition& GetGameDefinition();

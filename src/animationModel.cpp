@@ -482,6 +482,7 @@ void AnimationModel::Uninit()
 	m_Animation.clear();
 	m_CurrentAnimation.clear();
 	m_BlendSourcePose.clear();
+	m_AnimatedPose.clear();
 	m_AnimationSeconds = 0.0f;
 	m_BlendSeconds = 0.0f;
 	m_BlendDuration = 0.0f;
@@ -517,10 +518,7 @@ void AnimationModel::PlayAnimation(const char* name, float blendSeconds)
 	m_BlendSourcePose.clear();
 	if (hasCurrentPose && blendSeconds > 0.0f)
 	{
-		for (const auto& [boneName, bone] : m_Bone)
-		{
-			m_BlendSourcePose.emplace(boneName, bone.AnimationMatrix);
-		}
+		m_BlendSourcePose = m_AnimatedPose;
 	}
 	m_CurrentAnimation = name;
 	m_AnimationSeconds = 0.0f;
@@ -539,15 +537,32 @@ void AnimationModel::TickAnimation(float deltaSeconds, bool uploadMesh)
 	}
 	const aiAnimation* animation = foundScene->second->mAnimations[0];
 	const float step = (std::max)(deltaSeconds, 0.0f);
+	const float previousSeconds = m_AnimationSeconds;
 	m_AnimationSeconds += step;
 	m_BlendSeconds += step;
 	const double ticksPerSecond = animation->mTicksPerSecond > 0.0
 		? animation->mTicksPerSecond : 25.0;
 	const double duration = animation->mDuration > 0.0 ? animation->mDuration : 1.0;
-	const double animationTime = std::fmod(m_AnimationSeconds * ticksPerSecond, duration);
+	const double playbackStart = duration * m_PlaybackStart;
+	const double playbackDuration = duration * (m_PlaybackEnd - m_PlaybackStart);
+	const double elapsedTicks = m_AnimationSeconds * ticksPerSecond * m_PlaybackSpeed;
+	const double previousTicks = previousSeconds * ticksPerSecond * m_PlaybackSpeed;
+	if (m_PlaybackLoop && step > 0.0f && !m_AnimatedPose.empty()
+		&& std::floor(elapsedTicks / playbackDuration) > std::floor(previousTicks / playbackDuration)
+		&& m_BlendSeconds >= m_BlendDuration)
+	{
+		m_BlendSourcePose = m_AnimatedPose;
+		m_BlendSeconds = 0.0f;
+		m_BlendDuration = (std::min)(m_LoopBlendSeconds,
+			static_cast<float>(playbackDuration / ticksPerSecond / m_PlaybackSpeed) * 0.25f);
+	}
+	const double animationTime = m_PlaybackLoop
+		? playbackStart + std::fmod(elapsedTicks, playbackDuration)
+		: playbackStart + (std::min)(elapsedTicks, playbackDuration - 0.001);
 	const float blendWeight = m_BlendDuration > 0.0f
 		? std::clamp(m_BlendSeconds / m_BlendDuration, 0.0f, 1.0f) : 1.0f;
-	ApplyAnimation(animation, animationTime, blendWeight, uploadMesh);
+	// Smooth the start and end of the blend as well as the poses themselves.
+	ApplyAnimation(animation, animationTime, blendWeight * blendWeight * (3.0f - 2.0f * blendWeight), uploadMesh);
 	if (blendWeight >= 1.0f)
 	{
 		m_BlendSourcePose.clear();
@@ -650,6 +665,19 @@ bool AnimationModel::GetFootEndClearance(float (*heightAt)(float, float), float 
 	return true;
 }
 
+bool AnimationModel::GetBoneWorldPosition(const char* name, Vector3& position) const
+{
+	const auto found = m_Bone.find(name);
+	if (found == m_Bone.end() || !m_AiScene || !m_AiScene->mRootNode) return false;
+	aiMatrix4x4 inverse = m_AiScene->mRootNode->mTransformation;
+	inverse.Inverse();
+	const aiVector3D local = inverse * (found->second.Matrix * aiVector3D{});
+	XMFLOAT3 world;
+	XMStoreFloat3(&world, XMVector3TransformCoord(XMVectorSet(local.x, local.y, local.z, 1.0f), GetWorldMatrix()));
+	position = { world.x, world.y, world.z };
+	return true;
+}
+
 XMMATRIX AnimationModel::GetWorldMatrix() const
 {
 	if (m_GameObject == nullptr) return XMMatrixIdentity();
@@ -658,7 +686,7 @@ XMMATRIX AnimationModel::GetWorldMatrix() const
 	const Vector3 scale = m_GameObject->GetScale();
 	return XMMatrixScaling(scale.x * m_ModelScale, scale.y * m_ModelScale, scale.z * m_ModelScale)
 		* XMMatrixRotationRollPitchYaw(rotation.x, rotation.y + m_ModelYawOffset, rotation.z)
-		* XMMatrixTranslation(position.x, position.y, position.z);
+		* XMMatrixTranslation(position.x, position.y + m_VerticalOffset, position.z);
 }
 
 void AnimationModel::SolveLegIK(
@@ -702,6 +730,7 @@ void AnimationModel::SolveLegIK(
 			(0.28f - (ankleWorld.y - groundY)) / 0.18f, 0.0f, 1.0f);
 		ikWeight = nearGround;
 	}
+	ikWeight *= m_FootIKFade;
 	m_FootIKWeight[footIndex] = ikWeight;
 	const float targetY = ankleWorld.y + ikWeight
 		* (groundY - ankleWorld.y);
@@ -933,6 +962,9 @@ void AnimationModel::ApplyAnimation(const aiAnimation* animation, double animati
 		}
 	}
 
+	m_AnimatedPose.clear();
+	for (const auto& [name, bone] : m_Bone)
+		m_AnimatedPose.emplace(name, bone.AnimationMatrix);
 	UpdateBoneMatrix(m_AiScene->mRootNode, aiMatrix4x4());
 	if (m_GroundHeight != nullptr && m_GameObject != nullptr)
 	{

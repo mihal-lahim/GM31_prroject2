@@ -23,6 +23,7 @@ class ClassroomWater final : public GameObject
 public:
 	void Init() override;
 	void Draw() override;
+	static float GetSurfaceHeight(float x, float z, float time);
 
 private:
 	static constexpr int kRingCount = 12;
@@ -45,4 +46,5 @@ private:
 
 	void BuildMesh();
 	void AnimateMesh(float time);
+	static float WaveHeight(float x, float z, float time);
 };

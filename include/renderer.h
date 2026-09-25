@@ -90,12 +90,17 @@ private:
 	static ComPtr<ID3D11Buffer>			m_LightBuffer;
 	static ComPtr<ID3D11Buffer>			m_CameraBuffer;
 	static ComPtr<ID3D11Buffer>			m_ParameterBuffer;
+	static ComPtr<ID3D11Buffer>			m_PostOptionsBuffer;
 	static ComPtr<ID3D11Texture2D>		m_SceneTexture;
 	static ComPtr<ID3D11RenderTargetView> m_SceneRenderTarget;
 	static ComPtr<ID3D11ShaderResourceView> m_SceneResource;
 	static ComPtr<ID3D11Buffer>			m_PostVertexBuffer;
 	static PostEffectMode m_PostEffectMode;
 	static std::string m_PostDefinitionId;
+	static void (*m_OverlayCallback)();
+	static XMFLOAT4 m_PostOptions;
+	static XMFLOAT4 m_PostExtraOptions;
+	static bool m_CustomPostOptions;
 	static XMFLOAT4 m_PostDefinitionParameters;
 
 
@@ -119,6 +124,7 @@ public:
 	// Beginでフレーム共通状態を初期化し、EndでPresentします。
 	static void Begin();
 	static void End();
+	static void SetOverlayCallback(void (*callback)()) { m_OverlayCallback = callback; }
 
 	static void SetDepthMode(RenderDepthMode Mode);
 	static RenderDepthMode GetDepthMode() { return m_DepthMode; }
@@ -137,7 +143,11 @@ public:
 	static void SetLight(LIGHT Light);
 	static void SetCameraPosition(XMFLOAT3 CameraPosition);
 	static void SetParameter(XMFLOAT4 Parameter);
-	static void SetPostEffect(PostEffectMode mode) { m_PostEffectMode = mode; m_PostDefinitionId.clear(); }
+	static void SetPostEffect(PostEffectMode mode) { m_PostEffectMode = mode; m_PostDefinitionId.clear(); m_CustomPostOptions = false; }
+	static void SetPostEffectParameters(XMFLOAT4 options, XMFLOAT4 extra = {})
+	{
+		m_PostOptions = options; m_PostExtraOptions = extra; m_CustomPostOptions = true;
+	}
 	static PostEffectMode GetPostEffect() { return m_PostEffectMode; }
 	static bool SetPostEffectDefinition(std::string_view id);
 	static bool SetPostEffectFloat(std::string_view name, float value);
@@ -149,6 +159,7 @@ public:
 
 	static ID3D11Device* GetDevice( void ){ return m_Device.Get(); }
 	static ID3D11DeviceContext* GetDeviceContext( void ){ return m_DeviceContext.Get(); }
+	static ID3D11ShaderResourceView* GetPostSource() { return m_SceneResource.Get(); }
 
 
 

@@ -68,6 +68,7 @@ private:
 	Vector3 m_RotationOffset{ 0.0f, 0.0f, 0.0f };
 	Engine::SurfaceMaterial m_Surface;
 	bool m_UseSurfaceShader = false;
+	bool m_Visible = true;
 
 public:
 
@@ -86,6 +87,8 @@ public:
 	bool SetShaderFloat(std::string_view name, float value);
 	bool SetShaderTexture(std::string_view name, const std::filesystem::path& path);
 	ModelRenderer* SetShaderDetailTexture(const std::filesystem::path& path);
+	void SetVisible(bool visible) { m_Visible = visible; }
+	void SetShaderParameter(XMFLOAT4 parameter) { m_Surface.Parameter = parameter; }
 	void Draw() override;
 
 };

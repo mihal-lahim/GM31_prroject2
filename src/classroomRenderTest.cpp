@@ -3,6 +3,8 @@
 #endif
 #include "DirectXTex.h"
 #include "classroomWalk.h"
+#include "animationModel.h"
+#include "gameTime.h"
 #include "keyboard_utf8.h"
 #include "manager.h"
 #include "modelRenderer.h"
@@ -68,8 +70,122 @@ bool RunClassroomRenderTest()
 			DirectX::WIC_FLAGS_NONE, DirectX::GetWICCodec(DirectX::WIC_CODEC_PNG), path));
 	};
 
+	// Every directed clip pair, including interruption before a blend finishes.
+	int transitionsPassed = 0, interruptionsPassed = 0, loopsPassed = 0;
+	bool jumpHolds = false;
+	{
+		World animationWorld;
+		auto* object = animationWorld.Spawn<GameObject>();
+		auto* model = object->AddComponent<AnimationModel>();
+		model->Load("assets/model/Akai.fbx");
+		model->SetModelScale(0.01f);
+		model->SetModelYawOffset(XM_PI);
+		animationWorld.Spawn<ClassroomField>();
+		auto* animationCamera = animationWorld.Spawn<ClassroomCamera>();
+		animationCamera->LateUpdate();
+		const char* names[] = { "Idle", "Run", "Jump", "TreadWater", "Swim", "Flair" };
+		const char* files[] = { "Akai_Idle.fbx", "Akai_Run.fbx", "Jumping.fbx",
+			"Treading Water.fbx", "Swimming To Edge.fbx", "Flair.fbx" };
+		double durations[6]{};
+		for (int i = 0; i < 6; ++i)
+		{
+			const std::string path = std::string("assets/model/") + files[i];
+			model->LoadAnimation(path.c_str(), names[i]);
+			const aiScene* scene = aiImportFile(path.c_str(), aiProcess_ConvertToLeftHanded);
+			if (scene && scene->mNumAnimations)
+			{
+				const aiAnimation* a = scene->mAnimations[0];
+				durations[i] = a->mDuration / (a->mTicksPerSecond > 0 ? a->mTicksPerSecond : 25);
+			}
+			if (scene) aiReleaseImport(scene);
+		}
+		auto configure = [&](int i)
+		{
+			model->SetPlayback(1.0f, i == 2 ? 0.36f : 0.0f,
+				i == 2 ? 0.62f : i == 4 ? 0.18f : 1.0f, i != 2);
+		};
+		auto difference = [](const auto& a, const auto& b)
+		{
+			float result = 0.0f;
+			if (a.empty() || a.size() != b.size()) return 1e9f;
+			for (const auto& [name, matrix] : a)
+			{
+				const auto found = b.find(name);
+				if (found == b.end()) return 1e9f;
+				for (int row = 0; row < 4; ++row)
+					for (int column = 0; column < 4; ++column)
+					{
+						const float d = std::abs(matrix[row][column] - found->second[row][column]);
+						if (!std::isfinite(d)) return 1e9f;
+						result = (std::max)(result, d);
+					}
+			}
+			return result;
+		};
+		for (int from = 0; from < 6; ++from)
+			for (int to = 0; to < 6; ++to)
+			{
+				if (from == to) continue;
+				configure(from);
+				model->PlayAnimation(names[from], 0.0f);
+				model->TickAnimation(0.3f, false);
+				const auto source = model->GetAnimationPose();
+				configure(to);
+				model->PlayAnimation(names[to], 0.2f);
+				model->TickAnimation(0.0f, false);
+				const bool continuous = difference(source, model->GetAnimationPose()) < 0.001f;
+				model->TickAnimation(0.1f, false);
+				const auto middle = model->GetAnimationPose();
+				model->TickAnimation(0.0f);
+				Renderer::Begin();
+				RenderQueue queue;
+				queue.Build(animationWorld, animationCamera);
+				queue.Execute();
+				Renderer::End();
+				const std::string imageName = std::string("transition-") + names[from] + "-" + names[to] + ".png";
+				capture(std::wstring(imageName.begin(), imageName.end()).c_str());
+				const float progress = difference(source, middle);
+				transitionsPassed += continuous && progress > 0.00001f && progress < 1e8f;
+				const int next = (to + 1) % 6;
+				configure(next);
+				model->PlayAnimation(names[next], 0.2f);
+				model->TickAnimation(0.0f, false);
+				interruptionsPassed += difference(middle, model->GetAnimationPose()) < 0.001f;
+			}
+		for (int i = 0; i < 6; ++i)
+		{
+			configure((i + 1) % 6);
+			model->PlayAnimation(names[(i + 1) % 6], 0.0f);
+			model->TickAnimation(0.0f, false);
+			configure(i);
+			model->PlayAnimation(names[i], 0.0f);
+			const float length = static_cast<float>(durations[i] * (i == 2 ? 0.26 : i == 4 ? 0.18 : 1.0));
+			model->TickAnimation((std::max)(0.0f, length - 0.008f), false);
+			const auto end = model->GetAnimationPose();
+			model->TickAnimation(0.016f, false);
+			if (i != 2) loopsPassed += length > 0 && difference(end, model->GetAnimationPose()) < 0.001f;
+			else
+			{
+				const auto held = model->GetAnimationPose();
+				model->TickAnimation(1.0f, false);
+				jumpHolds = difference(held, model->GetAnimationPose()) < 0.001f;
+			}
+		}
+	}
+	log << "animation transitions: " << transitionsPassed << "/30\n"
+		<< "animation interruptions: " << interruptionsPassed << "/30\n"
+		<< "animation loop seams: " << loopsPassed << "/5\n"
+		<< "jump holds without looping: " << jumpHolds << '\n';
 	frames(60);
 	const bool idleCaptured = capture(L"classroom-idle.png");
+	Keyboard_ProcessMessage(WM_KEYDOWN, VK_SPACE, 0);
+	frames(8);
+	Keyboard_ProcessMessage(WM_KEYUP, VK_SPACE, 0);
+	const bool jumpRiseCaptured = capture(L"classroom-jump-rise.png");
+	frames(12);
+	const bool jumpPeakCaptured = capture(L"classroom-jump-peak.png");
+	frames(25);
+	const bool jumpLandedCaptured = capture(L"classroom-jump-landed.png");
 	frames(30);
 	const bool windCaptured = capture(L"classroom-grass-wind.png");
 	Keyboard_ProcessMessage(WM_KEYDOWN, 'W', 0);
@@ -103,19 +219,22 @@ bool RunClassroomRenderTest()
 		ClassroomLake::CenterZ) > ClassroomLake::WaterLevel;
 	World contactWorld;
 	ClassroomPlayer* contactPlayer = contactWorld.Spawn<ClassroomPlayer>();
+	auto placeOnGround = [&](float x, float z)
+	{
+		contactPlayer->SetPosition({ x, ClassroomField::GetHeight(x, z), z });
+		for (int i = 0; i < 30; ++i) contactPlayer->Update();
+	};
 	float flatClearance[2]{}, hillClearance[2]{}, sideClearance[2]{};
 	contactPlayer->Update();
 	const bool flatMeasured = contactPlayer->GetFootClearance(flatClearance);
-	contactPlayer->SetPosition({ 0.0f, 0.0f, 10.5f });
-	contactPlayer->Update();
+	// Ground-contact samples must be on dry land now that the lake has buoyancy.
+	placeOnGround(-12.0f, 13.0f);
 	const bool hillMeasured = contactPlayer->GetFootClearance(hillClearance);
 	contactPlayer->SetRotation({ 0.0f, -XM_PIDIV4, 0.0f });
-	contactPlayer->SetPosition({ -8.0f, 0.0f, 11.0f });
-	contactPlayer->Update();
+	placeOnGround(-14.0f, 11.0f);
 	const bool sideMeasured = contactPlayer->GetFootClearance(sideClearance);
 	contactPlayer->SetRotation({ 0.0f, 0.0f, 0.0f });
-	contactPlayer->SetPosition({ 0.0f, 0.0f, 19.0f });
-	contactPlayer->Update();
+	placeOnGround(0.0f, 19.0f);
 	float slopeEndClearance[2][2]{};
 	const bool slopeEndsMeasured = contactPlayer->GetFootEndClearance(slopeEndClearance);
 	bool slopeEndsPlanted = slopeEndsMeasured
@@ -303,8 +422,7 @@ bool RunClassroomRenderTest()
 	for (const SlopeSample& sample : slopeSamples)
 	{
 		contactPlayer->SetRotation({ 0.0f, sample.yaw, 0.0f });
-		contactPlayer->SetPosition({ sample.x, 0.0f, sample.z });
-		contactPlayer->Update();
+		placeOnGround(sample.x, sample.z);
 		float ends[2][2]{};
 		bankSolesPlanted &= contactPlayer->GetFootEndClearance(ends);
 		for (const auto& foot : ends)
@@ -312,11 +430,100 @@ bool RunClassroomRenderTest()
 				worstSlopeEndGap = (std::max)(worstSlopeEndGap, std::abs(gap));
 	}
 	bankSolesPlanted &= worstSlopeEndGap < 0.035f;
+	// Exercise input and environment selection as well as the blend component.
+	int playerStatesPassed = 0;
+	auto updatePlayer = [&](int count)
+	{
+		for (int i = 0; i < count; ++i) { contactPlayer->Update(); keycopy(); }
+	};
+	auto expectState = [&](std::string_view name)
+	{
+		playerStatesPassed += contactPlayer->GetAnimationName() == name;
+	};
+	placeOnGround(0.0f, 0.0f);
+	expectState("Idle");
+	Keyboard_ProcessMessage(WM_KEYDOWN, 'W', 0); updatePlayer(1); expectState("Run");
+	Keyboard_ProcessMessage(WM_KEYDOWN, 'R', 0); updatePlayer(1); expectState("Flair");
+	Keyboard_ProcessMessage(WM_KEYUP, 'R', 0); updatePlayer(1);
+	Keyboard_ProcessMessage(WM_KEYDOWN, 'R', 0); updatePlayer(1); expectState("Run");
+	Keyboard_ProcessMessage(WM_KEYUP, 'R', 0);
+	Keyboard_ProcessMessage(WM_KEYUP, 'W', 0); updatePlayer(1); expectState("Idle");
+	Keyboard_ProcessMessage(WM_KEYDOWN, 'R', 0); updatePlayer(1); expectState("Flair");
+	Keyboard_ProcessMessage(WM_KEYUP, 'R', 0); updatePlayer(1);
+	Keyboard_ProcessMessage(WM_KEYDOWN, 'R', 0); updatePlayer(1); expectState("Idle");
+	Keyboard_ProcessMessage(WM_KEYUP, 'R', 0);
+	Keyboard_ProcessMessage(WM_KEYDOWN, VK_SPACE, 0); updatePlayer(1); expectState("Jump");
+	Keyboard_ProcessMessage(WM_KEYUP, VK_SPACE, 0); updatePlayer(55); expectState("Idle");
+	contactPlayer->SetPosition({ ClassroomLake::CenterX, ClassroomLake::WaterLevel - 1.0f, ClassroomLake::CenterZ });
+	updatePlayer(1); expectState("TreadWater");
+	Keyboard_ProcessMessage(WM_KEYDOWN, 'W', 0); updatePlayer(1); expectState("Swim");
+	Keyboard_ProcessMessage(WM_KEYUP, 'W', 0); updatePlayer(1); expectState("TreadWater");
+	placeOnGround(0.0f, 0.0f); expectState("Idle");
+	log << "player input/environment states: " << playerStatesPassed << "/13\n";
+	contactPlayer->SetPosition({ 0.0f, ClassroomLake::WaterLevel - 1.1f, ClassroomLake::CenterZ - 3.0f });
+	contactWorld.Spawn<ClassroomWater>();
+	comparisonField->SetShaderMode(Engine::SurfaceShader::Toon);
+	Renderer::SetPostEffect(PostEffectMode::None);
+	auto captureWater = [&](const wchar_t* path)
+	{
+		slopeCamera->LateUpdate();
+		Renderer::Begin();
+		slopeQueue.Build(contactWorld, slopeCamera);
+		slopeQueue.Execute();
+		Renderer::End();
+		return capture(path);
+	};
+	Keyboard_ProcessMessage(WM_KEYDOWN, 'W', 0);
+	float minimumChest = 1000.0f, maximumChest = -1000.0f;
+	int chestSamples = 0;
+	for (int i = 0; i < 150; ++i)
+	{
+		GameTime::Update(1.0f / 60.0f);
+		updatePlayer(1);
+		Vector3 chest;
+		if (i >= 30 && contactPlayer->GetSwimAnchor(chest))
+		{
+			const float depth = chest.y - ClassroomWater::GetSurfaceHeight(chest.x, chest.z, GameTime::GetElapsedTime());
+			minimumChest = (std::min)(minimumChest, depth);
+			maximumChest = (std::max)(maximumChest, depth);
+			++chestSamples;
+		}
+	}
+	const bool swimmingDepthCaptured = captureWater(L"classroom-swim-depth.png");
+	Keyboard_ProcessMessage(WM_KEYUP, 'W', 0); keycopy();
+	log << "swim chest relative to water: " << minimumChest << " .. " << maximumChest << '\n';
+	const bool swimDepthValid = chestSamples == 120 && maximumChest < 0.0f && minimumChest > -0.35f;
+	minimumChest = 1000.0f; maximumChest = -1000.0f; chestSamples = 0;
+	for (int i = 0; i < 150; ++i)
+	{
+		GameTime::Update(1.0f / 60.0f);
+		updatePlayer(1);
+		Vector3 chest;
+		if (i >= 30 && contactPlayer->GetSwimAnchor(chest))
+		{
+			const float depth = chest.y - ClassroomWater::GetSurfaceHeight(chest.x, chest.z, GameTime::GetElapsedTime());
+			minimumChest = (std::min)(minimumChest, depth);
+			maximumChest = (std::max)(maximumChest, depth);
+			++chestSamples;
+		}
+	}
+	const bool treadingDepthCaptured = captureWater(L"classroom-tread-depth.png");
+	const bool treadDepthValid = chestSamples == 120 && maximumChest < 0.0f && minimumChest > -0.35f;
+	log << "tread chest relative to water: " << minimumChest << " .. " << maximumChest << '\n';
+	log << "water body depth valid: " << swimDepthValid << '/' << treadDepthValid << '\n';
+	placeOnGround(0.0f, 0.0f);
+	float exitClearance[2]{};
+	const bool shoreExitValid = contactPlayer->GetAnimationName() == "Idle"
+		&& contactPlayer->GetFootClearance(exitClearance)
+		&& std::abs(exitClearance[0]) < 0.035f && std::abs(exitClearance[1]) < 0.035f;
+	log << "water alignment cleared on shore: " << shoreExitValid << '\n';
 	const bool feetPlanted = flatMeasured && hillMeasured && sideMeasured
 		&& std::abs(flatClearance[0]) < 0.035f && std::abs(flatClearance[1]) < 0.035f
 		&& std::abs(hillClearance[0]) < 0.035f && std::abs(hillClearance[1]) < 0.035f
 		&& std::abs(sideClearance[0]) < 0.035f && std::abs(sideClearance[1]) < 0.035f;
-	log << "idle: " << idleCaptured << "\nrun start: " << startCaptured
+	log << "idle: " << idleCaptured << "\njump rise: " << jumpRiseCaptured
+		<< "\njump peak: " << jumpPeakCaptured << "\njump landed: " << jumpLandedCaptured
+		<< "\nrun start: " << startCaptured
 		<< "\ngrass wind frame: " << windCaptured
 		<< "\nblend to run: " << blendToRunCaptured << "\nrun: " << walkingCaptured
 		<< "\nblend to idle: " << blendToIdleCaptured << "\nstopped: " << stoppedCaptured
@@ -362,7 +569,11 @@ bool RunClassroomRenderTest()
 		<< "\nworst bank sole gap: " << worstSlopeEndGap
 		<< "\nfeet planted: " << feetPlanted
 		<< "\nleg chains: " << legChainsValid << '\n';
-	return idleCaptured && windCaptured && startCaptured && blendToRunCaptured && walkingCaptured
+	return transitionsPassed == 30 && interruptionsPassed == 30 && loopsPassed == 5 && jumpHolds
+		&& playerStatesPassed == 13
+		&& swimDepthValid && treadDepthValid && swimmingDepthCaptured && treadingDepthCaptured
+		&& shoreExitValid
+		&& idleCaptured && windCaptured && startCaptured && blendToRunCaptured && walkingCaptured
 		&& blendToIdleCaptured && stoppedCaptured && slopeCaptured && slopeStoppedCaptured
 		&& terrainHasSlope && steepHill && lakeFloorBelowWater && lakeBankAboveWater
 		&& feetPlanted && slopeEndsPlanted && bankSolesPlanted

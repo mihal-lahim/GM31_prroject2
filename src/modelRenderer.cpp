@@ -34,6 +34,7 @@ void ModelRenderer::EnsureDefaultShader()
 
 void ModelRenderer::Draw()
 {
+	if (!m_Visible) return;
 	if (m_Model == nullptr || m_Model->VertexBuffer == nullptr || m_Model->IndexBuffer == nullptr
 		|| m_Model->SubsetNum == 0 || Renderer::GetDeviceContext() == nullptr)
 	{

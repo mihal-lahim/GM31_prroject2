@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|Win32"><Configuration>Debug</Configuration><Platform>Win32</Platform></ProjectConfiguration>
+    <ProjectConfiguration Include="Release|Win32"><Configuration>Release</Configuration><Platform>Win32</Platform></ProjectConfiguration>
+    <ProjectConfiguration Include="Debug|x64"><Configuration>Debug</Configuration><Platform>x64</Platform></ProjectConfiguration>
+    <ProjectConfiguration Include="Release|x64"><Configuration>Release</Configuration><Platform>x64</Platform></ProjectConfiguration>
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <VCProjectVersion>18.0</VCProjectVersion><Keyword>Win32Proj</Keyword>
+    <ProjectGuid>{7B358EF8-3D9A-42E4-ABCA-88B10FB54654}</ProjectGuid>
+    <RootNamespace>ShaderGallery</RootNamespace><WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration"><ConfigurationType>Application</ConfigurationType><UseDebugLibraries>true</UseDebugLibraries><PlatformToolset>v143</PlatformToolset><CharacterSet>MultiByte</CharacterSet></PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration"><ConfigurationType>Application</ConfigurationType><UseDebugLibraries>false</UseDebugLibraries><PlatformToolset>v143</PlatformToolset><WholeProgramOptimization>true</WholeProgramOptimization><CharacterSet>MultiByte</CharacterSet></PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration"><ConfigurationType>Application</ConfigurationType><UseDebugLibraries>true</UseDebugLibraries><PlatformToolset>v143</PlatformToolset><CharacterSet>MultiByte</CharacterSet></PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration"><ConfigurationType>Application</ConfigurationType><UseDebugLibraries>false</UseDebugLibraries><PlatformToolset>v143</PlatformToolset><WholeProgramOptimization>true</WholeProgramOptimization><CharacterSet>MultiByte</CharacterSet></PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <PropertyGroup><OutDir>$(ProjectDir)bin\$(Platform)\$(Configuration)\$(ProjectName)\</OutDir><IntDir>$(ProjectDir)obj\$(ProjectName)\$(Platform)\$(Configuration)\</IntDir></PropertyGroup>
+  <Import Project="Common.props" />
+  <ItemDefinitionGroup><ClCompile><AdditionalIncludeDirectories>$(ProjectDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories></ClCompile></ItemDefinitionGroup>
+  <Import Project="SurfaceShaders.props" />
+  <ItemGroup>
+    <FxCompile Include="shaders\unlitTextureVS.hlsl">
+      <ShaderType>Vertex</ShaderType><ShaderModel>5.0</ShaderModel>
+      <ObjectFileOutput>$(OutDir)%(Filename).cso</ObjectFileOutput>
+    </FxCompile>
+    <FxCompile Include="shaders\unlitTexturePS.hlsl">
+      <ShaderType>Pixel</ShaderType><ShaderModel>5.0</ShaderModel>
+      <ObjectFileOutput>$(OutDir)%(Filename).cso</ObjectFileOutput>
+    </FxCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="include\shaderGalleryScene.h" />
+    <ClInclude Include="include\shaderGalleryUi.h" />
+    <ClCompile Include="src\main.cpp" />
+    <ClCompile Include="src\shaderGalleryScene.cpp" />
+    <ClCompile Include="src\shaderGalleryUi.cpp" />
+    <ClCompile Include="src\shaderGalleryRenderTest.cpp" />
+    <ClCompile Include="src\shaderGalleryGameDefinition.cpp" />
+    <ClCompile Include="third_party\imgui\imgui.cpp" />
+    <ClCompile Include="third_party\imgui\imgui_draw.cpp" />
+    <ClCompile Include="third_party\imgui\imgui_tables.cpp" />
+    <ClCompile Include="third_party\imgui\imgui_widgets.cpp" />
+    <ClCompile Include="third_party\imgui\imgui_impl_dx11.cpp" />
+    <ClCompile Include="third_party\imgui\imgui_impl_win32.cpp" />
+    <ProjectReference Include="Engine.vcxproj"><Project>{4F1C6718-071A-4B3E-AED7-938C39C32F02}</Project></ProjectReference>
+  </ItemGroup>
+  <ItemGroup>
+    <RuntimeAsset Include="assets\config\classroom.cfg"><TargetPath>assets\config\classroom.cfg</TargetPath></RuntimeAsset>
+    <RuntimeAsset Include="assets\model\shaderDonut.obj"><TargetPath>assets\model\shaderDonut.obj</TargetPath></RuntimeAsset>
+    <RuntimeAsset Include="assets\model\shaderDonut.mtl"><TargetPath>assets\model\shaderDonut.mtl</TargetPath></RuntimeAsset>
+    <RuntimeAsset Include="assets\model\shaderDonut.jpg"><TargetPath>assets\model\shaderDonut.jpg</TargetPath></RuntimeAsset>
+    <RuntimeAsset Include="assets\model\box.obj"><TargetPath>assets\model\box.obj</TargetPath></RuntimeAsset>
+    <RuntimeAsset Include="assets\model\box.mtl"><TargetPath>assets\model\box.mtl</TargetPath></RuntimeAsset>
+    <RuntimeAsset Include="assets\model\grass.jpg"><TargetPath>assets\model\grass.jpg</TargetPath></RuntimeAsset>
+    <RuntimeAsset Include="assets\model\gravel.jpg"><TargetPath>assets\model\gravel.jpg</TargetPath></RuntimeAsset>
+    <RuntimeAsset Include="assets\texture\Toon2.png"><TargetPath>assets\texture\Toon2.png</TargetPath></RuntimeAsset>
+    <RuntimeAsset Include="assets\texture\Normal.png"><TargetPath>assets\texture\Normal.png</TargetPath></RuntimeAsset>
+    <RuntimeAsset Include="assets\texture\particle.png"><TargetPath>assets\texture\particle.png</TargetPath></RuntimeAsset>
+    <RuntimeAsset Include="assets\texture\number.png"><TargetPath>assets\texture\number.png</TargetPath></RuntimeAsset>
+    <RuntimeAsset Include="assets\texture\alphabet.png"><TargetPath>assets\texture\alphabet.png</TargetPath></RuntimeAsset>
+    <RuntimeAsset Include="assets\texture\kana.png"><TargetPath>assets\texture\kana.png</TargetPath></RuntimeAsset>
+    <RuntimeAsset Include="assets\texture\kanji.png"><TargetPath>assets\texture\kanji.png</TargetPath></RuntimeAsset>
+  </ItemGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+  <Target Name="CopyRuntimeAssets" AfterTargets="Build">
+    <RemoveDir Directories="$(OutDir)assets" />
+    <Copy SourceFiles="@(RuntimeAsset)" DestinationFiles="@(RuntimeAsset->'$(OutDir)%(TargetPath)')" SkipUnchangedFiles="true" />
+  </Target>
+</Project>

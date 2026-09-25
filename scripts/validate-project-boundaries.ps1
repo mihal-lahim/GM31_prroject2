@@ -41,14 +41,14 @@ function Add-AssetReference([System.Collections.Generic.HashSet[string]] $refere
 
 [xml] $solution = Get-Content (Join-Path $root 'GM31_prroject2.slnx')
 $actualProjects = @($solution.Solution.Project | ForEach-Object { $_.Path })
-$expectedProjects = @('Engine.vcxproj', 'WireAction.vcxproj', 'BattingCenter.vcxproj', 'ClassroomWalk.vcxproj')
+$expectedProjects = @('Engine.vcxproj', 'WireAction.vcxproj', 'BattingCenter.vcxproj', 'ClassroomWalk.vcxproj', 'ShaderGallery.vcxproj')
 if (Compare-Object $expectedProjects $actualProjects) {
-    throw 'The solution must contain Engine, WireAction, BattingCenter, and ClassroomWalk.'
+    throw 'The solution must contain Engine, WireAction, BattingCenter, ClassroomWalk, and ShaderGallery.'
 }
 
 $gameHeaders = [System.Collections.Generic.HashSet[string]]::new(
     [System.StringComparer]::OrdinalIgnoreCase)
-foreach ($projectPath in @('WireAction.vcxproj', 'BattingCenter.vcxproj', 'ClassroomWalk.vcxproj')) {
+foreach ($projectPath in @('WireAction.vcxproj', 'BattingCenter.vcxproj', 'ClassroomWalk.vcxproj', 'ShaderGallery.vcxproj')) {
     foreach ($header in Read-ProjectItems $projectPath 'ClInclude') {
         [void] $gameHeaders.Add((Split-Path $header -Leaf))
     }
@@ -70,7 +70,7 @@ if ($violations.Count -gt 0) {
     throw ($violations -join [Environment]::NewLine)
 }
 
-foreach ($projectPath in @('WireAction.vcxproj', 'BattingCenter.vcxproj', 'ClassroomWalk.vcxproj')) {
+foreach ($projectPath in @('WireAction.vcxproj', 'BattingCenter.vcxproj', 'ClassroomWalk.vcxproj', 'ShaderGallery.vcxproj')) {
     if ((Get-Content (Join-Path $root $projectPath) -Raw) -match 'assets\\\*\*\\\*\.\*') {
         throw "$projectPath uses a wildcard asset copy instead of an explicit manifest."
     }
@@ -82,7 +82,7 @@ $engineSources = @(Read-ProjectItems 'Engine.vcxproj' 'ClCompile')
 $engineSources = @($engineSources | Where-Object {
     -not [string]::IsNullOrWhiteSpace($_) -and (Split-Path $_ -Leaf) -ne 'engineSelfTests.cpp'
 })
-foreach ($projectPath in @('WireAction.vcxproj', 'BattingCenter.vcxproj', 'ClassroomWalk.vcxproj')) {
+foreach ($projectPath in @('WireAction.vcxproj', 'BattingCenter.vcxproj', 'ClassroomWalk.vcxproj', 'ShaderGallery.vcxproj')) {
     $assets = @(Read-RuntimeAssets $projectPath)
     $targetPaths = [System.Collections.Generic.HashSet[string]]::new(
         [System.StringComparer]::OrdinalIgnoreCase)
@@ -99,8 +99,10 @@ foreach ($projectPath in @('WireAction.vcxproj', 'BattingCenter.vcxproj', 'Class
     foreach ($relativeSource in $compiledSources) {
         $sourcePath = Join-Path $root $relativeSource
         $sourceText = Get-Content -LiteralPath $sourcePath -Raw
-        foreach ($match in [regex]::Matches($sourceText, 'assets[\\/][A-Za-z0-9_.\\/-]+')) {
-            Add-AssetReference $requiredAssets $match.Value
+        # Match complete quoted filenames, including spaces; ignore directory prefixes
+        # used to construct a path dynamically in diagnostics.
+        foreach ($match in [regex]::Matches($sourceText, '"(assets[\\/][^"\r\n]+\.[A-Za-z0-9]+)"')) {
+            Add-AssetReference $requiredAssets $match.Groups[1].Value
         }
     }
 

@@ -8,6 +8,7 @@
 #include "engineSelfTests.h"
 #include "keyboard_utf8.h"
 #include "mouseInput.h"
+#include "renderer.h"
 
 #include <algorithm>
 #include <chrono>
@@ -159,10 +160,20 @@ int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLi
 		UnregisterClass(CLASS_NAME, wcex.hInstance);
 		return -1;
 	}
+	if (gameDefinition.InitializeUi != nullptr && !gameDefinition.InitializeUi())
+	{
+		Manager::Uninit();
+		DestroyWindow(g_Window);
+		UnregisterClass(CLASS_NAME, wcex.hInstance);
+		return -1;
+	}
+	Renderer::SetOverlayCallback(gameDefinition.DrawUi);
 
 	if (renderTest)
 	{
 		const bool passed = gameDefinition.RunRenderTests != nullptr && gameDefinition.RunRenderTests();
+		Renderer::SetOverlayCallback(nullptr);
+		if (gameDefinition.ShutdownUi != nullptr) gameDefinition.ShutdownUi();
 		Manager::Uninit();
 		Mouse_SetCursorCaptured(false);
 		DestroyWindow(g_Window);
@@ -204,6 +215,8 @@ int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLi
 		accumulator += std::min(frameSeconds, kMaximumFrameSeconds);
 
 		int updateSteps = 0;
+		if (accumulator >= kFixedDeltaSeconds && gameDefinition.BeginUiFrame != nullptr)
+			gameDefinition.BeginUiFrame();
 		while (accumulator >= kFixedDeltaSeconds && updateSteps < kMaximumCatchUpSteps)
 		{
 			Manager::Update(static_cast<float>(kFixedDeltaSeconds));
@@ -230,6 +243,8 @@ int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLi
 
 	timeEndPeriod(1);
 	Mouse_SetCursorCaptured(false);
+	Renderer::SetOverlayCallback(nullptr);
+	if (gameDefinition.ShutdownUi != nullptr) gameDefinition.ShutdownUi();
 	Manager::Uninit();
 	UnregisterClass(CLASS_NAME, wcex.hInstance);
 
@@ -241,6 +256,9 @@ int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLi
 
 LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
+	const auto& definition = GetGameDefinition();
+	if (definition.HandleWindowMessage != nullptr)
+		definition.HandleWindowMessage(uMsg, static_cast<std::uintptr_t>(wParam), static_cast<std::intptr_t>(lParam));
 	if (uMsg == WM_MOUSEACTIVATE)
 	{
 		Mouse_SuppressUntilButtonsReleased();

@@ -35,6 +35,9 @@
 Visual Studioで `GM31_prroject2.slnx` を開き、WireActionを起動プロジェクトにします。
 同じソリューションのBattingCenterは独立したゲームです。
 
+授業用シェーダー比較は `ShaderGallery` を起動します。SP31の授業用操作を
+GM31の共通Engineから試せます。操作と移植構成は `SHADER_GALLERY.md` を参照してください。
+
 Developer PowerShell:
 
 ```powershell

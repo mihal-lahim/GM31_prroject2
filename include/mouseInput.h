@@ -13,4 +13,5 @@ bool Mouse_IsRightButtonDown();
 bool Mouse_IsRightButtonDownTrigger();
 void Mouse_Reset();
 void Mouse_SetCursorCaptured(bool captured);
+void Mouse_SetAutoCapture(bool enabled);
 void Mouse_SuppressUntilButtonsReleased();

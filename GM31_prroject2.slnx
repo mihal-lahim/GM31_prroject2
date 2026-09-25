@@ -7,4 +7,5 @@
   <Project Path="WireAction.vcxproj" Id="5b30e919-9494-44c5-bb6a-baf79f6d5284" />
   <Project Path="BattingCenter.vcxproj" Id="b755fd23-c4e4-4c69-b1bb-38ae0234b48b" />
   <Project Path="ClassroomWalk.vcxproj" Id="d64a3b79-5fb0-47c9-9992-cb456278a4d1" />
+  <Project Path="ShaderGallery.vcxproj" Id="7b358ef8-3d9a-42e4-abca-88b10fb54654" />
 </Solution>

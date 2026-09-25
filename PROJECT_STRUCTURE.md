@@ -1,6 +1,6 @@
 # Project Structure
 
-The solution contains one reusable engine library and three independent applications.
+The solution contains one reusable engine library and four independent applications.
 
 ## Projects
 
@@ -62,6 +62,14 @@ game. Its initial scene is `Title`, registered by
 spawns a field, follow camera, and the previously unused `Akai.fbx` player.
 `Akai_Idle.fbx` plays while still and `Akai_Run.fbx` while moving. WASD or arrow
 keys walk on the field. The application packages only its own runtime assets.
+
+### ShaderGallery (`ShaderGallery.vcxproj`)
+
+`ShaderGallery` compares the SP31 surface modes using GM31's shared Engine,
+shader catalogue, `SurfaceMaterial`, and post effect renderer. It is a separate
+teaching application with its own runtime asset manifest. Its ImGui source and
+controls live in the application. `GameDefinition` supplies optional UI hooks;
+the Engine presents the UI after its post effect and before the swap chain present.
 
 Building `WireAction` does not compile Batting Center sources. Building
 `BattingCenter` does not compile Wire Action sources. Both link the same
@@ -173,8 +181,8 @@ guaranteed component teardown, collision isolation/layers/static reindexing,
 render ordering, GameTime behavior, and WAV/model cache reuse pass. GitHub
 Actions builds and runs both applications in Debug and Release.
 `scripts/validate-project-boundaries.ps1` also prevents Engine sources from
-including either game's headers, rejects wildcard asset packaging, and guards
-the exact three-project solution shape.
+including application headers, rejects wildcard asset packaging, and guards
+the exact five-project solution shape.
 
 ## Adding another game
 

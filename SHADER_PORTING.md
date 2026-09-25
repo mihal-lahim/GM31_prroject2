@@ -1,5 +1,7 @@
 # SP31 → GM31: シェーダーの追加
 
+独立した比較アプリは `ShaderGallery.vcxproj` と `SHADER_GALLERY.md` を参照してください。
+
 SP31 は効果の実験場、GM31 はゲームへの採用先です。`Sample Stripes` が追加例です。
 GM31 では `SurfaceShader` enum や `spSurfacePS.hlsl` のモード分岐を増やさず、
 登録IDで VS/PS、描画パス、ポスト効果を選べます。既存モードは互換性のため残しています。
@@ -17,7 +19,7 @@ GM31 では `SurfaceShader` enum や `spSurfacePS.hlsl` のモード分岐を増
   `shaders/surfaces/PortableCommon.hlsli` は同一内容です。
   `SampleStripesVS.hlsl` / `SampleStripesPS.hlsl` も両側で同一ソースをコンパイルします。
 - GM31 の `shaders/surfaces/*VS.hlsl` と `*PS.hlsl`、
-  `shaders/post/*PS.hlsl` は3アプリで自動コンパイルされます。
+  `shaders/post/*PS.hlsl` は4アプリで自動コンパイルされます。
 
 ## 追加手順
 

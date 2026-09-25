@@ -9,6 +9,7 @@ static bool g_MouseLeftButtonPressed = false;
 static bool g_MouseRightButtonDown = false;
 static bool g_MouseRightButtonPressed = false;
 static bool g_MouseCursorCaptured = false;
+static bool g_MouseAutoCapture = true;
 static bool g_MouseWindowActive = false;
 static bool g_MouseSuppressUntilButtonsReleased = false;
 
@@ -165,6 +166,12 @@ void Mouse_SetCursorCaptured(bool captured)
 	SetSystemCursorVisible(true);
 }
 
+void Mouse_SetAutoCapture(bool enabled)
+{
+	g_MouseAutoCapture = enabled;
+	if (!enabled) Mouse_SetCursorCaptured(false);
+}
+
 bool Mouse_ConsumeDelta(float* deltaX, float* deltaY)
 {
 	if (deltaX == nullptr || deltaY == nullptr)
@@ -262,7 +269,7 @@ bool Mouse_ProcessMessage(UINT message, WPARAM wParam, LPARAM lParam)
 		{
 			g_MouseWindowActive = true;
 			SuppressMouseUntilButtonsReleased();
-			Mouse_SetCursorCaptured(true);
+			if (g_MouseAutoCapture) Mouse_SetCursorCaptured(true);
 		}
 		else
 		{
@@ -281,7 +288,7 @@ bool Mouse_ProcessMessage(UINT message, WPARAM wParam, LPARAM lParam)
 	case WM_SETFOCUS:
 		g_MouseWindowActive = true;
 		SuppressMouseUntilButtonsReleased();
-		Mouse_SetCursorCaptured(true);
+		if (g_MouseAutoCapture) Mouse_SetCursorCaptured(true);
 		break;
 
 	case WM_KILLFOCUS:
@@ -301,7 +308,7 @@ bool Mouse_ProcessMessage(UINT message, WPARAM wParam, LPARAM lParam)
 		if (g_MouseWindowActive)
 		{
 			SuppressMouseUntilButtonsReleased();
-			Mouse_SetCursorCaptured(true);
+			if (g_MouseAutoCapture) Mouse_SetCursorCaptured(true);
 		}
 		break;
 

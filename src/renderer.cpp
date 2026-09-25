@@ -23,12 +23,17 @@ ComPtr<ID3D11Buffer>			Renderer::m_MaterialBuffer{};
 ComPtr<ID3D11Buffer>			Renderer::m_LightBuffer{};
 ComPtr<ID3D11Buffer>			Renderer::m_CameraBuffer{};
 ComPtr<ID3D11Buffer>			Renderer::m_ParameterBuffer{};
+ComPtr<ID3D11Buffer>			Renderer::m_PostOptionsBuffer{};
 ComPtr<ID3D11Texture2D>		Renderer::m_SceneTexture{};
 ComPtr<ID3D11RenderTargetView> Renderer::m_SceneRenderTarget{};
 ComPtr<ID3D11ShaderResourceView> Renderer::m_SceneResource{};
 ComPtr<ID3D11Buffer>			Renderer::m_PostVertexBuffer{};
 PostEffectMode Renderer::m_PostEffectMode = PostEffectMode::None;
 std::string Renderer::m_PostDefinitionId{};
+void (*Renderer::m_OverlayCallback)() = nullptr;
+XMFLOAT4 Renderer::m_PostOptions{};
+XMFLOAT4 Renderer::m_PostExtraOptions{};
+bool Renderer::m_CustomPostOptions = false;
 XMFLOAT4 Renderer::m_PostDefinitionParameters{};
 
 
@@ -418,6 +423,12 @@ bool Renderer::Init()
 	ID3D11Buffer* parameterBuffer = m_ParameterBuffer.Get();
 	m_DeviceContext->VSSetConstantBuffers(6, 1, &parameterBuffer);
 	m_DeviceContext->PSSetConstantBuffers(6, 1, &parameterBuffer);
+	hr = m_Device->CreateBuffer(&bufferDesc, nullptr, m_PostOptionsBuffer.ReleaseAndGetAddressOf());
+	if (!CheckInitializationResult(hr, "ID3D11Device::CreateBuffer(post options)"))
+	{
+		Uninit();
+		return false;
+	}
 
 
 
@@ -462,6 +473,8 @@ void Renderer::Uninit()
 	m_PostEffectMode = PostEffectMode::None;
 	m_PostDefinitionId.clear();
 	m_ParameterBuffer.Reset();
+	m_PostOptionsBuffer.Reset();
+	m_CustomPostOptions = false;
 	m_CameraBuffer.Reset();
 	m_MaterialBuffer.Reset();
 	m_ProjectionBuffer.Reset();
@@ -520,7 +533,15 @@ void Renderer::End()
 		{
 			SetDepthMode(RenderDepthMode::Disabled);
 			SetParameter(definition ? m_PostDefinitionParameters
-				: XMFLOAT4(static_cast<float>(static_cast<int>(m_PostEffectMode)), 12.0f, 0.18f, 0.0f));
+				: XMFLOAT4(static_cast<float>(static_cast<int>(m_PostEffectMode)),
+					m_CustomPostOptions ? m_PostOptions.x : 12.0f,
+					m_CustomPostOptions ? m_PostOptions.y : 0.18f,
+					m_CustomPostOptions ? m_PostOptions.z : 0.0f));
+			XMFLOAT4 extra = m_CustomPostOptions ? m_PostExtraOptions : XMFLOAT4{};
+			extra.z = m_CustomPostOptions ? 1.0f : 0.0f;
+			m_DeviceContext->UpdateSubresource(m_PostOptionsBuffer.Get(), 0, nullptr, &extra, 0, 0);
+			ID3D11Buffer* postOptions = m_PostOptionsBuffer.Get();
+			m_DeviceContext->PSSetConstantBuffers(7, 1, &postOptions);
 			m_DeviceContext->IASetInputLayout(vs->InputLayout.Get());
 			m_DeviceContext->VSSetShader(vs->Shader.Get(), nullptr, 0);
 			m_DeviceContext->PSSetShader(ps->Shader.Get(), nullptr, 0);
@@ -540,6 +561,7 @@ void Renderer::End()
 			m_DeviceContext->CopyResource(backResource.Get(), m_SceneTexture.Get());
 		}
 	}
+	if (m_OverlayCallback != nullptr) m_OverlayCallback();
 	m_SwapChain->Present( 1, 0 );
 }
 

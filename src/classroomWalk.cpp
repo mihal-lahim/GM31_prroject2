@@ -21,6 +21,8 @@ namespace
 {
 	constexpr int kTerrainHalfSize = 32;
 	constexpr int kTerrainSide = kTerrainHalfSize * 2 + 1;
+	constexpr float kFloatingOriginDepth = 1.10f;
+	constexpr float kSwimmingChestDepth = 0.12f;
 
 	float HeightSample(float x, float z)
 	{
@@ -93,6 +95,10 @@ void ClassroomPlayer::Init()
 	m_Model->Load("assets/model/Akai.fbx");
 	m_Model->LoadAnimation("assets/model/Akai_Idle.fbx", "Idle");
 	m_Model->LoadAnimation("assets/model/Akai_Run.fbx", "Run");
+	m_Model->LoadAnimation("assets/model/Jumping.fbx", "Jump");
+	m_Model->LoadAnimation("assets/model/Treading Water.fbx", "TreadWater");
+	m_Model->LoadAnimation("assets/model/Swimming To Edge.fbx", "Swim");
+	m_Model->LoadAnimation("assets/model/Flair.fbx", "Flair");
 	m_Model->SetModelScale(0.01f);
 	// Akai のモデル正面は -Z。移動角度の基準 (+Z) に合わせる。
 	m_Model->SetModelYawOffset(XM_PI);
@@ -118,7 +124,25 @@ void ClassroomPlayer::Update()
 	if (Keyboard_IsKeyDown(KK_S) || Keyboard_IsKeyDown(KK_DOWN)) input.z -= 1.0f;
 
 	const bool moving = input.x != 0.0f || input.z != 0.0f;
-	if (moving)
+	auto inDeepWater = [](const Vector3& p)
+	{
+		const float dx = p.x - ClassroomLake::CenterX;
+		const float dz = p.z - ClassroomLake::CenterZ;
+		return dx * dx + dz * dz < 8.0f * 8.0f
+			&& ClassroomField::GetHeight(p.x, p.z) < ClassroomLake::WaterLevel - 0.9f
+			&& p.y < ClassroomLake::WaterLevel + 0.15f;
+	};
+	Vector3 position = GetPosition();
+	const float groundBeforeMove = ClassroomField::GetHeight(position.x, position.z);
+	const bool submergedBeforeMove = inDeepWater(position);
+	if (Keyboard_IsKeyDownTrigger(KK_R) && !submergedBeforeMove
+		&& position.y <= groundBeforeMove + 0.05f)
+		m_Dancing = !m_Dancing;
+	if (submergedBeforeMove || position.y > groundBeforeMove + 0.05f) m_Dancing = false;
+	if (!submergedBeforeMove && !m_Dancing && Keyboard_IsKeyDownTrigger(KK_SPACE)
+		&& position.y <= groundBeforeMove + 0.05f)
+		m_VerticalSpeed = 0.18f;
+	if (moving && !m_Dancing)
 	{
 		input.normalize();
 		if (const auto* camera = GetWorld().FindFirst<ClassroomCamera>())
@@ -129,21 +153,84 @@ void ClassroomPlayer::Update()
 			input.x = side * cosf(yaw) + forward * sinf(yaw);
 			input.z = forward * cosf(yaw) - side * sinf(yaw);
 		}
-		constexpr float speedPerFrame = 0.08f; // Engine runs a fixed 60 Hz step.
+		const float speedPerFrame = submergedBeforeMove ? 0.045f : 0.08f; // Fixed 60 Hz step.
 		Vector3 next = m_Position + input * speedPerFrame;
 		next.x = std::clamp(next.x, -28.0f, 28.0f);
 		next.z = std::clamp(next.z, -28.0f, 28.0f);
 		SetPosition(next);
 		SetRotation({ 0.0f, atan2f(input.x, input.z), 0.0f });
 	}
-	Vector3 grounded = GetPosition();
-	grounded.y = ClassroomField::GetHeight(grounded.x, grounded.z);
-	SetPosition(grounded);
-	m_Model->PlayAnimation(moving ? "Run" : "Idle", 0.2f);
-	m_Model->SetFootIK(ClassroomField::GetHeight, moving ? 0.75f : 1.0f,
-		ClassroomField::GetNormal);
+	position = GetPosition();
+	const float ground = ClassroomField::GetHeight(position.x, position.z);
+	const bool inWater = inDeepWater(position);
+	if (inWater)
+	{
+		m_Dancing = false;
+		// Damp vertical motion and restore the character to a stable floating depth.
+		const float floatingHeight = ClassroomWater::GetSurfaceHeight(position.x, position.z,
+			GameTime::GetElapsedTime()) - kFloatingOriginDepth;
+		m_VerticalSpeed += (floatingHeight - position.y) * 0.025f;
+		m_VerticalSpeed *= 0.90f;
+		position.y = std::clamp(position.y + m_VerticalSpeed, ground, ClassroomLake::WaterLevel);
+		if (position.y == ground && m_VerticalSpeed < 0.0f) m_VerticalSpeed = 0.0f;
+	}
+	else
+	{
+		m_VerticalSpeed -= 0.009f;
+		position.y += m_VerticalSpeed;
+		if (position.y <= ground)
+		{
+			position.y = ground;
+			m_VerticalSpeed = 0.0f;
+		}
+	}
+	SetPosition(position);
+	const bool airborne = !inWater && position.y > ground + 0.02f;
+	const char* clip = inWater ? (moving ? "Swim" : "TreadWater")
+		: airborne ? "Jump" : m_Dancing ? "Flair" : moving ? "Run" : "Idle";
+	// Skip the clip's crouched anticipation: physics has already started the jump.
+	// The five-second swim clip ends with an edge-climb, so loop its stroke only.
+	m_Model->SetPlayback(1.0f, airborne ? 0.36f : 0.0f,
+		airborne ? 0.62f : inWater && moving ? 0.18f : 1.0f, !airborne);
+	const auto& previousClip = m_Model->GetAnimationName();
+	const bool wasInWater = previousClip == "Swim" || previousClip == "TreadWater";
+	const bool danceTransition = m_Dancing || previousClip == "Flair";
+	const float blendSeconds = airborne ? 0.08f
+		: wasInWater && !inWater ? 0.14f
+		: inWater ? 0.22f
+		: danceTransition ? 0.25f
+		: previousClip == "Jump" ? 0.12f : 0.18f;
+	if (previousClip != clip) m_Model->ResetFootTargetCorrection();
+	m_Model->PlayAnimation(clip, blendSeconds);
+	// Release terrain constraints for swimming/dance; restore them gradually on landing.
+	const bool useFootIK = !inWater && !airborne && !m_Dancing;
+	const float ikTarget = useFootIK ? 1.0f : 0.0f;
+	m_FootIKBlend += std::clamp(ikTarget - m_FootIKBlend, -0.12f, 0.12f);
+	if (inWater || airborne) m_FootIKBlend = 0.0f;
+	m_Model->SetFootIK(m_FootIKBlend > 0.0f ? ClassroomField::GetHeight : nullptr,
+		moving && !m_Dancing ? 0.75f : 1.0f, ClassroomField::GetNormal);
+	m_Model->SetFootIKFade(m_FootIKBlend);
 	m_Model->TickAnimation(1.0f / 60.0f, false);
-	AlignFeetToField();
+	// The FBX's root is a standing-foot origin even in a horizontal swimming pose.
+	// Align the blended chest pose with the buoyant body's waterline, not that origin.
+	m_Model->SetVerticalOffset(0.0f);
+	m_WaterAlignment = std::clamp(m_WaterAlignment + (inWater ? 0.08f : -0.12f), 0.0f, 1.0f);
+	if (inWater)
+	{
+		Vector3 chest;
+		if (GetSwimAnchor(chest))
+		{
+			const float time = GameTime::GetElapsedTime();
+			const float rootSurface = ClassroomWater::GetSurfaceHeight(position.x, position.z, time);
+			const float chestSurface = ClassroomWater::GetSurfaceHeight(chest.x, chest.z, time);
+			const float bodyHeight = position.y + kFloatingOriginDepth;
+			const float chestTarget = (std::min)(bodyHeight + chestSurface - rootSurface - kSwimmingChestDepth,
+				chestSurface - 0.06f);
+			m_WaterModelOffset = chestTarget - chest.y;
+		}
+	}
+	m_Model->SetVerticalOffset(m_WaterModelOffset * m_WaterAlignment);
+	if (useFootIK && m_FootIKBlend >= 0.7f) AlignFeetToField();
 	m_Model->TickAnimation(0.0f);
 }
 
@@ -209,6 +296,16 @@ bool ClassroomPlayer::SetShaderDefinition(std::string_view id)
 void ClassroomPlayer::UseDefaultShader()
 {
 	if (m_Model) m_Model->UseDefaultShader();
+}
+
+std::string_view ClassroomPlayer::GetAnimationName() const
+{
+	return m_Model ? std::string_view(m_Model->GetAnimationName()) : std::string_view{};
+}
+
+bool ClassroomPlayer::GetSwimAnchor(Vector3& position) const
+{
+	return m_Model && m_Model->GetBoneWorldPosition("mixamorig:Spine2", position);
 }
 
 void ClassroomCamera::Init()
