@@ -17,6 +17,34 @@ bin\x64\Debug\ClassroomWalk\ClassroomWalk.exe
 上下の視点角度には制限があり、カメラが地面に埋まらないようにします。
 停止中は Idle、移動中は Run アニメーションです。
 左上には実際の描画回数から計測したFPSを表示します。
+地面と SP31 から移植したドーナツモデルのシェーダーは数字キーで切り替えられます。`1` 照明なし、`2` 頂点平行光、
+`3` ピクセル平行光、`4` Blinn-Phong、`5` 半球ライト、`6` トゥーン（初期値）、
+`7` バンプ、`8` Cook-Torrance、`9` グレースケールです。左上に現在の種類を表示します。
+`F1` 点光源、`F2` リムライト、`F3` スポットライト、`F4` ランプトゥーン、
+`F5` Disney PBR も選べます。バンプとランプトゥーンには SP31 のテクスチャを使用します。
+`P` は登録型の追加サンプル「Sample Stripes」です。追加方法は `SHADER_PORTING.md` を参照してください。
+`I` はFBXプレイヤーの Sample Stripes のオン／オフ、`M` は登録型の画面反転ポスト効果です。
+`O` でドーナツだけ輪郭付きトゥーンのオン／オフを切り替えられます。
+元の FBX は `assets/model/shaderDonut.fbx` として残し、共通 `ModelRenderer` 用に
+OBJ/MTL に変換して、埋め込みテクスチャを `shaderDonut.jpg` に抽出しています。
+`0` は画面全体のポストエフェクトを「なし → グレースケール → モザイク」で切り替えます。
+`F6` 平均モザイク、`F7` 円形モザイク、`F8` ホラー、`F9` ミップ確認、
+`F10` 図形マスク、`F11` RGBずらし、`F12` ポスタライズも選べます。
+水面には専用の波形法線・フレネル・ハイライトを適用しています。
+共通の `Engine::SurfaceMaterial` は描画対象ごとにシェーダーを選択でき、
+`ModelRenderer::SetShaderMode` からモデルにも適用できます。
+例えばモデルに輪郭付きトゥーンを指定する場合:
+
+```cpp
+auto* model = object->AddComponent<ModelRenderer>();
+model->Load("assets/model/box.obj");
+model->SetUseOwnerTransform(true);
+model->SetShaderMode(Engine::SurfaceShader::ToonOutline,
+    { 4.0f, 0.02f, 0.65f, 0.0f });
+model->SetShaderDetailTexture("assets/texture/Toon2.png");
+```
+
+法線マップを使う場合は `SurfaceShader::Bump` と `Normal.png` を指定します。
 地面は4本の高さボーンをCPUでスキニングした格子メッシュで、草のテクスチャを貼っています。木は透過画像の
 ビルボード、空は `sky.obj` のスカイドームです。プレイヤーと木は地形の高さに沿って
 配置されます。

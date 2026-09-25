@@ -124,10 +124,13 @@ void AnimationModel::Draw()
 		return;
 	}
 
-	// 他の描画処理が残した状態に依存しないよう、必要なパイプラインを毎回設定する。
-	context->IASetInputLayout(m_VertexLayout.Get());
-	context->VSSetShader(m_VertexShader.Get(), nullptr, 0);
-	context->PSSetShader(m_PixelShader.Get(), nullptr, 0);
+	if (m_UseSurfaceShader && !m_Surface.Ready()) return;
+	if (!m_UseSurfaceShader)
+	{
+		context->IASetInputLayout(m_VertexLayout.Get());
+		context->VSSetShader(m_VertexShader.Get(), nullptr, 0);
+		context->PSSetShader(m_PixelShader.Get(), nullptr, 0);
+	}
 
 	Renderer::SetWorldMatrix(GetWorldMatrix());
 
@@ -143,8 +146,12 @@ void AnimationModel::Draw()
 	material.TextureEnable = true;
 	Renderer::SetMaterial(material);
 
-	for (unsigned int m = 0; m < m_AiScene->mNumMeshes; m++)
+	const std::size_t passCount = m_UseSurfaceShader ? m_Surface.PassCount() : 1;
+	for (std::size_t pass = 0; pass < passCount; ++pass)
 	{
+		if (m_UseSurfaceShader && !m_Surface.BindPass(pass)) return;
+		for (unsigned int m = 0; m < m_AiScene->mNumMeshes; ++m)
+		{
 		aiMesh* mesh = m_AiScene->mMeshes[m];
 
 
@@ -167,8 +174,11 @@ void AnimationModel::Draw()
 				textureView = foundTexture->second;
 			}
 		}
+		if (m_UseSurfaceShader && m_Surface.Texture)
+			textureView = m_Surface.Texture->Get();
 		context->PSSetShaderResources(0, 1, &textureView);
 		material.TextureEnable = textureView != nullptr;
+		material.Dummy[0] = m_UseSurfaceShader && m_Surface.DetailTexture ? 1.0f : 0.0f;
 
 		material.Diffuse = XMFLOAT4(diffuse.r, diffuse.g, diffuse.b, opacity);
 		material.Ambient = material.Diffuse;
@@ -185,7 +195,32 @@ void AnimationModel::Draw()
 
 		// ポリゴン描画
 		context->DrawIndexed(mesh->mNumFaces * 3, 0, 0);
+		}
 	}
+}
+
+bool AnimationModel::SetShaderDefinition(std::string_view id)
+{
+	if (!m_Surface.Load(id)) return false;
+	m_UseSurfaceShader = true;
+	return true;
+}
+
+bool AnimationModel::SetShaderFloat(std::string_view name, float value)
+{
+	return m_Surface.SetFloat(name, value);
+}
+
+bool AnimationModel::SetShaderTexture(std::string_view name, const std::filesystem::path& path)
+{
+	return m_Surface.SetTexture(name, ResourceManager::LoadTexture(path));
+}
+
+bool AnimationModel::SetShaderMode(Engine::SurfaceShader shader)
+{
+	if (!m_Surface.Load(shader)) return false;
+	m_UseSurfaceShader = true;
+	return true;
 }
 
 void AnimationModel::Load(const char* FileName)

@@ -88,5 +88,6 @@ void Camera::Draw()
 
 
 	Renderer::SetViewMatrix(m_ViewMatrix);
+	Renderer::SetCameraPosition(XMFLOAT3(m_Position.x, m_Position.y, m_Position.z));
 }
 

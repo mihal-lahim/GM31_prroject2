@@ -36,10 +36,13 @@ void ClassroomWater::Init()
 	m_RenderingAvailable = Engine::GraphicsResourceFactory::CreateBuffer(
 		m_IndexBuffer, description, &data, "ClassroomWaterIndices") && m_RenderingAvailable;
 	m_IndexCount = static_cast<UINT>(m_Indices.size());
-	m_RenderingAvailable = Engine::GraphicsResourceFactory::CreateUnlitShaderPair(
-		m_VertexShader, m_Layout, m_PixelShader, "ClassroomWater") && m_RenderingAvailable;
 	m_Texture = ResourceManager::LoadTexture(L"assets/texture/water.jpg");
 	m_RenderingAvailable = m_Texture != nullptr && m_RenderingAvailable;
+	m_RenderingAvailable = m_Surface.Load(Engine::SurfaceShader::Water, m_Texture)
+		&& m_RenderingAvailable;
+	m_Surface.Properties.Diffuse = { 0.68f, 0.86f, 1.0f, 0.78f };
+	m_Surface.Properties.Specular = { 0.32f, 0.58f, 0.72f, 1.0f };
+	m_Surface.Properties.Shininess = 48.0f;
 }
 
 void ClassroomWater::BuildMesh()
@@ -94,13 +97,32 @@ void ClassroomWater::BuildMesh()
 
 void ClassroomWater::AnimateMesh(float time)
 {
-	for (VERTEX_3D& vertex : m_Vertices)
+	auto heightAt = [time](float x, float z)
 	{
-		const float length = sqrtf(vertex.Position.x * vertex.Position.x
-			+ vertex.Position.z * vertex.Position.z);
+		const float length = sqrtf(x * x + z * z);
 		const float phase = length / kWaveLength - time / kWaveCycle;
 		const float shoreFade = std::clamp((ClassroomLake::WaterRadius - length) / 1.5f, 0.0f, 1.0f);
-		vertex.Position.y = kWaveAmplitude * shoreFade * sinf(kTwoPi * phase);
+		return kWaveAmplitude * shoreFade * sinf(kTwoPi * phase);
+	};
+	for (VERTEX_3D& vertex : m_Vertices)
+	{
+		const float x = vertex.Position.x;
+		const float z = vertex.Position.z;
+		const float length = sqrtf(x * x + z * z);
+		vertex.Position.y = heightAt(x, z);
+		if (length > 0.001f)
+		{
+			constexpr float sample = 0.08f;
+			const float dx = (heightAt(x + sample, z) - heightAt(x - sample, z)) / (2.0f * sample);
+			const float dz = (heightAt(x, z + sample) - heightAt(x, z - sample)) / (2.0f * sample);
+			Vector3 normal{ -dx, 1.0f, -dz };
+			normal.normalize();
+			vertex.Normal = { normal.x, normal.y, normal.z };
+		}
+		else
+		{
+			vertex.Normal = { 0.0f, 1.0f, 0.0f };
+		}
 	}
 }
 
@@ -112,17 +134,9 @@ void ClassroomWater::Draw()
 		m_VertexBuffer.Get(), 0, nullptr, m_Vertices.data(), 0, 0);
 
 	auto* context = Renderer::GetDeviceContext();
-	context->IASetInputLayout(m_Layout.Get());
-	context->VSSetShader(m_VertexShader.Get(), nullptr, 0);
-	context->PSSetShader(m_PixelShader.Get(), nullptr, 0);
 	Renderer::SetWorldMatrix(XMMatrixTranslation(m_Position.x, m_BaseHeight, m_Position.z));
-	MATERIAL material{};
-	material.Diffuse = { 0.68f, 0.86f, 1.0f, 0.78f };
-	material.Ambient = material.Diffuse;
-	material.TextureEnable = true;
-	Renderer::SetMaterial(material);
-	ID3D11ShaderResourceView* texture = m_Texture->Get();
-	context->PSSetShaderResources(0, 1, &texture);
+	m_Surface.Parameter.x = GameTime::GetElapsedTime();
+	m_Surface.Bind();
 	UINT stride = sizeof(VERTEX_3D), offset = 0;
 	context->IASetVertexBuffers(0, 1, m_VertexBuffer.GetAddressOf(), &stride, &offset);
 	context->IASetIndexBuffer(m_IndexBuffer.Get(), DXGI_FORMAT_R32_UINT, 0);

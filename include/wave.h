@@ -3,6 +3,7 @@
 #include "gameObject.h"
 #include "resourceManager.h"
 #include "renderer.h"
+#include "surfaceMaterial.h"
 
 #include <vector>
 
@@ -38,6 +39,7 @@ private:
 	ComPtr<ID3D11VertexShader> m_VertexShader;
 	ComPtr<ID3D11PixelShader> m_PixelShader;
 	TextureHandle m_Texture;
+	Engine::SurfaceMaterial m_Surface;
 	UINT m_IndexCount = 0;
 	float m_BaseHeight = 0.0f;
 

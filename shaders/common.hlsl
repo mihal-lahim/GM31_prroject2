@@ -14,14 +14,6 @@ cbuffer ProjectionBuffer : register(b2)
 	matrix Projection;
 }
 
-cbuffer CameraBuffer : register(b5)
-{
-	float4 CameraPosition;
-}
-
-
-
-
 struct MATERIAL
 {
 	float4 Ambient;
@@ -48,11 +40,27 @@ struct LIGHT
 	float4 Direction;
 	float4 Diffuse;
 	float4 Ambient;
+	float4 Position;
+	float4 PointLightparam;
+	float4 SkyColor;
+	float4 GroundColor;
+	float4 GroundNormal;
+	float4 Angle;
 };
 
 cbuffer LightBuffer : register(b4)
 {
 	LIGHT Light;
+}
+
+cbuffer CameraBuffer : register(b5)
+{
+	float4 CameraPosition;
+}
+
+cbuffer ParameterBuffer : register(b6)
+{
+	float4 Parameter;
 }
 
 
@@ -71,6 +79,8 @@ struct VS_IN
 struct PS_IN
 {
 	float4 Position		: SV_POSITION;
+	float3 WorldPosition : TEXCOORD0;
+	float3 Normal		: TEXCOORD1;
 	float4 Diffuse		: COLOR0;
-	float2 TexCoord		: TEXCOORD0;
+	float2 TexCoord		: TEXCOORD2;
 };

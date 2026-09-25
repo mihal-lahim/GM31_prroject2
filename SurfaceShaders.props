@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <FxCompile Include="shaders\surfaces\*VS.hlsl">
+      <ShaderType>Vertex</ShaderType><ShaderModel>5.0</ShaderModel>
+      <ObjectFileOutput>$(OutDir)%(Filename).cso</ObjectFileOutput>
+    </FxCompile>
+    <FxCompile Include="shaders\surfaces\*PS.hlsl">
+      <ShaderType>Pixel</ShaderType><ShaderModel>5.0</ShaderModel>
+      <ObjectFileOutput>$(OutDir)%(Filename).cso</ObjectFileOutput>
+    </FxCompile>
+    <FxCompile Include="shaders\post\*PS.hlsl">
+      <ShaderType>Pixel</ShaderType><ShaderModel>5.0</ShaderModel>
+      <ObjectFileOutput>$(OutDir)%(Filename).cso</ObjectFileOutput>
+    </FxCompile>
+    <FxCompile Include="shaders\classroomLitVS.hlsl">
+      <ShaderType>Vertex</ShaderType><ShaderModel>5.0</ShaderModel>
+      <ObjectFileOutput>$(OutDir)%(Filename).cso</ObjectFileOutput>
+    </FxCompile>
+    <FxCompile Include="shaders\classroomWaterPS.hlsl">
+      <ShaderType>Pixel</ShaderType><ShaderModel>5.0</ShaderModel>
+      <ObjectFileOutput>$(OutDir)%(Filename).cso</ObjectFileOutput>
+    </FxCompile>
+    <FxCompile Include="shaders\spSurfacePS.hlsl">
+      <ShaderType>Pixel</ShaderType><ShaderModel>5.0</ShaderModel>
+      <ObjectFileOutput>$(OutDir)%(Filename).cso</ObjectFileOutput>
+    </FxCompile>
+    <FxCompile Include="shaders\spVertexLitVS.hlsl">
+      <ShaderType>Vertex</ShaderType><ShaderModel>5.0</ShaderModel>
+      <ObjectFileOutput>$(OutDir)%(Filename).cso</ObjectFileOutput>
+    </FxCompile>
+    <FxCompile Include="shaders\spPostVS.hlsl">
+      <ShaderType>Vertex</ShaderType><ShaderModel>5.0</ShaderModel>
+      <ObjectFileOutput>$(OutDir)%(Filename).cso</ObjectFileOutput>
+    </FxCompile>
+    <FxCompile Include="shaders\spPostPS.hlsl">
+      <ShaderType>Pixel</ShaderType><ShaderModel>5.0</ShaderModel>
+      <ObjectFileOutput>$(OutDir)%(Filename).cso</ObjectFileOutput>
+    </FxCompile>
+    <FxCompile Include="shaders\spToonOutlineVS.hlsl">
+      <ShaderType>Vertex</ShaderType><ShaderModel>5.0</ShaderModel>
+      <ObjectFileOutput>$(OutDir)%(Filename).cso</ObjectFileOutput>
+    </FxCompile>
+    <FxCompile Include="shaders\spToonOutlinePS.hlsl">
+      <ShaderType>Pixel</ShaderType><ShaderModel>5.0</ShaderModel>
+      <ObjectFileOutput>$(OutDir)%(Filename).cso</ObjectFileOutput>
+    </FxCompile>
+  </ItemGroup>
+</Project>

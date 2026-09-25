@@ -27,6 +27,7 @@
     <TargetName>BattingCenter</TargetName>
   </PropertyGroup>
   <Import Project="Common.props" />
+  <Import Project="SurfaceShaders.props" />
   <ItemGroup>
 	<ClInclude Include="include\battingCollisionLayers.h" />
     <ClInclude Include="include\baseballBat.h" /><ClInclude Include="include\baseballBall.h" /><ClInclude Include="include\baseballEffects.h" />

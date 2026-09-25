@@ -7,6 +7,7 @@
 #include "keyboard_utf8.h"
 #include "main.h"
 #include "mouseInput.h"
+#include "modelRenderer.h"
 #include "renderer.h"
 #include "sky.h"
 #include "world.h"
@@ -104,6 +105,12 @@ void ClassroomPlayer::Init()
 
 void ClassroomPlayer::Update()
 {
+	if (Keyboard_IsKeyDownTrigger(KK_I))
+	{
+		m_ShaderPreview = !m_ShaderPreview;
+		if (m_ShaderPreview) SetShaderDefinition("sample-stripes");
+		else UseDefaultShader();
+	}
 	Vector3 input{};
 	if (Keyboard_IsKeyDown(KK_A) || Keyboard_IsKeyDown(KK_LEFT)) input.x -= 1.0f;
 	if (Keyboard_IsKeyDown(KK_D) || Keyboard_IsKeyDown(KK_RIGHT)) input.x += 1.0f;
@@ -194,6 +201,16 @@ bool ClassroomPlayer::GetFootEndClearance(float (&clearance)[2][2]) const
 		&& m_Model->GetFootEndClearance(ClassroomField::GetHeight, clearance);
 }
 
+bool ClassroomPlayer::SetShaderDefinition(std::string_view id)
+{
+	return m_Model && m_Model->SetShaderDefinition(id);
+}
+
+void ClassroomPlayer::UseDefaultShader()
+{
+	if (m_Model) m_Model->UseDefaultShader();
+}
+
 void ClassroomCamera::Init()
 {
 	m_Layer = Layer::Camera;
@@ -244,9 +261,22 @@ Vector3 ClassroomCamera::GetCameraForward() const
 
 void ClassroomCamera::Draw()
 {
+	LIGHT light{};
+	light.Enable = TRUE;
+	light.Direction = { -0.45f, -0.78f, 0.43f, 0.0f };
+	light.Diffuse = { 0.92f, 0.90f, 0.80f, 1.0f };
+	light.Ambient = { 0.22f, 0.25f, 0.30f, 1.0f };
+	light.Position = { 2.0f, 7.0f, 8.0f, 1.0f };
+	light.PointLightparam = { 40.0f, 3.0f, 0.0f, 0.0f };
+	light.SkyColor = { 0.50f, 0.66f, 0.82f, 1.0f };
+	light.GroundColor = { 0.16f, 0.12f, 0.09f, 1.0f };
+	light.GroundNormal = { 0.0f, 1.0f, 0.0f, 0.0f };
+	light.Angle = { XM_PIDIV4, 0.0f, 0.0f, 0.0f };
+	Renderer::SetLight(light);
 	Renderer::SetProjectionMatrix(XMMatrixPerspectiveFovLH(1.0f,
 		static_cast<float>(SCREEN_WIDTH) / SCREEN_HEIGHT, 0.1f, 200.0f));
 	Renderer::SetViewMatrix(m_View);
+	Renderer::SetCameraPosition(XMFLOAT3(m_Position.x, m_Position.y, m_Position.z));
 }
 
 float ClassroomField::GetHeight(float x, float z)
@@ -334,32 +364,174 @@ void ClassroomField::Init()
 	m_RenderingAvailable = Engine::GraphicsResourceFactory::CreateBuffer(
 		m_IndexBuffer, description, &data, "ClassroomFieldIndices") && m_RenderingAvailable;
 	m_IndexCount = static_cast<UINT>(indices.size());
-	m_RenderingAvailable = Engine::GraphicsResourceFactory::CreateUnlitShaderPair(
-		m_VertexShader, m_Layout, m_PixelShader, "ClassroomField") && m_RenderingAvailable;
 	m_Texture = ResourceManager::LoadTexture(L"assets/model/grass.jpg");
 	m_RenderingAvailable = m_Texture != nullptr && m_RenderingAvailable;
+	m_RenderingAvailable = m_Surface.Load(Engine::SurfaceShader::Toon, m_Texture)
+		&& m_RenderingAvailable;
+	m_Surface.Parameter.x = 3.0f;
 }
 
 void ClassroomField::Draw()
 {
 	if (!m_RenderingAvailable) return;
 	auto* context = Renderer::GetDeviceContext();
-	context->IASetInputLayout(m_Layout.Get());
-	context->VSSetShader(m_VertexShader.Get(), nullptr, 0);
-	context->PSSetShader(m_PixelShader.Get(), nullptr, 0);
 	Renderer::SetWorldMatrix(XMMatrixIdentity());
-	MATERIAL material{};
-	material.Diffuse = { 1.0f, 1.0f, 1.0f, 1.0f };
-	material.Ambient = material.Diffuse;
-	material.TextureEnable = true;
-	Renderer::SetMaterial(material);
-	ID3D11ShaderResourceView* texture = m_Texture->Get();
-	context->PSSetShaderResources(0, 1, &texture);
+	m_Surface.Bind();
 	UINT stride = sizeof(VERTEX_3D), offset = 0;
 	context->IASetVertexBuffers(0, 1, m_VertexBuffer.GetAddressOf(), &stride, &offset);
 	context->IASetIndexBuffer(m_IndexBuffer.Get(), DXGI_FORMAT_R32_UINT, 0);
 	context->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 	context->DrawIndexed(m_IndexCount, 0, 0);
+}
+
+void ClassroomField::Update()
+{
+	if (Keyboard_IsKeyDownTrigger(KK_P)) SetShaderDefinition("sample-stripes");
+	if (Keyboard_IsKeyDownTrigger(KK_M)) Renderer::SetPostEffectDefinition("post-invert");
+	if (Keyboard_IsKeyDownTrigger(KK_O))
+		if (auto* donut = GetWorld().FindFirst<ClassroomShaderDonut>()) donut->ToggleOutline();
+	if (Keyboard_IsKeyDownTrigger(KK_D0))
+	{
+		const PostEffectMode current = Renderer::GetPostEffect();
+		Renderer::SetPostEffect(current == PostEffectMode::None ? PostEffectMode::Grayscale
+			: current == PostEffectMode::Grayscale ? PostEffectMode::Mosaic : PostEffectMode::None);
+	}
+	const struct { Keyboard_Keys key; PostEffectMode mode; } effects[] = {
+		{ KK_F6, PostEffectMode::MosaicAverage },
+		{ KK_F7, PostEffectMode::CircleMosaic },
+		{ KK_F8, PostEffectMode::Horror },
+		{ KK_F9, PostEffectMode::MipPreview },
+		{ KK_F10, PostEffectMode::Shape },
+		{ KK_F11, PostEffectMode::RGBShift },
+		{ KK_F12, PostEffectMode::Posterize }
+	};
+	for (const auto& effect : effects)
+		if (Keyboard_IsKeyDownTrigger(effect.key)) Renderer::SetPostEffect(effect.mode);
+	const struct { Keyboard_Keys key; Engine::SurfaceShader shader; } choices[] = {
+		{ KK_D1, Engine::SurfaceShader::Unlit },
+		{ KK_D2, Engine::SurfaceShader::VertexDirectional },
+		{ KK_D3, Engine::SurfaceShader::Directional },
+		{ KK_D4, Engine::SurfaceShader::BlinnPhong },
+		{ KK_D5, Engine::SurfaceShader::Hemisphere },
+		{ KK_D6, Engine::SurfaceShader::Toon },
+		{ KK_D7, Engine::SurfaceShader::Bump },
+		{ KK_D8, Engine::SurfaceShader::CookTorrance },
+		{ KK_D9, Engine::SurfaceShader::Grayscale },
+		{ KK_F1, Engine::SurfaceShader::Point },
+		{ KK_F2, Engine::SurfaceShader::Rim },
+		{ KK_F3, Engine::SurfaceShader::Spot },
+		{ KK_F4, Engine::SurfaceShader::ToonRamp },
+		{ KK_F5, Engine::SurfaceShader::Disney }
+	};
+	for (const auto& choice : choices)
+		if (Keyboard_IsKeyDownTrigger(choice.key)) SetShaderMode(choice.shader);
+}
+
+const wchar_t* ClassroomField::GetShaderName() const
+{
+	if (const auto* definition = m_Surface.Definition()) return definition->DisplayName;
+	switch (m_Surface.Shader)
+	{
+	case Engine::SurfaceShader::Unlit: return L"Unlit";
+	case Engine::SurfaceShader::VertexDirectional: return L"Vertex Light";
+	case Engine::SurfaceShader::Directional: return L"Pixel Light";
+	case Engine::SurfaceShader::BlinnPhong: return L"Blinn-Phong";
+	case Engine::SurfaceShader::Hemisphere: return L"Hemisphere";
+	case Engine::SurfaceShader::Toon: return L"Toon";
+	case Engine::SurfaceShader::Bump: return L"Bump";
+	case Engine::SurfaceShader::CookTorrance: return L"Cook-Torrance";
+	case Engine::SurfaceShader::Grayscale: return L"Grayscale";
+	case Engine::SurfaceShader::Point: return L"Point";
+	case Engine::SurfaceShader::Rim: return L"Rim";
+	case Engine::SurfaceShader::Spot: return L"Spot";
+	case Engine::SurfaceShader::ToonRamp: return L"Toon Ramp";
+	case Engine::SurfaceShader::Disney: return L"Disney PBR";
+	default: return L"Other";
+	}
+}
+
+bool ClassroomField::SetShaderMode(Engine::SurfaceShader shader)
+{
+	if (shader == Engine::SurfaceShader::Water) return false;
+	const bool loaded = m_Surface.Load(shader, m_Texture);
+	m_Surface.DetailTexture = shader == Engine::SurfaceShader::Bump
+		? ResourceManager::LoadTexture(L"assets/texture/Normal.png")
+		: shader == Engine::SurfaceShader::ToonRamp
+		? ResourceManager::LoadTexture(L"assets/texture/Toon2.png") : TextureHandle{};
+	if (shader == Engine::SurfaceShader::Toon) m_Surface.Parameter.x = 3.0f;
+	if (shader == Engine::SurfaceShader::Bump) m_Surface.Parameter.x = 2.5f;
+	if (shader == Engine::SurfaceShader::CookTorrance) m_Surface.Parameter.x = 0.45f;
+	if (shader == Engine::SurfaceShader::ToonRamp)
+		m_Surface.Parameter = { 4.0f, 0.02f, 0.65f, 0.0f };
+	if (shader == Engine::SurfaceShader::Disney)
+		m_Surface.Parameter = { 0.45f, 0.1f, 3.0f, 0.0f };
+	if (auto* donut = GetWorld().FindFirst<ClassroomShaderDonut>()) donut->SetShaderMode(shader);
+	return loaded;
+}
+
+bool ClassroomField::SetShaderDefinition(std::string_view id)
+{
+	if (!m_Surface.Load(id, m_Texture)) return false;
+	m_Surface.DetailTexture.reset();
+	if (auto* donut = GetWorld().FindFirst<ClassroomShaderDonut>())
+		return donut->SetShaderDefinition(id);
+	return true;
+}
+
+void ClassroomShaderDonut::Init()
+{
+	constexpr float x = 4.0f, z = 7.0f;
+	SetPosition({ x, ClassroomLake::WaterLevel + 1.3f, z });
+	SetRotation({ -XM_PIDIV4, 0.0f, 0.0f });
+	SetScale({ 0.015f, 0.015f, 0.015f });
+	m_Model = AddComponent<ModelRenderer>();
+	m_Model->Load("assets/model/shaderDonut.obj");
+	m_Model->SetUseOwnerTransform(true);
+	SetShaderMode(Engine::SurfaceShader::Toon);
+}
+
+void ClassroomShaderDonut::SetShaderMode(Engine::SurfaceShader shader)
+{
+	m_DefinitionId.clear();
+	m_Shader = shader;
+	if (!m_Model) return;
+	m_Model->SetShaderMode(m_Outline ? Engine::SurfaceShader::ToonOutline : shader,
+		shader == Engine::SurfaceShader::ToonRamp || m_Outline
+			? XMFLOAT4{ 4.0f, 0.02f, 0.65f, 0.0f }
+			: XMFLOAT4{ 0.45f, 0.0f, 1.0f, 0.0f });
+	if (shader == Engine::SurfaceShader::Bump)
+		m_Model->SetShaderDetailTexture("assets/texture/Normal.png");
+	else if (shader == Engine::SurfaceShader::ToonRamp || m_Outline)
+		m_Model->SetShaderDetailTexture("assets/texture/Toon2.png");
+	else
+		m_Model->SetShaderDetailTexture({});
+}
+
+bool ClassroomShaderDonut::SetShaderDefinition(std::string_view id)
+{
+	if (!m_Model || !m_Model->SetShaderDefinition(id)) return false;
+	m_DefinitionId = id;
+	m_Outline = false;
+	m_Model->SetShaderDetailTexture({});
+	return true;
+}
+
+void ClassroomShaderDonut::ToggleOutline()
+{
+	m_Outline = !m_Outline;
+	if (m_Outline)
+	{
+		m_Model->SetShaderMode(Engine::SurfaceShader::ToonOutline,
+			{ 4.0f, 0.02f, 0.65f, 0.0f });
+		m_Model->SetShaderDetailTexture("assets/texture/Toon2.png");
+	}
+	else if (!m_DefinitionId.empty())
+	{
+		const std::string id = m_DefinitionId;
+		SetShaderDefinition(id);
+	}
+	else
+		SetShaderMode(m_Shader);
 }
 
 void ClassroomTree::Init()
@@ -509,7 +681,14 @@ void ClassroomFps::Draw()
 	const float seconds = std::chrono::duration<float>(now - m_LastSample).count();
 	if (seconds >= 0.5f)
 	{
-		SetText(L"FPS: " + std::to_wstring(static_cast<int>(m_Frames / seconds + 0.5f)));
+	std::wstring label = L"FPS: " + std::to_wstring(static_cast<int>(m_Frames / seconds + 0.5f));
+	if (const auto* field = GetWorld().FindFirst<ClassroomField>())
+		label += L"   Ground: " + std::wstring(field->GetShaderName());
+	if (Renderer::GetPostEffect() != PostEffectMode::None)
+		label += L"   Post: " + std::to_wstring(static_cast<int>(Renderer::GetPostEffect()));
+	else if (!Renderer::GetPostEffectDefinitionId().empty())
+		label += L"   Post: Invert";
+	SetText(label);
 		m_Frames = 0;
 		m_LastSample = now;
 	}
@@ -523,6 +702,7 @@ void ClassroomWalkScene::Init()
 	world.Spawn<Sky>()->SetRadius(90.0f);
 	world.Spawn<ClassroomField>();
 	world.Spawn<ClassroomWater>();
+	world.Spawn<ClassroomShaderDonut>();
 	world.Spawn<ClassroomPlayer>();
 	world.Spawn<ClassroomFps>();
 	// 固定シード相当の配置にして、授業中も毎回同じ森を再現できるようにする。

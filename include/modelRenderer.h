@@ -3,6 +3,7 @@
 #include "component.h"
 #include "renderer.h"
 #include "resourceManager.h"
+#include "surfaceMaterial.h"
 #include <string>
 #include <unordered_map>
 
@@ -65,6 +66,8 @@ private:
 	ModelHandle m_Model;
 	bool m_UseOwnerTransform = false;
 	Vector3 m_RotationOffset{ 0.0f, 0.0f, 0.0f };
+	Engine::SurfaceMaterial m_Surface;
+	bool m_UseSurfaceShader = false;
 
 public:
 
@@ -77,6 +80,12 @@ public:
 	void Load( const char *FileName );
 	ModelRenderer* SetUseOwnerTransform(bool enabled = true);
 	ModelRenderer* SetRotationOffset(const Vector3& offset);
+	ModelRenderer* SetShaderMode(Engine::SurfaceShader shader,
+		XMFLOAT4 parameter = { 0.45f, 0.0f, 1.0f, 0.0f });
+	bool SetShaderDefinition(std::string_view id);
+	bool SetShaderFloat(std::string_view name, float value);
+	bool SetShaderTexture(std::string_view name, const std::filesystem::path& path);
+	ModelRenderer* SetShaderDetailTexture(const std::filesystem::path& path);
 	void Draw() override;
 
 };

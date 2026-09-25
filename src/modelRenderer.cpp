@@ -49,9 +49,16 @@ void ModelRenderer::Draw()
 	{
 		return;
 	}
-	Renderer::GetDeviceContext()->IASetInputLayout(m_DefaultVertexLayout.Get());
-	Renderer::GetDeviceContext()->VSSetShader(m_DefaultVertexShader.Get(), nullptr, 0);
-	Renderer::GetDeviceContext()->PSSetShader(m_DefaultPixelShader.Get(), nullptr, 0);
+	if (m_UseSurfaceShader)
+	{
+		if (!m_Surface.Ready()) return;
+	}
+	else
+	{
+		Renderer::GetDeviceContext()->IASetInputLayout(m_DefaultVertexLayout.Get());
+		Renderer::GetDeviceContext()->VSSetShader(m_DefaultVertexShader.Get(), nullptr, 0);
+		Renderer::GetDeviceContext()->PSSetShader(m_DefaultPixelShader.Get(), nullptr, 0);
+	}
 
 	if (m_UseOwnerTransform && m_GameObject != nullptr)
 	{
@@ -70,17 +77,27 @@ void ModelRenderer::Draw()
 	Renderer::GetDeviceContext()->IASetVertexBuffers(0, 1, m_Model->VertexBuffer.GetAddressOf(), &stride, &offset);
 	Renderer::GetDeviceContext()->IASetIndexBuffer(m_Model->IndexBuffer.Get(), DXGI_FORMAT_R32_UINT, 0);
 	Renderer::GetDeviceContext()->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-
-	for (unsigned int i = 0; i < m_Model->SubsetNum; i++)
+	const std::size_t passCount = m_UseSurfaceShader ? m_Surface.PassCount() : 1;
+	for (std::size_t pass = 0; pass < passCount; ++pass)
 	{
-		Renderer::SetMaterial(m_Model->SubsetArray[i].Material.Material);
+		if (m_UseSurfaceShader && !m_Surface.BindPass(pass)) return;
+		for (unsigned int i = 0; i < m_Model->SubsetNum; ++i)
+		{
+			MATERIAL subsetMaterial = m_Model->SubsetArray[i].Material.Material;
+			const TextureHandle activeTexture = m_UseSurfaceShader && m_Surface.Texture
+				? m_Surface.Texture : m_Model->SubsetArray[i].Material.Texture;
+			subsetMaterial.TextureEnable = activeTexture != nullptr;
+			if (m_UseSurfaceShader)
+				subsetMaterial.Dummy[0] = m_Surface.DetailTexture ? 1.0f : 0.0f;
+			Renderer::SetMaterial(subsetMaterial);
 
-		ID3D11ShaderResourceView* texture = m_Model->SubsetArray[i].Material.Texture != nullptr
-			? m_Model->SubsetArray[i].Material.Texture->Get()
-			: nullptr;
-		Renderer::GetDeviceContext()->PSSetShaderResources(0, 1, &texture);
+			ID3D11ShaderResourceView* texture = activeTexture != nullptr
+				? activeTexture->Get()
+				: nullptr;
+			Renderer::GetDeviceContext()->PSSetShaderResources(0, 1, &texture);
 
-		Renderer::GetDeviceContext()->DrawIndexed(m_Model->SubsetArray[i].IndexNum, m_Model->SubsetArray[i].StartIndex, 0);
+			Renderer::GetDeviceContext()->DrawIndexed(m_Model->SubsetArray[i].IndexNum, m_Model->SubsetArray[i].StartIndex, 0);
+		}
 	}
 }
 
@@ -133,6 +150,38 @@ ModelRenderer* ModelRenderer::SetUseOwnerTransform(bool enabled)
 ModelRenderer* ModelRenderer::SetRotationOffset(const Vector3& offset)
 {
 	m_RotationOffset = offset;
+	return this;
+}
+
+ModelRenderer* ModelRenderer::SetShaderMode(Engine::SurfaceShader shader, XMFLOAT4 parameter)
+{
+	m_UseSurfaceShader = true;
+	m_Surface.Shader = shader;
+	(void)m_Surface.Load(shader);
+	m_Surface.Parameter = parameter;
+	return this;
+}
+
+bool ModelRenderer::SetShaderDefinition(std::string_view id)
+{
+	if (!m_Surface.Load(id)) return false;
+	m_UseSurfaceShader = true;
+	return true;
+}
+
+bool ModelRenderer::SetShaderFloat(std::string_view name, float value)
+{
+	return m_Surface.SetFloat(name, value);
+}
+
+bool ModelRenderer::SetShaderTexture(std::string_view name, const std::filesystem::path& path)
+{
+	return m_Surface.SetTexture(name, ResourceManager::LoadTexture(path));
+}
+
+ModelRenderer* ModelRenderer::SetShaderDetailTexture(const std::filesystem::path& path)
+{
+	m_Surface.DetailTexture = ResourceManager::LoadTexture(path);
 	return this;
 }
 

@@ -61,6 +61,7 @@
     <TargetName>WireAction</TargetName>
   </PropertyGroup>
   <Import Project="Common.props" />
+  <Import Project="SurfaceShaders.props" />
   <ItemDefinitionGroup>
     <ClCompile>
       <AdditionalIncludeDirectories>$(ProjectDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
@@ -172,6 +173,9 @@
     </RuntimeAsset>
     <RuntimeAsset Include="assets\config\wire-gameplay.cfg">
       <TargetPath>assets\config\wire-gameplay.cfg</TargetPath>
+    </RuntimeAsset>
+    <RuntimeAsset Include="assets\audio\wan.wav">
+      <TargetPath>assets\audio\wan.wav</TargetPath>
     </RuntimeAsset>
     <RuntimeAsset Include="assets\model\box.obj">
       <TargetPath>assets\model\box.obj</TargetPath>

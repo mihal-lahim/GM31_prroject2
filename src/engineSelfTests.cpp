@@ -6,11 +6,15 @@
 #include "renderQueue.h"
 #include "resourceManager.h"
 #include "runtimeConfig.h"
+#include "shaderCatalog.h"
 #include "world.h"
 
 #include <cmath>
 #include <filesystem>
 #include <fstream>
+#include <array>
+#include <string>
+#include <unordered_set>
 
 namespace
 {
@@ -406,6 +410,33 @@ namespace
 		Engine::RuntimeConfig::Reset();
 		return valuesAreValid;
 	}
+
+	bool TestShaderCatalog()
+	{
+		std::array<wchar_t, MAX_PATH> executablePath{};
+		const DWORD length = GetModuleFileNameW(nullptr, executablePath.data(),
+			static_cast<DWORD>(executablePath.size()));
+		if (length == 0 || length >= executablePath.size()) return false;
+		const std::filesystem::path directory =
+			std::filesystem::path(executablePath.data()).parent_path();
+		std::unordered_set<std::string_view> ids;
+		for (const Engine::ShaderDefinition& definition : Engine::ShaderCatalog)
+		{
+			if (definition.Id.empty() || !ids.insert(definition.Id).second
+				|| !definition.DisplayName || definition.Passes.empty()
+				|| (definition.Usage == Engine::ShaderUsage::Post
+					&& definition.Passes.size() != 1)) return false;
+			for (const Engine::ShaderPass& pass : definition.Passes)
+			{
+				if (pass.VertexFile.empty() || pass.PixelFile.empty()
+					|| !std::filesystem::is_regular_file(
+						directory / std::string(pass.VertexFile))
+					|| !std::filesystem::is_regular_file(
+						directory / std::string(pass.PixelFile))) return false;
+			}
+		}
+		return !ids.empty();
+	}
 }
 
 bool RunEngineSelfTests()
@@ -417,6 +448,7 @@ bool RunEngineSelfTests()
 		&& TestRenderOrdering()
 		&& TestGameTime()
 		&& TestRuntimeConfigValidationAndReload()
+		&& TestShaderCatalog()
 		&& TestWaveResourceCache()
 		&& TestModelResourceCache();
 	OutputDebugStringA(passed ? "Engine self-tests passed.\n" : "Engine self-tests failed.\n");

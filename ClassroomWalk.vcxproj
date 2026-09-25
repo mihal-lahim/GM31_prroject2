@@ -60,6 +60,7 @@
     <IntDir>$(ProjectDir)obj\$(ProjectName)\$(Platform)\$(Configuration)\</IntDir>
   </PropertyGroup>
   <Import Project="Common.props" />
+  <Import Project="SurfaceShaders.props" />
   <ItemDefinitionGroup>
     <ClCompile>
       <AdditionalIncludeDirectories>$(ProjectDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
@@ -104,6 +105,11 @@
       <ShaderModel>5.0</ShaderModel>
       <ObjectFileOutput>$(OutDir)%(Filename).cso</ObjectFileOutput>
     </FxCompile>
+    <FxCompile Include="shaders\classroomLitPS.hlsl">
+      <ShaderType>Pixel</ShaderType>
+      <ShaderModel>5.0</ShaderModel>
+      <ObjectFileOutput>$(OutDir)%(Filename).cso</ObjectFileOutput>
+    </FxCompile>
   </ItemGroup>
   <ItemGroup>
     <RuntimeAsset Include="THIRD_PARTY.md">
@@ -118,6 +124,9 @@
     <RuntimeAsset Include="assets\config\classroom.cfg">
       <TargetPath>assets\config\classroom.cfg</TargetPath>
     </RuntimeAsset>
+    <RuntimeAsset Include="assets\audio\wan.wav">
+      <TargetPath>assets\audio\wan.wav</TargetPath>
+    </RuntimeAsset>
     <RuntimeAsset Include="assets\model\Akai.fbx">
       <TargetPath>assets\model\Akai.fbx</TargetPath>
     </RuntimeAsset>
@@ -129,6 +138,24 @@
     </RuntimeAsset>
     <RuntimeAsset Include="assets\model\grass.jpg">
       <TargetPath>assets\model\grass.jpg</TargetPath>
+    </RuntimeAsset>
+    <RuntimeAsset Include="assets\model\box.obj">
+      <TargetPath>assets\model\box.obj</TargetPath>
+    </RuntimeAsset>
+    <RuntimeAsset Include="assets\model\shaderDonut.obj">
+      <TargetPath>assets\model\shaderDonut.obj</TargetPath>
+    </RuntimeAsset>
+    <RuntimeAsset Include="assets\model\shaderDonut.mtl">
+      <TargetPath>assets\model\shaderDonut.mtl</TargetPath>
+    </RuntimeAsset>
+    <RuntimeAsset Include="assets\model\shaderDonut.jpg">
+      <TargetPath>assets\model\shaderDonut.jpg</TargetPath>
+    </RuntimeAsset>
+    <RuntimeAsset Include="assets\model\box.mtl">
+      <TargetPath>assets\model\box.mtl</TargetPath>
+    </RuntimeAsset>
+    <RuntimeAsset Include="assets\model\gravel.jpg">
+      <TargetPath>assets\model\gravel.jpg</TargetPath>
     </RuntimeAsset>
     <RuntimeAsset Include="assets\model\sky.obj">
       <TargetPath>assets\model\sky.obj</TargetPath>
@@ -150,6 +177,12 @@
     </RuntimeAsset>
     <RuntimeAsset Include="assets\texture\water.jpg">
       <TargetPath>assets\texture\water.jpg</TargetPath>
+    </RuntimeAsset>
+    <RuntimeAsset Include="assets\texture\Normal.png">
+      <TargetPath>assets\texture\Normal.png</TargetPath>
+    </RuntimeAsset>
+    <RuntimeAsset Include="assets\texture\Toon2.png">
+      <TargetPath>assets\texture\Toon2.png</TargetPath>
     </RuntimeAsset>
     <RuntimeAsset Include="assets\texture\particle.png">
       <TargetPath>assets\texture\particle.png</TargetPath>

@@ -1,6 +1,8 @@
 #pragma once
 
 #include "engineCommon.h"
+#include <string>
+#include <string_view>
 namespace Engine
 {
 // Engine内で共有する標準頂点形式です。OBJ、2D、パーティクルで同じ入力レイアウトを使います。
@@ -34,6 +36,12 @@ struct LIGHT
 	XMFLOAT4	Direction;
 	XMFLOAT4	Diffuse;
 	XMFLOAT4	Ambient;
+	XMFLOAT4	Position;
+	XMFLOAT4	PointLightparam;
+	XMFLOAT4	SkyColor;
+	XMFLOAT4	GroundColor;
+	XMFLOAT4	GroundNormal;
+	XMFLOAT4	Angle;
 };
 
 enum class RenderBlendMode
@@ -41,6 +49,11 @@ enum class RenderBlendMode
 	Alpha,
 	Additive,
 	AlphaToCoverage
+};
+
+enum class PostEffectMode {
+	None, Grayscale, Mosaic, MosaicAverage, CircleMosaic, Horror,
+	MipPreview, Shape, RGBShift, Posterize
 };
 
 // 深度の扱いです。
@@ -75,6 +88,15 @@ private:
 	static ComPtr<ID3D11Buffer>			m_ProjectionBuffer;
 	static ComPtr<ID3D11Buffer>			m_MaterialBuffer;
 	static ComPtr<ID3D11Buffer>			m_LightBuffer;
+	static ComPtr<ID3D11Buffer>			m_CameraBuffer;
+	static ComPtr<ID3D11Buffer>			m_ParameterBuffer;
+	static ComPtr<ID3D11Texture2D>		m_SceneTexture;
+	static ComPtr<ID3D11RenderTargetView> m_SceneRenderTarget;
+	static ComPtr<ID3D11ShaderResourceView> m_SceneResource;
+	static ComPtr<ID3D11Buffer>			m_PostVertexBuffer;
+	static PostEffectMode m_PostEffectMode;
+	static std::string m_PostDefinitionId;
+	static XMFLOAT4 m_PostDefinitionParameters;
 
 
 	static ComPtr<ID3D11DepthStencilState> m_DepthStateEnable;
@@ -84,6 +106,8 @@ private:
 	static ComPtr<ID3D11BlendState>		m_BlendState;
 	static ComPtr<ID3D11BlendState>		m_BlendStateAdd;
 	static ComPtr<ID3D11BlendState>		m_BlendStateATC;
+	static ComPtr<ID3D11RasterizerState> m_RasterStateBack;
+	static ComPtr<ID3D11RasterizerState> m_RasterStateFront;
 	static RenderDepthMode m_DepthMode;
 	static RenderBlendMode m_BlendMode;
 
@@ -111,8 +135,16 @@ public:
 	static void SetProjectionMatrix(XMMATRIX ProjectionMatrix);
 	static void SetMaterial(MATERIAL Material);
 	static void SetLight(LIGHT Light);
+	static void SetCameraPosition(XMFLOAT3 CameraPosition);
+	static void SetParameter(XMFLOAT4 Parameter);
+	static void SetPostEffect(PostEffectMode mode) { m_PostEffectMode = mode; m_PostDefinitionId.clear(); }
+	static PostEffectMode GetPostEffect() { return m_PostEffectMode; }
+	static bool SetPostEffectDefinition(std::string_view id);
+	static bool SetPostEffectFloat(std::string_view name, float value);
+	static std::string_view GetPostEffectDefinitionId() { return m_PostDefinitionId; }
 	static void SetAddBlendEnable(bool Enable);
 	static void SetBlendMode(RenderBlendMode mode);
+	static void SetCullFront(bool enabled);
 	static RenderBlendMode GetBlendMode() { return m_BlendMode; }
 
 	static ID3D11Device* GetDevice( void ){ return m_Device.Get(); }
@@ -153,6 +185,7 @@ using VERTEX_3D = Engine::VERTEX_3D;
 using MATERIAL = Engine::MATERIAL;
 using LIGHT = Engine::LIGHT;
 using RenderBlendMode = Engine::RenderBlendMode;
+using PostEffectMode = Engine::PostEffectMode;
 using RenderDepthMode = Engine::RenderDepthMode;
 using Renderer = Engine::Renderer;
 using RendererStateScope = Engine::RendererStateScope;

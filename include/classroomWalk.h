@@ -6,10 +6,12 @@
 #include "cameraView.h"
 #include "dynamicText.h"
 #include "wave.h"
+#include "surfaceMaterial.h"
 
 #include <chrono>
 
 class AnimationModel;
+class ModelRenderer;
 
 class ClassroomPlayer final : public GameObject
 {
@@ -18,8 +20,11 @@ public:
 	void Update() override;
 	bool GetFootClearance(float (&clearance)[2]) const;
 	bool GetFootEndClearance(float (&clearance)[2][2]) const;
+	bool SetShaderDefinition(std::string_view id);
+	void UseDefaultShader();
 private:
 	AnimationModel* m_Model = nullptr;
+	bool m_ShaderPreview = false;
 	void AlignFeetToField();
 };
 
@@ -46,7 +51,11 @@ class ClassroomField final : public GameObject
 public:
 	static float GetHeight(float x, float z);
 	static Vector3 GetNormal(float x, float z);
+	bool SetShaderMode(Engine::SurfaceShader shader);
+	bool SetShaderDefinition(std::string_view id);
+	const wchar_t* GetShaderName() const;
 	void Init() override;
+	void Update() override;
 	void Draw() override;
 private:
 	ComPtr<ID3D11Buffer> m_VertexBuffer;
@@ -56,6 +65,22 @@ private:
 	ComPtr<ID3D11VertexShader> m_VertexShader;
 	ComPtr<ID3D11PixelShader> m_PixelShader;
 	TextureHandle m_Texture;
+	Engine::SurfaceMaterial m_Surface;
+};
+
+// SP31 のシェーダーギャラリーで使うドーナツを、共通マテリアルの実例として置く。
+class ClassroomShaderDonut final : public GameObject
+{
+public:
+	void Init() override;
+	void SetShaderMode(Engine::SurfaceShader shader);
+	bool SetShaderDefinition(std::string_view id);
+	void ToggleOutline();
+private:
+	ModelRenderer* m_Model = nullptr;
+	Engine::SurfaceShader m_Shader = Engine::SurfaceShader::Toon;
+	bool m_Outline = false;
+	std::string m_DefinitionId;
 };
 
 class ClassroomTree final : public GameObject

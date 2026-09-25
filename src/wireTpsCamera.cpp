@@ -345,6 +345,7 @@ void WireTpsCamera::Draw()
 		XMLoadFloat3(&up));
 
 	Renderer::SetViewMatrix(m_ViewMatrix);
+	Renderer::SetCameraPosition(XMFLOAT3(m_Position.x, m_Position.y, m_Position.z));
 }
 
 Vector3 WireTpsCamera::GetForward()

@@ -5,6 +5,7 @@
 #include "classroomWalk.h"
 #include "keyboard_utf8.h"
 #include "manager.h"
+#include "modelRenderer.h"
 #include "renderQueue.h"
 #include "renderer.h"
 #include "world.h"
@@ -123,6 +124,7 @@ bool RunClassroomRenderTest()
 		for (float gap : foot)
 			slopeEndsPlanted &= std::abs(gap) < 0.035f;
 	contactWorld.Spawn<ClassroomField>();
+	ClassroomField* comparisonField = contactWorld.FindFirst<ClassroomField>();
 	ClassroomCamera* slopeCamera = contactWorld.Spawn<ClassroomCamera>();
 	slopeCamera->LateUpdate();
 	Renderer::Begin();
@@ -131,6 +133,166 @@ bool RunClassroomRenderTest()
 	slopeQueue.Execute();
 	Renderer::End();
 	const bool idleSlopeCaptured = capture(L"classroom-idle-slope.png");
+	// 同じ地形とカメラを描き直し、描画対象のシェーダー切替が画素に効くことを検証する。
+	auto terrainPixels = [&]()
+	{
+		Renderer::Begin();
+		slopeQueue.Build(contactWorld, slopeCamera);
+		slopeQueue.Execute();
+		Renderer::End();
+		ComPtr<ID3D11RenderTargetView> target;
+		Renderer::GetDeviceContext()->OMGetRenderTargets(1, target.GetAddressOf(), nullptr);
+		if (!target) return std::vector<BYTE>{};
+		ComPtr<ID3D11Resource> resource;
+		target->GetResource(resource.GetAddressOf());
+		DirectX::ScratchImage image;
+		if (FAILED(DirectX::CaptureTexture(Renderer::GetDevice(),
+			Renderer::GetDeviceContext(), resource.Get(), image))) return std::vector<BYTE>{};
+		const DirectX::Image* frame = image.GetImage(0, 0, 0);
+		return std::vector<BYTE>(frame->pixels, frame->pixels + frame->slicePitch);
+	};
+	const std::vector<BYTE> toonPixels = terrainPixels();
+	auto difference = [](const std::vector<BYTE>& left, const std::vector<BYTE>& right)
+	{
+		std::size_t count = 0;
+		if (left.size() == right.size())
+			for (std::size_t i = 0; i < left.size(); ++i) count += left[i] != right[i];
+		return count;
+	};
+	const bool animatedDefinitionLoaded = contactPlayer->SetShaderDefinition("sample-stripes");
+	const std::vector<BYTE> animatedRegisteredPixels = terrainPixels();
+	const bool animatedRegisteredCaptured = capture(L"classroom-animated-stripes.png");
+	const std::size_t animatedChangedBytes = difference(toonPixels, animatedRegisteredPixels);
+	const bool animatedRegisteredVisible = animatedDefinitionLoaded && animatedRegisteredCaptured
+		&& animatedChangedBytes > 1000;
+	contactPlayer->UseDefaultShader();
+	const bool postDefinitionLoaded = Renderer::SetPostEffectDefinition("post-invert");
+	const std::vector<BYTE> postDefinitionPixels = terrainPixels();
+	const bool postDefinitionCaptured = capture(L"classroom-post-invert.png");
+	const bool postParameterChanged = Renderer::SetPostEffectFloat("strength", 0.0f);
+	const std::vector<BYTE> postParameterPixels = terrainPixels();
+	const std::size_t postDefinitionChangedBytes = difference(toonPixels, postDefinitionPixels);
+	const bool postDefinitionVisible = postDefinitionLoaded && postDefinitionCaptured
+		&& postParameterChanged && postDefinitionChangedBytes > 50000
+		&& difference(postDefinitionPixels, postParameterPixels) > 50000;
+	Renderer::SetPostEffect(PostEffectMode::None);
+	int registeredPostCount = 0;
+	int visibleRegisteredPostCount = 0;
+	for (const Engine::ShaderDefinition& definition : Engine::ShaderCatalog)
+	{
+		if (definition.Usage != Engine::ShaderUsage::Post) continue;
+		++registeredPostCount;
+		if (Renderer::SetPostEffectDefinition(definition.Id)
+			&& difference(toonPixels, terrainPixels()) > 50000)
+			++visibleRegisteredPostCount;
+		Renderer::SetPostEffect(PostEffectMode::None);
+	}
+	const bool allRegisteredPostsVisible = registeredPostCount > 0
+		&& visibleRegisteredPostCount == registeredPostCount;
+	const bool registeredLoaded = comparisonField->SetShaderDefinition("sample-stripes");
+	const std::vector<BYTE> registeredPixels = terrainPixels();
+	const bool registeredCaptured = capture(L"classroom-sample-stripes.png");
+	const std::size_t registeredChangedBytes = difference(toonPixels, registeredPixels);
+	const bool registeredVisible = registeredLoaded && registeredCaptured
+		&& registeredChangedBytes > 50000;
+	comparisonField->SetShaderMode(Engine::SurfaceShader::Toon);
+	Renderer::SetPostEffect(PostEffectMode::Grayscale);
+	const std::vector<BYTE> postPixels = terrainPixels();
+	const bool postCaptured = capture(L"classroom-post-grayscale.png");
+	Renderer::SetPostEffect(PostEffectMode::Mosaic);
+	const std::vector<BYTE> mosaicPixels = terrainPixels();
+	const bool mosaicCaptured = capture(L"classroom-post-mosaic.png");
+	Renderer::SetPostEffect(PostEffectMode::MipPreview);
+	const std::vector<BYTE> mipPixels = terrainPixels();
+	const bool mipCaptured = capture(L"classroom-post-mip.png");
+	Renderer::SetPostEffect(PostEffectMode::None);
+	const std::size_t postChangedBytes = difference(toonPixels, postPixels);
+	const bool postVisible = postCaptured && postChangedBytes > 50000;
+	const std::size_t mosaicChangedBytes = difference(toonPixels, mosaicPixels);
+	const bool mosaicVisible = mosaicCaptured && mosaicChangedBytes > 50000;
+	const bool mipVisible = mipCaptured && difference(toonPixels, mipPixels) > 50000;
+	const bool normalMapLoaded = ResourceManager::LoadTexture(L"assets/texture/Normal.png") != nullptr;
+	const bool bumpSelected = comparisonField->SetShaderMode(Engine::SurfaceShader::Bump);
+	const std::vector<BYTE> bumpPixels = terrainPixels();
+	const bool bumpCaptured = capture(L"classroom-bump.png");
+	const bool bumpVisible = normalMapLoaded && bumpSelected && bumpCaptured
+		&& difference(toonPixels, bumpPixels) > 50000;
+	const bool rampLoaded = ResourceManager::LoadTexture(L"assets/texture/Toon2.png") != nullptr;
+	const bool rampSelected = comparisonField->SetShaderMode(Engine::SurfaceShader::ToonRamp);
+	const std::vector<BYTE> rampPixels = terrainPixels();
+	const bool rampCaptured = capture(L"classroom-toon-ramp.png");
+	const bool rampVisible = rampLoaded && rampSelected && rampCaptured
+		&& difference(toonPixels, rampPixels) > 50000;
+	const bool shaderChanged = comparisonField->SetShaderMode(Engine::SurfaceShader::Unlit);
+	const std::vector<BYTE> unlitPixels = terrainPixels();
+	const std::size_t changedBytes = difference(toonPixels, unlitPixels);
+	const bool shaderVisible = shaderChanged && changedBytes > 50000;
+	constexpr std::array<Engine::SurfaceShader, 10> lightingModes{ {
+		Engine::SurfaceShader::VertexDirectional, Engine::SurfaceShader::Directional,
+		Engine::SurfaceShader::BlinnPhong, Engine::SurfaceShader::Hemisphere,
+		Engine::SurfaceShader::Point, Engine::SurfaceShader::Rim,
+		Engine::SurfaceShader::Spot, Engine::SurfaceShader::Toon,
+		Engine::SurfaceShader::CookTorrance, Engine::SurfaceShader::Disney
+	} };
+	int workingLightingModes = 0;
+	for (const Engine::SurfaceShader mode : lightingModes)
+	{
+		if (!comparisonField->SetShaderMode(mode)) continue;
+		const std::vector<BYTE> pixels = terrainPixels();
+		if (difference(unlitPixels, pixels) > 50000) ++workingLightingModes;
+	}
+	const bool lightingModesVisible = workingLightingModes == static_cast<int>(lightingModes.size());
+	comparisonField->SetShaderMode(Engine::SurfaceShader::Toon);
+	GameObject* outlineObject = contactWorld.Spawn<GameObject>();
+	outlineObject->SetPosition({ 3.0f, ClassroomField::GetHeight(3.0f, 23.0f) + 0.42f, 23.0f });
+	outlineObject->SetScale({ 0.015f, 0.015f, 0.015f });
+	ModelRenderer* outlineModel = outlineObject->AddComponent<ModelRenderer>();
+	outlineModel->Load("assets/model/shaderDonut.obj");
+	outlineModel->SetUseOwnerTransform(true);
+	outlineModel->SetShaderMode(Engine::SurfaceShader::ToonRamp,
+		{ 4.0f, 0.02f, 0.65f, 0.0f });
+	outlineModel->SetShaderDetailTexture("assets/texture/Toon2.png");
+	const std::vector<BYTE> noOutlinePixels = terrainPixels();
+	int registeredSurfaceCount = 0;
+	int visibleRegisteredSurfaceCount = 0;
+	for (const Engine::ShaderDefinition& definition : Engine::ShaderCatalog)
+	{
+		if (definition.Usage != Engine::ShaderUsage::Surface) continue;
+		++registeredSurfaceCount;
+		if (outlineModel->SetShaderDefinition(definition.Id)
+			&& difference(noOutlinePixels, terrainPixels()) > 500)
+			++visibleRegisteredSurfaceCount;
+	}
+	const bool allRegisteredSurfacesVisible = registeredSurfaceCount > 0
+		&& visibleRegisteredSurfaceCount == registeredSurfaceCount;
+	const bool namedTextureDefinitionLoaded = outlineModel->SetShaderDefinition("toon-outline");
+	const std::vector<BYTE> noDetailPixels = terrainPixels();
+	const bool namedTextureLoaded = outlineModel->SetShaderTexture(
+		"detail", "assets/texture/Toon2.png");
+	const std::vector<BYTE> detailPixels = terrainPixels();
+	const std::size_t namedTextureChangedBytes = difference(noDetailPixels, detailPixels);
+	const bool namedTextureVisible = namedTextureDefinitionLoaded && namedTextureLoaded
+		&& namedTextureChangedBytes > 500;
+	const bool modelDefinitionLoaded = outlineModel->SetShaderDefinition("sample-stripes");
+	const std::vector<BYTE> modelRegisteredPixels = terrainPixels();
+	const bool modelParameterChanged = outlineModel->SetShaderFloat("stripeCount", 5.0f);
+	const std::vector<BYTE> modelParameterPixels = terrainPixels();
+	const std::size_t modelRegisteredChangedBytes = difference(noOutlinePixels, modelRegisteredPixels);
+	const bool modelRegisteredVisible = modelDefinitionLoaded && modelParameterChanged
+		&& modelRegisteredChangedBytes > 500
+		&& difference(modelRegisteredPixels, modelParameterPixels) > 500;
+	const bool namedAlbedoLoaded = outlineModel->SetShaderTexture(
+		"albedo", "assets/model/gravel.jpg");
+	const std::vector<BYTE> namedAlbedoPixels = terrainPixels();
+	const bool namedAlbedoVisible = namedAlbedoLoaded
+		&& difference(modelParameterPixels, namedAlbedoPixels) > 500;
+	outlineModel->SetShaderMode(Engine::SurfaceShader::ToonOutline,
+		{ 4.0f, 0.02f, 0.65f, 0.0f });
+	outlineModel->SetShaderDetailTexture("assets/texture/Toon2.png");
+	const std::vector<BYTE> outlinePixels = terrainPixels();
+	const bool outlineCaptured = capture(L"classroom-toon-outline.png");
+	const std::size_t outlineChangedBytes = difference(noOutlinePixels, outlinePixels);
+	const bool outlineVisible = outlineCaptured && outlineChangedBytes > 500;
 	struct SlopeSample { float x, z, yaw; };
 	constexpr std::array<SlopeSample, 4> slopeSamples{ {
 		{ 0.0f, 19.0f, 0.0f }, { 0.0f, 3.0f, XM_PI },
@@ -171,6 +333,31 @@ bool RunClassroomRenderTest()
 		<< "\nslope ends measured: " << slopeEndsMeasured
 		<< "\nslope ends planted: " << slopeEndsPlanted
 		<< "\nidle slope captured: " << idleSlopeCaptured
+		<< "\nshader switch changed bytes: " << changedBytes
+		<< "\nregistered shader changed bytes: " << registeredChangedBytes
+		<< "\nanimated shader changed bytes: " << animatedChangedBytes
+		<< "\nanimated shader visible: " << animatedRegisteredVisible
+		<< "\nregistered post changed bytes: " << postDefinitionChangedBytes
+		<< "\nregistered post visible: " << postDefinitionVisible
+		<< "\nregistered posts visible: " << visibleRegisteredPostCount << "/" << registeredPostCount
+		<< "\nregistered shader visible: " << registeredVisible
+		<< "\nregistered model changed bytes: " << modelRegisteredChangedBytes
+		<< "\nregistered model visible: " << modelRegisteredVisible
+		<< "\nnamed albedo visible: " << namedAlbedoVisible
+		<< "\nregistered surfaces visible: " << visibleRegisteredSurfaceCount << "/" << registeredSurfaceCount
+		<< "\nnamed texture changed bytes: " << namedTextureChangedBytes
+		<< "\nnamed texture visible: " << namedTextureVisible
+		<< "\nshader switch visible: " << shaderVisible
+		<< "\nlighting modes visible: " << workingLightingModes << "/" << lightingModes.size()
+		<< "\npost effect changed bytes: " << postChangedBytes
+		<< "\npost effect visible: " << postVisible
+		<< "\nmosaic changed bytes: " << mosaicChangedBytes
+		<< "\nmosaic visible: " << mosaicVisible
+		<< "\nmip preview visible: " << mipVisible
+		<< "\nbump visible: " << bumpVisible
+		<< "\ntoon ramp visible: " << rampVisible
+		<< "\noutline changed bytes: " << outlineChangedBytes
+		<< "\noutline visible: " << outlineVisible
 		<< "\nbank soles planted: " << bankSolesPlanted
 		<< "\nworst bank sole gap: " << worstSlopeEndGap
 		<< "\nfeet planted: " << feetPlanted
@@ -179,5 +366,11 @@ bool RunClassroomRenderTest()
 		&& blendToIdleCaptured && stoppedCaptured && slopeCaptured && slopeStoppedCaptured
 		&& terrainHasSlope && steepHill && lakeFloorBelowWater && lakeBankAboveWater
 		&& feetPlanted && slopeEndsPlanted && bankSolesPlanted
-		&& idleSlopeCaptured && legChainsValid;
+		&& idleSlopeCaptured && shaderVisible && registeredVisible && modelRegisteredVisible
+		&& animatedRegisteredVisible
+		&& postDefinitionVisible && allRegisteredPostsVisible && allRegisteredSurfacesVisible
+		&& namedTextureVisible && namedAlbedoVisible
+		&& lightingModesVisible
+		&& postVisible && mosaicVisible && mipVisible
+		&& bumpVisible && rampVisible && outlineVisible && legChainsValid;
 }

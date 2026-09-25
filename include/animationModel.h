@@ -14,6 +14,7 @@
 
 #include "component.h"
 #include "engineCommon.h"
+#include "surfaceMaterial.h"
 
 
 //変形後頂点構造体
@@ -46,6 +47,8 @@ private:
 	ComPtr<ID3D11InputLayout> m_VertexLayout;
 	ComPtr<ID3D11VertexShader> m_VertexShader;
 	ComPtr<ID3D11PixelShader> m_PixelShader;
+	Engine::SurfaceMaterial m_Surface;
+	bool m_UseSurfaceShader = false;
 
 	std::unordered_map<std::string, ID3D11ShaderResourceView*> m_Texture;
 
@@ -85,6 +88,11 @@ public:
 	void LoadAnimation( const char *FileName, const char *Name );
 	void SetModelScale(float Scale) { m_ModelScale = Scale; }
 	void SetModelYawOffset(float YawOffset) { m_ModelYawOffset = YawOffset; }
+	bool SetShaderDefinition(std::string_view id);
+	bool SetShaderFloat(std::string_view name, float value);
+	bool SetShaderTexture(std::string_view name, const std::filesystem::path& path);
+	bool SetShaderMode(Engine::SurfaceShader shader);
+	void UseDefaultShader() { m_UseSurfaceShader = false; }
 	void SetFootIK(float (*heightAt)(float, float), float strength = 1.0f,
 		Vector3 (*normalAt)(float, float) = nullptr)
 	{

@@ -2,6 +2,7 @@
 #include "main.h"
 #include "renderer.h"
 #include "resourceManager.h"
+#include "shaderCatalog.h"
 #include <array>
 
 namespace Engine
@@ -20,6 +21,15 @@ ComPtr<ID3D11Buffer>			Renderer::m_ViewBuffer{};
 ComPtr<ID3D11Buffer>			Renderer::m_ProjectionBuffer{};
 ComPtr<ID3D11Buffer>			Renderer::m_MaterialBuffer{};
 ComPtr<ID3D11Buffer>			Renderer::m_LightBuffer{};
+ComPtr<ID3D11Buffer>			Renderer::m_CameraBuffer{};
+ComPtr<ID3D11Buffer>			Renderer::m_ParameterBuffer{};
+ComPtr<ID3D11Texture2D>		Renderer::m_SceneTexture{};
+ComPtr<ID3D11RenderTargetView> Renderer::m_SceneRenderTarget{};
+ComPtr<ID3D11ShaderResourceView> Renderer::m_SceneResource{};
+ComPtr<ID3D11Buffer>			Renderer::m_PostVertexBuffer{};
+PostEffectMode Renderer::m_PostEffectMode = PostEffectMode::None;
+std::string Renderer::m_PostDefinitionId{};
+XMFLOAT4 Renderer::m_PostDefinitionParameters{};
 
 
 ComPtr<ID3D11DepthStencilState> Renderer::m_DepthStateEnable{};
@@ -30,6 +40,8 @@ ComPtr<ID3D11DepthStencilState> Renderer::m_DepthStateDisable{};
 ComPtr<ID3D11BlendState>		Renderer::m_BlendState{};
 ComPtr<ID3D11BlendState>		Renderer::m_BlendStateATC{};
 ComPtr<ID3D11BlendState>		Renderer::m_BlendStateAdd{}; 
+ComPtr<ID3D11RasterizerState> Renderer::m_RasterStateBack{};
+ComPtr<ID3D11RasterizerState> Renderer::m_RasterStateFront{};
 RenderDepthMode Renderer::m_DepthMode = RenderDepthMode::Enabled;
 RenderBlendMode Renderer::m_BlendMode = RenderBlendMode::Alpha;
 
@@ -171,15 +183,21 @@ bool Renderer::Init()
 	rasterizerDesc.DepthClipEnable = TRUE; 
 	rasterizerDesc.MultisampleEnable = FALSE; 
 
-	ComPtr<ID3D11RasterizerState> rs;
-	hr = m_Device->CreateRasterizerState(&rasterizerDesc, rs.ReleaseAndGetAddressOf());
+	hr = m_Device->CreateRasterizerState(&rasterizerDesc, m_RasterStateBack.ReleaseAndGetAddressOf());
 	if (!CheckInitializationResult(hr, "ID3D11Device::CreateRasterizerState"))
 	{
 		Uninit();
 		return false;
 	}
 
-	m_DeviceContext->RSSetState( rs.Get() );
+	rasterizerDesc.CullMode = D3D11_CULL_FRONT;
+	hr = m_Device->CreateRasterizerState(&rasterizerDesc, m_RasterStateFront.ReleaseAndGetAddressOf());
+	if (!CheckInitializationResult(hr, "ID3D11Device::CreateRasterizerState(front)"))
+	{
+		Uninit();
+		return false;
+	}
+	m_DeviceContext->RSSetState(m_RasterStateBack.Get());
 
 
 
@@ -284,6 +302,21 @@ bool Renderer::Init()
 
 	ID3D11SamplerState* sampler = samplerState.Get();
 	m_DeviceContext->PSSetSamplers( 0, 1, &sampler );
+	VERTEX_3D postVertices[3]{};
+	postVertices[0].Position = { -1.0f, -1.0f, 0.0f };
+	postVertices[0].TexCoord = { 0.0f, 1.0f };
+	postVertices[1].Position = { -1.0f, 3.0f, 0.0f };
+	postVertices[1].TexCoord = { 0.0f, -1.0f };
+	postVertices[2].Position = { 3.0f, -1.0f, 0.0f };
+	postVertices[2].TexCoord = { 2.0f, 1.0f };
+	D3D11_BUFFER_DESC postDesc{};
+	postDesc.ByteWidth = sizeof(postVertices);
+	postDesc.Usage = D3D11_USAGE_IMMUTABLE;
+	postDesc.BindFlags = D3D11_BIND_VERTEX_BUFFER;
+	D3D11_SUBRESOURCE_DATA postData{};
+	postData.pSysMem = postVertices;
+	hr = m_Device->CreateBuffer(&postDesc, &postData, m_PostVertexBuffer.ReleaseAndGetAddressOf());
+	if (!CheckInitializationResult(hr, "ID3D11Device::CreateBuffer(post vertices)")) { Uninit(); return false; }
 
 
 
@@ -349,6 +382,43 @@ bool Renderer::Init()
 	m_DeviceContext->VSSetConstantBuffers( 4, 1, &lightBuffer );
 	m_DeviceContext->PSSetConstantBuffers( 4, 1, &lightBuffer );
 
+	bufferDesc.ByteWidth = sizeof(XMFLOAT4);
+	hr = m_Device->CreateBuffer(&bufferDesc, nullptr, m_CameraBuffer.ReleaseAndGetAddressOf());
+	if (!CheckInitializationResult(hr, "ID3D11Device::CreateBuffer(camera)"))
+	{
+		Uninit();
+		return false;
+	}
+	D3D11_TEXTURE2D_DESC sceneDesc{};
+	sceneDesc.Width = SCREEN_WIDTH;
+	sceneDesc.Height = SCREEN_HEIGHT;
+	sceneDesc.MipLevels = 0;
+	sceneDesc.ArraySize = 1;
+	sceneDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+	sceneDesc.SampleDesc.Count = 1;
+	sceneDesc.Usage = D3D11_USAGE_DEFAULT;
+	sceneDesc.BindFlags = D3D11_BIND_RENDER_TARGET | D3D11_BIND_SHADER_RESOURCE;
+	sceneDesc.MiscFlags = D3D11_RESOURCE_MISC_GENERATE_MIPS;
+	hr = m_Device->CreateTexture2D(&sceneDesc, nullptr, m_SceneTexture.ReleaseAndGetAddressOf());
+	if (!CheckInitializationResult(hr, "ID3D11Device::CreateTexture2D(scene)")) { Uninit(); return false; }
+	hr = m_Device->CreateRenderTargetView(m_SceneTexture.Get(), nullptr, m_SceneRenderTarget.ReleaseAndGetAddressOf());
+	if (!CheckInitializationResult(hr, "ID3D11Device::CreateRenderTargetView(scene)")) { Uninit(); return false; }
+	hr = m_Device->CreateShaderResourceView(m_SceneTexture.Get(), nullptr, m_SceneResource.ReleaseAndGetAddressOf());
+	if (!CheckInitializationResult(hr, "ID3D11Device::CreateShaderResourceView(scene)")) { Uninit(); return false; }
+	ID3D11Buffer* cameraBuffer = m_CameraBuffer.Get();
+	m_DeviceContext->VSSetConstantBuffers(5, 1, &cameraBuffer);
+	m_DeviceContext->PSSetConstantBuffers(5, 1, &cameraBuffer);
+
+	hr = m_Device->CreateBuffer(&bufferDesc, nullptr, m_ParameterBuffer.ReleaseAndGetAddressOf());
+	if (!CheckInitializationResult(hr, "ID3D11Device::CreateBuffer(parameter)"))
+	{
+		Uninit();
+		return false;
+	}
+	ID3D11Buffer* parameterBuffer = m_ParameterBuffer.Get();
+	m_DeviceContext->VSSetConstantBuffers(6, 1, &parameterBuffer);
+	m_DeviceContext->PSSetConstantBuffers(6, 1, &parameterBuffer);
+
 
 
 
@@ -360,6 +430,8 @@ bool Renderer::Init()
 	light.Ambient = XMFLOAT4(0.1f, 0.1f, 0.1f, 1.0f);
 	light.Diffuse = XMFLOAT4(1.5f, 1.5f, 1.5f, 1.0f);
 	SetLight(light);
+	SetCameraPosition(XMFLOAT3(0.0f, 0.0f, 0.0f));
+	SetParameter(XMFLOAT4(0.0f, 0.0f, 0.0f, 0.0f));
 
 
 
@@ -383,6 +455,14 @@ void Renderer::Uninit()
 	}
 
 	m_LightBuffer.Reset();
+	m_PostVertexBuffer.Reset();
+	m_SceneResource.Reset();
+	m_SceneRenderTarget.Reset();
+	m_SceneTexture.Reset();
+	m_PostEffectMode = PostEffectMode::None;
+	m_PostDefinitionId.clear();
+	m_ParameterBuffer.Reset();
+	m_CameraBuffer.Reset();
 	m_MaterialBuffer.Reset();
 	m_ProjectionBuffer.Reset();
 	m_ViewBuffer.Reset();
@@ -390,6 +470,8 @@ void Renderer::Uninit()
 	m_BlendStateAdd.Reset();
 	m_BlendStateATC.Reset();
 	m_BlendState.Reset();
+	m_RasterStateFront.Reset();
+	m_RasterStateBack.Reset();
 	m_DepthStateDisable.Reset();
 	m_DepthStateTestOnly.Reset();
 	m_DepthStateEnable.Reset();
@@ -408,8 +490,12 @@ void Renderer::Begin()
 {
 	SetDepthEnable(true);
 	SetBlendMode(RenderBlendMode::Alpha);
+	ID3D11RenderTargetView* target = m_PostEffectMode == PostEffectMode::None
+		&& m_PostDefinitionId.empty()
+		? m_RenderTargetView.Get() : m_SceneRenderTarget.Get();
+	m_DeviceContext->OMSetRenderTargets(1, &target, m_DepthStencilView.Get());
 	float clearColor[4] = { 0.42f, 0.62f, 0.82f, 1.0f };
-	m_DeviceContext->ClearRenderTargetView( m_RenderTargetView.Get(), clearColor );
+	m_DeviceContext->ClearRenderTargetView(target, clearColor);
 	m_DeviceContext->ClearDepthStencilView( m_DepthStencilView.Get(), D3D11_CLEAR_DEPTH, 1.0f, 0);
 }
 
@@ -417,7 +503,72 @@ void Renderer::Begin()
 
 void Renderer::End()
 {
+	if (m_PostEffectMode != PostEffectMode::None || !m_PostDefinitionId.empty())
+	{
+		const ShaderDefinition* definition = m_PostDefinitionId.empty()
+			? nullptr : FindShaderDefinition(m_PostDefinitionId);
+		const VertexShaderHandle vs = ResourceManager::LoadVertexShader(definition
+			? std::string(definition->Passes[0].VertexFile) : "spPostVS.cso");
+		const PixelShaderHandle ps = ResourceManager::LoadPixelShader(definition
+			? std::string(definition->Passes[0].PixelFile) : "spPostPS.cso");
+		ID3D11RenderTargetView* backBuffer = m_RenderTargetView.Get();
+		m_DeviceContext->OMSetRenderTargets(1, &backBuffer, nullptr);
+		if (m_PostEffectMode == PostEffectMode::MipPreview
+			|| (definition && definition->GenerateMips))
+			m_DeviceContext->GenerateMips(m_SceneResource.Get());
+		if (vs && ps)
+		{
+			SetDepthMode(RenderDepthMode::Disabled);
+			SetParameter(definition ? m_PostDefinitionParameters
+				: XMFLOAT4(static_cast<float>(static_cast<int>(m_PostEffectMode)), 12.0f, 0.18f, 0.0f));
+			m_DeviceContext->IASetInputLayout(vs->InputLayout.Get());
+			m_DeviceContext->VSSetShader(vs->Shader.Get(), nullptr, 0);
+			m_DeviceContext->PSSetShader(ps->Shader.Get(), nullptr, 0);
+			ID3D11ShaderResourceView* scene = m_SceneResource.Get();
+			m_DeviceContext->PSSetShaderResources(0, 1, &scene);
+			UINT stride = sizeof(VERTEX_3D), offset = 0;
+			m_DeviceContext->IASetVertexBuffers(0, 1, m_PostVertexBuffer.GetAddressOf(), &stride, &offset);
+			m_DeviceContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+			m_DeviceContext->Draw(3, 0);
+			ID3D11ShaderResourceView* empty = nullptr;
+			m_DeviceContext->PSSetShaderResources(0, 1, &empty);
+		}
+		else
+		{
+			ComPtr<ID3D11Resource> backResource;
+			m_RenderTargetView->GetResource(backResource.GetAddressOf());
+			m_DeviceContext->CopyResource(backResource.Get(), m_SceneTexture.Get());
+		}
+	}
 	m_SwapChain->Present( 1, 0 );
+}
+
+bool Renderer::SetPostEffectDefinition(std::string_view id)
+{
+	const ShaderDefinition* definition = FindShaderDefinition(id);
+	if (!definition || definition->Usage != ShaderUsage::Post || definition->Passes.size() != 1)
+		return false;
+	if (!ResourceManager::LoadVertexShader(std::string(definition->Passes[0].VertexFile))
+		|| !ResourceManager::LoadPixelShader(std::string(definition->Passes[0].PixelFile)))
+		return false;
+	m_PostDefinitionId = id;
+	m_PostDefinitionParameters = definition->Defaults;
+	m_PostEffectMode = PostEffectMode::None;
+	return true;
+}
+
+bool Renderer::SetPostEffectFloat(std::string_view name, float value)
+{
+	const ShaderDefinition* definition = FindShaderDefinition(m_PostDefinitionId);
+	if (!definition || definition->Usage != ShaderUsage::Post || name.empty()) return false;
+	float* parameters = &m_PostDefinitionParameters.x;
+	for (std::size_t i = 0; i < definition->ParameterNames.size(); ++i)
+		if (definition->ParameterNames[i] == name)
+		{
+			parameters[i] = value;
+			return true;
+		}
+	return false;
 }
 
 
@@ -493,6 +644,17 @@ void Renderer::SetLight( LIGHT Light )
 	m_DeviceContext->UpdateSubresource(m_LightBuffer.Get(), 0, NULL, &Light, 0, 0);
 }
 
+void Renderer::SetCameraPosition(XMFLOAT3 CameraPosition)
+{
+	const XMFLOAT4 value(CameraPosition.x, CameraPosition.y, CameraPosition.z, 1.0f);
+	m_DeviceContext->UpdateSubresource(m_CameraBuffer.Get(), 0, NULL, &value, 0, 0);
+}
+
+void Renderer::SetParameter(XMFLOAT4 Parameter)
+{
+	m_DeviceContext->UpdateSubresource(m_ParameterBuffer.Get(), 0, NULL, &Parameter, 0, 0);
+}
+
 void Renderer::SetAddBlendEnable(bool Enable)
 {
 	SetBlendMode(Enable ? RenderBlendMode::Additive : RenderBlendMode::Alpha);
@@ -516,9 +678,14 @@ void Renderer::SetBlendMode(RenderBlendMode mode)
 	}
 }
 
+void Renderer::SetCullFront(bool enabled)
+{
+	m_DeviceContext->RSSetState(enabled ? m_RasterStateFront.Get() : m_RasterStateBack.Get());
+}
+
 struct RendererStateScope::Snapshot
 {
-	static constexpr UINT ConstantBufferCount = 5;
+	static constexpr UINT ConstantBufferCount = 7;
 
 	ComPtr<ID3D11InputLayout> InputLayout;
 	D3D11_PRIMITIVE_TOPOLOGY Topology = D3D11_PRIMITIVE_TOPOLOGY_UNDEFINED;
@@ -545,7 +712,7 @@ struct RendererStateScope::Snapshot
 	ComPtr<ID3D11RenderTargetView> RenderTarget;
 	ComPtr<ID3D11DepthStencilView> DepthStencilView;
 	ComPtr<ID3D11SamplerState> PixelSampler;
-	ComPtr<ID3D11ShaderResourceView> PixelResource;
+	std::array<ComPtr<ID3D11ShaderResourceView>, 2> PixelResources;
 };
 
 RendererStateScope::RendererStateScope()
@@ -609,9 +776,10 @@ RendererStateScope::RendererStateScope()
 	ID3D11SamplerState* pixelSampler = nullptr;
 	context->PSGetSamplers(0, 1, &pixelSampler);
 	m_Snapshot->PixelSampler.Attach(pixelSampler);
-	ID3D11ShaderResourceView* pixelResource = nullptr;
-	context->PSGetShaderResources(0, 1, &pixelResource);
-	m_Snapshot->PixelResource.Attach(pixelResource);
+	ID3D11ShaderResourceView* pixelResources[2]{};
+	context->PSGetShaderResources(0, 2, pixelResources);
+	for (UINT index = 0; index < 2; ++index)
+		m_Snapshot->PixelResources[index].Attach(pixelResources[index]);
 }
 
 RendererStateScope::~RendererStateScope()
@@ -655,8 +823,9 @@ void RendererStateScope::Restore() const
 	context->OMSetRenderTargets(1, &renderTarget, m_Snapshot->DepthStencilView.Get());
 	ID3D11SamplerState* pixelSampler = m_Snapshot->PixelSampler.Get();
 	context->PSSetSamplers(0, 1, &pixelSampler);
-	ID3D11ShaderResourceView* pixelResource = m_Snapshot->PixelResource.Get();
-	context->PSSetShaderResources(0, 1, &pixelResource);
+	ID3D11ShaderResourceView* pixelResources[2] = {
+		m_Snapshot->PixelResources[0].Get(), m_Snapshot->PixelResources[1].Get() };
+	context->PSSetShaderResources(0, 2, pixelResources);
 }
 
 
