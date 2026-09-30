@@ -37,7 +37,8 @@ GM31 では `SurfaceShader` enum や `spSurfacePS.hlsl` のモード分岐を増
    `Renderer::SetPostEffectFloat("strength", value)` を使用します。
 5. `ClassroomWalk.exe --render-test` はカタログの全表面／ポスト効果を列挙し、
    読み込みと描画差を自動で確認します。既定値で見た目が変わる設定にしてください。
-   授業シーンにキーを割り当てる場合だけ `ClassroomField::Update` に1行追加します。
+   授業シーン(ClassroomWalk)は写実表現に固定していてキーでは切り替えません。
+   操作して比べたい場合は ShaderGallery を使います。
 
 ```cpp
 auto* model = object->AddComponent<ModelRenderer>();

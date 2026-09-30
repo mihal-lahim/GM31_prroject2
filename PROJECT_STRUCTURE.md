@@ -17,6 +17,11 @@ concepts and the DirectX 11 backend used by both applications:
 - `Cloth`: a mass-spring cloth object (ported from the GY cloth lesson) that is pushed by
   any sphere/capsule/AABB `Collider` in its World. `ClothSimulation` is render-independent
   and covered by the engine self-tests.
+- `ShadowMap`: a directional-light shadow map. `RenderQueue::Execute` draws the Camera
+  layer first (cameras set the light), then calls `RunDrawShadow()` on every non-UI object,
+  then draws normally. Objects opt in by overriding `DrawShadow()` (GameObject or Component)
+  and calling `ShadowMap::BindCaster()`. It uses slots the `RendererStateScope` does not touch
+  (b8, s1, t4), so scenes without casters render exactly as before.
 
 Engine source files must not include Wire Action or Batting Center headers.
 Every `Scene` owns an independently constructible `World`. `World::Spawn`

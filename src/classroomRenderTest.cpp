@@ -321,7 +321,7 @@ bool RunClassroomRenderTest()
 		const DirectX::Image* frame = image.GetImage(0, 0, 0);
 		return std::vector<BYTE>(frame->pixels, frame->pixels + frame->slicePitch);
 	};
-	const std::vector<BYTE> toonPixels = terrainPixels();
+	const std::vector<BYTE> defaultPixels = terrainPixels();
 	auto difference = [](const std::vector<BYTE>& left, const std::vector<BYTE>& right)
 	{
 		std::size_t count = 0;
@@ -332,7 +332,7 @@ bool RunClassroomRenderTest()
 	const bool animatedDefinitionLoaded = contactPlayer->SetShaderDefinition("sample-stripes");
 	const std::vector<BYTE> animatedRegisteredPixels = terrainPixels();
 	const bool animatedRegisteredCaptured = capture(L"classroom-animated-stripes.png");
-	const std::size_t animatedChangedBytes = difference(toonPixels, animatedRegisteredPixels);
+	const std::size_t animatedChangedBytes = difference(defaultPixels, animatedRegisteredPixels);
 	const bool animatedRegisteredVisible = animatedDefinitionLoaded && animatedRegisteredCaptured
 		&& animatedChangedBytes > 1000;
 	contactPlayer->UseDefaultShader();
@@ -341,7 +341,7 @@ bool RunClassroomRenderTest()
 	const bool postDefinitionCaptured = capture(L"classroom-post-invert.png");
 	const bool postParameterChanged = Renderer::SetPostEffectFloat("strength", 0.0f);
 	const std::vector<BYTE> postParameterPixels = terrainPixels();
-	const std::size_t postDefinitionChangedBytes = difference(toonPixels, postDefinitionPixels);
+	const std::size_t postDefinitionChangedBytes = difference(defaultPixels, postDefinitionPixels);
 	const bool postDefinitionVisible = postDefinitionLoaded && postDefinitionCaptured
 		&& postParameterChanged && postDefinitionChangedBytes > 50000
 		&& difference(postDefinitionPixels, postParameterPixels) > 50000;
@@ -353,7 +353,7 @@ bool RunClassroomRenderTest()
 		if (definition.Usage != Engine::ShaderUsage::Post) continue;
 		++registeredPostCount;
 		if (Renderer::SetPostEffectDefinition(definition.Id)
-			&& difference(toonPixels, terrainPixels()) > 50000)
+			&& difference(defaultPixels, terrainPixels()) > 50000)
 			++visibleRegisteredPostCount;
 		Renderer::SetPostEffect(PostEffectMode::None);
 	}
@@ -362,10 +362,10 @@ bool RunClassroomRenderTest()
 	const bool registeredLoaded = comparisonField->SetShaderDefinition("sample-stripes");
 	const std::vector<BYTE> registeredPixels = terrainPixels();
 	const bool registeredCaptured = capture(L"classroom-sample-stripes.png");
-	const std::size_t registeredChangedBytes = difference(toonPixels, registeredPixels);
+	const std::size_t registeredChangedBytes = difference(defaultPixels, registeredPixels);
 	const bool registeredVisible = registeredLoaded && registeredCaptured
 		&& registeredChangedBytes > 50000;
-	comparisonField->SetShaderMode(Engine::SurfaceShader::Toon);
+	comparisonField->UseRealisticShader();
 	Renderer::SetPostEffect(PostEffectMode::Grayscale);
 	const std::vector<BYTE> postPixels = terrainPixels();
 	const bool postCaptured = capture(L"classroom-post-grayscale.png");
@@ -376,26 +376,26 @@ bool RunClassroomRenderTest()
 	const std::vector<BYTE> mipPixels = terrainPixels();
 	const bool mipCaptured = capture(L"classroom-post-mip.png");
 	Renderer::SetPostEffect(PostEffectMode::None);
-	const std::size_t postChangedBytes = difference(toonPixels, postPixels);
+	const std::size_t postChangedBytes = difference(defaultPixels, postPixels);
 	const bool postVisible = postCaptured && postChangedBytes > 50000;
-	const std::size_t mosaicChangedBytes = difference(toonPixels, mosaicPixels);
+	const std::size_t mosaicChangedBytes = difference(defaultPixels, mosaicPixels);
 	const bool mosaicVisible = mosaicCaptured && mosaicChangedBytes > 50000;
-	const bool mipVisible = mipCaptured && difference(toonPixels, mipPixels) > 50000;
+	const bool mipVisible = mipCaptured && difference(defaultPixels, mipPixels) > 50000;
 	const bool normalMapLoaded = ResourceManager::LoadTexture(L"assets/texture/Normal.png") != nullptr;
 	const bool bumpSelected = comparisonField->SetShaderMode(Engine::SurfaceShader::Bump);
 	const std::vector<BYTE> bumpPixels = terrainPixels();
 	const bool bumpCaptured = capture(L"classroom-bump.png");
 	const bool bumpVisible = normalMapLoaded && bumpSelected && bumpCaptured
-		&& difference(toonPixels, bumpPixels) > 50000;
+		&& difference(defaultPixels, bumpPixels) > 50000;
 	const bool rampLoaded = ResourceManager::LoadTexture(L"assets/texture/Toon2.png") != nullptr;
 	const bool rampSelected = comparisonField->SetShaderMode(Engine::SurfaceShader::ToonRamp);
 	const std::vector<BYTE> rampPixels = terrainPixels();
 	const bool rampCaptured = capture(L"classroom-toon-ramp.png");
 	const bool rampVisible = rampLoaded && rampSelected && rampCaptured
-		&& difference(toonPixels, rampPixels) > 50000;
+		&& difference(defaultPixels, rampPixels) > 50000;
 	const bool shaderChanged = comparisonField->SetShaderMode(Engine::SurfaceShader::Unlit);
 	const std::vector<BYTE> unlitPixels = terrainPixels();
-	const std::size_t changedBytes = difference(toonPixels, unlitPixels);
+	const std::size_t changedBytes = difference(defaultPixels, unlitPixels);
 	const bool shaderVisible = shaderChanged && changedBytes > 50000;
 	constexpr std::array<Engine::SurfaceShader, 10> lightingModes{ {
 		Engine::SurfaceShader::VertexDirectional, Engine::SurfaceShader::Directional,
@@ -412,7 +412,7 @@ bool RunClassroomRenderTest()
 		if (difference(unlitPixels, pixels) > 50000) ++workingLightingModes;
 	}
 	const bool lightingModesVisible = workingLightingModes == static_cast<int>(lightingModes.size());
-	comparisonField->SetShaderMode(Engine::SurfaceShader::Toon);
+	comparisonField->UseRealisticShader();
 	GameObject* outlineObject = contactWorld.Spawn<GameObject>();
 	outlineObject->SetPosition({ 3.0f, ClassroomField::GetHeight(3.0f, 23.0f) + 0.42f, 23.0f });
 	outlineObject->SetScale({ 0.015f, 0.015f, 0.015f });
@@ -513,7 +513,7 @@ bool RunClassroomRenderTest()
 	log << "player input/environment states: " << playerStatesPassed << "/13\n";
 	contactPlayer->SetPosition({ 0.0f, ClassroomLake::WaterLevel - 1.1f, ClassroomLake::CenterZ - 3.0f });
 	contactWorld.Spawn<ClassroomWater>();
-	comparisonField->SetShaderMode(Engine::SurfaceShader::Toon);
+	comparisonField->UseRealisticShader();
 	Renderer::SetPostEffect(PostEffectMode::None);
 	auto captureWater = [&](const wchar_t* path)
 	{

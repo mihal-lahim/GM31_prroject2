@@ -30,6 +30,7 @@
     <ClInclude Include="include\audio.h" />
     <ClInclude Include="include\cameraView.h" />
     <ClInclude Include="include\cloth.h" />
+    <ClInclude Include="include\shadowMap.h" />
 	<ClInclude Include="include\collisionWorld.h" />
     <ClInclude Include="include\collider.h" />
     <ClInclude Include="include\component.h" />
@@ -73,6 +74,7 @@
   <ItemGroup>
     <ClCompile Include="src\audio.cpp" />
     <ClCompile Include="src\cloth.cpp" />
+    <ClCompile Include="src\shadowMap.cpp" />
 	<ClCompile Include="src\collisionWorld.cpp" />
     <ClCompile Include="src\collider.cpp" />
     <ClCompile Include="src\colliderDebugDraw.cpp" />

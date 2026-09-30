@@ -115,6 +115,8 @@ private:
 	static ComPtr<ID3D11RasterizerState> m_RasterStateFront;
 	static RenderDepthMode m_DepthMode;
 	static RenderBlendMode m_BlendMode;
+	// 影パスが太陽の向きを知るため、最後に設定したライトを覚えておきます。
+	static LIGHT m_Light;
 
 
 
@@ -141,6 +143,7 @@ public:
 	static void SetProjectionMatrix(XMMATRIX ProjectionMatrix);
 	static void SetMaterial(MATERIAL Material);
 	static void SetLight(LIGHT Light);
+	static const LIGHT& GetLight() { return m_Light; }
 	static void SetCameraPosition(XMFLOAT3 CameraPosition);
 	static void SetParameter(XMFLOAT4 Parameter);
 	static void SetPostEffect(PostEffectMode mode) { m_PostEffectMode = mode; m_PostDefinitionId.clear(); m_CustomPostOptions = false; }

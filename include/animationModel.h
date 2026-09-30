@@ -101,6 +101,8 @@ public:
 
 	void Load( const char *FileName );
 	void LoadAnimation( const char *FileName, const char *Name );
+	// 変形済みの頂点バッファをそのまま使って、太陽から見た深度を描きます。
+	void DrawShadow() override;
 	void SetModelScale(float Scale) { m_ModelScale = Scale; }
 	void SetModelYawOffset(float YawOffset) { m_ModelYawOffset = YawOffset; }
 	void SetVerticalOffset(float offset) { m_VerticalOffset = offset; }

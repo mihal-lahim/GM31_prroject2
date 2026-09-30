@@ -14,6 +14,7 @@
 #include "renderQueue.h"
 #include "resourceManager.h"
 #include "sceneFade.h"
+#include "shadowMap.h"
 
 #include <functional>
 #include <utility>
@@ -139,6 +140,7 @@ void Manager::Uninit()
 
 	g_RenderQueue = RenderQueue();
 
+	ShadowMap::Release();
 	ModelRenderer::ReleaseSharedResources();
 	ParticleSystem::UnloadSharedResources();
 	ResourceManager::Clear();

@@ -24,6 +24,8 @@ public:
 	virtual void Update() {};
 	virtual void LateUpdate() {};
 	virtual void Draw() {};
+	// 影を落とす場合だけ実装します。Engine::ShadowMap::BindCaster を呼んでから形状を描きます。
+	virtual void DrawShadow() {};
 	// SetPosition/SetScale等の公開変換API経由で通知されます。
 	virtual void OnOwnerTransformChanged() {};
 

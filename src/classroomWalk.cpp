@@ -9,8 +9,8 @@
 #include "keyboard_utf8.h"
 #include "main.h"
 #include "mouseInput.h"
-#include "modelRenderer.h"
 #include "renderer.h"
+#include "shadowMap.h"
 #include "sky.h"
 #include "world.h"
 
@@ -109,6 +109,7 @@ void ClassroomPlayer::Init()
 	m_Model->TickAnimation(0.0f, false);
 	AlignFeetToField();
 	m_Model->TickAnimation(0.0f);
+	UseDefaultShader();
 	// のれんなどの布が押しのけられるよう、体の大きさのカプセルを付けます(足元が原点)。
 	AddComponent<Collider>()
 		->SetCapsule(0.24f, 1.7f)
@@ -118,12 +119,6 @@ void ClassroomPlayer::Init()
 
 void ClassroomPlayer::Update()
 {
-	if (Keyboard_IsKeyDownTrigger(KK_I))
-	{
-		m_ShaderPreview = !m_ShaderPreview;
-		if (m_ShaderPreview) SetShaderDefinition("sample-stripes");
-		else UseDefaultShader();
-	}
 	Vector3 input{};
 	if (Keyboard_IsKeyDown(KK_A) || Keyboard_IsKeyDown(KK_LEFT)) input.x -= 1.0f;
 	if (Keyboard_IsKeyDown(KK_D) || Keyboard_IsKeyDown(KK_RIGHT)) input.x += 1.0f;
@@ -302,7 +297,12 @@ bool ClassroomPlayer::SetShaderDefinition(std::string_view id)
 
 void ClassroomPlayer::UseDefaultShader()
 {
-	if (m_Model) m_Model->UseDefaultShader();
+	// 服と革の中間くらいのつや。逆光で輪郭が少し光るようにリムを入れます。
+	if (!m_Model || !m_Model->SetShaderDefinition("realistic")) return;
+	m_Model->SetShaderFloat("roughness", 0.62f);
+	m_Model->SetShaderFloat("metallic", 0.0f);
+	m_Model->SetShaderFloat("bump", 0.0f);
+	m_Model->SetShaderFloat("rim", 0.45f);
 }
 
 std::string_view ClassroomPlayer::GetAnimationName() const
@@ -470,9 +470,18 @@ void ClassroomField::Init()
 	m_IndexCount = static_cast<UINT>(indices.size());
 	m_Texture = ResourceManager::LoadTexture(L"assets/model/grass.jpg");
 	m_RenderingAvailable = m_Texture != nullptr && m_RenderingAvailable;
-	m_RenderingAvailable = m_Surface.Load(Engine::SurfaceShader::Toon, m_Texture)
-		&& m_RenderingAvailable;
-	m_Surface.Parameter.x = 3.0f;
+	m_RenderingAvailable = UseRealisticShader() && m_RenderingAvailable;
+}
+
+bool ClassroomField::UseRealisticShader()
+{
+	// 草地はほぼつや消し。草の模様の明るさから凹凸を作り、斜めの光で細かな陰影を出します。
+	if (!m_Surface.Load("realistic", m_Texture)) return false;
+	m_Surface.SetFloat("roughness", 0.92f);
+	m_Surface.SetFloat("metallic", 0.0f);
+	m_Surface.SetFloat("bump", 0.9f);
+	m_Surface.SetFloat("rim", 0.0f);
+	return true;
 }
 
 void ClassroomField::Draw()
@@ -486,72 +495,6 @@ void ClassroomField::Draw()
 	context->IASetIndexBuffer(m_IndexBuffer.Get(), DXGI_FORMAT_R32_UINT, 0);
 	context->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 	context->DrawIndexed(m_IndexCount, 0, 0);
-}
-
-void ClassroomField::Update()
-{
-	if (Keyboard_IsKeyDownTrigger(KK_P)) SetShaderDefinition("sample-stripes");
-	if (Keyboard_IsKeyDownTrigger(KK_M)) Renderer::SetPostEffectDefinition("post-invert");
-	if (Keyboard_IsKeyDownTrigger(KK_O))
-		if (auto* donut = GetWorld().FindFirst<ClassroomShaderDonut>()) donut->ToggleOutline();
-	if (Keyboard_IsKeyDownTrigger(KK_D0))
-	{
-		const PostEffectMode current = Renderer::GetPostEffect();
-		Renderer::SetPostEffect(current == PostEffectMode::None ? PostEffectMode::Grayscale
-			: current == PostEffectMode::Grayscale ? PostEffectMode::Mosaic : PostEffectMode::None);
-	}
-	const struct { Keyboard_Keys key; PostEffectMode mode; } effects[] = {
-		{ KK_F6, PostEffectMode::MosaicAverage },
-		{ KK_F7, PostEffectMode::CircleMosaic },
-		{ KK_F8, PostEffectMode::Horror },
-		{ KK_F9, PostEffectMode::MipPreview },
-		{ KK_F10, PostEffectMode::Shape },
-		{ KK_F11, PostEffectMode::RGBShift },
-		{ KK_F12, PostEffectMode::Posterize }
-	};
-	for (const auto& effect : effects)
-		if (Keyboard_IsKeyDownTrigger(effect.key)) Renderer::SetPostEffect(effect.mode);
-	const struct { Keyboard_Keys key; Engine::SurfaceShader shader; } choices[] = {
-		{ KK_D1, Engine::SurfaceShader::Unlit },
-		{ KK_D2, Engine::SurfaceShader::VertexDirectional },
-		{ KK_D3, Engine::SurfaceShader::Directional },
-		{ KK_D4, Engine::SurfaceShader::BlinnPhong },
-		{ KK_D5, Engine::SurfaceShader::Hemisphere },
-		{ KK_D6, Engine::SurfaceShader::Toon },
-		{ KK_D7, Engine::SurfaceShader::Bump },
-		{ KK_D8, Engine::SurfaceShader::CookTorrance },
-		{ KK_D9, Engine::SurfaceShader::Grayscale },
-		{ KK_F1, Engine::SurfaceShader::Point },
-		{ KK_F2, Engine::SurfaceShader::Rim },
-		{ KK_F3, Engine::SurfaceShader::Spot },
-		{ KK_F4, Engine::SurfaceShader::ToonRamp },
-		{ KK_F5, Engine::SurfaceShader::Disney }
-	};
-	for (const auto& choice : choices)
-		if (Keyboard_IsKeyDownTrigger(choice.key)) SetShaderMode(choice.shader);
-}
-
-const wchar_t* ClassroomField::GetShaderName() const
-{
-	if (const auto* definition = m_Surface.Definition()) return definition->DisplayName;
-	switch (m_Surface.Shader)
-	{
-	case Engine::SurfaceShader::Unlit: return L"Unlit";
-	case Engine::SurfaceShader::VertexDirectional: return L"Vertex Light";
-	case Engine::SurfaceShader::Directional: return L"Pixel Light";
-	case Engine::SurfaceShader::BlinnPhong: return L"Blinn-Phong";
-	case Engine::SurfaceShader::Hemisphere: return L"Hemisphere";
-	case Engine::SurfaceShader::Toon: return L"Toon";
-	case Engine::SurfaceShader::Bump: return L"Bump";
-	case Engine::SurfaceShader::CookTorrance: return L"Cook-Torrance";
-	case Engine::SurfaceShader::Grayscale: return L"Grayscale";
-	case Engine::SurfaceShader::Point: return L"Point";
-	case Engine::SurfaceShader::Rim: return L"Rim";
-	case Engine::SurfaceShader::Spot: return L"Spot";
-	case Engine::SurfaceShader::ToonRamp: return L"Toon Ramp";
-	case Engine::SurfaceShader::Disney: return L"Disney PBR";
-	default: return L"Other";
-	}
 }
 
 bool ClassroomField::SetShaderMode(Engine::SurfaceShader shader)
@@ -569,7 +512,6 @@ bool ClassroomField::SetShaderMode(Engine::SurfaceShader shader)
 		m_Surface.Parameter = { 4.0f, 0.02f, 0.65f, 0.0f };
 	if (shader == Engine::SurfaceShader::Disney)
 		m_Surface.Parameter = { 0.45f, 0.1f, 3.0f, 0.0f };
-	if (auto* donut = GetWorld().FindFirst<ClassroomShaderDonut>()) donut->SetShaderMode(shader);
 	return loaded;
 }
 
@@ -577,65 +519,39 @@ bool ClassroomField::SetShaderDefinition(std::string_view id)
 {
 	if (!m_Surface.Load(id, m_Texture)) return false;
 	m_Surface.DetailTexture.reset();
-	if (auto* donut = GetWorld().FindFirst<ClassroomShaderDonut>())
-		return donut->SetShaderDefinition(id);
 	return true;
 }
 
-void ClassroomShaderDonut::Init()
+void ClassroomField::DrawShadow()
 {
-	constexpr float x = 4.0f, z = 7.0f;
-	SetPosition({ x, ClassroomLake::WaterLevel + 1.3f, z });
-	SetRotation({ -XM_PIDIV4, 0.0f, 0.0f });
-	SetScale({ 0.015f, 0.015f, 0.015f });
-	m_Model = AddComponent<ModelRenderer>();
-	m_Model->Load("assets/model/shaderDonut.obj");
-	m_Model->SetUseOwnerTransform(true);
-	SetShaderMode(Engine::SurfaceShader::Toon);
+	auto* context = Renderer::GetDeviceContext();
+	Engine::ShadowMap::BindCaster(false);
+	Renderer::SetWorldMatrix(XMMatrixIdentity());
+	UINT stride = sizeof(VERTEX_3D), offset = 0;
+	context->IASetVertexBuffers(0, 1, m_VertexBuffer.GetAddressOf(), &stride, &offset);
+	context->IASetIndexBuffer(m_IndexBuffer.Get(), DXGI_FORMAT_R32_UINT, 0);
+	context->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+	context->DrawIndexed(m_IndexCount, 0, 0);
 }
 
-void ClassroomShaderDonut::SetShaderMode(Engine::SurfaceShader shader)
+namespace
 {
-	m_DefinitionId.clear();
-	m_Shader = shader;
-	if (!m_Model) return;
-	m_Model->SetShaderMode(m_Outline ? Engine::SurfaceShader::ToonOutline : shader,
-		shader == Engine::SurfaceShader::ToonRamp || m_Outline
-			? XMFLOAT4{ 4.0f, 0.02f, 0.65f, 0.0f }
-			: XMFLOAT4{ 0.45f, 0.0f, 1.0f, 0.0f });
-	if (shader == Engine::SurfaceShader::Bump)
-		m_Model->SetShaderDetailTexture("assets/texture/Normal.png");
-	else if (shader == Engine::SurfaceShader::ToonRamp || m_Outline)
-		m_Model->SetShaderDetailTexture("assets/texture/Toon2.png");
-	else
-		m_Model->SetShaderDetailTexture({});
-}
-
-bool ClassroomShaderDonut::SetShaderDefinition(std::string_view id)
-{
-	if (!m_Model || !m_Model->SetShaderDefinition(id)) return false;
-	m_DefinitionId = id;
-	m_Outline = false;
-	m_Model->SetShaderDetailTexture({});
-	return true;
-}
-
-void ClassroomShaderDonut::ToggleOutline()
-{
-	m_Outline = !m_Outline;
-	if (m_Outline)
+	// 木と草のビルボード共通。周りの写実表現と明るさを揃えるため、植物用の登録シェーダーを使います。
+	bool LoadFoliageShaders(ComPtr<ID3D11VertexShader>& vertexShader,
+		ComPtr<ID3D11InputLayout>& layout, ComPtr<ID3D11PixelShader>& pixelShader)
 	{
-		m_Model->SetShaderMode(Engine::SurfaceShader::ToonOutline,
-			{ 4.0f, 0.02f, 0.65f, 0.0f });
-		m_Model->SetShaderDetailTexture("assets/texture/Toon2.png");
+		const auto* definition = Engine::FindShaderDefinition("realistic-foliage");
+		if (definition == nullptr || definition->Passes.empty()) return false;
+		const VertexShaderHandle vertex = ResourceManager::LoadVertexShader(
+			std::string(definition->Passes[0].VertexFile));
+		const PixelShaderHandle pixel = ResourceManager::LoadPixelShader(
+			std::string(definition->Passes[0].PixelFile));
+		if (!vertex || !pixel) return false;
+		vertexShader = vertex->Shader;
+		layout = vertex->InputLayout;
+		pixelShader = pixel->Shader;
+		return true;
 	}
-	else if (!m_DefinitionId.empty())
-	{
-		const std::string id = m_DefinitionId;
-		SetShaderDefinition(id);
-	}
-	else
-		SetShaderMode(m_Shader);
 }
 
 void ClassroomTree::Init()
@@ -663,9 +579,7 @@ void ClassroomTree::Init()
 	data.pSysMem = vertices;
 	m_RenderingAvailable = Engine::GraphicsResourceFactory::CreateBuffer(
 		m_VertexBuffer, description, &data, "ClassroomTree");
-	m_RenderingAvailable = Engine::GraphicsResourceFactory::CreateUnlitShaderPair(
-		m_VertexShader, m_Layout, m_PixelShader, "ClassroomTree") && m_RenderingAvailable;
-	m_RenderingAvailable = Renderer::CreatePixelShader(m_PixelShader, "classroomTreePS.cso")
+	m_RenderingAvailable = LoadFoliageShaders(m_VertexShader, m_Layout, m_PixelShader)
 		&& m_RenderingAvailable;
 	m_Texture = ResourceManager::LoadTexture(L"assets/texture/tree.png");
 	m_RenderingAvailable = m_Texture != nullptr && m_RenderingAvailable;
@@ -698,6 +612,24 @@ void ClassroomTree::Draw()
 	context->Draw(4, 0);
 }
 
+void ClassroomTree::DrawShadow()
+{
+	// 板の表(ローカル-Z)が太陽の来る方向を向くよう、水平面内で回します。
+	// 太陽が高いほど影は短く、低いほど長く伸びます。
+	const Vector3 light = Engine::ShadowMap::GetLightDirection();
+	const float yaw = atan2f(light.x, light.z);
+	auto* context = Renderer::GetDeviceContext();
+	Engine::ShadowMap::BindCaster(true);
+	Renderer::SetWorldMatrix(XMMatrixScaling(m_Scale.x, m_Scale.y, m_Scale.z)
+		* XMMatrixRotationY(yaw) * XMMatrixTranslation(m_Position.x, m_Position.y, m_Position.z));
+	ID3D11ShaderResourceView* texture = m_Texture->Get();
+	context->PSSetShaderResources(0, 1, &texture);
+	UINT stride = sizeof(VERTEX_3D), offset = 0;
+	context->IASetVertexBuffers(0, 1, m_VertexBuffer.GetAddressOf(), &stride, &offset);
+	context->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
+	context->Draw(4, 0);
+}
+
 void ClassroomGrass::Init()
 {
 	m_Layer = Layer::Effect;
@@ -723,9 +655,7 @@ void ClassroomGrass::Init()
 	data.pSysMem = vertices;
 	m_RenderingAvailable = Engine::GraphicsResourceFactory::CreateBuffer(
 		m_VertexBuffer, description, &data, "ClassroomGrass");
-	m_RenderingAvailable = Engine::GraphicsResourceFactory::CreateUnlitShaderPair(
-		m_VertexShader, m_Layout, m_PixelShader, "ClassroomGrass") && m_RenderingAvailable;
-	m_RenderingAvailable = Renderer::CreatePixelShader(m_PixelShader, "classroomTreePS.cso")
+	m_RenderingAvailable = LoadFoliageShaders(m_VertexShader, m_Layout, m_PixelShader)
 		&& m_RenderingAvailable;
 	m_Texture = ResourceManager::LoadTexture(L"assets/texture/grass.png");
 	m_RenderingAvailable = m_Texture != nullptr && m_RenderingAvailable;
@@ -785,14 +715,7 @@ void ClassroomFps::Draw()
 	const float seconds = std::chrono::duration<float>(now - m_LastSample).count();
 	if (seconds >= 0.5f)
 	{
-	std::wstring label = L"FPS: " + std::to_wstring(static_cast<int>(m_Frames / seconds + 0.5f));
-	if (const auto* field = GetWorld().FindFirst<ClassroomField>())
-		label += L"   Ground: " + std::wstring(field->GetShaderName());
-	if (Renderer::GetPostEffect() != PostEffectMode::None)
-		label += L"   Post: " + std::to_wstring(static_cast<int>(Renderer::GetPostEffect()));
-	else if (!Renderer::GetPostEffectDefinitionId().empty())
-		label += L"   Post: Invert";
-	SetText(label);
+		SetText(L"FPS: " + std::to_wstring(static_cast<int>(m_Frames / seconds + 0.5f)));
 		m_Frames = 0;
 		m_LastSample = now;
 	}
@@ -875,6 +798,14 @@ void ClassroomNoren::Init()
 	m_Cloth = GetWorld().Spawn<Engine::Cloth>(settings);
 	m_Cloth->SetPosition({ PositionX, groundHeight + 2.03f, PositionZ });
 	m_Cloth->SetTexture(m_ClothTexture);
+	// 綿の布: つやはほぼ無く、逆光で縁の毛羽が明るく見えるようリムを強めにします。
+	if (m_Cloth->SetShaderDefinition("realistic"))
+	{
+		m_Cloth->SetShaderFloat("roughness", 0.95f);
+		m_Cloth->SetShaderFloat("metallic", 0.0f);
+		m_Cloth->SetShaderFloat("bump", 0.0f);
+		m_Cloth->SetShaderFloat("rim", 0.8f);
+	}
 	// 湖から吹く弱い風で、立ち止まっていても少し揺れます。
 	m_Cloth->SetWind({ 0.0f, 0.0f, -0.5f }, 0.9f);
 }
@@ -909,7 +840,12 @@ void ClassroomNoren::BuildFrame(float groundHeight)
 	m_RenderingAvailable = Engine::GraphicsResourceFactory::CreateBuffer(
 		m_IndexBuffer, description, &data, "ClassroomNorenIndices") && m_RenderingAvailable;
 	m_IndexCount = static_cast<UINT>(indices.size());
-	m_RenderingAvailable = m_Surface.Load(Engine::SurfaceShader::Directional) && m_RenderingAvailable;
+	// 塗装していない木材。やや粗く、角でわずかに光を拾う程度のつやです。
+	m_RenderingAvailable = m_Surface.Load("realistic") && m_RenderingAvailable;
+	m_Surface.SetFloat("roughness", 0.72f);
+	m_Surface.SetFloat("metallic", 0.0f);
+	m_Surface.SetFloat("bump", 0.0f);
+	m_Surface.SetFloat("rim", 0.0f);
 }
 
 void ClassroomNoren::CreateClothTexture()
@@ -950,6 +886,18 @@ void ClassroomNoren::CreateClothTexture()
 	}
 }
 
+void ClassroomNoren::DrawShadow()
+{
+	auto* context = Renderer::GetDeviceContext();
+	Engine::ShadowMap::BindCaster(false);
+	Renderer::SetWorldMatrix(XMMatrixIdentity());
+	UINT stride = sizeof(VERTEX_3D), offset = 0;
+	context->IASetVertexBuffers(0, 1, m_VertexBuffer.GetAddressOf(), &stride, &offset);
+	context->IASetIndexBuffer(m_IndexBuffer.Get(), DXGI_FORMAT_R32_UINT, 0);
+	context->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+	context->DrawIndexed(m_IndexCount, 0, 0);
+}
+
 void ClassroomNoren::Draw()
 {
 	auto* context = Renderer::GetDeviceContext();
@@ -969,7 +917,6 @@ void ClassroomWalkScene::Init()
 	world.Spawn<Sky>()->SetRadius(90.0f);
 	world.Spawn<ClassroomField>();
 	world.Spawn<ClassroomWater>();
-	world.Spawn<ClassroomShaderDonut>();
 	world.Spawn<ClassroomNoren>();
 	world.Spawn<ClassroomPlayer>();
 	world.Spawn<ClassroomFps>();

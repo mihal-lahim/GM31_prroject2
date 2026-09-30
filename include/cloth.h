@@ -151,6 +151,7 @@ public:
 	void Uninit() override;
 	void LateUpdate() override;
 	void Draw() override;
+	void DrawShadow() override;
 
 	// 周囲のColliderを集めて、指定時間だけ布を進めます。通常はLateUpdateから呼ばれます。
 	void Simulate(float deltaTime);
@@ -158,6 +159,9 @@ public:
 	void ResetToRest();
 
 	void SetTexture(TextureHandle texture);
+	// 登録済みの表面シェーダーへ切り替えます(ModelRenderer / AnimationModel と同じ使い方)。
+	bool SetShaderDefinition(std::string_view id);
+	bool SetShaderFloat(std::string_view name, float value) { return m_Surface.SetFloat(name, value); }
 	void SetColor(const XMFLOAT4& color) { m_Color = color; }
 	void SetWind(const Vector3& velocity, float turbulence);
 	void SetCollisionMask(CollisionLayer mask) { m_Simulation.GetSettings().CollisionMask = mask; }
@@ -183,6 +187,9 @@ private:
 	XMMATRIX GetPinMatrix() const;
 	void GatherShapes();
 	void CreateGpuResources();
+	// 現在の粒子位置と法線を頂点バッファへ書きます。影パスと通常描画の両方が使います。
+	bool UploadVertices();
+	void SubmitGeometry();
 };
 }
 

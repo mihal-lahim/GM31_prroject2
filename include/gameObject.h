@@ -183,12 +183,27 @@ public:
 		}
 	}
 
+	// 影パスの入口です。RenderQueueが通常の描画より前に、太陽から見た深度を描くために呼びます。
+	void RunDrawShadow()
+	{
+		if (m_RenderingAvailable)
+		{
+			DrawShadow();
+		}
+		for (auto& component : m_Components)
+		{
+			component->DrawShadow();
+		}
+	}
+
 	virtual void Init() {}
 	virtual void Uninit() {}
 	virtual void PreUpdate() {}
 	virtual void Update() {}
 	virtual void LateUpdate() {}
 	virtual void Draw() {}
+	// 影を落とす場合だけ実装します。Engine::ShadowMap::BindCaster を呼んでから形状を描きます。
+	virtual void DrawShadow() {}
 
 	template<typename T, typename... Args>
 	T* AddComponent(Args&&... args)

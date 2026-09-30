@@ -49,6 +49,7 @@ ComPtr<ID3D11RasterizerState> Renderer::m_RasterStateBack{};
 ComPtr<ID3D11RasterizerState> Renderer::m_RasterStateFront{};
 RenderDepthMode Renderer::m_DepthMode = RenderDepthMode::Enabled;
 RenderBlendMode Renderer::m_BlendMode = RenderBlendMode::Alpha;
+LIGHT Renderer::m_Light{};
 
 namespace
 {
@@ -663,6 +664,7 @@ void Renderer::SetMaterial( MATERIAL Material )
 
 void Renderer::SetLight( LIGHT Light )
 {
+	m_Light = Light;
 	m_DeviceContext->UpdateSubresource(m_LightBuffer.Get(), 0, NULL, &Light, 0, 0);
 }
 

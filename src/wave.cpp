@@ -38,7 +38,8 @@ void ClassroomWater::Init()
 	m_IndexCount = static_cast<UINT>(m_Indices.size());
 	m_Texture = ResourceManager::LoadTexture(L"assets/texture/water.jpg");
 	m_RenderingAvailable = m_Texture != nullptr && m_RenderingAvailable;
-	m_RenderingAvailable = m_Surface.Load(Engine::SurfaceShader::Water, m_Texture)
+	// 空の映り込み・太陽のきらめき・見下ろしたときの透けを持つ写実的な水面です。
+	m_RenderingAvailable = m_Surface.Load("realistic-water", m_Texture)
 		&& m_RenderingAvailable;
 	m_Surface.Properties.Diffuse = { 0.68f, 0.86f, 1.0f, 0.78f };
 	m_Surface.Properties.Specular = { 0.32f, 0.58f, 0.72f, 1.0f };

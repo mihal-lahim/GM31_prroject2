@@ -21,13 +21,13 @@ public:
 	void Update() override;
 	bool GetFootClearance(float (&clearance)[2]) const;
 	bool GetFootEndClearance(float (&clearance)[2][2]) const;
+	// 材質の差し替えはレンダーテストでの検証用です。UseDefaultShaderで写実表現へ戻します。
 	bool SetShaderDefinition(std::string_view id);
 	void UseDefaultShader();
 	std::string_view GetAnimationName() const;
 	bool GetSwimAnchor(Vector3& position) const;
 private:
 	AnimationModel* m_Model = nullptr;
-	bool m_ShaderPreview = false;
 	bool m_Dancing = false;
 	float m_VerticalSpeed = 0.0f;
 	float m_FootIKBlend = 1.0f;
@@ -59,12 +59,14 @@ class ClassroomField final : public GameObject
 public:
 	static float GetHeight(float x, float z);
 	static Vector3 GetNormal(float x, float z);
+	// 通常は写実表現(realistic)です。ほかのシェーダーへの差し替えはレンダーテストでの検証用です。
+	bool UseRealisticShader();
 	bool SetShaderMode(Engine::SurfaceShader shader);
 	bool SetShaderDefinition(std::string_view id);
-	const wchar_t* GetShaderName() const;
 	void Init() override;
-	void Update() override;
 	void Draw() override;
+	// 丘が自分の裏側や周りに影を落とします。
+	void DrawShadow() override;
 private:
 	ComPtr<ID3D11Buffer> m_VertexBuffer;
 	ComPtr<ID3D11Buffer> m_IndexBuffer;
@@ -76,26 +78,13 @@ private:
 	Engine::SurfaceMaterial m_Surface;
 };
 
-// SP31 のシェーダーギャラリーで使うドーナツを、共通マテリアルの実例として置く。
-class ClassroomShaderDonut final : public GameObject
-{
-public:
-	void Init() override;
-	void SetShaderMode(Engine::SurfaceShader shader);
-	bool SetShaderDefinition(std::string_view id);
-	void ToggleOutline();
-private:
-	ModelRenderer* m_Model = nullptr;
-	Engine::SurfaceShader m_Shader = Engine::SurfaceShader::Toon;
-	bool m_Outline = false;
-	std::string m_DefinitionId;
-};
-
 class ClassroomTree final : public GameObject
 {
 public:
 	void Init() override;
 	void Draw() override;
+	// 見た目の板はカメラを向きますが、影は太陽へ向けた板で落とします(葉の形に抜いた影になります)。
+	void DrawShadow() override;
 private:
 	ComPtr<ID3D11Buffer> m_VertexBuffer;
 	ComPtr<ID3D11InputLayout> m_Layout;
@@ -128,6 +117,7 @@ public:
 
 	void Init() override;
 	void Draw() override;
+	void DrawShadow() override;
 	Engine::Cloth* GetCloth() const { return m_Cloth; }
 
 private:

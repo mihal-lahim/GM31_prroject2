@@ -4,6 +4,7 @@
 #include "DirectXTex.h"
 #include "gameObject.h"
 #include "graphicsResourceFactory.h"
+#include "shadowMap.h"
 #include "assimp/config.h"
 
 #include <algorithm>
@@ -251,6 +252,27 @@ void AnimationModel::Draw()
 		// ポリゴン描画
 		context->DrawIndexed(mesh->mNumFaces * 3, 0, 0);
 		}
+	}
+}
+
+void AnimationModel::DrawShadow()
+{
+	ID3D11DeviceContext* context = Renderer::GetDeviceContext();
+	if (!m_Visible || context == nullptr || m_AiScene == nullptr
+		|| m_VertexBuffer.empty() || m_IndexBuffer.empty())
+	{
+		return;
+	}
+	Engine::ShadowMap::BindCaster(false);
+	Renderer::SetWorldMatrix(GetWorldMatrix());
+	context->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+	UINT stride = sizeof(VERTEX_3D);
+	UINT offset = 0;
+	for (unsigned int m = 0; m < m_AiScene->mNumMeshes; ++m)
+	{
+		context->IASetVertexBuffers(0, 1, m_VertexBuffer[m].GetAddressOf(), &stride, &offset);
+		context->IASetIndexBuffer(m_IndexBuffer[m].Get(), DXGI_FORMAT_R32_UINT, 0);
+		context->DrawIndexed(m_AiScene->mMeshes[m]->mNumFaces * 3, 0, 0);
 	}
 }
 

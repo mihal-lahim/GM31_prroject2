@@ -21,13 +21,18 @@ class RenderQueue
 {
 private:
 	std::vector<RenderItem> m_Items;
+	// 影を描く範囲の中心です。カメラの少し前方(見えている辺り)にします。
+	Vector3 m_ShadowFocus{};
+	bool m_HasShadowFocus = false;
+
+	void ExecuteShadowPass(std::size_t firstNonCameraItem);
 
 public:
 	void Build(World& world, const ICameraView* camera);
 	void Submit(GameObject& object);
 	void Sort();
 	void Execute();
-	void Clear() { m_Items.clear(); }
+	void Clear() { m_Items.clear(); m_HasShadowFocus = false; }
 
 	const std::vector<RenderItem>& GetItems() const { return m_Items; }
 };

@@ -3,6 +3,7 @@
 #include "gameTime.h"
 #include "graphicsResourceFactory.h"
 #include "renderer.h"
+#include "shadowMap.h"
 #include "world.h"
 
 #include <algorithm>
@@ -573,6 +574,11 @@ void Cloth::SetTexture(TextureHandle texture)
 	m_Surface.Properties.TextureEnable = m_Texture != nullptr;
 }
 
+bool Cloth::SetShaderDefinition(std::string_view id)
+{
+	return m_Surface.Load(id, m_Texture);
+}
+
 void Cloth::SetWind(const Vector3& velocity, float turbulence)
 {
 	ClothSettings& settings = m_Simulation.GetSettings();
@@ -647,6 +653,40 @@ void Cloth::LateUpdate()
 
 void Cloth::Draw()
 {
+	if (!UploadVertices())
+	{
+		return;
+	}
+	Renderer::SetWorldMatrix(XMMatrixIdentity());
+	m_Surface.Bind();
+	SubmitGeometry();
+}
+
+void Cloth::DrawShadow()
+{
+	// 影パスは通常の描画より先に走るので、ここでも最新の粒子位置を書いてから描きます。
+	if (!UploadVertices())
+	{
+		return;
+	}
+	ShadowMap::BindCaster(false);
+	Renderer::SetWorldMatrix(XMMatrixIdentity());
+	SubmitGeometry();
+}
+
+void Cloth::SubmitGeometry()
+{
+	auto* context = Renderer::GetDeviceContext();
+	UINT stride = sizeof(VERTEX_3D);
+	UINT offset = 0;
+	context->IASetVertexBuffers(0, 1, m_VertexBuffer.GetAddressOf(), &stride, &offset);
+	context->IASetIndexBuffer(m_IndexBuffer.Get(), DXGI_FORMAT_R32_UINT, 0);
+	context->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+	context->DrawIndexed(m_IndexCount, 0, 0);
+}
+
+bool Cloth::UploadVertices()
+{
 	if (!m_Placed)
 	{
 		ResetToRest();
@@ -670,7 +710,7 @@ void Cloth::Draw()
 	D3D11_MAPPED_SUBRESOURCE mapped{};
 	if (!GraphicsResourceFactory::MapWriteDiscard(m_VertexBuffer.Get(), mapped, "Cloth"))
 	{
-		return;
+		return false;
 	}
 	VERTEX_3D* vertices = static_cast<VERTEX_3D*>(mapped.pData);
 	const std::size_t count = particles.size();
@@ -689,15 +729,6 @@ void Cloth::Draw()
 		back.Normal = { -normal.x, -normal.y, -normal.z };
 	}
 	Renderer::GetDeviceContext()->Unmap(m_VertexBuffer.Get(), 0);
-
-	auto* context = Renderer::GetDeviceContext();
-	Renderer::SetWorldMatrix(XMMatrixIdentity());
-	m_Surface.Bind();
-	UINT stride = sizeof(VERTEX_3D);
-	UINT offset = 0;
-	context->IASetVertexBuffers(0, 1, m_VertexBuffer.GetAddressOf(), &stride, &offset);
-	context->IASetIndexBuffer(m_IndexBuffer.Get(), DXGI_FORMAT_R32_UINT, 0);
-	context->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-	context->DrawIndexed(m_IndexCount, 0, 0);
+	return true;
 }
 }
