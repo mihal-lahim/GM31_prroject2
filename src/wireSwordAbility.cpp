@@ -62,11 +62,11 @@ void WireSwordAbility::Update(
 	if (input.AttackDown)
 	{
 		m_ChargeTime = std::min(GetWireGameplayTuning().Sword.MaxChargeTime, m_ChargeTime + dt);
-		m_ChargePeakHeight = std::max(m_ChargePeakHeight, player.m_Position.y);
+		m_ChargePeakHeight = std::max(m_ChargePeakHeight, player.MutablePosition({}).y);
 		const float chargeRatio = GetChargeRatio();
-		player.m_Scale.x += (GetWireGameplayTuning().Sword.ChargeScaleXZ - player.m_Scale.x) * GetWireGameplayTuning().Sword.ChargeScaleLerp;
-		player.m_Scale.y += (GetWireGameplayTuning().Sword.ChargeScaleY + chargeRatio * GetWireGameplayTuning().Sword.ChargeScaleYBonus - player.m_Scale.y) * GetWireGameplayTuning().Sword.ChargeScaleLerp;
-		player.m_Scale.z += (GetWireGameplayTuning().Sword.ChargeScaleXZ - player.m_Scale.z) * GetWireGameplayTuning().Sword.ChargeScaleLerp;
+		player.MutableScale({}).x += (GetWireGameplayTuning().Sword.ChargeScaleXZ - player.MutableScale({}).x) * GetWireGameplayTuning().Sword.ChargeScaleLerp;
+		player.MutableScale({}).y += (GetWireGameplayTuning().Sword.ChargeScaleY + chargeRatio * GetWireGameplayTuning().Sword.ChargeScaleYBonus - player.MutableScale({}).y) * GetWireGameplayTuning().Sword.ChargeScaleLerp;
+		player.MutableScale({}).z += (GetWireGameplayTuning().Sword.ChargeScaleXZ - player.MutableScale({}).z) * GetWireGameplayTuning().Sword.ChargeScaleLerp;
 		return;
 	}
 
@@ -94,7 +94,7 @@ void WireSwordAbility::ReleaseAttack(WirePlayer& player)
 	const int damage = CalculateDamage();
 	const float chargeRatio = GetChargeRatio();
 	const float range = GetWireGameplayTuning().Sword.BaseRange + GetWireGameplayTuning().Sword.RangeBonus * chargeRatio;
-	const Vector3 attackOrigin = player.m_Position + Vector3(0.0f, GetWireGameplayTuning().Sword.AttackOriginHeight, 0.0f);
+	const Vector3 attackOrigin = player.MutablePosition({}) + Vector3(0.0f, GetWireGameplayTuning().Sword.AttackOriginHeight, 0.0f);
 
 	// 連鎖段階で威力が上がります。動き続けるほど硬い装甲を割れる、という関係です。
 	const int scaledDamage = static_cast<int>(damage * player.GetMomentumDamageScale());
@@ -130,7 +130,7 @@ void WireSwordAbility::ReleaseAttack(WirePlayer& player)
 	m_ChargeTime = 0.0f;
 	m_SwingChargeRatio = chargeRatio;
 	m_SwingTimer = GetWireGameplayTuning().Sword.SwingDuration;
-	player.m_Scale = { GetWireGameplayTuning().Sword.SwingScaleXZ, GetWireGameplayTuning().Sword.SwingScaleY, GetWireGameplayTuning().Sword.SwingScaleXZ };
+	player.MutableScale({}) = { GetWireGameplayTuning().Sword.SwingScaleXZ, GetWireGameplayTuning().Sword.SwingScaleY, GetWireGameplayTuning().Sword.SwingScaleXZ };
 }
 
 int WireSwordAbility::DamageBreakables(
@@ -179,7 +179,7 @@ void WireSwordAbility::BeginDashThrough(
 
 	// 入ってきた速度を土台にし、溜めた分だけ上乗せします。
 	// ワイヤーで高速接近してから斬るほど、遠くまで抜けられます。
-	const float incoming = player.m_Velocity.length();
+	const float incoming = player.MutableVelocity({}).length();
 	m_DashSpeed = std::clamp(
 		incoming * tuning.DashCarryRatio + tuning.DashBaseSpeed + chargeRatio * tuning.DashChargeSpeed,
 		tuning.DashBaseSpeed,
@@ -188,7 +188,7 @@ void WireSwordAbility::BeginDashThrough(
 	m_DashThroughTimer = tuning.DashDuration;
 
 	// 斬り抜けが終わった時点でも勢いが残るよう、速度そのものも更新します。
-	player.m_Velocity = m_DashDirection * m_DashSpeed;
+	player.MutableVelocity({}) = m_DashDirection * m_DashSpeed;
 }
 
 bool WireSwordAbility::ApplyDashThrough(WirePlayer& player, float dt)
@@ -201,7 +201,7 @@ bool WireSwordAbility::ApplyDashThrough(WirePlayer& player, float dt)
 	m_DashThroughTimer = std::max(0.0f, m_DashThroughTimer - dt);
 	// 斬り抜け中は重力と減速を受けず、まっすぐ抜けます。
 	// 空中で敵を斬ってもその場に落ちないため、次のワイヤーへ繋げられます。
-	player.m_Velocity = m_DashDirection * m_DashSpeed;
+	player.MutableVelocity({}) = m_DashDirection * m_DashSpeed;
 	return true;
 }
 

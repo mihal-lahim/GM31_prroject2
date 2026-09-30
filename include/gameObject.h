@@ -2,6 +2,7 @@
 #include "engineCommon.h"
 
 #include "component.h"
+#include <cfloat>
 #include <type_traits>
 #include <utility>
 
@@ -126,11 +127,8 @@ public:
 	Vector3 GetRotation() const { return m_Rotation; }
 	Vector3 GetScale() const { return m_Scale; }
 
-	void SetDestroy() { m_Destroy = true; }
-	bool Destroy()
-	{
-		return m_Destroy;
-	}
+	void MarkForDestroy() { m_Destroy = true; }
+	bool IsPendingDestroy() const { return m_Destroy; }
 
 	// 非virtualの実行入口です。派生クラスが基底実装を呼び忘れても
 	// Componentの更新・破棄が欠落しないようにします。
@@ -196,44 +194,57 @@ public:
 	T* AddComponent(Args&&... args)
 	{
 		static_assert(std::is_base_of_v<Component, T>, "T must derive from Component.");
+		// Shutdown済みのオブジェクトへ追加すると、二重Uninit防止の不変条件が崩れます。
+		assert(!m_Uninitialized && "Shutdown済みのGameObjectへAddComponentしています");
 		auto component = std::make_unique<T>(this, std::forward<Args>(args)...);
 		T* componentPtr = component.get();
 		m_Components.push_back(std::move(component));
-		m_Uninitialized = false;
 		componentPtr->Init();
 		return componentPtr;
 	}
-	virtual Vector3 GetForward()
+	// m_Rotationはprotectedで、Setterを通さず直接書き換える実装が多数あります。
+	// そのためダーティフラグではなく「回転の値そのもの」をキャッシュのキーにします。
+	// float3個の比較で済み、直接書き換えに対しても常に正しい向きを返します。
+	virtual Vector3 GetForward() { return RefreshAxes().Forward; }
+	virtual Vector3 GetRight() { return RefreshAxes().Right; }
+	virtual Vector3 GetUp() { return RefreshAxes().Up; }
+	virtual Vector3 GetLeft()
 	{
-		XMMATRIX rot = XMMatrixRotationRollPitchYaw(m_Rotation.x, 
-											m_Rotation.y, m_Rotation.z);
-		XMFLOAT3 forward;
-		XMStoreFloat3(&forward, rot.r[2]);
-		return { forward.x, forward.y, forward.z };
+		const Vector3 right = RefreshAxes().Right;
+		return { -right.x, -right.y, -right.z };
 	}
-	virtual Vector3 GetRight()
+
+private:
+	struct RotationAxes
 	{
-		XMMATRIX rot = XMMatrixRotationRollPitchYaw(m_Rotation.x,
-			m_Rotation.y, m_Rotation.z);
-		XMFLOAT3 right;
-		XMStoreFloat3(&right, rot.r[0]);
-		return { right.x, right.y, right.z };
-	}
-	virtual Vector3 GetUp()
+		Vector3 Right{ 1.0f, 0.0f, 0.0f };
+		Vector3 Up{ 0.0f, 1.0f, 0.0f };
+		Vector3 Forward{ 0.0f, 0.0f, 1.0f };
+	};
+
+	// 初回は必ずミスするよう、あり得ない回転値で初期化します。
+	mutable Vector3 m_CachedAxesRotation{ FLT_MAX, FLT_MAX, FLT_MAX };
+	mutable RotationAxes m_CachedAxes;
+
+	const RotationAxes& RefreshAxes() const
 	{
-		XMMATRIX rot = XMMatrixRotationRollPitchYaw(m_Rotation.x,
-			m_Rotation.y, m_Rotation.z);
-		XMFLOAT3 up;
-		XMStoreFloat3(&up, rot.r[1]);
-		return { up.x, up.y, up.z };
-	}
-	virtual Vector3 GetLeft() 
-	{
-		XMMATRIX rot = XMMatrixRotationRollPitchYaw(m_Rotation.x,
-			m_Rotation.y, m_Rotation.z);
-		XMFLOAT3 left;
-		XMStoreFloat3(&left, rot.r[0]);
-		return { -left.x, -left.y, -left.z };
+		if (m_CachedAxesRotation.x == m_Rotation.x
+			&& m_CachedAxesRotation.y == m_Rotation.y
+			&& m_CachedAxesRotation.z == m_Rotation.z)
+		{
+			return m_CachedAxes;
+		}
+
+		const XMMATRIX rot = XMMatrixRotationRollPitchYaw(m_Rotation.x, m_Rotation.y, m_Rotation.z);
+		XMFLOAT3 axis;
+		XMStoreFloat3(&axis, rot.r[0]);
+		m_CachedAxes.Right = { axis.x, axis.y, axis.z };
+		XMStoreFloat3(&axis, rot.r[1]);
+		m_CachedAxes.Up = { axis.x, axis.y, axis.z };
+		XMStoreFloat3(&axis, rot.r[2]);
+		m_CachedAxes.Forward = { axis.x, axis.y, axis.z };
+		m_CachedAxesRotation = m_Rotation;
+		return m_CachedAxes;
 	}
 };
 

@@ -9,13 +9,22 @@
   <ItemDefinitionGroup>
     <ClCompile>
       <WarningLevel>Level4</WarningLevel>
+      <!-- 現状/W4で警告ゼロです。ゼロを維持する制約として固定します。 -->
+      <TreatWarningAsError>true</TreatWarningAsError>
       <SDLCheck>true</SDLCheck>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp20</LanguageStandard>
       <RuntimeLibrary Condition="'$(Configuration)'=='Debug'">MultiThreadedDebug</RuntimeLibrary>
       <RuntimeLibrary Condition="'$(Configuration)'=='Release'">MultiThreaded</RuntimeLibrary>
+      <!-- ヘッダでの#defineはインクルード順に左右されるため、全TUへ確実に効くようここで定義します。 -->
+      <PreprocessorDefinitions>WIN32_LEAN_AND_MEAN;NOMINMAX;_CRT_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <PreprocessorDefinitions Condition="'$(Configuration)'=='Debug'">_DEBUG;_WINDOWS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <PreprocessorDefinitions Condition="'$(Configuration)'=='Release'">NDEBUG;_WINDOWS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
+      <!-- ForcedIncludeFilesを使うので、各.cppへ#include "enginePch.h"を書く必要はありません。 -->
+      <PrecompiledHeader>Use</PrecompiledHeader>
+      <PrecompiledHeaderFile>enginePch.h</PrecompiledHeaderFile>
+      <ForcedIncludeFiles>enginePch.h;%(ForcedIncludeFiles)</ForcedIncludeFiles>
       <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
       <AdditionalIncludeDirectories>$(MSBuildThisFileDirectory)include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>

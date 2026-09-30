@@ -70,12 +70,12 @@ void WirePlayerMovement::Update(
 	if (m_BlinkTimeRemaining > 0.0f)
 	{
 		m_BlinkTimeRemaining = std::max(0.0f, m_BlinkTimeRemaining - dt);
-		player.m_Velocity = m_BlinkDirection * m_BlinkTravelSpeed;
-		player.m_Rotation.y = LerpAngle(
-			player.m_Rotation.y,
+		player.MutableVelocity({}) = m_BlinkDirection * m_BlinkTravelSpeed;
+		player.MutableRotation({}).y = LerpAngle(
+			player.MutableRotation({}).y,
 			atan2f(m_BlinkDirection.x, m_BlinkDirection.z),
 			GetWireGameplayTuning().Movement.BlinkTurnLerp);
-		EmitBlinkParticles(player.m_Position, -m_BlinkDirection, GetWireGameplayTuning().Movement.BlinkTrailParticleCount);
+		EmitBlinkParticles(player.MutablePosition({}), -m_BlinkDirection, GetWireGameplayTuning().Movement.BlinkTrailParticleCount);
 		return;
 	}
 
@@ -85,19 +85,19 @@ void WirePlayerMovement::Update(
 		moveDirection.normalize();
 		const float accel = m_OnGround ? GetWireGameplayTuning().Movement.GroundAcceleration : GetWireGameplayTuning().Movement.AirAcceleration;
 		const float aimScale = 1.0f;
-		if (player.m_Grapple.IsActive())
+		if (player.MutableGrapple({}).IsActive())
         {
-            Vector3 radial = player.GetWireAnchor() - player.m_Position;
+            Vector3 radial = player.GetWireAnchor() - player.MutablePosition({});
             if (radial.length() > kVectorEpsilon) radial.normalize();
             const Vector3 tangentInput = moveDirection - radial * Vector3::dot(moveDirection,radial);
-            player.m_Velocity += tangentInput * GetWireGameplayTuning().Grapple.SwingInputAcceleration * dt;
+            player.MutableVelocity({}) += tangentInput * GetWireGameplayTuning().Grapple.SwingInputAcceleration * dt;
         }
-        else player.m_Velocity += moveDirection * (accel * aimScale * dt);
+        else player.MutableVelocity({}) += moveDirection * (accel * aimScale * dt);
 
-		if (!player.m_Grapple.IsActive())
+		if (!player.MutableGrapple({}).IsActive())
 		{
-			player.m_Rotation.y = LerpAngle(
-				player.m_Rotation.y,
+			player.MutableRotation({}).y = LerpAngle(
+				player.MutableRotation({}).y,
 				atan2f(moveDirection.x, moveDirection.z),
 				GetWireGameplayTuning().Movement.MoveTurnLerp);
 		}
@@ -109,8 +109,8 @@ void WirePlayerMovement::Update(
 	{
 		if (m_OnGround)
 		{
-			player.m_Velocity.y = GetWireGameplayTuning().Movement.JumpVelocity;
-			player.m_Scale = { GetWireGameplayTuning().Movement.JumpSquashXZ, GetWireGameplayTuning().Movement.JumpStretchY, GetWireGameplayTuning().Movement.JumpSquashXZ };
+			player.MutableVelocity({}).y = GetWireGameplayTuning().Movement.JumpVelocity;
+			player.MutableScale({}) = { GetWireGameplayTuning().Movement.JumpSquashXZ, GetWireGameplayTuning().Movement.JumpStretchY, GetWireGameplayTuning().Movement.JumpSquashXZ };
 		}
 		else
 		{
@@ -119,18 +119,18 @@ void WirePlayerMovement::Update(
 	}
 
 	const float damping = m_OnGround ? GetWireGameplayTuning().Movement.GroundDamping
-		: (player.m_Grapple.IsActive() ? 0.0f : GetWireGameplayTuning().Movement.AirDamping);
-	player.m_Velocity.x += -player.m_Velocity.x * damping * dt;
-	player.m_Velocity.z += -player.m_Velocity.z * damping * dt;
-	player.m_Velocity.y += GetWireGameplayTuning().Movement.Gravity * dt;
+		: (player.MutableGrapple({}).IsActive() ? 0.0f : GetWireGameplayTuning().Movement.AirDamping);
+	player.MutableVelocity({}).x += -player.MutableVelocity({}).x * damping * dt;
+	player.MutableVelocity({}).z += -player.MutableVelocity({}).z * damping * dt;
+	player.MutableVelocity({}).y += GetWireGameplayTuning().Movement.Gravity * dt;
 
-	player.m_Scale.x += (1.0f - player.m_Scale.x) * GetWireGameplayTuning().Movement.ScaleRecoverLerp;
-	player.m_Scale.y += (1.0f - player.m_Scale.y) * GetWireGameplayTuning().Movement.ScaleRecoverLerp;
-	player.m_Scale.z += (1.0f - player.m_Scale.z) * GetWireGameplayTuning().Movement.ScaleRecoverLerp;
+	player.MutableScale({}).x += (1.0f - player.MutableScale({}).x) * GetWireGameplayTuning().Movement.ScaleRecoverLerp;
+	player.MutableScale({}).y += (1.0f - player.MutableScale({}).y) * GetWireGameplayTuning().Movement.ScaleRecoverLerp;
+	player.MutableScale({}).z += (1.0f - player.MutableScale({}).z) * GetWireGameplayTuning().Movement.ScaleRecoverLerp;
 	if (m_OnGround)
 	{
-		m_MoveAnimation += Vector3(player.m_Velocity.x, 0.0f, player.m_Velocity.z).length() * dt;
-		player.m_Scale.y += sinf(m_MoveAnimation * GetWireGameplayTuning().Movement.GroundBobFrequency) * GetWireGameplayTuning().Movement.GroundBobAmount;
+		m_MoveAnimation += Vector3(player.MutableVelocity({}).x, 0.0f, player.MutableVelocity({}).z).length() * dt;
+		player.MutableScale({}).y += sinf(m_MoveAnimation * GetWireGameplayTuning().Movement.GroundBobFrequency) * GetWireGameplayTuning().Movement.GroundBobAmount;
 	}
 }
 
@@ -147,7 +147,7 @@ void WirePlayerMovement::UpdateBlink(
 	}
 
 	// 着地とワイヤー接続が空中チャージを回復させます。温存するか使うかの駆け引きを作ります。
-	if (m_OnGround || player.m_Grapple.IsActive())
+	if (m_OnGround || player.MutableGrapple({}).IsActive())
 	{
 		m_AirBlinkChargesUsed = 0;
 	}
@@ -215,8 +215,8 @@ void WirePlayerMovement::StartBlink(WirePlayer& player, const Vector3& direction
 	}
 	blinkDirection.normalize();
 
-	const Vector3 startPosition = player.m_Position;
-	player.m_Grapple.Cancel(player, false);
+	const Vector3 startPosition = player.MutablePosition({});
+	player.MutableGrapple({}).Cancel(player, false);
 	if (!m_OnGround)
 	{
 		m_AirBlinkChargesUsed++;
@@ -239,27 +239,27 @@ void WirePlayerMovement::StartBlink(WirePlayer& player, const Vector3& direction
 		GetWireGameplayTuning().Movement.BlinkSpeed,
 		GetWireGameplayTuning().Movement.BlinkCarryMaxSpeed);
 	m_BlinkTravelSpeed = std::clamp(
-		player.m_Velocity.length(), GetWireGameplayTuning().Movement.BlinkSpeed, carryCap);
+		player.MutableVelocity({}).length(), GetWireGameplayTuning().Movement.BlinkSpeed, carryCap);
 	// ダッシュでも上昇の勢いを残し、空中の進行方向だけを変えます。
-    const float upSpeed=std::clamp(player.m_Velocity.y,0.0f,m_BlinkTravelSpeed*0.9f);
+    const float upSpeed=std::clamp(player.MutableVelocity({}).y,0.0f,m_BlinkTravelSpeed*0.9f);
     const float flatSpeed=sqrtf(std::max(0.0f,m_BlinkTravelSpeed*m_BlinkTravelSpeed-upSpeed*upSpeed));
     m_BlinkDirection=m_BlinkDirection*flatSpeed+Vector3{0,upSpeed,0};
     m_BlinkDirection.normalize();
-    player.m_Velocity=m_BlinkDirection*m_BlinkTravelSpeed;
-    player.m_Position += m_BlinkDirection * GetWireGameplayTuning().Movement.BlinkStepDistance;
-	player.m_Position.x = std::clamp(player.m_Position.x, -GetWireGameplayTuning().Movement.WorldBoundsX, GetWireGameplayTuning().Movement.WorldBoundsX);
-	player.m_Position.z = std::clamp(player.m_Position.z, -GetWireGameplayTuning().Movement.WorldBoundsZ, GetWireGameplayTuning().Movement.WorldBoundsZ);
-	player.m_Rotation.y = LerpAngle(
-		player.m_Rotation.y,
+    player.MutableVelocity({})=m_BlinkDirection*m_BlinkTravelSpeed;
+    player.MutablePosition({}) += m_BlinkDirection * GetWireGameplayTuning().Movement.BlinkStepDistance;
+	player.MutablePosition({}).x = std::clamp(player.MutablePosition({}).x, -GetWireGameplayTuning().Movement.WorldBoundsX, GetWireGameplayTuning().Movement.WorldBoundsX);
+	player.MutablePosition({}).z = std::clamp(player.MutablePosition({}).z, -GetWireGameplayTuning().Movement.WorldBoundsZ, GetWireGameplayTuning().Movement.WorldBoundsZ);
+	player.MutableRotation({}).y = LerpAngle(
+		player.MutableRotation({}).y,
 		atan2f(m_BlinkDirection.x, m_BlinkDirection.z),
 		GetWireGameplayTuning().Movement.BlinkTurnLerp);
-	player.m_Scale = { GetWireGameplayTuning().Movement.BlinkScaleXZ, GetWireGameplayTuning().Movement.BlinkScaleY, GetWireGameplayTuning().Movement.BlinkScaleXZ };
-	player.m_Sword.Cancel();
+	player.MutableScale({}) = { GetWireGameplayTuning().Movement.BlinkScaleXZ, GetWireGameplayTuning().Movement.BlinkScaleY, GetWireGameplayTuning().Movement.BlinkScaleXZ };
+	player.MutableSword({}).Cancel();
 
 	EmitBlinkParticles(startPosition, -m_BlinkDirection, GetWireGameplayTuning().Movement.BlinkStartParticleCount);
-	EmitBlinkParticles(player.m_Position, m_BlinkDirection, GetWireGameplayTuning().Movement.BlinkEndParticleCount);
+	EmitBlinkParticles(player.MutablePosition({}), m_BlinkDirection, GetWireGameplayTuning().Movement.BlinkEndParticleCount);
 	EmitBlinkShockwave(startPosition, -m_BlinkDirection, GetWireGameplayTuning().Movement.BlinkShockParticleCount);
-	EmitBlinkShockwave(player.m_Position, m_BlinkDirection, GetWireGameplayTuning().Movement.BlinkShockParticleCount + 10);
+	EmitBlinkShockwave(player.MutablePosition({}), m_BlinkDirection, GetWireGameplayTuning().Movement.BlinkShockParticleCount + 10);
 }
 
 void WirePlayerMovement::EmitBlinkParticles(const Vector3& position, const Vector3& direction, int count)
@@ -383,17 +383,17 @@ bool WirePlayerMovement::TryWallKick(WirePlayer& player, const Vector3& moveDire
 
 	// 入ってきた勢いを引き継ぎます。速く来たほど速く弾かれるので、
 	// ワイヤーからの高速侵入がそのまま次の移動速度になります。
-	const Vector3 horizontal{ player.m_Velocity.x, 0.0f, player.m_Velocity.z };
+	const Vector3 horizontal{ player.MutableVelocity({}).x, 0.0f, player.MutableVelocity({}).z };
 	const float carried = std::clamp(
 		horizontal.length() * tuning.SpeedCarryRatio, tuning.MinKickSpeed, tuning.MaxKickSpeed);
 
-	player.m_Velocity.x = kickDirection.x * carried;
-	player.m_Velocity.z = kickDirection.z * carried;
-	player.m_Velocity.y = std::max(player.m_Velocity.y, 0.0f) + tuning.UpSpeed;
+	player.MutableVelocity({}).x = kickDirection.x * carried;
+	player.MutableVelocity({}).z = kickDirection.z * carried;
+	player.MutableVelocity({}).y = std::max(player.MutableVelocity({}).y, 0.0f) + tuning.UpSpeed;
 
-	player.m_Rotation.y = LerpAngle(
-		player.m_Rotation.y, atan2f(kickDirection.x, kickDirection.z), 0.7f);
-	player.m_Scale = { tuning.SquashXZ, tuning.StretchY, tuning.SquashXZ };
+	player.MutableRotation({}).y = LerpAngle(
+		player.MutableRotation({}).y, atan2f(kickDirection.x, kickDirection.z), 0.7f);
+	player.MutableScale({}) = { tuning.SquashXZ, tuning.StretchY, tuning.SquashXZ };
 
 	m_LastKickedNormal = normal;
 	m_WallContactTime = 0.0f;
@@ -423,7 +423,7 @@ void WirePlayerMovement::EmitWallKickEffect(WirePlayer& player, const Vector3& n
 	}
 	along.normalize();
 
-	const Vector3 origin = player.m_Position + Vector3(0.0f, 1.0f, 0.0f) - normal * 0.5f;
+	const Vector3 origin = player.MutablePosition({}) + Vector3(0.0f, 1.0f, 0.0f) - normal * 0.5f;
 	for (int i = 0; i < count; ++i)
 	{
 		const float spread = RandomFloat(-1.0f, 1.0f);
@@ -468,7 +468,7 @@ void WirePlayerMovement::EmitLandingImpact(WirePlayer& player, float impactSpeed
 		const float speed = (2.2f + ratio * 5.0f) * RandomFloat(0.7f, 1.25f);
 		const Vector3 velocity{ cosf(angle) * speed, RandomFloat(0.4f, 1.9f), sinf(angle) * speed };
 		ParticleSystem::Emit(
-			player.m_Position + Vector3(0.0f, 0.12f, 0.0f),
+			player.MutablePosition({}) + Vector3(0.0f, 0.12f, 0.0f),
 			velocity,
 			0.16f + ratio * 0.12f,
 			22 + static_cast<int>(ratio * 12.0f),
@@ -480,7 +480,7 @@ void WirePlayerMovement::EmitLandingImpact(WirePlayer& player, float impactSpeed
 
 void WirePlayerMovement::ResolvePlatformLanding(WirePlayer& player, const Vector3& previousPosition)
 {
-	if (player.m_Velocity.y > 0.0f)
+	if (player.MutableVelocity({}).y > 0.0f)
 	{
 		return;
 	}
@@ -488,7 +488,7 @@ void WirePlayerMovement::ResolvePlatformLanding(WirePlayer& player, const Vector
 	// 工場形状と巨大機械の両方から、足元にある一番高い天面を探します。
 	// 機械の肩や腕にも同じ仕組みで着地できるため、機体が足場として機能します。
 	const float footMargin = GetWireGameplayTuning().Movement.PlayerFootMargin;
-	const float fallDistance = std::max(0.0f, previousPosition.y - player.m_Position.y)
+	const float fallDistance = std::max(0.0f, previousPosition.y - player.MutablePosition({}).y)
 		+ GetWireGameplayTuning().Movement.PlatformLandingGrace;
 	float groundY = 0.0f;
 	bool foundGround = false;
@@ -496,13 +496,13 @@ void WirePlayerMovement::ResolvePlatformLanding(WirePlayer& player, const Vector
 	if (WireFactory* factory = player.GetWorld().FindFirst<WireFactory>())
 	{
 		foundGround = factory->GetBlockField().FindGroundBelow(
-			Vector3{player.m_Position.x, previousPosition.y, player.m_Position.z}, footMargin, fallDistance, groundY);
+			Vector3{player.MutablePosition({}).x, previousPosition.y, player.MutablePosition({}).z}, footMargin, fallDistance, groundY);
 	}
-	if (foundGround && player.m_Position.y <= groundY)
+	if (foundGround && player.MutablePosition({}).y <= groundY)
 	{
-		const float impactSpeed = -player.m_Velocity.y;
-		player.m_Position.y = groundY;
-		player.m_Velocity.y = 0.0f;
+		const float impactSpeed = -player.MutableVelocity({}).y;
+		player.MutablePosition({}).y = groundY;
+		player.MutableVelocity({}).y = 0.0f;
 		m_OnGround = true;
 		EmitLandingImpact(player, impactSpeed);
 		return;
@@ -511,20 +511,20 @@ void WirePlayerMovement::ResolvePlatformLanding(WirePlayer& player, const Vector
 	for (WirePlatform* platform : player.GetWorld().FindAll<WirePlatform>())
 	{
 		const float topY = platform->GetTopY();
-		if (previousPosition.y < topY - GetWireGameplayTuning().Movement.PlatformLandingGrace || player.m_Position.y > topY)
+		if (previousPosition.y < topY - GetWireGameplayTuning().Movement.PlatformLandingGrace || player.MutablePosition({}).y > topY)
 		{
 			continue;
 		}
-		if (!platform->ContainsXZ(player.m_Position, GetWireGameplayTuning().Movement.PlayerFootMargin))
+		if (!platform->ContainsXZ(player.MutablePosition({}), GetWireGameplayTuning().Movement.PlayerFootMargin))
 		{
 			continue;
 		}
 
 		// 落下速度に応じた着地衝撃を出します。速く落ちたときほど強く揺れ、
 		// 土煙が広がるので、高所からの飛び降りに手応えが生まれます。
-		const float impactSpeed = -player.m_Velocity.y;
-		player.m_Position.y = topY;
-		player.m_Velocity.y = 0.0f;
+		const float impactSpeed = -player.MutableVelocity({}).y;
+		player.MutablePosition({}).y = topY;
+		player.MutableVelocity({}).y = 0.0f;
 		m_OnGround = true;
 		EmitLandingImpact(player, impactSpeed);
 		return;

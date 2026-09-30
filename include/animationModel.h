@@ -1,6 +1,7 @@
 #pragma once
 
 #include <algorithm>
+#include <memory>
 #include <string>
 #include <utility>
 #include <unordered_map>
@@ -23,10 +24,11 @@ struct DEFORM_VERTEX
 	aiVector3D Position;
 	aiVector3D Normal;
 	int				BoneNum;
-	std::string		BoneName[4];//本来はボーンインデックスで管理するべき
 	float			BoneWeight[4];
 	int			BoneIndex[4];
-	aiMatrix4x4	BoneOffsetMatrix[4];//オフセットはメッシュごとに異なるため頂点側で保持
+	// 各影響ボーンが左足(0)・右足(1)・それ以外(-1)のどれかを読み込み時に確定させた値です。
+	// 以前は頂点ごとにボーン名の文字列を4本持ち、毎フレーム全頂点でfindしていました。
+	signed char	BoneFoot[4];
 };
 
 //ボーン構造体
@@ -36,23 +38,27 @@ struct BONE
 	aiMatrix4x4 AnimationMatrix;
 };
 
+// 読み込み済みaiSceneの共有ハンドルです。同じFBXを使う複数のAnimationModelが1つを共有します。
+using AnimationScenePtr = std::shared_ptr<const aiScene>;
+
 class AnimationModel : public Component
 {
 private:
-	const aiScene* m_AiScene = nullptr;
-	std::unordered_map<std::string, const aiScene*> m_Animation;
+	AnimationScenePtr m_AiScene;
+	std::unordered_map<std::string, AnimationScenePtr> m_Animation;
 
-	ID3D11Buffer**	m_VertexBuffer = nullptr;
-	ID3D11Buffer**	m_IndexBuffer = nullptr;
+	// メッシュごとのGPUバッファです。要素数はm_AiScene->mNumMeshesと一致します。
+	std::vector<ComPtr<ID3D11Buffer>> m_VertexBuffer;
+	std::vector<ComPtr<ID3D11Buffer>> m_IndexBuffer;
 	ComPtr<ID3D11InputLayout> m_VertexLayout;
 	ComPtr<ID3D11VertexShader> m_VertexShader;
 	ComPtr<ID3D11PixelShader> m_PixelShader;
 	Engine::SurfaceMaterial m_Surface;
 	bool m_UseSurfaceShader = false;
 
-	std::unordered_map<std::string, ID3D11ShaderResourceView*> m_Texture;
+	std::unordered_map<std::string, ComPtr<ID3D11ShaderResourceView>> m_Texture;
 
-	std::vector<DEFORM_VERTEX>* m_DeformVertex = nullptr;//変形後頂点データ
+	std::vector<std::vector<DEFORM_VERTEX>> m_DeformVertex;//変形後頂点データ(メッシュごと)
 	std::vector<std::vector<aiMatrix4x4>> m_SkinTransforms;
 	std::unordered_map<std::string, BONE> m_Bone;//ボーンデータ（名前で参照）
 	float m_ModelScale = 1.0f;

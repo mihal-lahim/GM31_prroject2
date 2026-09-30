@@ -12,17 +12,19 @@ namespace
 	{
 		return collider != nullptr
 			&& collider->GetOwner() != nullptr
-			&& !collider->GetOwner()->Destroy()
+			&& !collider->GetOwner()->IsPendingDestroy()
 			&& (collider->GetCollisionLayer() & layerMask) != 0;
 	}
 }
 
 std::size_t CollisionWorld::CellKeyHash::operator()(const CellKey& key) const
 {
-	const std::size_t x = std::hash<int>{}(key.X);
-	const std::size_t y = std::hash<int>{}(key.Y);
-	const std::size_t z = std::hash<int>{}(key.Z);
-	return x ^ (y << 1) ^ (z << 7);
+	// 格子座標は0付近の小さな整数に集中するため、シフトとXORだけでは衝突が多発します。
+	// 空間ハッシュで定番の大きな素数を掛けて混ぜます。
+	const std::size_t x = static_cast<std::size_t>(static_cast<std::uint32_t>(key.X)) * 73856093u;
+	const std::size_t y = static_cast<std::size_t>(static_cast<std::uint32_t>(key.Y)) * 19349663u;
+	const std::size_t z = static_cast<std::size_t>(static_cast<std::uint32_t>(key.Z)) * 83492791u;
+	return x ^ y ^ z;
 }
 
 CollisionWorld::CellKey CollisionWorld::ToCell(const Vector3& position)
@@ -37,13 +39,12 @@ CollisionWorld::CellKey CollisionWorld::ToCell(const Vector3& position)
 
 bool CollisionWorld::IsRegistered(const Collider& collider) const
 {
-	return std::find(m_StaticColliders.begin(), m_StaticColliders.end(), &collider) != m_StaticColliders.end()
-		|| std::find(m_DynamicColliders.begin(), m_DynamicColliders.end(), &collider) != m_DynamicColliders.end();
+	return m_Registered.find(&collider) != m_Registered.end();
 }
 
 void CollisionWorld::Register(Collider& collider)
 {
-	if (!IsRegistered(collider))
+	if (m_Registered.insert(&collider).second)
 	{
 		// 再登録は新しいシリアルを受け取り、従来のpush_backと同じく末尾扱いになります。
 		collider.m_RegistrationSerial = m_NextRegistrationSerial++;
@@ -54,10 +55,26 @@ void CollisionWorld::Register(Collider& collider)
 
 void CollisionWorld::Unregister(Collider& collider)
 {
-	m_StaticColliders.erase(
-		std::remove(m_StaticColliders.begin(), m_StaticColliders.end(), &collider), m_StaticColliders.end());
-	m_DynamicColliders.erase(
-		std::remove(m_DynamicColliders.begin(), m_DynamicColliders.end(), &collider), m_DynamicColliders.end());
+	if (m_Registered.erase(&collider) == 0)
+	{
+		return;
+	}
+
+	// 登録されていた側のリストからだけ取り除きます。
+	std::vector<Collider*>& owner = collider.IsStatic() ? m_StaticColliders : m_DynamicColliders;
+	const auto found = std::find(owner.begin(), owner.end(), &collider);
+	if (found != owner.end())
+	{
+		owner.erase(found);
+	}
+	else
+	{
+		// IsStaticがRegister後に変わっている場合の保険です。
+		m_StaticColliders.erase(
+			std::remove(m_StaticColliders.begin(), m_StaticColliders.end(), &collider), m_StaticColliders.end());
+		m_DynamicColliders.erase(
+			std::remove(m_DynamicColliders.begin(), m_DynamicColliders.end(), &collider), m_DynamicColliders.end());
+	}
 	m_StaticIndexDirty = true;
 }
 
@@ -81,6 +98,7 @@ void CollisionWorld::Clear()
 {
 	m_StaticColliders.clear();
 	m_DynamicColliders.clear();
+	m_Registered.clear();
 	m_StaticCells.clear();
 	m_CandidateScratch.clear();
 	m_NextRegistrationSerial = 1;

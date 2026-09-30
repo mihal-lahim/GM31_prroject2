@@ -271,7 +271,7 @@ void Firework::Update()
 	}
 	else if (m_Sparks.empty())
 	{
-		SetDestroy();
+		MarkForDestroy();
 	}
 }
 

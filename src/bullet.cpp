@@ -46,8 +46,8 @@ void Bullet::Update()
 		Enemy* enemy = dynamic_cast<Enemy*>(collider->GetOwner());
 		if (enemy != nullptr)
 		{
-			enemy->SetDestroy();// 敵を削除予約する。
-			SetDestroy();// 弾自身を削除予約する。
+			enemy->MarkForDestroy();// 敵を削除予約する。
+			MarkForDestroy();// 弾自身を削除予約する。
 
 			GetWorld().Spawn<Explosion>()->SetPosition(enemy->GetPosition()+Vector3(0.0f, 1.0f, 0.0f));// 爆発エフェクトを生成する。
 			if (Score* score = GetWorld().FindFirst<Score>())
@@ -64,7 +64,7 @@ void Bullet::Update()
 	if (m_Lifetime <= 0.0f)
 	{
 		// 寿命が切れたら自身を削除予約する。
-		SetDestroy();
+		MarkForDestroy();
 	}
 	GameObject::Update();
 }

@@ -107,7 +107,7 @@ void WireGrappleAbility::Update(
 			m_Firing = false;
 			m_Active = true;
 			Attach(player);
-			player.m_Movement.RestoreAirBlinkCharges();
+			player.MutableMovement({}).RestoreAirBlinkCharges();
 
 			// フックが刺さった瞬間に軽い衝撃を返し、接続できたことを手で分かるようにします。
 			if (WireTpsCamera* tpsCamera = player.GetWorld().FindFirst<WireTpsCamera>())
@@ -136,7 +136,7 @@ void WireGrappleAbility::Update(
 		return;
 	}
 
-	Vector3 toAnchor = m_Anchor - (player.m_Position + Vector3(0.0f, GetWireGameplayTuning().Grapple.OriginHeight, 0.0f));
+	Vector3 toAnchor = m_Anchor - (player.MutablePosition({}) + Vector3(0.0f, GetWireGameplayTuning().Grapple.OriginHeight, 0.0f));
 	const float distance = toAnchor.length();
 	if (distance <= GetWireGameplayTuning().Grapple.StopDistance)
 	{
@@ -146,12 +146,12 @@ void WireGrappleAbility::Update(
 
 	toAnchor.normalize();
 	const WireGrappleTuning& tuning = GetWireGameplayTuning().Grapple;
-	WireSwing::Integrate(player.m_Velocity, toAnchor * distance, m_RopeLength, dt, tuning, m_TangentialSpeed, m_Tension);
+	WireSwing::Integrate(player.MutableVelocity({}), toAnchor * distance, m_RopeLength, dt, tuning, m_TangentialSpeed, m_Tension);
 
 	const Vector3 flatDirection = Flatten(toAnchor);
 	if (flatDirection.length() > kVectorEpsilon)
 	{
-		player.m_Rotation.y = LerpAngle(player.m_Rotation.y, atan2f(flatDirection.x, flatDirection.z), GetWireGameplayTuning().Grapple.TurnLerp);
+		player.MutableRotation({}).y = LerpAngle(player.MutableRotation({}).y, atan2f(flatDirection.x, flatDirection.z), GetWireGameplayTuning().Grapple.TurnLerp);
 	}
 }
 
@@ -165,8 +165,8 @@ void WireGrappleAbility::Cancel(WirePlayer& player, bool addBoost)
 	if (addBoost && m_Active)
 	{
 		player.NotifyWireReleased(m_Anchor);
-        player.m_Velocity = WireSwing::Release(player.m_Velocity,GetWireGameplayTuning().Grapple);
-        player.m_Scale = {GetWireGameplayTuning().Grapple.ReleaseSquashXZ,
+        player.MutableVelocity({}) = WireSwing::Release(player.MutableVelocity({}),GetWireGameplayTuning().Grapple);
+        player.MutableScale({}) = {GetWireGameplayTuning().Grapple.ReleaseSquashXZ,
             GetWireGameplayTuning().Grapple.ReleaseStretchY,GetWireGameplayTuning().Grapple.ReleaseSquashXZ};
 	}
 
@@ -211,7 +211,7 @@ void WireGrappleAbility::Start(WirePlayer& player, const WireTpsCamera* camera)
 	m_AttachOffset = hit.Target != nullptr
 		? hit.AnchorPosition - hit.Target->GetWireAnchorPosition()
 		: Vector3{ 0.0f, 0.0f, 0.0f };
-	m_HookTip = player.m_Position + Vector3(0.0f, GetWireGameplayTuning().Grapple.OriginHeight, 0.0f);
+	m_HookTip = player.MutablePosition({}) + Vector3(0.0f, GetWireGameplayTuning().Grapple.OriginHeight, 0.0f);
 	// 入力レスポンスを最優先し、命中可能な照準では同フレーム接続します。
 	m_HookTip = m_Anchor;
 	m_Firing = false;
@@ -219,11 +219,11 @@ void WireGrappleAbility::Start(WirePlayer& player, const WireTpsCamera* camera)
 	Attach(player);
 	if (rewiring && m_RewireWindow > 0.0f)
 	{
-		Vector3 direction = player.m_Velocity;
+		Vector3 direction = player.MutableVelocity({});
 		if (direction.length() > kVectorEpsilon)
 		{
 			direction.normalize();
-			player.m_Velocity = ClampLength(player.m_Velocity + direction * GetWireGameplayTuning().Grapple.RewireBonus,
+			player.MutableVelocity({}) = ClampLength(player.MutableVelocity({}) + direction * GetWireGameplayTuning().Grapple.RewireBonus,
 				GetWireGameplayTuning().Grapple.RewireMaxSpeed);
 		}
 	}
@@ -234,37 +234,37 @@ void WireGrappleAbility::Start(WirePlayer& player, const WireTpsCamera* camera)
 void WireGrappleAbility::Attach(WirePlayer& player)
 {
 	const WireGrappleTuning& tuning = GetWireGameplayTuning().Grapple;
-	const Vector3 origin = player.m_Position + Vector3(0.0f, tuning.OriginHeight, 0.0f);
+	const Vector3 origin = player.MutablePosition({}) + Vector3(0.0f, tuning.OriginHeight, 0.0f);
 	Vector3 toAnchor = m_Anchor - origin;
 	const float distance = toAnchor.length();
 	m_RopeLength = (std::max)(tuning.MinRopeLength, distance * tuning.RopeLengthScale);
-	const float before = player.m_Velocity.length();
+	const float before = player.MutableVelocity({}).length();
 	if (distance > kVectorEpsilon)
 	{
 		toAnchor /= distance;
-		const float outward = Vector3::dot(player.m_Velocity, -toAnchor);
+		const float outward = Vector3::dot(player.MutableVelocity({}), -toAnchor);
 		if (outward > 0.0f)
 		{
-			player.m_Velocity += toAnchor * outward;
+			player.MutableVelocity({}) += toAnchor * outward;
 		}
 		const float keptTarget = (std::max)(tuning.AttachMinSpeed, before * tuning.AttachVelocityKeep);
-		const float after = player.m_Velocity.length();
+		const float after = player.MutableVelocity({}).length();
 		if (after > kVectorEpsilon && after < keptTarget)
 		{
-			player.m_Velocity *= keptTarget / after;
+			player.MutableVelocity({}) *= keptTarget / after;
 		}
 		else if (after <= kVectorEpsilon)
 		{
 			// 静止状態からも振り始められる接線方向の小さなキックです。
-            Vector3 tangent{cosf(player.m_Rotation.y),0,-sinf(player.m_Rotation.y)};
+            Vector3 tangent{cosf(player.MutableRotation({}).y),0,-sinf(player.MutableRotation({}).y)};
             tangent -= toAnchor * Vector3::dot(tangent,toAnchor);
             if (tangent.length() < kVectorEpsilon) tangent = Vector3::cross(toAnchor,{0,1,0});
             if (tangent.length() > kVectorEpsilon) tangent.normalize();
-            player.m_Velocity = tangent * tuning.AttachMinSpeed;
+            player.MutableVelocity({}) = tangent * tuning.AttachMinSpeed;
 		}
 	}
-	m_LastVelocityScale = before > kVectorEpsilon ? player.m_Velocity.length() / before : 1.0f;
-	player.m_Movement.RestoreAirBlinkCharges();
+	m_LastVelocityScale = before > kVectorEpsilon ? player.MutableVelocity({}).length() / before : 1.0f;
+	player.MutableMovement({}).RestoreAirBlinkCharges();
 	player.NotifyMomentumAction();
 	if (WireTpsCamera* camera = player.GetWorld().FindFirst<WireTpsCamera>())
 	{

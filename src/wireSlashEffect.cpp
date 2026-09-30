@@ -94,7 +94,7 @@ void WireSlashEffect::Update()
 		EmitSlashParticles();
 	}
 
-	SetDestroy();
+	MarkForDestroy();
 	GameObject::Update();
 }
 
@@ -110,7 +110,7 @@ void WireSlashEffect::Setup(const Vector3& position, const Vector3& direction, f
 	m_Emitted = false;
 
 	EmitSlashParticles();
-	SetDestroy();
+	MarkForDestroy();
 }
 
 void WireSlashEffect::EmitSlashParticles()

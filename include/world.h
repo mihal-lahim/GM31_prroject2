@@ -18,10 +18,22 @@ private:
 	std::list<std::unique_ptr<GameObject>> m_GameObjects;
 	std::list<std::unique_ptr<GameObject>> m_PendingGameObjects;
 	CollisionWorld m_CollisionWorld;
-	mutable std::unordered_map<std::type_index, std::vector<GameObject*>> m_QueryCache;
+	// 型ごとの検索結果です。生成・破棄のたびに全消しすると、弾やエフェクトが
+	// 出入りするシーンでは毎ステップ「全オブジェクト×dynamic_cast」に戻ってしまうため、
+	// 判定関数を一緒に持っておき、増減した分だけを反映します。
+	struct QueryCacheEntry
+	{
+		bool (*Matches)(GameObject*) = nullptr;
+		std::vector<GameObject*> Objects;
+	};
+
+	mutable std::unordered_map<std::type_index, QueryCacheEntry> m_QueryCache;
 	bool m_IsUpdating = false;
 
 	void InvalidateQueryCache() const { m_QueryCache.clear(); }
+	// 追記は必ず末尾です。検索結果は登録順を保つことが決定性の前提になっています。
+	void AddToQueryCache(GameObject* addedObject) const;
+	void RemoveFromQueryCache(const std::vector<GameObject*>& removedObjects) const;
 
 	template<typename T>
 	const std::vector<GameObject*>& GetCachedMatches() const
@@ -29,18 +41,19 @@ private:
 		const std::type_index type = typeid(T);
 		if (const auto found = m_QueryCache.find(type); found != m_QueryCache.end())
 		{
-			return found->second;
+			return found->second.Objects;
 		}
 
-		std::vector<GameObject*> matches;
+		QueryCacheEntry entry;
+		entry.Matches = [](GameObject* gameObject) { return dynamic_cast<T*>(gameObject) != nullptr; };
 		for (const auto& gameObject : m_GameObjects)
 		{
-			if (dynamic_cast<T*>(gameObject.get()) != nullptr)
+			if (entry.Matches(gameObject.get()))
 			{
-				matches.push_back(gameObject.get());
+				entry.Objects.push_back(gameObject.get());
 			}
 		}
-		return m_QueryCache.emplace(type, std::move(matches)).first->second;
+		return m_QueryCache.emplace(type, std::move(entry)).first->second.Objects;
 	}
 
 public:
@@ -65,7 +78,7 @@ public:
 		else
 		{
 			m_GameObjects.push_back(std::move(gameObject));
-			InvalidateQueryCache();
+			AddToQueryCache(gameObjectPtr);
 		}
 		return gameObjectPtr;
 	}
@@ -76,7 +89,7 @@ public:
 		const auto& matches = GetCachedMatches<T>();
 		for (GameObject* gameObject : matches)
 		{
-			if (!gameObject->Destroy())
+			if (!gameObject->IsPendingDestroy())
 			{
 				return dynamic_cast<T*>(gameObject);
 			}
@@ -92,7 +105,7 @@ public:
 		foundObjects.reserve(matches.size());
 		for (GameObject* gameObject : matches)
 		{
-			if (!gameObject->Destroy())
+			if (!gameObject->IsPendingDestroy())
 			{
 				if (T* found = dynamic_cast<T*>(gameObject))
 				{

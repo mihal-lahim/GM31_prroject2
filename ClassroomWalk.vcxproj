@@ -83,6 +83,10 @@
     <ClCompile Include="src\classroomGameDefinition.cpp" />
     <ClCompile Include="src\classroomRenderTest.cpp" />
     <ClCompile Include="src\wave.cpp" />
+    <ClCompile Include="src\enginePch.cpp">
+      <PrecompiledHeader>Create</PrecompiledHeader>
+      <ForcedIncludeFiles />
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="Engine.vcxproj">

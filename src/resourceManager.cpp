@@ -3,6 +3,9 @@
 #include "renderer.h"
 #include "DirectXTex.h"
 
+// WIN32_LEAN_AND_MEANによりwindows.hがmmsystem.hを引かないため、明示的に読み込みます。
+#include <mmsystem.h>
+
 #include <algorithm>
 #include <cctype>
 #include <fstream>
@@ -376,6 +379,31 @@ void ResourceManager::Clear()
 	g_PixelShaderCache.clear();
 	g_TextureCache.clear();
 	g_WaveCache.clear();
+}
+
+std::size_t ResourceManager::CollectUnused()
+{
+	// キャッシュ自身の1件だけが参照しているエントリは、誰も使っていません。
+	// シェーダーは使い回しが多く、解放しても直後に再コンパイルになるため対象外です。
+	const auto collect = [](auto& cache)
+	{
+		std::size_t released = 0;
+		for (auto entry = cache.begin(); entry != cache.end(); )
+		{
+			if (entry->second.use_count() == 1)
+			{
+				entry = cache.erase(entry);
+				released++;
+			}
+			else
+			{
+				++entry;
+			}
+		}
+		return released;
+	};
+
+	return collect(g_ModelCache) + collect(g_TextureCache) + collect(g_WaveCache);
 }
 
 std::size_t ResourceManager::GetTextureCount()

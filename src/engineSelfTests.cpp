@@ -111,7 +111,7 @@ namespace
 			return false;
 		}
 
-		first->SetDestroy();
+		first->MarkForDestroy();
 		if (world.FindAll<TestGameObject>().size() != 1)
 		{
 			return false;
@@ -129,7 +129,7 @@ namespace
 		object->RunUpdate();
 		object->RunLateUpdate();
 		object->RunDraw();
-		object->SetDestroy();
+		object->MarkForDestroy();
 		world.DestroyRequestedObjects();
 		world.Clear();
 		return counters.PreUpdates == 1
@@ -168,6 +168,30 @@ namespace
 			&& items[4].Object == &transparentNear
 			&& items[5].Object == &overlayFirst
 			&& items[6].Object == &overlaySecond;
+	}
+
+	// 深度が完全に一致する場合でも投入順を保つことを確かめます。
+	// std::sortは非安定なので、比較関数が投入順まで決めないと描画順が揺れます。
+	bool TestRenderTieBreakKeepsSubmissionOrder()
+	{
+		TestGameObject opaqueFirst(Layer::World, RenderCategory::Opaque, 5.0f);
+		TestGameObject opaqueSecond(Layer::World, RenderCategory::Opaque, 5.0f);
+		TestGameObject transparentFirst(Layer::Effect, RenderCategory::Transparent, 7.0f);
+		TestGameObject transparentSecond(Layer::Effect, RenderCategory::Transparent, 7.0f);
+
+		RenderQueue queue;
+		queue.Submit(opaqueFirst);
+		queue.Submit(transparentFirst);
+		queue.Submit(opaqueSecond);
+		queue.Submit(transparentSecond);
+		queue.Sort();
+
+		const auto& items = queue.GetItems();
+		return items.size() == 4
+			&& items[0].Object == &opaqueFirst
+			&& items[1].Object == &opaqueSecond
+			&& items[2].Object == &transparentFirst
+			&& items[3].Object == &transparentSecond;
 	}
 
 	bool TestCollisionWorldIsolation()
@@ -343,6 +367,35 @@ namespace
 		return ResourceManager::GetWaveCount() == 0 && !first->AudioData.empty();
 	}
 
+	// 参照が残っているものは保持し、誰も使っていないものだけ解放されることを確かめます。
+	bool TestCollectUnusedKeepsReferencedResources()
+	{
+		ResourceManager::Clear();
+
+		{
+			const WaveHandle held = ResourceManager::LoadWave("assets/audio/wan.wav");
+			if (held == nullptr || ResourceManager::GetWaveCount() != 1)
+			{
+				ResourceManager::Clear();
+				return false;
+			}
+
+			// ハンドルを保持している間は解放されてはいけません。
+			ResourceManager::CollectUnused();
+			if (ResourceManager::GetWaveCount() != 1 || held->AudioData.empty())
+			{
+				ResourceManager::Clear();
+				return false;
+			}
+		}
+
+		// ハンドルを手放した後は解放されます。
+		const std::size_t released = ResourceManager::CollectUnused();
+		const bool passed = released >= 1 && ResourceManager::GetWaveCount() == 0;
+		ResourceManager::Clear();
+		return passed;
+	}
+
 	bool TestModelResourceCache()
 	{
 		ResourceManager::Clear();
@@ -446,10 +499,12 @@ bool RunEngineSelfTests()
 		&& TestCollisionWorldIsolation()
 		&& TestCollisionQueryOrder()
 		&& TestRenderOrdering()
+		&& TestRenderTieBreakKeepsSubmissionOrder()
 		&& TestGameTime()
 		&& TestRuntimeConfigValidationAndReload()
 		&& TestShaderCatalog()
 		&& TestWaveResourceCache()
+		&& TestCollectUnusedKeepsReferencedResources()
 		&& TestModelResourceCache();
 	OutputDebugStringA(passed ? "Engine self-tests passed.\n" : "Engine self-tests failed.\n");
 	return passed;

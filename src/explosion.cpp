@@ -68,7 +68,7 @@ void Explosion::Update()
 	m_Frame++;
 	if (m_Frame >= 16) // 16フレームで消える。
 	{
-		SetDestroy();
+		MarkForDestroy();
 	}
 }
 

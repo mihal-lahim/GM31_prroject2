@@ -130,7 +130,7 @@ void JumpEffect::Update()
 
 	if (m_Timer >= endTime)
 	{
-		SetDestroy();
+		MarkForDestroy();
 	}
 }
 

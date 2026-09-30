@@ -234,9 +234,9 @@ void BaseballBat::TryHitBalls()
 
 void BaseballBat::Update()
 {
-	if (m_Player == nullptr || m_Player->Destroy())
+	if (m_Player == nullptr || m_Player->IsPendingDestroy())
 	{
-		SetDestroy();
+		MarkForDestroy();
 		return;
 	}
 

@@ -143,6 +143,10 @@
     <ClCompile Include="src\wireSwordAbility.cpp" />
     <ClCompile Include="src\wireTpsCamera.cpp" />
     <ClCompile Include="src\wireGameplayTuning.cpp" />
+    <ClCompile Include="src\enginePch.cpp">
+      <PrecompiledHeader>Create</PrecompiledHeader>
+      <ForcedIncludeFiles />
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="Engine.vcxproj">

@@ -296,6 +296,6 @@ bool WireEnemy::ApplyBreakDamage(int damage, const Vector3& hitDirection)
 	}
 
 	EmitDeathEffect();
-	SetDestroy();
+	MarkForDestroy();
 	return true;
 }

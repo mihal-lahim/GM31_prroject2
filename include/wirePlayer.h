@@ -8,11 +8,28 @@
 
 class WirePlayer : public GameObject
 {
-private:
-	friend class WireGrappleAbility;
-	friend class WirePlayerMovement;
-	friend class WireSwordAbility;
+public:
+	// ability だけが生成できるトークンです。private全体をfriendで開ける代わりに、
+	// これを要求するミューテータだけをability向けの窓口にします。
+	class AbilityAccess
+	{
+		friend class WireGrappleAbility;
+		friend class WirePlayerMovement;
+		friend class WireSwordAbility;
+		AbilityAccess() = default;
+	};
 
+	// 注意: MutablePositionはNotifyTransformChangedを発火しません(従来の直接書き込みと同じ)。
+	// コライダー付きオブジェクトを動かす場合はSetPositionを使ってください。
+	Vector3& MutableVelocity(AbilityAccess) { return m_Velocity; }
+	Vector3& MutablePosition(AbilityAccess) { return m_Position; }
+	Vector3& MutableRotation(AbilityAccess) { return m_Rotation; }
+	Vector3& MutableScale(AbilityAccess) { return m_Scale; }
+	WireGrappleAbility& MutableGrapple(AbilityAccess) { return m_Grapple; }
+	WirePlayerMovement& MutableMovement(AbilityAccess) { return m_Movement; }
+	WireSwordAbility& MutableSword(AbilityAccess) { return m_Sword; }
+
+private:
 	Vector3 m_Velocity{ 0.0f, 0.0f, 0.0f };
 	WirePlayerMovement m_Movement;
 	WireGrappleAbility m_Grapple;

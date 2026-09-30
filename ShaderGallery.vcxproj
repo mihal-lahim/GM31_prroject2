@@ -39,12 +39,17 @@
     <ClCompile Include="src\shaderGalleryUi.cpp" />
     <ClCompile Include="src\shaderGalleryRenderTest.cpp" />
     <ClCompile Include="src\shaderGalleryGameDefinition.cpp" />
-    <ClCompile Include="third_party\imgui\imgui.cpp" />
-    <ClCompile Include="third_party\imgui\imgui_draw.cpp" />
-    <ClCompile Include="third_party\imgui\imgui_tables.cpp" />
-    <ClCompile Include="third_party\imgui\imgui_widgets.cpp" />
-    <ClCompile Include="third_party\imgui\imgui_impl_dx11.cpp" />
-    <ClCompile Include="third_party\imgui\imgui_impl_win32.cpp" />
+    <ClCompile Include="src\enginePch.cpp">
+      <PrecompiledHeader>Create</PrecompiledHeader>
+      <ForcedIncludeFiles />
+    </ClCompile>
+    <!-- サードパーティのソースは自前のインクルード前提で書かれているため、PCHを強制しません。 -->
+    <ClCompile Include="third_party\imgui\imgui.cpp"><PrecompiledHeader>NotUsing</PrecompiledHeader><ForcedIncludeFiles /></ClCompile>
+    <ClCompile Include="third_party\imgui\imgui_draw.cpp"><PrecompiledHeader>NotUsing</PrecompiledHeader><ForcedIncludeFiles /></ClCompile>
+    <ClCompile Include="third_party\imgui\imgui_tables.cpp"><PrecompiledHeader>NotUsing</PrecompiledHeader><ForcedIncludeFiles /></ClCompile>
+    <ClCompile Include="third_party\imgui\imgui_widgets.cpp"><PrecompiledHeader>NotUsing</PrecompiledHeader><ForcedIncludeFiles /></ClCompile>
+    <ClCompile Include="third_party\imgui\imgui_impl_dx11.cpp"><PrecompiledHeader>NotUsing</PrecompiledHeader><ForcedIncludeFiles /></ClCompile>
+    <ClCompile Include="third_party\imgui\imgui_impl_win32.cpp"><PrecompiledHeader>NotUsing</PrecompiledHeader><ForcedIncludeFiles /></ClCompile>
     <ProjectReference Include="Engine.vcxproj"><Project>{4F1C6718-071A-4B3E-AED7-938C39C32F02}</Project></ProjectReference>
   </ItemGroup>
   <ItemGroup>

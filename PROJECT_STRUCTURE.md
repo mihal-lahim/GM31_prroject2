@@ -104,6 +104,24 @@ implementation returns early.
 The application loop uses a 60 Hz accumulator with capped catch-up work. This
 preserves fractional elapsed time without allowing an unbounded update spiral.
 
+Objects submitted at the same camera depth keep their submission order. The
+comparator falls through to `SubmissionOrder` on ties because `std::sort` is not
+stable, so coplanar geometry would otherwise swap between frames.
+
+## Transform writes and collider indexing
+
+`m_Position`, `m_Rotation`, and `m_Scale` are protected, and gameplay code
+writes them directly in many places. Only `SetPosition`, `SetRotation`, and
+`SetScale` raise `Component::OnOwnerTransformChanged`, which is what refreshes
+the static collider spatial index (`collider.h`). An object that owns a collider
+and needs to move must therefore use the setters; direct member writes leave the
+index stale.
+
+The direction accessors (`GetForward`, `GetRight`, `GetUp`, `GetLeft`) are
+immune to this: they key their cached rotation axes on the rotation value
+itself, not on a dirty flag, so a direct write still produces the correct basis
+while repeated reads within a frame reuse one matrix build.
+
 ## Resource ownership
 
 `ResourceManager` normalizes asset paths and caches each texture, WAV, compiled

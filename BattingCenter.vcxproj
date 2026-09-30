@@ -52,6 +52,10 @@
     <ClCompile Include="src\player.cpp" /><ClCompile Include="src\playerCollision.cpp" /><ClCompile Include="src\playerCombat.cpp" />
     <ClCompile Include="src\playerMovement.cpp" /><ClCompile Include="src\playerMoveParticle.cpp" /><ClCompile Include="src\result.cpp" />
     <ClCompile Include="src\sky.cpp" /><ClCompile Include="src\title.cpp" /><ClCompile Include="src\tree.cpp" />
+    <ClCompile Include="src\enginePch.cpp">
+      <PrecompiledHeader>Create</PrecompiledHeader>
+      <ForcedIncludeFiles />
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="Engine.vcxproj"><Project>{4F1C6718-071A-4B3E-AED7-938C39C32F02}</Project></ProjectReference>

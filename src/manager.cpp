@@ -14,6 +14,10 @@
 #include "renderQueue.h"
 #include "resourceManager.h"
 #include "sceneFade.h"
+
+#include <functional>
+#include <utility>
+
 namespace Engine
 {
 namespace
@@ -21,6 +25,28 @@ namespace
 	// 毎フレームの再確保を避けるため、描画キューの容量をフレーム間で再利用します。
 	RenderQueue g_RenderQueue;
 	constexpr float kFadeDurationSeconds = 0.45f;
+
+	// 初期化の途中で失敗したとき、そこまでに起動したサブシステムだけを逆順で畳みます。
+	// 失敗パスごとに後始末を書き下すと、サブシステムを1つ増やしたときに必ず漏れます。
+	class InitRollback
+	{
+	public:
+		explicit InitRollback(std::function<void()> undo) : m_Undo(std::move(undo)) {}
+		~InitRollback()
+		{
+			if (m_Undo)
+			{
+				m_Undo();
+			}
+		}
+		InitRollback(const InitRollback&) = delete;
+		InitRollback& operator=(const InitRollback&) = delete;
+
+		void Dismiss() { m_Undo = nullptr; }
+
+	private:
+		std::function<void()> m_Undo;
+	};
 }
 
 std::unique_ptr<Scene> Manager::m_Scene = nullptr;
@@ -45,53 +71,55 @@ bool Manager::Init(const GameDefinition& gameDefinition)
 	{
 		return false;
 	}
+	InitRollback rendererRollback([] { Renderer::Uninit(); });
+
 	if (!Audio::InitMaster())
 	{
-		Renderer::Uninit();
 		return false;
 	}
+	InitRollback audioRollback([] { Audio::UninitMaster(); });
+
 	m_SceneFade = std::make_unique<SceneFade>();
 	if (!m_SceneFade->Init())
 	{
 		m_SceneFade.reset();
-		Audio::UninitMaster();
-		Renderer::Uninit();
 		return false;
 	}
+	InitRollback fadeRollback([]
+	{
+		m_SceneFade->Uninit();
+		m_SceneFade.reset();
+	});
 	m_FadeAlpha = 1.0f;
 	m_FadingOut = false;
 
-	if (gameDefinition.CreateInitialScene != nullptr)
+	if (gameDefinition.CreateInitialScene == nullptr)
 	{
-		m_Scene = gameDefinition.CreateInitialScene();
-	}
-	else
-	{
-		m_SceneFade->Uninit();
-		m_SceneFade.reset();
-		Audio::UninitMaster();
-		Renderer::Uninit();
 		return false;
 	}
 
-	if (m_Scene != nullptr)
+	std::unique_ptr<Scene> initialScene = gameDefinition.CreateInitialScene();
+	if (initialScene == nullptr)
 	{
-		m_Scene->SetSceneChangeHandler([](std::unique_ptr<Scene> nextScene)
-		{
-			Manager::ChangeScene(std::move(nextScene));
-		});
-		m_Scene->Init();
-		return true;
+		return false;
 	}
 
-	Audio::UninitMaster();
-	if (m_SceneFade != nullptr)
+	AttachScene(std::move(initialScene));
+
+	fadeRollback.Dismiss();
+	audioRollback.Dismiss();
+	rendererRollback.Dismiss();
+	return true;
+}
+
+void Manager::AttachScene(std::unique_ptr<Scene> scene)
+{
+	m_Scene = std::move(scene);
+	m_Scene->SetSceneChangeHandler([](std::unique_ptr<Scene> nextScene)
 	{
-		m_SceneFade->Uninit();
-		m_SceneFade.reset();
-	}
-	Renderer::Uninit();
-	return false;
+		Manager::ChangeScene(std::move(nextScene));
+	});
+	m_Scene->Init();
 }
 
 void Manager::Uninit()
@@ -139,12 +167,9 @@ void Manager::UpdateSceneTransition(float fixedDeltaTime)
 		{
 			m_Scene->Uninit();
 			m_Scene->GetWorld().Clear();
-			m_Scene = std::move(m_NextScene);
-			m_Scene->SetSceneChangeHandler([](std::unique_ptr<Scene> nextScene)
-			{
-				Manager::ChangeScene(std::move(nextScene));
-			});
-			m_Scene->Init();
+			AttachScene(std::move(m_NextScene));
+			// 新Sceneが読み込んだ後に回収します。共有しているアセットは参照が残るため落ちません。
+			ResourceManager::CollectUnused();
 			m_FadingOut = false;
 		}
 	}
@@ -170,32 +195,21 @@ void Manager::Update(float fixedDeltaTime)
 	world.BeginUpdate();
 	m_Scene->Update();
 
-	for (auto& gameObject : world.GetObjects())
+	const auto runPhase = [&world, skipWorldUpdate](void (GameObject::*phase)())
 	{
-		if (skipWorldUpdate && gameObject->GetLayer() != Layer::UI)
+		for (auto& gameObject : world.GetObjects())
 		{
-			continue;
+			if (skipWorldUpdate && gameObject->GetLayer() != Layer::UI)
+			{
+				continue;
+			}
+			(gameObject.get()->*phase)();
 		}
-		gameObject->RunPreUpdate();
-	}
+	};
 
-	for (auto& gameObject : world.GetObjects())
-	{
-		if (skipWorldUpdate && gameObject->GetLayer() != Layer::UI)
-		{
-			continue;
-		}
-		gameObject->RunUpdate();
-	}
-
-	for (auto& gameObject : world.GetObjects())
-	{
-		if (skipWorldUpdate && gameObject->GetLayer() != Layer::UI)
-		{
-			continue;
-		}
-		gameObject->RunLateUpdate();
-	}
+	runPhase(&GameObject::RunPreUpdate);
+	runPhase(&GameObject::RunUpdate);
+	runPhase(&GameObject::RunLateUpdate);
 	world.EndUpdate();
 
 	world.DestroyRequestedObjects();

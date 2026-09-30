@@ -49,7 +49,7 @@ void BaseballBall::HitBack(const Vector3& direction, float speed)
 void BaseballBall::Explode()
 {
 	BaseballEffects::EmitWallExplosion(m_Position);
-	SetDestroy();
+	MarkForDestroy();
 }
 
 void BaseballBall::Update()
@@ -60,7 +60,7 @@ void BaseballBall::Update()
 	m_Lifetime -= dt;
 	if (m_Lifetime <= 0.0f)
 	{
-		SetDestroy();
+		MarkForDestroy();
 		return;
 	}
 
@@ -129,7 +129,7 @@ void BaseballBall::Update()
 
 	if (!m_HitBack && m_Position.z < tuning.MissDestroyZ)
 	{
-		SetDestroy();
+		MarkForDestroy();
 	}
 
 	GameObject::Update();

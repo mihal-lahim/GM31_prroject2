@@ -99,6 +99,10 @@
 	<ClCompile Include="src\kanaText.cpp" />
 	<ClCompile Include="src\kanjiText.cpp" />
     <ClCompile Include="src\world.cpp" />
+    <ClCompile Include="src\enginePch.cpp">
+      <PrecompiledHeader>Create</PrecompiledHeader>
+      <ForcedIncludeFiles />
+    </ClCompile>
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets" />

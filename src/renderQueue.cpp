@@ -54,13 +54,18 @@ void RenderQueue::Sort()
 		{
 			return static_cast<int>(left.Category) < static_cast<int>(right.Category);
 		}
-		if (left.Category == RenderCategory::Transparent)
+		// 深度が同値のときは投入順へ落とします。std::sortは非安定なので、
+		// ここで順序を決めないと同一平面のポリゴンがフレームごとに入れ替わります。
+		if (left.CameraDepth != right.CameraDepth)
 		{
-			return left.CameraDepth > right.CameraDepth;
-		}
-		if (left.Category == RenderCategory::Opaque)
-		{
-			return left.CameraDepth < right.CameraDepth;
+			if (left.Category == RenderCategory::Transparent)
+			{
+				return left.CameraDepth > right.CameraDepth;
+			}
+			if (left.Category == RenderCategory::Opaque)
+			{
+				return left.CameraDepth < right.CameraDepth;
+			}
 		}
 		return left.SubmissionOrder < right.SubmissionOrder;
 	});

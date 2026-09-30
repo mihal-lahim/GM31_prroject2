@@ -4,6 +4,7 @@
 
 #include <cstdint>
 #include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
 class Collider;
@@ -45,6 +46,9 @@ private:
 	// 静的・動的を分けて保持します。クエリ結果の決定的順序は登録シリアルで再現します。
 	std::vector<Collider*> m_StaticColliders;
 	std::vector<Collider*> m_DynamicColliders;
+	// 登録済み判定をO(1)にします。ベクタを線形探索すると登録がO(N^2)になり、
+	// ステージ生成時のColliderが増えるほど二乗で効いてきます。
+	std::unordered_set<const Collider*> m_Registered;
 	std::unordered_map<CellKey, std::vector<Collider*>, CellKeyHash> m_StaticCells;
 	// クエリごとのヒープ確保を避けるための候補収集用スクラッチです。
 	std::vector<Collider*> m_CandidateScratch;

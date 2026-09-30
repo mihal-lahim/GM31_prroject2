@@ -24,6 +24,8 @@ private:
 	static ICameraView* GetActiveCamera();
 	static World* GetCurrentWorld();
 	static void ChangeScene(std::unique_ptr<Scene> nextScene);
+	// 切替ハンドラを結び直してからInitします。起動時と遷移時で同じ手順を使います。
+	static void AttachScene(std::unique_ptr<Scene> scene);
 	static void UpdateSceneTransition(float fixedDeltaTime);
 
 public:

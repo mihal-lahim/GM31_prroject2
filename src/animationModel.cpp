@@ -28,6 +28,66 @@ namespace
 		return scene;
 	}
 
+	// 読み込み済みaiSceneの共有キャッシュです。
+	// 同じFBXを使うキャラを複数出したときに、パースとメモリが頭数ぶん増えるのを防ぎます。
+	// weak_ptrで持つので、最後の参照が消えた時点でaiReleaseImportされ、
+	// 終了処理の順序は従来と変わりません。aiSceneはこのクラスから読み取り専用で使います。
+	std::unordered_map<std::string, std::weak_ptr<const aiScene>>& AnimationSceneCache()
+	{
+		static std::unordered_map<std::string, std::weak_ptr<const aiScene>> cache;
+		return cache;
+	}
+
+	AnimationScenePtr AcquireAnimationScene(const char* fileName, unsigned int flags)
+	{
+		if (fileName == nullptr)
+		{
+			return nullptr;
+		}
+
+		const std::string key = std::string(fileName) + "|" + std::to_string(flags);
+		auto& cache = AnimationSceneCache();
+		if (const auto found = cache.find(key); found != cache.end())
+		{
+			if (AnimationScenePtr shared = found->second.lock())
+			{
+				return shared;
+			}
+		}
+
+		const aiScene* scene = ImportAnimationScene(fileName, flags);
+		if (scene == nullptr)
+		{
+			return nullptr;
+		}
+
+		AnimationScenePtr shared(scene, [](const aiScene* released)
+		{
+			if (released != nullptr)
+			{
+				aiReleaseImport(released);
+			}
+		});
+		cache[key] = shared;
+		return shared;
+	}
+
+	// ボーン名から左足(0)・右足(1)・それ以外(-1)を判定します。読み込み時にボーンごと1回だけ呼びます。
+	int ClassifyFootBone(const std::string& name)
+	{
+		if (name.find("LeftFoot") != std::string::npos || name.find("LeftToe") != std::string::npos)
+		{
+			return 0;
+		}
+		if (name.find("RightFoot") != std::string::npos || name.find("RightToe") != std::string::npos)
+		{
+			return 1;
+		}
+		return -1;
+	}
+
+	// keys[index].mTime <= animationTime < keys[index + 1].mTime となるindexを返します。
+	// assimpのキーは時刻昇順なので二分探索できます。末尾を越えた場合はkeyCount - 1です。
 	template<typename Key>
 	unsigned int FindKeyIndex(double animationTime, unsigned int keyCount, const Key* keys)
 	{
@@ -36,14 +96,9 @@ namespace
 			return 0;
 		}
 
-		for (unsigned int index = 0; index + 1 < keyCount; ++index)
-		{
-			if (animationTime < keys[index + 1].mTime)
-			{
-				return index;
-			}
-		}
-		return keyCount - 1;
+		const Key* next = std::upper_bound(keys + 1, keys + keyCount, animationTime,
+			[](double time, const Key& key) { return time < key.mTime; });
+		return static_cast<unsigned int>(next - keys) - 1;
 	}
 
 	aiVector3D SampleVectorKeys(
@@ -118,7 +173,7 @@ void AnimationModel::Draw()
 	}
 
 	ID3D11DeviceContext* context = Renderer::GetDeviceContext();
-	if (context == nullptr || m_AiScene == nullptr || m_VertexBuffer == nullptr || m_IndexBuffer == nullptr
+	if (context == nullptr || m_AiScene == nullptr || m_VertexBuffer.empty() || m_IndexBuffer.empty()
 		|| m_VertexLayout == nullptr || m_VertexShader == nullptr || m_PixelShader == nullptr)
 	{
 		return;
@@ -171,7 +226,7 @@ void AnimationModel::Draw()
 			const auto foundTexture = m_Texture.find(texture.C_Str());
 			if (foundTexture != m_Texture.end())
 			{
-				textureView = foundTexture->second;
+				textureView = foundTexture->second.Get();
 			}
 		}
 		if (m_UseSurfaceShader && m_Surface.Texture)
@@ -188,10 +243,10 @@ void AnimationModel::Draw()
 		// 頂点バッファ設定
 		UINT stride = sizeof(VERTEX_3D);
 		UINT offset = 0;
-		context->IASetVertexBuffers(0, 1, &m_VertexBuffer[m], &stride, &offset);
+		context->IASetVertexBuffers(0, 1, m_VertexBuffer[m].GetAddressOf(), &stride, &offset);
 
 		// インデックスバッファ設定
-		context->IASetIndexBuffer(m_IndexBuffer[m], DXGI_FORMAT_R32_UINT, 0);
+		context->IASetIndexBuffer(m_IndexBuffer[m].Get(), DXGI_FORMAT_R32_UINT, 0);
 
 		// ポリゴン描画
 		context->DrawIndexed(mesh->mNumFaces * 3, 0, 0);
@@ -233,16 +288,16 @@ void AnimationModel::Load(const char* FileName)
 		return;
 	}
 
-	m_AiScene = ImportAnimationScene(
+	m_AiScene = AcquireAnimationScene(
 		FileName, aiProcessPreset_TargetRealtime_MaxQuality | aiProcess_ConvertToLeftHanded);
 	assert(m_AiScene);
 
-	m_VertexBuffer = new ID3D11Buffer * [m_AiScene->mNumMeshes];
-	m_IndexBuffer = new ID3D11Buffer * [m_AiScene->mNumMeshes];
+	m_VertexBuffer.resize(m_AiScene->mNumMeshes);
+	m_IndexBuffer.resize(m_AiScene->mNumMeshes);
 
 
 	//変形後頂点配列生成
-	m_DeformVertex = new std::vector<DEFORM_VERTEX>[m_AiScene->mNumMeshes];
+	m_DeformVertex.resize(m_AiScene->mNumMeshes);
 	m_SkinTransforms.resize(m_AiScene->mNumMeshes);
 
 	//再帰的にボーン生成
@@ -278,7 +333,7 @@ void AnimationModel::Load(const char* FileName)
 			sd.pSysMem = vertex;
 
 			Renderer::GetDevice()->CreateBuffer(&bd, &sd,
-				&m_VertexBuffer[m]);
+				m_VertexBuffer[m].GetAddressOf());
 
 			delete[] vertex;
 		}
@@ -310,7 +365,7 @@ void AnimationModel::Load(const char* FileName)
 			ZeroMemory(&sd, sizeof(sd));
 			sd.pSysMem = index;
 
-			Renderer::GetDevice()->CreateBuffer(&bd, &sd, &m_IndexBuffer[m]);
+			Renderer::GetDevice()->CreateBuffer(&bd, &sd, m_IndexBuffer[m].GetAddressOf());
 
 			delete[] index;
 		}
@@ -327,10 +382,9 @@ void AnimationModel::Load(const char* FileName)
 
 			for (unsigned int b = 0; b < 4; b++)
 			{
-				deformVertex.BoneName[b] = "";
 				deformVertex.BoneWeight[b] = 0.0f;
 				deformVertex.BoneIndex[b] = -1;
-				deformVertex.BoneOffsetMatrix[b] = aiMatrix4x4();
+				deformVertex.BoneFoot[b] = -1;
 			}
 
 			m_DeformVertex[m].push_back(deformVertex);
@@ -341,6 +395,8 @@ void AnimationModel::Load(const char* FileName)
 		for (unsigned int b = 0; b < mesh->mNumBones; b++)
 		{
 			aiBone* bone = mesh->mBones[b];
+			// ボーン名の判定はボーンごとに1回だけ行います。
+			const signed char boneFoot = static_cast<signed char>(ClassifyFootBone(bone->mName.C_Str()));
 
 			//変形後頂点にボーンデータ格納
 			for (unsigned int w = 0; w < bone->mNumWeights; w++)
@@ -348,11 +404,16 @@ void AnimationModel::Load(const char* FileName)
 				aiVertexWeight weight = bone->mWeights[w];
 
 				int num = m_DeformVertex[m][weight.mVertexId].BoneNum;
+				// LimitBoneWeightsで4本以下に揃っている前提です。Releaseでの範囲外書き込みだけ防ぎます。
+				if (num >= 4)
+				{
+					assert(false && "1頂点あたりのボーン影響が4を超えています");
+					continue;
+				}
 
 				m_DeformVertex[m][weight.mVertexId].BoneWeight[num] = weight.mWeight;
 				m_DeformVertex[m][weight.mVertexId].BoneIndex[num] = static_cast<int>(b);
-				m_DeformVertex[m][weight.mVertexId].BoneName[num] = bone->mName.C_Str();
-				m_DeformVertex[m][weight.mVertexId].BoneOffsetMatrix[num] = bone->mOffsetMatrix;
+				m_DeformVertex[m][weight.mVertexId].BoneFoot[num] = boneFoot;
 				m_DeformVertex[m][weight.mVertexId].BoneNum++;
 
 				assert(m_DeformVertex[m][weight.mVertexId].BoneNum <= 4);
@@ -364,11 +425,7 @@ void AnimationModel::Load(const char* FileName)
 			for (int influence = 0; influence < (std::min)(source.BoneNum, 4); ++influence)
 			{
 				if (source.BoneWeight[influence] < 0.25f) continue;
-				const std::string& name = source.BoneName[influence];
-				const int foot = name.find("LeftFoot") != std::string::npos
-					|| name.find("LeftToe") != std::string::npos ? 0
-					: name.find("RightFoot") != std::string::npos
-					|| name.find("RightToe") != std::string::npos ? 1 : -1;
+				const int foot = source.BoneFoot[influence];
 				if (foot >= 0)
 				{
 					m_FootVertexRefs[foot].emplace_back(m, v);
@@ -385,7 +442,7 @@ void AnimationModel::Load(const char* FileName)
 	{
 		aiTexture* aitexture = m_AiScene->mTextures[i];
 
-		ID3D11ShaderResourceView* texture = nullptr;
+		ComPtr<ID3D11ShaderResourceView> texture;
 
 		// テクスチャ読み込み
 		TexMetadata metadata{};
@@ -395,12 +452,13 @@ void AnimationModel::Load(const char* FileName)
 		if (SUCCEEDED(loadResult))
 		{
 			CreateShaderResourceView(
-				Renderer::GetDevice(), image.GetImages(), image.GetImageCount(), metadata, &texture);
+				Renderer::GetDevice(), image.GetImages(), image.GetImageCount(), metadata,
+				texture.GetAddressOf());
 		}
 
 		if (texture != nullptr)
 		{
-			m_Texture[aitexture->mFilename.data] = texture;
+			m_Texture[aitexture->mFilename.data] = std::move(texture);
 		}
 	}
 
@@ -413,7 +471,7 @@ void AnimationModel::Load(const char* FileName)
 void AnimationModel::LoadAnimation(const char* FileName, const char* Name)
 {
 
-	m_Animation[Name] = ImportAnimationScene(FileName, aiProcess_ConvertToLeftHanded);
+	m_Animation[Name] = AcquireAnimationScene(FileName, aiProcess_ConvertToLeftHanded);
 	assert(m_Animation[Name]);
 
 }
@@ -436,49 +494,16 @@ void AnimationModel::CreateBone(aiNode* node)
 
 void AnimationModel::Uninit()
 {
-	if (m_AiScene != nullptr)
-	{
-		for (unsigned int m = 0; m < m_AiScene->mNumMeshes; m++)
-		{
-			if (m_VertexBuffer != nullptr && m_VertexBuffer[m] != nullptr)
-			{
-				m_VertexBuffer[m]->Release();
-			}
-			if (m_IndexBuffer != nullptr && m_IndexBuffer[m] != nullptr)
-			{
-				m_IndexBuffer[m]->Release();
-			}
-		}
-	}
-
-	delete[] m_VertexBuffer;
-	delete[] m_IndexBuffer;
-
-	delete[] m_DeformVertex;
-
-
-	for (std::pair<const std::string, ID3D11ShaderResourceView*> pair : m_Texture)
-	{
-		if (pair.second != nullptr)
-		{
-			pair.second->Release();
-		}
-	}
+	// ComPtr / vector が所有するため、明示的なReleaseとdelete[]は不要です。
+	m_VertexBuffer.clear();
+	m_IndexBuffer.clear();
+	m_DeformVertex.clear();
 	m_Texture.clear();
 
 
 
-	if (m_AiScene != nullptr)
-	{
-		aiReleaseImport(m_AiScene);
-		m_AiScene = nullptr;
-	}
-
-
-	for (std::pair<const std::string, const aiScene*> pair : m_Animation)
-	{
-		aiReleaseImport(pair.second);
-	}
+	// 共有ハンドルなので、最後の参照が消えた時点でaiReleaseImportされます。
+	m_AiScene.reset();
 	m_Animation.clear();
 	m_CurrentAnimation.clear();
 	m_BlendSourcePose.clear();
@@ -864,7 +889,7 @@ void AnimationModel::BuildSkinTransforms()
 
 void AnimationModel::SampleFootVertices()
 {
-	if (m_AiScene == nullptr || m_DeformVertex == nullptr) return;
+	if (m_AiScene == nullptr || m_DeformVertex.empty()) return;
 	for (int foot = 0; foot < 2; ++foot)
 	{
 		m_FootLocalVertices[foot].clear();
@@ -892,7 +917,7 @@ void AnimationModel::ApplyAnimation(const aiAnimation* animation, double animati
 	float blendWeight, bool uploadMesh)
 {
 	if (animation == nullptr || m_AiScene == nullptr || m_AiScene->mRootNode == nullptr
-		|| m_DeformVertex == nullptr || m_VertexBuffer == nullptr)
+		|| m_DeformVertex.empty() || m_VertexBuffer.empty())
 	{
 		return;
 	}
@@ -962,9 +987,10 @@ void AnimationModel::ApplyAnimation(const aiAnimation* animation, double animati
 		}
 	}
 
-	m_AnimatedPose.clear();
+	// ボーン構成は読み込み後に変わらないため、毎フレームclearして作り直さず上書きします。
+	// (文字列キーの確保とハッシュ再構築がボーン数ぶん毎フレーム走っていました)
 	for (const auto& [name, bone] : m_Bone)
-		m_AnimatedPose.emplace(name, bone.AnimationMatrix);
+		m_AnimatedPose.insert_or_assign(name, bone.AnimationMatrix);
 	UpdateBoneMatrix(m_AiScene->mRootNode, aiMatrix4x4());
 	if (m_GroundHeight != nullptr && m_GameObject != nullptr)
 	{
@@ -998,7 +1024,7 @@ void AnimationModel::ApplyAnimation(const aiAnimation* animation, double animati
 
 		D3D11_MAPPED_SUBRESOURCE mappedResource{};
 		if (!Engine::GraphicsResourceFactory::MapWriteDiscard(
-			m_VertexBuffer[meshIndex], mappedResource, "AnimationModel"))
+			m_VertexBuffer[meshIndex].Get(), mappedResource, "AnimationModel"))
 		{
 			continue;
 		}
@@ -1045,11 +1071,7 @@ void AnimationModel::ApplyAnimation(const aiAnimation* animation, double animati
 			for (int influenceIndex = 0; influenceIndex < influenceCount; ++influenceIndex)
 			{
 				if (source.BoneWeight[influenceIndex] < 0.25f) continue;
-				const std::string& name = source.BoneName[influenceIndex];
-				const int footIndex = name.find("LeftFoot") != std::string::npos
-					|| name.find("LeftToe") != std::string::npos ? 0
-					: name.find("RightFoot") != std::string::npos
-					|| name.find("RightToe") != std::string::npos ? 1 : -1;
+				const int footIndex = source.BoneFoot[influenceIndex];
 				if (footIndex >= 0) belongsToFoot[footIndex] = true;
 			}
 			for (int footIndex = 0; footIndex < 2; ++footIndex)
@@ -1066,7 +1088,7 @@ void AnimationModel::ApplyAnimation(const aiAnimation* animation, double animati
 			vertices[vertexIndex].Diffuse = XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f);
 		}
 
-		context->Unmap(m_VertexBuffer[meshIndex], 0);
+		context->Unmap(m_VertexBuffer[meshIndex].Get(), 0);
 	}
 	// 足首ボーンと靴底の距離をメッシュから測る。モデルごとのサイズ差に対応する。
 	const XMMATRIX world = GetWorldMatrix();

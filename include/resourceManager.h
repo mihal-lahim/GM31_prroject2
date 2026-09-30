@@ -65,6 +65,9 @@ public:
 	static PixelShaderHandle LoadPixelShader(const std::filesystem::path& path);
 	static ModelHandle LoadModel(const std::filesystem::path& path, const ModelFactory& factory);
 	static void Clear();
+	// どのハンドルからも参照されなくなったモデル・テクスチャ・WAVを解放し、解放件数を返します。
+	// Scene切替直後に呼ぶ想定です(新Sceneが掴んだものは参照が残るので落ちません)。
+	static std::size_t CollectUnused();
 
 	static std::size_t GetTextureCount();
 	static std::size_t GetWaveCount();

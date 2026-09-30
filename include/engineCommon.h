@@ -1,8 +1,7 @@
 #pragma once
 
-#define _CRT_SECURE_NO_WARNINGS
-#define NOMINMAX
-
+// WIN32_LEAN_AND_MEAN / NOMINMAX / _CRT_SECURE_NO_WARNINGS はCommon.propsで全TUへ定義しています。
+// ヘッダ側で#defineすると、windows.hを先に読んだTUで効かないためです。
 #include <windows.h>
 #include <d3d11.h>
 #include <wrl/client.h>

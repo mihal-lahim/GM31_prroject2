@@ -10,6 +10,9 @@
 #include "mouseInput.h"
 #include "renderer.h"
 
+// WIN32_LEAN_AND_MEANによりwindows.hがmmsystem.hを引かないため、明示的に読み込みます。
+#include <mmsystem.h>
+
 #include <algorithm>
 #include <chrono>
 #include <cmath>
