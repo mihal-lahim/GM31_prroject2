@@ -73,6 +73,52 @@ bool Engine::GraphicsResourceFactory::IsDrawable(
 		&& pixelShader != nullptr;
 }
 
+bool Engine::GraphicsResourceFactory::CreateTextureFromPixels(
+	ComPtr<ID3D11ShaderResourceView>& view,
+	UINT width,
+	UINT height,
+	const std::uint32_t* pixels,
+	const char* ownerName)
+{
+	view.Reset();
+	ID3D11Device* device = Renderer::GetDevice();
+	if (device == nullptr || pixels == nullptr || width == 0 || height == 0)
+	{
+		LogGpuCreationFailure(ownerName, "pixel texture", E_POINTER);
+		return false;
+	}
+
+	D3D11_TEXTURE2D_DESC description{};
+	description.Width = width;
+	description.Height = height;
+	description.MipLevels = 1;
+	description.ArraySize = 1;
+	description.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+	description.SampleDesc.Count = 1;
+	description.Usage = D3D11_USAGE_IMMUTABLE;
+	description.BindFlags = D3D11_BIND_SHADER_RESOURCE;
+
+	D3D11_SUBRESOURCE_DATA data{};
+	data.pSysMem = pixels;
+	data.SysMemPitch = width * sizeof(std::uint32_t);
+
+	ComPtr<ID3D11Texture2D> texture;
+	HRESULT result = device->CreateTexture2D(&description, &data, texture.GetAddressOf());
+	if (FAILED(result))
+	{
+		LogGpuCreationFailure(ownerName, "pixel texture", result);
+		return false;
+	}
+	result = device->CreateShaderResourceView(texture.Get(), nullptr, view.GetAddressOf());
+	if (FAILED(result))
+	{
+		view.Reset();
+		LogGpuCreationFailure(ownerName, "pixel texture view", result);
+		return false;
+	}
+	return true;
+}
+
 bool Engine::GraphicsResourceFactory::MapWriteDiscard(
 	ID3D11Buffer* buffer,
 	D3D11_MAPPED_SUBRESOURCE& mappedResource,

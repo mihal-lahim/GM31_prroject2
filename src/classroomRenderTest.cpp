@@ -4,7 +4,10 @@
 #include "DirectXTex.h"
 #include "classroomWalk.h"
 #include "animationModel.h"
+#include "cloth.h"
+#include "collider.h"
 #include "gameTime.h"
+#include "sky.h"
 #include "keyboard_utf8.h"
 #include "manager.h"
 #include "modelRenderer.h"
@@ -20,6 +23,54 @@
 #include <array>
 #include <cmath>
 #include <fstream>
+
+namespace
+{
+	// のれんの変形を横から確認するための固定カメラです。照明は ClassroomCamera と同じにします。
+	class NorenSideCamera final : public GameObject, public ICameraView
+	{
+	public:
+		void Init() override { m_Layer = Layer::Camera; }
+		void Place(const Vector3& eye, const Vector3& target)
+		{
+			m_Position = eye;
+			m_Target = target;
+			m_View = XMMatrixLookAtLH(XMVectorSet(eye.x, eye.y, eye.z, 1.0f),
+				XMVectorSet(target.x, target.y, target.z, 1.0f), XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f));
+		}
+		void Draw() override
+		{
+			LIGHT light{};
+			light.Enable = TRUE;
+			light.Direction = { -0.45f, -0.78f, 0.43f, 0.0f };
+			light.Diffuse = { 0.92f, 0.90f, 0.80f, 1.0f };
+			light.Ambient = { 0.22f, 0.25f, 0.30f, 1.0f };
+			light.Position = { 2.0f, 7.0f, 8.0f, 1.0f };
+			light.PointLightparam = { 40.0f, 3.0f, 0.0f, 0.0f };
+			light.SkyColor = { 0.50f, 0.66f, 0.82f, 1.0f };
+			light.GroundColor = { 0.16f, 0.12f, 0.09f, 1.0f };
+			light.GroundNormal = { 0.0f, 1.0f, 0.0f, 0.0f };
+			light.Angle = { XM_PIDIV4, 0.0f, 0.0f, 0.0f };
+			Renderer::SetLight(light);
+			Renderer::SetProjectionMatrix(XMMatrixPerspectiveFovLH(0.8f,
+				static_cast<float>(SCREEN_WIDTH) / SCREEN_HEIGHT, 0.1f, 200.0f));
+			Renderer::SetViewMatrix(m_View);
+			Renderer::SetCameraPosition(XMFLOAT3(m_Position.x, m_Position.y, m_Position.z));
+		}
+		XMMATRIX GetViewMatrix() const override { return m_View; }
+		Vector3 GetCameraPosition() const override { return m_Position; }
+		Vector3 GetCameraForward() const override
+		{
+			Vector3 forward = m_Target - m_Position;
+			forward.normalize();
+			return forward;
+		}
+
+	private:
+		XMMATRIX m_View = XMMatrixIdentity();
+		Vector3 m_Target{};
+	};
+}
 
 bool RunClassroomRenderTest()
 {
@@ -517,6 +568,136 @@ bool RunClassroomRenderTest()
 		&& contactPlayer->GetFootClearance(exitClearance)
 		&& std::abs(exitClearance[0]) < 0.035f && std::abs(exitClearance[1]) < 0.035f;
 	log << "water alignment cleared on shore: " << shoreExitValid << '\n';
+	// のれん: プレイヤーが歩いてくぐると布が押しのけられ、体にめり込まず、通り過ぎると元へ戻る。
+	bool norenRestCaptured = false, norenContactCaptured = false, norenAfterCaptured = false;
+	bool norenEnterCaptured = false, norenSideCaptured = false;
+	bool norenPenetrationFree = true, norenFinite = false, norenWalkerPassed = false;
+	float norenPushed = 0.0f, norenRemaining = 1e9f, norenWorstGap = 1e9f;
+	{
+		World norenWorld;
+		norenWorld.Spawn<Sky>()->SetRadius(90.0f);
+		norenWorld.Spawn<ClassroomField>();
+		norenWorld.Spawn<ClassroomWater>();
+		ClassroomNoren* noren = norenWorld.Spawn<ClassroomNoren>();
+		ClassroomPlayer* walker = norenWorld.Spawn<ClassroomPlayer>();
+		// ClassroomCameraは置きません(ビュー行列を上書きし合うため)。プレイヤーの移動はWで+Zです。
+		NorenSideCamera* norenCamera = norenWorld.Spawn<NorenSideCamera>();
+		Cloth* cloth = noren->GetCloth();
+		const float norenGround = ClassroomField::GetHeight(ClassroomNoren::PositionX, ClassroomNoren::PositionZ);
+		auto viewFromBehind = [&]()
+		{
+			norenCamera->Place({ 1.4f, norenGround + 2.2f, ClassroomNoren::PositionZ - 3.6f },
+				{ 0.0f, norenGround + 1.4f, ClassroomNoren::PositionZ });
+		};
+		auto viewFromSide = [&]()
+		{
+			// 真横だと手前の柱と重なるので、斜め前から見ます。
+			norenCamera->Place({ 2.7f, norenGround + 1.7f, ClassroomNoren::PositionZ - 1.9f },
+				{ 0.0f, norenGround + 1.35f, ClassroomNoren::PositionZ + 0.2f });
+		};
+		// 風の揺れと押された揺れを分けて測るため、この検証では無風にします。
+		cloth->SetWind({}, 0.0f);
+		const float startZ = ClassroomNoren::PositionZ - 1.2f;
+		walker->SetPosition({ 0.0f, ClassroomField::GetHeight(0.0f, startZ), startZ });
+
+		auto step = [&](int count)
+		{
+			for (int i = 0; i < count; ++i)
+			{
+				GameTime::Update(1.0f / 60.0f);
+				norenWorld.BeginUpdate();
+				for (auto& object : norenWorld.GetObjects()) object->RunPreUpdate();
+				for (auto& object : norenWorld.GetObjects()) object->RunUpdate();
+				for (auto& object : norenWorld.GetObjects()) object->RunLateUpdate();
+				norenWorld.EndUpdate();
+				norenWorld.DestroyRequestedObjects();
+				keycopy();
+			}
+		};
+		auto draw = [&]()
+		{
+			Renderer::Begin();
+			RenderQueue norenQueue;
+			norenQueue.Build(norenWorld, norenCamera);
+			norenQueue.Execute();
+			Renderer::End();
+		};
+		auto snapshot = [&]()
+		{
+			std::vector<Vector3> positions;
+			for (const auto& particle : cloth->GetSimulation().GetParticles())
+				positions.push_back(particle.Position);
+			return positions;
+		};
+		auto maxDifference = [&](const std::vector<Vector3>& reference)
+		{
+			float result = 0.0f;
+			const auto& particles = cloth->GetSimulation().GetParticles();
+			for (std::size_t i = 0; i < particles.size(); ++i)
+				result = (std::max)(result, (particles[i].Position - reference[i]).length());
+			return result;
+		};
+
+		step(180);
+		const std::vector<Vector3> settled = snapshot();
+		viewFromBehind();
+		draw();
+		norenRestCaptured = capture(L"classroom-noren-rest.png");
+		viewFromSide();
+		draw();
+		norenSideCaptured = capture(L"classroom-noren-side.png");
+
+		std::vector<Collider*> colliders;
+		norenWorld.GetCollisionWorld().QueryBounds({ -100.0f, -100.0f, -100.0f }, { 100.0f, 100.0f, 100.0f },
+			CollisionLayers::All, colliders);
+		const Collider* body = colliders.empty() ? nullptr : colliders.front();
+		const float surface = body ? body->GetRadius() + cloth->GetSimulation().GetSettings().CollisionThickness : 0.0f;
+
+		Keyboard_ProcessMessage(WM_KEYDOWN, 'W', 0);
+		for (int frame = 0; frame < 36; ++frame)
+		{
+			step(1);
+			if (!body) continue;
+			Vector3 start, end;
+			body->GetCapsuleSegment(start, end);
+			const Vector3 axis = end - start;
+			for (const auto& particle : cloth->GetSimulation().GetParticles())
+			{
+				if (particle.Pinned) continue;
+				const float t = std::clamp(Vector3::dot(particle.Position - start, axis)
+					/ (std::max)(1e-6f, Vector3::dot(axis, axis)), 0.0f, 1.0f);
+				const float gap = (particle.Position - (start + axis * t)).length() - surface;
+				norenWorstGap = (std::min)(norenWorstGap, gap);
+			}
+			norenPushed = (std::max)(norenPushed, maxDifference(settled));
+			// 体の前面が布に触れた頃と、体の中心が布の面を越えた直後を横から撮ります。
+			const float walkerZ = walker->GetPosition().z;
+			if (!norenEnterCaptured && walkerZ >= ClassroomNoren::PositionZ - 0.15f)
+			{
+				draw();
+				norenEnterCaptured = capture(L"classroom-noren-enter.png");
+			}
+			if (!norenContactCaptured && walkerZ >= ClassroomNoren::PositionZ + 0.25f)
+			{
+				draw();
+				norenContactCaptured = capture(L"classroom-noren-contact.png");
+			}
+		}
+		Keyboard_ProcessMessage(WM_KEYUP, 'W', 0);
+		norenWalkerPassed = walker->GetPosition().z > ClassroomNoren::PositionZ + 0.8f;
+		step(300);
+		viewFromBehind();
+		draw();
+		norenAfterCaptured = capture(L"classroom-noren-after.png");
+		norenRemaining = maxDifference(settled);
+		norenFinite = cloth->GetSimulation().IsFinite();
+		norenPenetrationFree = body != nullptr && norenWorstGap >= -0.005f;
+	}
+	const bool norenValid = norenRestCaptured && norenSideCaptured && norenEnterCaptured
+		&& norenContactCaptured && norenAfterCaptured
+		&& norenFinite && norenPenetrationFree && norenWalkerPassed
+		&& norenPushed > 0.15f && norenRemaining < 0.05f;
+
 	const bool feetPlanted = flatMeasured && hillMeasured && sideMeasured
 		&& std::abs(flatClearance[0]) < 0.035f && std::abs(flatClearance[1]) < 0.035f
 		&& std::abs(hillClearance[0]) < 0.035f && std::abs(hillClearance[1]) < 0.035f
@@ -568,7 +749,15 @@ bool RunClassroomRenderTest()
 		<< "\nbank soles planted: " << bankSolesPlanted
 		<< "\nworst bank sole gap: " << worstSlopeEndGap
 		<< "\nfeet planted: " << feetPlanted
-		<< "\nleg chains: " << legChainsValid << '\n';
+		<< "\nleg chains: " << legChainsValid
+		<< "\nnoren pushed by player: " << norenPushed
+		<< "\nnoren worst gap to body: " << norenWorstGap
+		<< "\nnoren remaining after pass: " << norenRemaining
+		<< "\nnoren walker passed: " << norenWalkerPassed
+		<< "\nnoren finite: " << norenFinite
+		<< "\nnoren captured: " << norenRestCaptured << norenSideCaptured << norenEnterCaptured
+		<< norenContactCaptured << norenAfterCaptured
+		<< "\nnoren valid: " << norenValid << '\n';
 	return transitionsPassed == 30 && interruptionsPassed == 30 && loopsPassed == 5 && jumpHolds
 		&& playerStatesPassed == 13
 		&& swimDepthValid && treadDepthValid && swimmingDepthCaptured && treadingDepthCaptured
@@ -583,5 +772,6 @@ bool RunClassroomRenderTest()
 		&& namedTextureVisible && namedAlbedoVisible
 		&& lightingModesVisible
 		&& postVisible && mosaicVisible && mipVisible
-		&& bumpVisible && rampVisible && outlineVisible && legChainsValid;
+		&& bumpVisible && rampVisible && outlineVisible && legChainsValid
+		&& norenValid;
 }

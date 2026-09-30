@@ -14,6 +14,9 @@ concepts and the DirectX 11 backend used by both applications:
 - per-World collision queries, spatial indexing, and shared particle systems
 - the `ICameraView` contract used by rendering and shared effects
 - typed texture, WAV, shader, and model handles managed by `ResourceManager`
+- `Cloth`: a mass-spring cloth object (ported from the GY cloth lesson) that is pushed by
+  any sphere/capsule/AABB `Collider` in its World. `ClothSimulation` is render-independent
+  and covered by the engine self-tests.
 
 Engine source files must not include Wire Action or Batting Center headers.
 Every `Scene` owns an independently constructible `World`. `World::Spawn`

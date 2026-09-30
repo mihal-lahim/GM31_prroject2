@@ -12,6 +12,7 @@
 
 class AnimationModel;
 class ModelRenderer;
+namespace Engine { class Cloth; }
 
 class ClassroomPlayer final : public GameObject
 {
@@ -114,6 +115,31 @@ private:
 	ComPtr<ID3D11VertexShader> m_VertexShader;
 	ComPtr<ID3D11PixelShader> m_PixelShader;
 	TextureHandle m_Texture;
+};
+
+// 湖畔の入口に掛けたのれんです。柱と横木はこのオブジェクトが描き、布は Engine::Cloth に任せます。
+// 布は周囲のColliderに押されて動くので、プレイヤーが歩いてくぐると体に沿ってめくれます。
+class ClassroomNoren final : public GameObject
+{
+public:
+	// スタート地点から W で少し進んだ先、水際の手前です。
+	static constexpr float PositionX = 0.0f;
+	static constexpr float PositionZ = 1.3f;
+
+	void Init() override;
+	void Draw() override;
+	Engine::Cloth* GetCloth() const { return m_Cloth; }
+
+private:
+	Engine::Cloth* m_Cloth = nullptr;
+	ComPtr<ID3D11Buffer> m_VertexBuffer;
+	ComPtr<ID3D11Buffer> m_IndexBuffer;
+	UINT m_IndexCount = 0;
+	Engine::SurfaceMaterial m_Surface;
+	TextureHandle m_ClothTexture;
+
+	void BuildFrame(float groundHeight);
+	void CreateClothTexture();
 };
 
 class ClassroomFps final : public DynamicText

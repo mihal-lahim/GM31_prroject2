@@ -2,7 +2,10 @@ param(
     [switch]$SkipBuild,
     # Capture the current render-test output as the new baseline instead of comparing.
     [switch]$UpdateBaseline,
-    [string]$Configuration = "Debug"
+    [string]$Configuration = "Debug",
+    # Explicit MSBuild.exe. Mixing Visual Studio versions on one obj/ directory breaks the
+    # precompiled header (C1853), so use the same one you build with in the IDE.
+    [string]$MSBuild = ""
 )
 
 # Regression gate for engine changes that must not alter the picture:
@@ -23,8 +26,13 @@ $classroomDir = Join-Path $bin "ClassroomWalk"
 $fpsMask = "0,0,760,48"
 
 function Find-MSBuild {
+    if ($MSBuild -ne "") { return $MSBuild }
     $vswhere = Join-Path ${env:ProgramFiles(x86)} "Microsoft Visual Studio\Installer\vswhere.exe"
     if (Test-Path $vswhere) {
+        # The projects use PlatformToolset v143, which is Visual Studio 2022 (17.x). Prefer it so a
+        # newer side-by-side install does not rebuild with a different compiler.
+        $found = & $vswhere -version "[17.0,18.0)" -requires Microsoft.Component.MSBuild -find "MSBuild\**\Bin\MSBuild.exe" | Select-Object -First 1
+        if ($found) { return $found }
         $found = & $vswhere -latest -requires Microsoft.Component.MSBuild -find "MSBuild\**\Bin\MSBuild.exe" | Select-Object -First 1
         if ($found) { return $found }
     }
@@ -59,6 +67,7 @@ try {
     if (-not $SkipBuild) {
         $msbuild = Find-MSBuild
         if (-not $msbuild) { Write-Output "MSBuild not found. Run from a Developer PowerShell or pass -SkipBuild."; exit 1 }
+        Write-Output "MSBuild: $msbuild"
         Step "build" {
             & $msbuild "GM31_prroject2.slnx" "-p:Configuration=$Configuration" -p:Platform=x64 -m -v:q -nologo |
                 Where-Object { $_ -notmatch "warning X3578" }

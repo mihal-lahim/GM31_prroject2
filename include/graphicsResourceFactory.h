@@ -32,6 +32,15 @@ namespace Engine
 			ID3D11VertexShader* vertexShader,
 			ID3D11PixelShader* pixelShader) noexcept;
 
+		// RGBA8(1ピクセル=0xAABBGGRR)の配列から、ミップなしのシェーダーリソースを作ります。
+		// 手続き生成した模様をファイルなしでテクスチャにしたい場合に使います。
+		[[nodiscard]] static bool CreateTextureFromPixels(
+			ComPtr<ID3D11ShaderResourceView>& view,
+			UINT width,
+			UINT height,
+			const std::uint32_t* pixels,
+			const char* ownerName);
+
 		// 動的バッファのMap処理を一元化し、デバイス・バッファ・Map失敗を安全に扱います。
 		[[nodiscard]] static bool MapWriteDiscard(
 			ID3D11Buffer* buffer,

@@ -55,7 +55,23 @@ model->SetShaderDetailTexture("assets/texture/Toon2.png");
 足メッシュで接地を測る反復中は足だけを変形し、全モデルの頂点更新は各フレーム1回です。
 スキニング行列もボーンごとに計算して頂点間で再利用します。
 脚が届かない場合は腰の高さも少し補正します。
+開始位置から W で少し進んだ湖畔に、3枚に分かれたのれんが掛かっています。布は Engine の
+`Engine::Cloth`（授業「布」のバネ質量モデルを3Dへ移したもの）で、プレイヤーに付けたカプセルの
+`Collider` に押されてめくれ、通り過ぎると重力で元に戻ります。湖からの弱い風でも揺れます。
+のれんは `ClassroomNoren`、模様はテクスチャファイルを使わずコードで生成しています。
+ほかの物体でも、`Collider` を付ければ同じように布を押しのけられます。
+
+```cpp
+ClothSettings settings;          // 分割数・大きさ・質量・硬さ・風などを設定
+settings.PanelCount = 3;         // のれんの切れ目。一枚布なら1
+auto* cloth = world.Spawn<Engine::Cloth>(settings);
+cloth->SetPosition({ 0.0f, 2.0f, 5.0f });   // 上端の中央。ここに固定されて垂れ下がる
+cloth->SetWind({ 0.0f, 0.0f, -0.5f }, 0.9f);
+```
+
 `--render-test` で非表示描画の画像、`--self-test` でエンジン自己テストを実行できます。
+レンダーテストでは、プレイヤーがのれんをくぐる様子を `classroom-noren-*.png` に保存し、
+布が押しのけられること・体にめり込まないこと・通過後に戻ることを数値でも確認します。
 
 授業で変える箇所は `src/classroomWalk.cpp` の `ClassroomPlayer`、
 `ClassroomCamera`、`ClassroomField` です。初期画面は

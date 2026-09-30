@@ -1,6 +1,7 @@
 #include "engineSelfTests.h"
 
 #include "gameTime.h"
+#include "cloth.h"
 #include "collider.h"
 #include "modelRenderer.h"
 #include "renderQueue.h"
@@ -367,6 +368,125 @@ namespace
 		return ResourceManager::GetWaveCount() == 0 && !first->AudioData.empty();
 	}
 
+	Engine::ClothSettings MakeTestClothSettings()
+	{
+		Engine::ClothSettings settings;
+		settings.ColumnsPerPanel = 7;
+		settings.Rows = 9;
+		settings.Width = 0.8f;
+		settings.Height = 0.8f;
+		return settings;
+	}
+
+	// 吊るした布が発散せず、固定点が動かず、伸びすぎずに静止することを確かめます。
+	bool TestClothHangsAndSettles()
+	{
+		Engine::ClothSimulation cloth;
+		cloth.Build(MakeTestClothSettings());
+		cloth.Place(XMMatrixTranslation(0.0f, 2.0f, 0.0f));
+		std::vector<Vector3> pins;
+		for (const auto& particle : cloth.GetParticles())
+			if (particle.Pinned) pins.push_back(particle.Position);
+
+		const std::vector<Engine::ClothCollisionShape> noShapes;
+		// 1秒だけ風であおってから止め、揺れが収まるかを見ます。
+		cloth.GetSettings().Wind = { 0.0f, 0.0f, 3.0f };
+		for (int i = 0; i < 60; ++i) cloth.Step(1.0f / 60.0f, noShapes);
+		const float windDisplacement = cloth.GetMaxDisplacementFromRest();
+		cloth.GetSettings().Wind = {};
+		for (int i = 0; i < 360; ++i) cloth.Step(1.0f / 60.0f, noShapes);
+
+		std::size_t pinIndex = 0;
+		bool pinsHeld = true;
+		float lowest = 1e9f;
+		bool belowRod = true;
+		for (const auto& particle : cloth.GetParticles())
+		{
+			if (particle.Pinned)
+			{
+				pinsHeld &= particle.Position == pins[pinIndex++];
+				continue;
+			}
+			lowest = (std::min)(lowest, particle.Position.y);
+			belowRod &= particle.Position.y < 2.0f;
+		}
+		const float height = MakeTestClothSettings().Height;
+		return cloth.IsFinite() && pinsHeld && belowRod
+			&& windDisplacement > 0.05f
+			&& cloth.GetMaxStructuralStretch() <= cloth.GetSettings().MaxStretch + 0.01f
+			&& cloth.GetMaxSpeed() < 0.05f
+			&& lowest < 2.0f - height * 0.9f && lowest > 2.0f - height * 1.15f;
+	}
+
+	// 布を突き抜ける球に対して粒子がめり込まず、布が押し広げられ、通過後は元の形へ戻ることを確かめます。
+	bool TestClothSphereDoesNotPenetrate()
+	{
+		Engine::ClothSimulation cloth;
+		cloth.Build(MakeTestClothSettings());
+		cloth.Place(XMMatrixTranslation(0.0f, 2.0f, 0.0f));
+		const std::vector<Engine::ClothCollisionShape> noShapes;
+		for (int i = 0; i < 180; ++i) cloth.Step(1.0f / 60.0f, noShapes);
+		std::vector<Vector3> settled;
+		for (const auto& particle : cloth.GetParticles()) settled.push_back(particle.Position);
+
+		Engine::ClothCollisionShape sphere;
+		sphere.Type = Collider::Shape::Sphere;
+		sphere.Radius = 0.2f;
+		const float surface = sphere.Radius + cloth.GetSettings().CollisionThickness;
+		std::vector<Engine::ClothCollisionShape> shapes{ sphere };
+		bool penetrationFree = true;
+		float pushed = 0.0f;
+		constexpr int kPassFrames = 48; // 1.6m を 0.8秒 = 歩く速さ
+		for (int frame = 0; frame <= kPassFrames; ++frame)
+		{
+			const float z = -0.8f + 1.6f * static_cast<float>(frame) / kPassFrames;
+			shapes[0].PreviousCenter = frame == 0 ? Vector3{ 0.0f, 1.5f, z } : shapes[0].Center;
+			shapes[0].Center = { 0.0f, 1.5f, z };
+			cloth.Step(1.0f / 60.0f, shapes);
+			const auto& particles = cloth.GetParticles();
+			for (std::size_t i = 0; i < particles.size(); ++i)
+			{
+				if (particles[i].Pinned) continue;
+				penetrationFree &= (particles[i].Position - shapes[0].Center).length() >= surface - 0.001f;
+				pushed = (std::max)(pushed, (particles[i].Position - settled[i]).length());
+			}
+		}
+		for (int i = 0; i < 360; ++i) cloth.Step(1.0f / 60.0f, noShapes);
+		float remaining = 0.0f;
+		const auto& particles = cloth.GetParticles();
+		for (std::size_t i = 0; i < particles.size(); ++i)
+			remaining = (std::max)(remaining, (particles[i].Position - settled[i]).length());
+		return cloth.IsFinite() && penetrationFree && pushed > 0.15f && remaining < 0.03f;
+	}
+
+	// Worldに置いたClothが、同じWorldのColliderに押されること、マスク外の相手は無視することを確かめます。
+	bool TestClothReactsToWorldColliders()
+	{
+		auto push = [](CollisionLayer clothMask)
+		{
+			World world;
+			auto* cloth = world.Spawn<Engine::Cloth>(MakeTestClothSettings());
+			cloth->SetPosition({ 0.0f, 2.0f, 0.0f });
+			cloth->SetCollisionMask(clothMask);
+			for (int i = 0; i < 120; ++i) cloth->Simulate(1.0f / 60.0f);
+			const float before = cloth->GetSimulation().GetMaxDisplacementFromRest();
+
+			auto* pusher = world.Spawn<GameObject>();
+			pusher->AddComponent<Collider>()->SetSphere(0.2f)->SetCollisionLayer(1u << 5);
+			float maximum = before;
+			for (int frame = 0; frame <= 48; ++frame)
+			{
+				pusher->SetPosition({ 0.0f, 1.5f, -0.8f + 1.6f * static_cast<float>(frame) / 48.0f });
+				cloth->Simulate(1.0f / 60.0f);
+				maximum = (std::max)(maximum, cloth->GetSimulation().GetMaxDisplacementFromRest());
+			}
+			return maximum - before;
+		};
+		const float reacted = push(CollisionLayers::All);
+		const float ignored = push(1u << 6);
+		return reacted > 0.15f && ignored < 0.01f;
+	}
+
 	// 参照が残っているものは保持し、誰も使っていないものだけ解放されることを確かめます。
 	bool TestCollectUnusedKeepsReferencedResources()
 	{
@@ -494,18 +614,38 @@ namespace
 
 bool RunEngineSelfTests()
 {
-	const bool passed = TestWorldLifecycle()
-		&& TestGuaranteedComponentLifecycle()
-		&& TestCollisionWorldIsolation()
-		&& TestCollisionQueryOrder()
-		&& TestRenderOrdering()
-		&& TestRenderTieBreakKeepsSubmissionOrder()
-		&& TestGameTime()
-		&& TestRuntimeConfigValidationAndReload()
-		&& TestShaderCatalog()
-		&& TestWaveResourceCache()
-		&& TestCollectUnusedKeepsReferencedResources()
-		&& TestModelResourceCache();
+	struct TestCase
+	{
+		const char* Name;
+		bool (*Run)();
+	};
+	const TestCase tests[] = {
+		{ "world lifecycle", TestWorldLifecycle },
+		{ "guaranteed component lifecycle", TestGuaranteedComponentLifecycle },
+		{ "collision world isolation", TestCollisionWorldIsolation },
+		{ "collision query order", TestCollisionQueryOrder },
+		{ "render ordering", TestRenderOrdering },
+		{ "render tie break keeps submission order", TestRenderTieBreakKeepsSubmissionOrder },
+		{ "game time", TestGameTime },
+		{ "runtime config validation and reload", TestRuntimeConfigValidationAndReload },
+		{ "shader catalog", TestShaderCatalog },
+		{ "wave resource cache", TestWaveResourceCache },
+		{ "collect unused keeps referenced resources", TestCollectUnusedKeepsReferencedResources },
+		{ "model resource cache", TestModelResourceCache },
+		{ "cloth hangs and settles", TestClothHangsAndSettles },
+		{ "cloth sphere does not penetrate", TestClothSphereDoesNotPenetrate },
+		{ "cloth reacts to world colliders", TestClothReactsToWorldColliders },
+	};
+
+	// どの項目で落ちたか分かるよう、全項目を実行して結果をログへ残します。
+	std::ofstream log("self-test-engine.log");
+	bool passed = true;
+	for (const TestCase& test : tests)
+	{
+		const bool result = test.Run();
+		log << (result ? "PASS " : "FAIL ") << test.Name << '\n';
+		passed &= result;
+	}
 	OutputDebugStringA(passed ? "Engine self-tests passed.\n" : "Engine self-tests failed.\n");
 	return passed;
 }

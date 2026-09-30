@@ -209,6 +209,31 @@ std::vector<Collider*> CollisionWorld::GetOverlaps(const Collider& collider, Col
 	return overlaps;
 }
 
+void CollisionWorld::QueryBounds(
+	const Vector3& minimum,
+	const Vector3& maximum,
+	CollisionLayer layerMask,
+	std::vector<Collider*>& out)
+{
+	for (Collider* other : CollectCandidates(minimum, maximum))
+	{
+		if (!IsQueryable(other, layerMask))
+		{
+			continue;
+		}
+		Vector3 otherMinimum;
+		Vector3 otherMaximum;
+		other->GetBounds(otherMinimum, otherMaximum);
+		if (otherMaximum.x < minimum.x || otherMinimum.x > maximum.x
+			|| otherMaximum.y < minimum.y || otherMinimum.y > maximum.y
+			|| otherMaximum.z < minimum.z || otherMinimum.z > maximum.z)
+		{
+			continue;
+		}
+		out.push_back(other);
+	}
+}
+
 std::vector<Collider*> CollisionWorld::QueryCapsule(
 	const Vector3& start,
 	const Vector3& end,

@@ -1,6 +1,8 @@
 #include "classroomWalk.h"
 
 #include "animationModel.h"
+#include "cloth.h"
+#include "collider.h"
 #include "gameSettings.h"
 #include "gameTime.h"
 #include "graphicsResourceFactory.h"
@@ -107,6 +109,11 @@ void ClassroomPlayer::Init()
 	m_Model->TickAnimation(0.0f, false);
 	AlignFeetToField();
 	m_Model->TickAnimation(0.0f);
+	// のれんなどの布が押しのけられるよう、体の大きさのカプセルを付けます(足元が原点)。
+	AddComponent<Collider>()
+		->SetCapsule(0.24f, 1.7f)
+		->SetOffset({ 0.0f, 0.85f, 0.0f })
+		->SetDebugDraw(false);
 }
 
 void ClassroomPlayer::Update()
@@ -792,6 +799,169 @@ void ClassroomFps::Draw()
 	DynamicText::Draw();
 }
 
+namespace
+{
+	std::uint32_t PackRgba(float r, float g, float b)
+	{
+		auto channel = [](float value)
+		{
+			return static_cast<std::uint32_t>(std::clamp(value, 0.0f, 1.0f) * 255.0f + 0.5f);
+		};
+		return channel(r) | (channel(g) << 8) | (channel(b) << 16) | 0xFF000000u;
+	}
+
+	// 0から1へ滑らかに変わる境界です。模様の縁のギザギザを抑えます。
+	float SmoothEdge(float edge0, float edge1, float value)
+	{
+		const float t = std::clamp((value - edge0) / (edge1 - edge0), 0.0f, 1.0f);
+		return t * t * (3.0f - 2.0f * t);
+	}
+
+	// 外側から見て時計回り(表面)になる箱を追加します。
+	void AppendBox(std::vector<VERTEX_3D>& vertices, std::vector<unsigned int>& indices,
+		const Vector3& center, const Vector3& half, const XMFLOAT4& color)
+	{
+		struct Face { Vector3 Normal, U, V; };
+		// 各面で V×U が外向き法線になるよう U,V を選んでいます。
+		const Face faces[] = {
+			{ { 1, 0, 0 }, { 0, 0, 1 }, { 0, 1, 0 } },
+			{ { -1, 0, 0 }, { 0, 0, -1 }, { 0, 1, 0 } },
+			{ { 0, 1, 0 }, { 1, 0, 0 }, { 0, 0, 1 } },
+			{ { 0, -1, 0 }, { -1, 0, 0 }, { 0, 0, 1 } },
+			{ { 0, 0, 1 }, { 0, 1, 0 }, { 1, 0, 0 } },
+			{ { 0, 0, -1 }, { 0, -1, 0 }, { 1, 0, 0 } },
+		};
+		auto extent = [&half](const Vector3& axis)
+		{
+			return fabsf(axis.x) * half.x + fabsf(axis.y) * half.y + fabsf(axis.z) * half.z;
+		};
+		for (const Face& face : faces)
+		{
+			const unsigned int base = static_cast<unsigned int>(vertices.size());
+			const Vector3 middle = center + face.Normal * extent(face.Normal);
+			const Vector3 u = face.U * extent(face.U);
+			const Vector3 v = face.V * extent(face.V);
+			const Vector3 corners[] = { middle - u - v, middle - u + v, middle + u + v, middle + u - v };
+			for (const Vector3& corner : corners)
+			{
+				VERTEX_3D vertex{};
+				vertex.Position = { corner.x, corner.y, corner.z };
+				vertex.Normal = { face.Normal.x, face.Normal.y, face.Normal.z };
+				vertex.Diffuse = color;
+				vertices.push_back(vertex);
+			}
+			indices.insert(indices.end(), { base, base + 1, base + 2, base, base + 2, base + 3 });
+		}
+	}
+}
+
+void ClassroomNoren::Init()
+{
+	const float groundHeight = ClassroomField::GetHeight(PositionX, PositionZ);
+	m_Position = { PositionX, groundHeight, PositionZ };
+	BuildFrame(groundHeight);
+	CreateClothTexture();
+
+	// 幅1.2m・丈1.0mを3枚に分けた、店先によくある半のれんです。
+	ClothSettings settings;
+	settings.PanelCount = 3;
+	settings.ColumnsPerPanel = 6;
+	settings.Rows = 14;
+	settings.Width = 1.2f;
+	settings.Height = 1.0f;
+	settings.PanelGap = 0.03f;
+	settings.Mass = 0.18f;
+	settings.Stiffness = 120.0f;
+	m_Cloth = GetWorld().Spawn<Engine::Cloth>(settings);
+	m_Cloth->SetPosition({ PositionX, groundHeight + 2.03f, PositionZ });
+	m_Cloth->SetTexture(m_ClothTexture);
+	// 湖から吹く弱い風で、立ち止まっていても少し揺れます。
+	m_Cloth->SetWind({ 0.0f, 0.0f, -0.5f }, 0.9f);
+}
+
+void ClassroomNoren::BuildFrame(float groundHeight)
+{
+	std::vector<VERTEX_3D> vertices;
+	std::vector<unsigned int> indices;
+	const XMFLOAT4 wood{ 0.36f, 0.23f, 0.13f, 1.0f };
+	const XMFLOAT4 darkWood{ 0.22f, 0.14f, 0.08f, 1.0f };
+	// 柱は斜面でも浮かないよう、地面の少し下から立てます。
+	for (float side : { -1.0f, 1.0f })
+		AppendBox(vertices, indices, { PositionX + side * 0.72f, groundHeight + 0.98f, PositionZ },
+			{ 0.045f, 1.18f, 0.045f }, wood);
+	AppendBox(vertices, indices, { PositionX, groundHeight + 2.12f, PositionZ },
+		{ 0.86f, 0.04f, 0.05f }, wood);
+	// のれん棒。布の上端はこの高さに固定されます。
+	AppendBox(vertices, indices, { PositionX, groundHeight + 2.03f, PositionZ },
+		{ 0.66f, 0.012f, 0.012f }, darkWood);
+
+	D3D11_BUFFER_DESC description{};
+	description.Usage = D3D11_USAGE_IMMUTABLE;
+	description.ByteWidth = static_cast<UINT>(vertices.size() * sizeof(VERTEX_3D));
+	description.BindFlags = D3D11_BIND_VERTEX_BUFFER;
+	D3D11_SUBRESOURCE_DATA data{};
+	data.pSysMem = vertices.data();
+	m_RenderingAvailable = Engine::GraphicsResourceFactory::CreateBuffer(
+		m_VertexBuffer, description, &data, "ClassroomNoren");
+	description.ByteWidth = static_cast<UINT>(indices.size() * sizeof(unsigned int));
+	description.BindFlags = D3D11_BIND_INDEX_BUFFER;
+	data.pSysMem = indices.data();
+	m_RenderingAvailable = Engine::GraphicsResourceFactory::CreateBuffer(
+		m_IndexBuffer, description, &data, "ClassroomNorenIndices") && m_RenderingAvailable;
+	m_IndexCount = static_cast<UINT>(indices.size());
+	m_RenderingAvailable = m_Surface.Load(Engine::SurfaceShader::Directional) && m_RenderingAvailable;
+}
+
+void ClassroomNoren::CreateClothTexture()
+{
+	// 藍色の地に白い輪の紋、裾に白線を入れた模様を手続き生成します。
+	// テクスチャ座標は布全体で u:幅1.2m, v:丈1.0m に対応するので、紋が円になるよう補正します。
+	constexpr UINT kSize = 256;
+	std::vector<std::uint32_t> pixels(kSize * kSize);
+	const float texel = 1.0f / kSize;
+	for (UINT y = 0; y < kSize; ++y)
+	{
+		for (UINT x = 0; x < kSize; ++x)
+		{
+			const float u = (x + 0.5f) * texel;
+			const float v = (y + 0.5f) * texel;
+			float r = 0.11f, g = 0.17f, b = 0.36f;
+			// 上端は棒を包む袋縫いなので少し暗くします。
+			const float topBand = 1.0f - SmoothEdge(0.06f, 0.07f, v);
+			r *= 1.0f - 0.3f * topBand; g *= 1.0f - 0.3f * topBand; b *= 1.0f - 0.3f * topBand;
+			const float meterX = (u - 0.5f) * 1.2f;
+			const float meterY = (v - 0.45f) * 1.0f;
+			const float distance = sqrtf(meterX * meterX + meterY * meterY);
+			const float ring = SmoothEdge(0.018f, 0.012f, fabsf(distance - 0.13f));
+			const float dot = SmoothEdge(0.042f, 0.036f, distance);
+			const float hem = SmoothEdge(0.004f, 0.0f, fabsf(v - 0.905f) - 0.006f);
+			const float white = (std::max)((std::max)(ring, dot), hem);
+			r += (0.93f - r) * white; g += (0.91f - g) * white; b += (0.86f - b) * white;
+			pixels[y * kSize + x] = PackRgba(r, g, b);
+		}
+	}
+	ComPtr<ID3D11ShaderResourceView> view;
+	if (Engine::GraphicsResourceFactory::CreateTextureFromPixels(
+		view, kSize, kSize, pixels.data(), "ClassroomNorenTexture"))
+	{
+		auto texture = std::make_shared<TextureResource>();
+		texture->View = view;
+		m_ClothTexture = texture;
+	}
+}
+
+void ClassroomNoren::Draw()
+{
+	auto* context = Renderer::GetDeviceContext();
+	Renderer::SetWorldMatrix(XMMatrixIdentity());
+	m_Surface.Bind();
+	UINT stride = sizeof(VERTEX_3D), offset = 0;
+	context->IASetVertexBuffers(0, 1, m_VertexBuffer.GetAddressOf(), &stride, &offset);
+	context->IASetIndexBuffer(m_IndexBuffer.Get(), DXGI_FORMAT_R32_UINT, 0);
+	context->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+	context->DrawIndexed(m_IndexCount, 0, 0);
+}
+
 void ClassroomWalkScene::Init()
 {
 	World& world = GetWorld();
@@ -800,6 +970,7 @@ void ClassroomWalkScene::Init()
 	world.Spawn<ClassroomField>();
 	world.Spawn<ClassroomWater>();
 	world.Spawn<ClassroomShaderDonut>();
+	world.Spawn<ClassroomNoren>();
 	world.Spawn<ClassroomPlayer>();
 	world.Spawn<ClassroomFps>();
 	// 固定シード相当の配置にして、授業中も毎回同じ森を再現できるようにする。

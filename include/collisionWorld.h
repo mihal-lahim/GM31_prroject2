@@ -80,5 +80,13 @@ public:
 		float radius,
 		CollisionLayer layerMask = CollisionLayers::All);
 
+	// 軸平行の範囲とバウンディングボックスが重なるColliderを、登録順でoutへ追記します。
+	// 布のように「自分はColliderを持たず、周囲の形状だけ知りたい」処理向けです。
+	void QueryBounds(
+		const Vector3& minimum,
+		const Vector3& maximum,
+		CollisionLayer layerMask,
+		std::vector<Collider*>& out);
+
 	std::size_t GetColliderCount() const { return m_StaticColliders.size() + m_DynamicColliders.size(); }
 };
