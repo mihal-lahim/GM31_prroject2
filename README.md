@@ -58,6 +58,22 @@ bin\x64\Debug\WireAction\WireAction.exe --render-test
 `race-*.png` と `render-test-race.log` を保存して終了します。GPUとWindowsの描画環境が必要です。
 
 移動とワイヤーの調整は `assets/config/wire-gameplay.cfg`、画面設定は `assets/config/wire.cfg`。
+
+### 見た目の回帰チェック
+
+エンジンを変更したときに描画結果が変わっていないかを、ピクセル単位で確認できます。
+ビルド、self-test、境界検証、WireAction と ClassroomWalk のレンダーテストを実行し、
+PNG 59枚とログ2本をベースラインと比較します。
+
+```powershell
+# 変更前の正しい状態で一度だけ(ベースラインを artifacts/render-baseline に保存。約100MB、git管理外)
+powershell -ExecutionPolicy Bypass -File scripts\verify-render-regression.ps1 -UpdateBaseline
+# 変更後に毎回
+powershell -ExecutionPolicy Bypass -File scripts\verify-render-regression.ps1
+```
+
+ClassroomWalk の左上には実時間の FPS 表示があって毎回変わるため、その領域(760×48)は比較から除外しています。
+意図して見た目を変えた場合は、確認したうえで `-UpdateBaseline` で撮り直してください。
 調整後は再ビルドしてアセットを実行フォルダーへ反映してください。
 `wireRace.h` は描画と入力から独立したレース状態、`wireSwingPhysics.h` は数値検証可能なワイヤー物理です。
 
