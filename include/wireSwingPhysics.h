@@ -28,6 +28,27 @@ inline void Integrate(Vector3& velocity, Vector3 toAnchor, float ropeLength, flo
     velocity += toAnchor*((tuning.PullAcceleration+stretch*tuning.ConstraintStrength+centripetal)*dt);
     velocity = ClampSpeed(velocity,tuning.RewireMaxSpeed);
 }
+// 伸びないロープとして扱う場合の拘束です。牽引もバネも使いません。
+// 今の速度で進んだ先を予測し、支点からropeLengthより遠くなる分だけ支点側へ戻して、
+// 戻した位置へ着くように速度を作り直します。たるんでいる間は速度を変えません。
+inline void IntegrateRigid(Vector3& velocity, Vector3 toPivot, float ropeLength, float dt,
+    const WireGrappleTuning& tuning, float& tangentialSpeed, float& tension)
+{
+    tension = 0;
+    const float distance = toPivot.length();
+    if (distance <= 0.0001f || dt <= 0.0f) { tangentialSpeed = 0; return; }
+    const Vector3 away = toPivot / -distance;
+    tangentialSpeed = (velocity-away*Vector3::dot(velocity,away)).length();
+    const Vector3 predicted = velocity*dt - toPivot;
+    const float predictedDistance = predicted.length();
+    if (predictedDistance > ropeLength && predictedDistance > 0.0001f)
+    {
+        const Vector3 before = velocity;
+        velocity = (predicted*(ropeLength/predictedDistance) + toPivot) / dt;
+        tension = (velocity-before).length() / dt;
+    }
+    velocity = ClampSpeed(velocity,tuning.RewireMaxSpeed);
+}
 inline Vector3 Release(Vector3 velocity,const WireGrappleTuning& tuning)
 {
     const float speed = velocity.length();

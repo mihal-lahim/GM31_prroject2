@@ -93,6 +93,8 @@
     <ClInclude Include="include\wireRace.h" />
     <ClInclude Include="include\wireMenuBackdrop.h" />
     <ClInclude Include="include\wireSwingPhysics.h" />
+    <ClInclude Include="include\wireRopePath.h" />
+    <ClInclude Include="include\wireRopeVisual.h" />
     <ClInclude Include="include\wireGrappleAbility.h" />
     <ClInclude Include="include\wirePlatform.h" />
     <ClInclude Include="include\wirePlayer.h" />
@@ -130,6 +132,7 @@
     <ClCompile Include="src\wireGame.cpp" />
     <ClCompile Include="src\wireRaceTests.cpp" />
     <ClCompile Include="src\wireGrappleAbility.cpp" />
+    <ClCompile Include="src\wireRopePath.cpp" />
     <ClCompile Include="src\wirePlatform.cpp" />
     <ClCompile Include="src\wirePlayer.cpp" />
     <ClCompile Include="src\wirePlayerInput.cpp" />

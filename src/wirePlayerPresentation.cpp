@@ -21,6 +21,10 @@ namespace
 	constexpr float kWireLineStartHeight = 1.2f;
 	constexpr XMFLOAT4 kWireStartColor{ 0.25f, 0.95f, 1.0f, 1.0f };
 	constexpr XMFLOAT4 kWireEndColor{ 0.85f, 1.0f, 1.0f, 1.0f };
+	// たるむ区間の質点と、折れ点・アンカーを合わせた頂点数の上限です。
+	constexpr int kMaxRopeVertices = WireRopeVisual::kNodeCount + WireRopePath::kMaxBends;
+	// フックが伸び切るまでの見た目上の時間の上限。長いと、引かれ始めてから線が届くように見えます。
+	constexpr float kHookVisualTime = 0.10f;
 }
 
 void WirePlayerPresentation::Init()
@@ -28,7 +32,7 @@ void WirePlayerPresentation::Init()
 	const bool shadersCreated = Engine::GraphicsResourceFactory::CreateUnlitShaderPair(
 		m_LineVertexShader, m_LineVertexLayout, m_LinePixelShader, "WirePlayerPresentation");
 
-	VERTEX_3D wireVertex[2]{};
+	VERTEX_3D wireVertex[kMaxRopeVertices]{};
 	D3D11_BUFFER_DESC bufferDesc{};
 	bufferDesc.Usage = D3D11_USAGE_DEFAULT;
 	bufferDesc.ByteWidth = sizeof(wireVertex);
@@ -51,6 +55,8 @@ void WirePlayerPresentation::Uninit()
 
 void WirePlayerPresentation::Update(const WirePlayer& player, float dt, const WireTpsCamera* camera)
 {
+	UpdateRope(player, dt);
+
 	const WireCameraTuning& tuning = GetWireGameplayTuning().Camera;
 	if (camera == nullptr || tuning.SpeedLineMaxPerFrame <= 0)
 	{
@@ -108,6 +114,29 @@ void WirePlayerPresentation::Update(const WirePlayer& player, float dt, const Wi
 	(void)dt;
 }
 
+void WirePlayerPresentation::UpdateRope(const WirePlayer& player, float dt)
+{
+	if (!player.IsWireActive())
+	{
+		m_RopeActive = false;
+		return;
+	}
+
+	// 接続した瞬間と支点が変わった瞬間は、ワイヤーが張って直線になっています。
+	// 質点を直線へ並べ直し、前の支点の位置へ引きずられて暴れるのを防ぎます。
+	const int bendCount = player.GetWireBendCount();
+	if (!m_RopeActive || bendCount != m_RopeBendCount || player.GetWireAttachAge() <= dt * 1.5f)
+	{
+		m_Rope.Reset();
+	}
+	m_RopeActive = true;
+	m_RopeBendCount = bendCount;
+
+	const Vector3 hand = player.GetPosition() + Vector3{ 0.0f, kWireLineStartHeight, 0.0f };
+	m_Rope.Step(player.GetWirePivot(), hand, player.GetWireFreeLength(),
+		GetWireGameplayTuning().Movement.Gravity, dt);
+}
+
 void WirePlayerPresentation::Draw(const WirePlayer& player)
 {
 	if (!m_RenderingAvailable || !player.IsWireVisible())
@@ -115,17 +144,73 @@ void WirePlayerPresentation::Draw(const WirePlayer& player)
 		return;
 	}
 
-	const Vector3 position = player.GetPosition();
-	const Vector3 anchor = player.GetWireEnd();
-	VERTEX_3D vertex[2]{};
-	vertex[0].Position = XMFLOAT3(position.x, position.y + kWireLineStartHeight, position.z);
-	vertex[0].Normal = XMFLOAT3(0.0f, 1.0f, 0.0f);
-	vertex[0].Diffuse = kWireStartColor;
-	vertex[0].TexCoord = XMFLOAT2(0.0f, 0.0f);
-	vertex[1].Position = XMFLOAT3(anchor.x, anchor.y, anchor.z);
-	vertex[1].Normal = XMFLOAT3(0.0f, 1.0f, 0.0f);
-	vertex[1].Diffuse = kWireEndColor;
-	vertex[1].TexCoord = XMFLOAT2(1.0f, 0.0f);
+	// 手 → たるむ区間 → 折れ点 → アンカー の順に並べます。
+	const Vector3 hand = player.GetPosition() + Vector3{ 0.0f, kWireLineStartHeight, 0.0f };
+	Vector3 points[kMaxRopeVertices];
+	int count = 0;
+	if (player.IsWireActive() && m_RopeActive)
+	{
+		for (int i = WireRopeVisual::kNodeCount - 1; i >= 0; --i)
+		{
+			points[count++] = m_Rope.GetNode(i);
+		}
+		points[0] = hand;
+		// 最後の折れ点は支点としてすでに入っています。残りをアンカーへ向かって辿ります。
+		const std::vector<WireRopePath::Bend>& bends = player.GetWirePath().GetBends();
+		if (!bends.empty())
+		{
+			for (int i = static_cast<int>(bends.size()) - 2; i >= 0; --i)
+			{
+				points[count++] = bends[static_cast<size_t>(i)].Position;
+			}
+			points[count++] = player.GetWireAnchor();
+		}
+	}
+	else
+	{
+		points[count++] = hand;
+		points[count++] = player.GetWireEnd();
+	}
+
+	// 接続は入力の同フレームで成立させていますが、見た目ではフックが伸びていく時間を作ります。
+	// 手元から、経過時間に応じた長さまでだけを描きます。
+	float totalLength = 0.0f;
+	for (int i = 1; i < count; ++i) totalLength += (points[i] - points[i - 1]).length();
+	const float duration = (std::min)(kHookVisualTime,
+		totalLength / (std::max)(GetWireGameplayTuning().Grapple.HookSpeed, 1.0f));
+	if (player.IsWireActive() && duration > 0.0f && player.GetWireAttachAge() < duration)
+	{
+		float remaining = totalLength * (player.GetWireAttachAge() / duration);
+		for (int i = 1; i < count; ++i)
+		{
+			const float length = (points[i] - points[i - 1]).length();
+			if (length < remaining)
+			{
+				remaining -= length;
+				continue;
+			}
+			if (length > 0.0001f)
+			{
+				points[i] = points[i - 1] + (points[i] - points[i - 1]) * (remaining / length);
+			}
+			count = i + 1;
+			break;
+		}
+	}
+
+	VERTEX_3D vertex[kMaxRopeVertices]{};
+	for (int i = 0; i < count; ++i)
+	{
+		const float t = count > 1 ? static_cast<float>(i) / static_cast<float>(count - 1) : 0.0f;
+		vertex[i].Position = XMFLOAT3(points[i].x, points[i].y, points[i].z);
+		vertex[i].Normal = XMFLOAT3(0.0f, 1.0f, 0.0f);
+		vertex[i].Diffuse = XMFLOAT4(
+			kWireStartColor.x + (kWireEndColor.x - kWireStartColor.x) * t,
+			kWireStartColor.y + (kWireEndColor.y - kWireStartColor.y) * t,
+			kWireStartColor.z + (kWireEndColor.z - kWireStartColor.z) * t,
+			1.0f);
+		vertex[i].TexCoord = XMFLOAT2(t, 0.0f);
+	}
 	Renderer::GetDeviceContext()->UpdateSubresource(m_WireVertexBuffer.Get(), 0, nullptr, vertex, 0, 0);
 
 	Renderer::GetDeviceContext()->IASetInputLayout(m_LineVertexLayout.Get());
@@ -142,6 +227,6 @@ void WirePlayerPresentation::Draw(const WirePlayer& player)
 	UINT stride = sizeof(VERTEX_3D);
 	UINT offset = 0;
 	Renderer::GetDeviceContext()->IASetVertexBuffers(0, 1, m_WireVertexBuffer.GetAddressOf(), &stride, &offset);
-	Renderer::GetDeviceContext()->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_LINELIST);
-	Renderer::GetDeviceContext()->Draw(2, 0);
+	Renderer::GetDeviceContext()->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_LINESTRIP);
+	Renderer::GetDeviceContext()->Draw(static_cast<UINT>(count), 0);
 }

@@ -92,7 +92,7 @@ void WireGrappleAbility::Update(
 	}
 	// ワイヤーは左クリックを押している間だけ維持します。離したフレームで
 	// 現在の接線速度を保ったまま切り、空中移動へ即座につなげます。
-	if (!input.AttackDown && (m_Active || m_Firing))
+	if (!input.AttackDown && !m_DebugHold && (m_Active || m_Firing))
 	{
 		Cancel(player, true);
 	}
@@ -136,19 +136,39 @@ void WireGrappleAbility::Update(
 		return;
 	}
 
-	Vector3 toAnchor = m_Anchor - (player.MutablePosition({}) + Vector3(0.0f, GetWireGameplayTuning().Grapple.OriginHeight, 0.0f));
-	const float distance = toAnchor.length();
-	if (distance <= GetWireGameplayTuning().Grapple.StopDistance)
+	const WireGrappleTuning& tuning = GetWireGameplayTuning().Grapple;
+	const Vector3 origin = player.MutablePosition({}) + Vector3(0.0f, tuning.OriginHeight, 0.0f);
+	m_AttachAge += dt;
+	UpdatePath(player, origin);
+
+	// 角で折れている間は、最後の折れ点を支点にして振ります。
+	Vector3 toPivot = m_Path.GetPivot() - origin;
+	const float distance = toPivot.length();
+	if (distance <= tuning.StopDistance)
 	{
-		// アンカーへ到達しても自動切断しません。近距離では牽引だけを止め、接続状態を保ちます。
+		// 支点へ到達しても自動切断しません。近距離では牽引だけを止め、接続状態を保ちます。
 		return;
 	}
 
-	toAnchor.normalize();
-	const WireGrappleTuning& tuning = GetWireGameplayTuning().Grapple;
-	WireSwing::Integrate(player.MutableVelocity({}), toAnchor * distance, m_RopeLength, dt, tuning, m_TangentialSpeed, m_Tension);
+	// 振り子として使える長さは、全長から角に固定された分を引いた残りです。
+	// 巻き付くほど短くなり、同じ速さでも角速度が上がります。
+	const float fixedLength = m_Path.GetFixedLength();
+	if (tuning.RigidRope != 0)
+	{
+		// 巻き取りは有限の速さで行います。長さを一瞬で縮めると、拘束が過大な速度を作るためです。
+		const float reel = tuning.ReelSpeed * dt;
+		m_ReeledLength = (std::max)(m_RopeLength, m_ReeledLength - reel);
+		m_FreeLength = (std::max)({ m_ReeledLength - fixedLength, distance - reel, tuning.StopDistance });
+		WireSwing::IntegrateRigid(player.MutableVelocity({}), toPivot, m_FreeLength, dt, tuning, m_TangentialSpeed, m_Tension);
+	}
+	else
+	{
+		m_FreeLength = (std::max)(m_RopeLength - fixedLength, tuning.StopDistance);
+		WireSwing::Integrate(player.MutableVelocity({}), toPivot, m_FreeLength, dt, tuning, m_TangentialSpeed, m_Tension);
+	}
 
-	const Vector3 flatDirection = Flatten(toAnchor);
+	toPivot /= distance;
+	const Vector3 flatDirection = Flatten(toPivot);
 	if (flatDirection.length() > kVectorEpsilon)
 	{
 		player.MutableRotation({}).y = LerpAngle(player.MutableRotation({}).y, atan2f(flatDirection.x, flatDirection.z), GetWireGameplayTuning().Grapple.TurnLerp);
@@ -164,7 +184,7 @@ void WireGrappleAbility::Cancel(WirePlayer& player, bool addBoost)
 
 	if (addBoost && m_Active)
 	{
-		player.NotifyWireReleased(m_Anchor);
+		player.NotifyWireReleased(m_Path.GetPivot());
         player.MutableVelocity({}) = WireSwing::Release(player.MutableVelocity({}),GetWireGameplayTuning().Grapple);
         player.MutableScale({}) = {GetWireGameplayTuning().Grapple.ReleaseSquashXZ,
             GetWireGameplayTuning().Grapple.ReleaseStretchY,GetWireGameplayTuning().Grapple.ReleaseSquashXZ};
@@ -175,6 +195,19 @@ void WireGrappleAbility::Cancel(WirePlayer& player, bool addBoost)
 	m_AttachedTarget = nullptr;
 	m_Tension = 0.0f;
 	m_TangentialSpeed = 0.0f;
+	m_DebugHold = false;
+	m_Path.Reset(m_Anchor);
+}
+
+void WireGrappleAbility::DebugAttach(WirePlayer& player, const Vector3& anchor)
+{
+	Cancel(player, false);
+	m_Anchor = anchor;
+	m_HookTip = anchor;
+	m_AttachOffset = { 0.0f, 0.0f, 0.0f };
+	m_Active = true;
+	m_DebugHold = true;
+	Attach(player);
 }
 
 WireTargetHit WireGrappleAbility::FindTarget(World& world, const WireTpsCamera* camera) const
@@ -235,9 +268,23 @@ void WireGrappleAbility::Attach(WirePlayer& player)
 {
 	const WireGrappleTuning& tuning = GetWireGameplayTuning().Grapple;
 	const Vector3 origin = player.MutablePosition({}) + Vector3(0.0f, tuning.OriginHeight, 0.0f);
-	Vector3 toAnchor = m_Anchor - origin;
+	// 狙いの補正は遮蔽を見ないので、足場の向こう側のアンカーにも掛かります。
+	// その場合は接続した時点で角に折り、以降の速度の整理は支点に対して行います。
+	m_Path.Reset(m_Anchor);
+	if (tuning.WrapEnabled != 0)
+	{
+		if (const WireFactory* factory = player.GetWorld().FindFirst<WireFactory>())
+		{
+			m_Path.ResolveInitial(factory->GetBlockField(), origin);
+		}
+	}
+	Vector3 toAnchor = m_Path.GetPivot() - origin;
 	const float distance = toAnchor.length();
-	m_RopeLength = (std::max)(tuning.MinRopeLength, distance * tuning.RopeLengthScale);
+	const float pathLength = m_Path.GetFixedLength() + distance;
+	m_RopeLength = (std::max)(tuning.MinRopeLength, pathLength * tuning.RopeLengthScale);
+	m_ReeledLength = (std::max)(m_RopeLength, pathLength);
+	m_FreeLength = (std::max)(m_RopeLength - m_Path.GetFixedLength(), tuning.StopDistance);
+	m_AttachAge = 0.0f;
 	const float before = player.MutableVelocity({}).length();
 	if (distance > kVectorEpsilon)
 	{
@@ -299,6 +346,32 @@ void WireGrappleAbility::UpdateAttachedAnchor(WirePlayer& player)
 	// 動く設備へ掛けている間はアンカーが追従します。クレーンや巨大機械の腕に
 	// ぶら下がったまま振り回される動きは、これで自然に成立します。
 	m_Anchor = m_AttachedTarget->GetWireAnchorPosition() + m_AttachOffset;
+}
+
+void WireGrappleAbility::UpdatePath(WirePlayer& player, const Vector3& origin)
+{
+	m_Path.SetAnchor(m_Anchor);
+	const WireFactory* factory = GetWireGameplayTuning().Grapple.WrapEnabled != 0
+		? player.GetWorld().FindFirst<WireFactory>() : nullptr;
+	if (factory == nullptr)
+	{
+		if (m_Path.GetBendCount() > 0) m_Path.Reset(m_Anchor);
+		return;
+	}
+
+	const int bendsBefore = m_Path.GetBendCount();
+	m_Path.Update(factory->GetBlockField(), origin);
+	if (m_Path.GetBendCount() > bendsBefore)
+	{
+		// 角に掛かった瞬間を火花で知らせます。支点が変わったことを目で追えるようにするためです。
+		const Vector3 pivot = m_Path.GetPivot();
+		for (int i = 0; i < 6; ++i)
+		{
+			const float angle = XM_2PI * static_cast<float>(i) / 6.0f;
+			ParticleSystem::Emit(pivot, { cosf(angle) * 3.0f, 1.5f, sinf(angle) * 3.0f }, 0.07f, 10,
+				{ 1.0f, 0.86f, 0.35f, 0.95f }, -7.0f, 0.91f);
+		}
+	}
 }
 
 float WireGrappleAbility::GetAimTimeRatio() const

@@ -66,6 +66,9 @@
     <ClCompile Include="src\wireGrappleAbility.cpp">
       <Filter>Code\Abilities\Grapple</Filter>
     </ClCompile>
+    <ClCompile Include="src\wireRopePath.cpp">
+      <Filter>Code\Abilities\Grapple</Filter>
+    </ClCompile>
     <ClCompile Include="src\wireReticle.cpp">
       <Filter>Code\Abilities\Grapple</Filter>
     </ClCompile>
@@ -174,6 +177,12 @@
       <Filter>Code\Abilities\Grapple</Filter>
     </ClInclude>
     <ClInclude Include="include\wireSwingPhysics.h">
+      <Filter>Code\Abilities\Grapple</Filter>
+    </ClInclude>
+    <ClInclude Include="include\wireRopePath.h">
+      <Filter>Code\Abilities\Grapple</Filter>
+    </ClInclude>
+    <ClInclude Include="include\wireRopeVisual.h">
       <Filter>Code\Abilities\Grapple</Filter>
     </ClInclude>
     <ClInclude Include="include\wireSlashEffect.h">

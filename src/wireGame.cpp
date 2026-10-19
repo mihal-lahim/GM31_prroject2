@@ -162,6 +162,8 @@ void WireGame::Update()
     if (WireDebugTools::IsOverlayVisible())
         m_Debug->SetText(L"F2 当たり判定 / F5 時間倍率 / F8 再開\n速度 " + std::to_wstring(static_cast<int>(player->GetSpeed()))
             + L"  接線 " + std::to_wstring(static_cast<int>(player->GetWireTangentialSpeed()))
+            + L"  折れ点 " + std::to_wstring(player->GetWireBendCount())
+            + L"  残り長 " + std::to_wstring(static_cast<int>(player->GetWireFreeLength()))
             + (m_Run.RecordEligible ? L"" : L"  記録対象外"));
     if (GameTime::IsPaused()) return;
     if (m_Run.Finished)

@@ -43,6 +43,8 @@ cells. Query results retain registration order for deterministic behavior.
   Moving collision boxes, rendering and attached anchor positions use the same transforms.
 - `wireGrappleAbility.*`: immediate attachment, moving targets, momentum-preserving release.
 - `wireSwingPhysics.h`: numerical rope integration and ascent-dependent release assistance.
+- `wireRopePath.*`: rope path that bends on block edges; the last bend is the swing pivot. No rendering, input, or World dependency.
+- `wireRopeVisual.h`: render-only Verlet chain for the slack between the pivot and the hand.
 - `wirePlayerMovement.*`: tangent input, jumping, wall kicks, aerial direction changes and landings.
 - `wirePlayer.*`, `wireRobotRenderer.*`, `wirePlayerPresentation.*`: toy robot and wire feedback.
 - `wireMissionHud.*`: race time, altitude, speed, best time and short movement feedback.

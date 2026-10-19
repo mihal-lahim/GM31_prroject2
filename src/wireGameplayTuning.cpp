@@ -112,6 +112,9 @@ const WireGameplayTuning& GetWireGameplayTuning()
 		grapple.ReleasePoseRoll = Float("wire.grapple.release_pose_roll", grapple.ReleasePoseRoll);
 		grapple.ReleasePoseTwist = Float("wire.grapple.release_pose_twist", grapple.ReleasePoseTwist);
 		grapple.ReleaseLimbLag = Float("wire.grapple.release_limb_lag", grapple.ReleaseLimbLag);
+		grapple.WrapEnabled = Integer("wire.grapple.wrap_enabled", grapple.WrapEnabled);
+		grapple.RigidRope = Integer("wire.grapple.rigid_rope", grapple.RigidRope);
+		grapple.ReelSpeed = Float("wire.grapple.reel_speed", grapple.ReelSpeed);
 
 		auto& animation = value.Animation;
 		animation.RunCycleSpeed = Float("wire.animation.run_cycle_speed", animation.RunCycleSpeed);
@@ -328,6 +331,7 @@ const WireGameplayTuning& GetWireGameplayTuning()
 		grapple.ReleasePoseDuration = std::clamp(grapple.ReleasePoseDuration, 0.05f, 1.0f);
 		grapple.ReleasePoseRoll = std::clamp(grapple.ReleasePoseRoll, 0.0f, 1.5f);
 		grapple.ReleasePoseTwist = std::clamp(grapple.ReleasePoseTwist, 0.0f, 1.0f);
+		grapple.ReelSpeed = (std::max)(grapple.ReelSpeed, 0.0f);
 		grapple.ReleaseLimbLag = std::clamp(grapple.ReleaseLimbLag, 0.0f, 1.2f);
 		animation.RunCycleSpeed = (std::max)(animation.RunCycleSpeed, 0.1f);
 		animation.WalkSwing = std::clamp(animation.WalkSwing, 0.0f, 1.5f);

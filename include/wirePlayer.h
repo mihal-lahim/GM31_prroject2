@@ -88,7 +88,16 @@ public:
 	float GetSwordSwingRatio() const { return m_Sword.GetSwingRatio(); }
 	float GetSpeed() const { return m_Velocity.length(); }
 	bool IsOnGround() const { return m_Movement.IsOnGround(); }
+	// テストとデバッグ用。Cancelするまで、入力に関係なく指定した位置へ接続します。
+	void DebugAttachWire(const Vector3& anchor) { m_Grapple.DebugAttach(*this, anchor); }
+	void DebugReleaseWire() { m_Grapple.Cancel(*this, false); }
 	Vector3 GetWireAnchor() const { return m_Grapple.GetAnchor(); }
+	// 振り子の支点。足場の角で折れている間は、アンカーではなく最後の折れ点です。
+	Vector3 GetWirePivot() const { return m_Grapple.GetPivot(); }
+	const WireRopePath& GetWirePath() const { return m_Grapple.GetPath(); }
+	int GetWireBendCount() const { return m_Grapple.GetPath().GetBendCount(); }
+	float GetWireFreeLength() const { return m_Grapple.GetFreeLength(); }
+	float GetWireAttachAge() const { return m_Grapple.GetAttachAge(); }
 	Vector3 GetWireEnd() const { return m_Grapple.GetWireEnd(); }
 	float GetBlinkCooldownRatio() const { return m_Movement.GetBlinkCooldownRatio01(); }
 	bool CanBlinkNow() const { return m_Movement.CanBlinkNow(); }

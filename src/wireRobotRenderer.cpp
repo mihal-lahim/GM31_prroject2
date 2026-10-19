@@ -108,7 +108,7 @@ void WireRobotRenderer::Update()
 	float targetRoll = 0.0f;
 	if (wire)
 	{
-		const Vector3 rope = player->GetWireAnchor() - player->GetPosition();
+		const Vector3 rope = player->GetWirePivot() - player->GetPosition();
 		const Vector3 velocity = player->GetVelocity();
 		const float turn = rope.x * velocity.z - rope.z * velocity.x;
 		if (std::abs(turn) > 0.05f)
@@ -296,7 +296,7 @@ void WireRobotRenderer::Draw()
 	}
 	if (wire || m_WireShootTimer > 0.0f)
 	{
-		Vector3 aim = player->GetWireAnchor() - (position + Vector3{0.0f,1.45f,0.0f});
+		Vector3 aim = player->GetWirePivot() - (position + Vector3{0.0f,1.45f,0.0f});
 		if (aim.length() > 0.001f)
 		{
 			aim.normalize();

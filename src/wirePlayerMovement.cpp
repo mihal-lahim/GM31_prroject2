@@ -87,7 +87,7 @@ void WirePlayerMovement::Update(
 		const float aimScale = 1.0f;
 		if (player.MutableGrapple({}).IsActive())
         {
-            Vector3 radial = player.GetWireAnchor() - player.MutablePosition({});
+            Vector3 radial = player.GetWirePivot() - player.MutablePosition({});
             if (radial.length() > kVectorEpsilon) radial.normalize();
             const Vector3 tangentInput = moveDirection - radial * Vector3::dot(moveDirection,radial);
             player.MutableVelocity({}) += tangentInput * GetWireGameplayTuning().Grapple.SwingInputAcceleration * dt;

@@ -121,6 +121,13 @@ struct WireGrappleTuning
 	float ReleasePoseRoll = 0.62f;
 	float ReleasePoseTwist = 0.32f;
 	float ReleaseLimbLag = 0.48f;
+	// 足場の角でワイヤーを折ります。0にすると従来どおり足場を貫通する直線です。
+	int WrapEnabled = 1;
+	// 1にすると伸びないロープとして扱い、たるんでいる間は引きません(実験用)。
+	// 0は牽引とバネで引き寄せる、操作感を優先した従来の挙動です。
+	int RigidRope = 0;
+	// RigidRopeのとき、目標の長さまでワイヤーを巻き取る速さ(m/s)。
+	float ReelSpeed = 30.0f;
 };
 
 struct WireAnimationTuning
