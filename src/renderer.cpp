@@ -28,6 +28,9 @@ ComPtr<ID3D11Texture2D>		Renderer::m_SceneTexture{};
 ComPtr<ID3D11RenderTargetView> Renderer::m_SceneRenderTarget{};
 ComPtr<ID3D11ShaderResourceView> Renderer::m_SceneResource{};
 ComPtr<ID3D11Buffer>			Renderer::m_PostVertexBuffer{};
+std::array<ComPtr<ID3D11Texture2D>, Renderer::PostWorkSlots> Renderer::m_PostWorkTextures{};
+std::array<ComPtr<ID3D11RenderTargetView>, Renderer::PostWorkSlots> Renderer::m_PostWorkTargets{};
+std::array<ComPtr<ID3D11ShaderResourceView>, Renderer::PostWorkSlots> Renderer::m_PostWorkResources{};
 PostEffectMode Renderer::m_PostEffectMode = PostEffectMode::None;
 std::string Renderer::m_PostDefinitionId{};
 void (*Renderer::m_OverlayCallback)() = nullptr;
@@ -35,6 +38,7 @@ XMFLOAT4 Renderer::m_PostOptions{};
 XMFLOAT4 Renderer::m_PostExtraOptions{};
 bool Renderer::m_CustomPostOptions = false;
 XMFLOAT4 Renderer::m_PostDefinitionParameters{};
+XMFLOAT4 Renderer::m_ClearColor = Renderer::DefaultClearColor;
 
 
 ComPtr<ID3D11DepthStencilState> Renderer::m_DepthStateEnable{};
@@ -411,6 +415,21 @@ bool Renderer::Init()
 	if (!CheckInitializationResult(hr, "ID3D11Device::CreateRenderTargetView(scene)")) { Uninit(); return false; }
 	hr = m_Device->CreateShaderResourceView(m_SceneTexture.Get(), nullptr, m_SceneResource.ReleaseAndGetAddressOf());
 	if (!CheckInitializationResult(hr, "ID3D11Device::CreateShaderResourceView(scene)")) { Uninit(); return false; }
+	D3D11_TEXTURE2D_DESC workDesc = sceneDesc;
+	workDesc.MipLevels = 1;
+	workDesc.Format = DXGI_FORMAT_R16G16B16A16_FLOAT;
+	workDesc.MiscFlags = 0;
+	for (std::size_t i = 0; i < m_PostWorkTextures.size(); ++i)
+	{
+		workDesc.Width = SCREEN_WIDTH >> PostWorkSlotShift(i);
+		workDesc.Height = SCREEN_HEIGHT >> PostWorkSlotShift(i);
+		hr = m_Device->CreateTexture2D(&workDesc, nullptr, m_PostWorkTextures[i].ReleaseAndGetAddressOf());
+		if (!CheckInitializationResult(hr, "ID3D11Device::CreateTexture2D(post work)")) { Uninit(); return false; }
+		hr = m_Device->CreateRenderTargetView(m_PostWorkTextures[i].Get(), nullptr, m_PostWorkTargets[i].ReleaseAndGetAddressOf());
+		if (!CheckInitializationResult(hr, "ID3D11Device::CreateRenderTargetView(post work)")) { Uninit(); return false; }
+		hr = m_Device->CreateShaderResourceView(m_PostWorkTextures[i].Get(), nullptr, m_PostWorkResources[i].ReleaseAndGetAddressOf());
+		if (!CheckInitializationResult(hr, "ID3D11Device::CreateShaderResourceView(post work)")) { Uninit(); return false; }
+	}
 	ID3D11Buffer* cameraBuffer = m_CameraBuffer.Get();
 	m_DeviceContext->VSSetConstantBuffers(5, 1, &cameraBuffer);
 	m_DeviceContext->PSSetConstantBuffers(5, 1, &cameraBuffer);
@@ -468,6 +487,9 @@ void Renderer::Uninit()
 
 	m_LightBuffer.Reset();
 	m_PostVertexBuffer.Reset();
+	for (auto& resource : m_PostWorkResources) resource.Reset();
+	for (auto& target : m_PostWorkTargets) target.Reset();
+	for (auto& texture : m_PostWorkTextures) texture.Reset();
 	m_SceneResource.Reset();
 	m_SceneRenderTarget.Reset();
 	m_SceneTexture.Reset();
@@ -508,7 +530,7 @@ void Renderer::Begin()
 		&& m_PostDefinitionId.empty()
 		? m_RenderTargetView.Get() : m_SceneRenderTarget.Get();
 	m_DeviceContext->OMSetRenderTargets(1, &target, m_DepthStencilView.Get());
-	float clearColor[4] = { 0.42f, 0.62f, 0.82f, 1.0f };
+	const float clearColor[4] = { m_ClearColor.x, m_ClearColor.y, m_ClearColor.z, m_ClearColor.w };
 	m_DeviceContext->ClearRenderTargetView(target, clearColor);
 	m_DeviceContext->ClearDepthStencilView( m_DepthStencilView.Get(), D3D11_CLEAR_DEPTH, 1.0f, 0);
 }
@@ -521,6 +543,16 @@ void Renderer::End()
 	{
 		const ShaderDefinition* definition = m_PostDefinitionId.empty()
 			? nullptr : FindShaderDefinition(m_PostDefinitionId);
+		if (definition && definition->Passes.size() > 1)
+		{
+			ID3D11RenderTargetView* backBuffer = m_RenderTargetView.Get();
+			m_DeviceContext->OMSetRenderTargets(1, &backBuffer, nullptr);
+			if (definition->GenerateMips) m_DeviceContext->GenerateMips(m_SceneResource.Get());
+			DrawPostDefinition(*definition);
+			if (m_OverlayCallback != nullptr) m_OverlayCallback();
+			m_SwapChain->Present(1, 0);
+			return;
+		}
 		const VertexShaderHandle vs = ResourceManager::LoadVertexShader(definition
 			? std::string(definition->Passes[0].VertexFile) : "spPostVS.cso");
 		const PixelShaderHandle ps = ResourceManager::LoadPixelShader(definition
@@ -569,15 +601,86 @@ void Renderer::End()
 bool Renderer::SetPostEffectDefinition(std::string_view id)
 {
 	const ShaderDefinition* definition = FindShaderDefinition(id);
-	if (!definition || definition->Usage != ShaderUsage::Post || definition->Passes.size() != 1)
+	if (!definition || definition->Usage != ShaderUsage::Post
+		|| definition->Passes.empty() || definition->Passes.size() > MaxPostPasses)
 		return false;
-	if (!ResourceManager::LoadVertexShader(std::string(definition->Passes[0].VertexFile))
-		|| !ResourceManager::LoadPixelShader(std::string(definition->Passes[0].PixelFile)))
-		return false;
+	for (const ShaderPass& pass : definition->Passes)
+		if (!ResourceManager::LoadVertexShader(std::string(pass.VertexFile))
+			|| !ResourceManager::LoadPixelShader(std::string(pass.PixelFile)))
+			return false;
 	m_PostDefinitionId = id;
 	m_PostDefinitionParameters = definition->Defaults;
 	m_PostEffectMode = PostEffectMode::None;
 	return true;
+}
+
+// 最後のパス以外は作業バッファの枠(ShaderPass::PostOutput、未指定なら 1/4 の2枠を交互)へ描く。
+// 各パスは t0=元画面、t1=直前のパスの出力、t2〜t7=作業枠0〜5、b6=名前付き値、b7=パス固有値を受け取る。
+void Renderer::DrawPostDefinition(const ShaderDefinition& definition)
+{
+	std::array<VertexShaderHandle, MaxPostPasses> vertexShaders{};
+	std::array<PixelShaderHandle, MaxPostPasses> pixelShaders{};
+	for (std::size_t i = 0; i < definition.Passes.size(); ++i)
+	{
+		vertexShaders[i] = ResourceManager::LoadVertexShader(std::string(definition.Passes[i].VertexFile));
+		pixelShaders[i] = ResourceManager::LoadPixelShader(std::string(definition.Passes[i].PixelFile));
+		if (!vertexShaders[i] || !pixelShaders[i])
+		{
+			ComPtr<ID3D11Resource> backResource;
+			m_RenderTargetView->GetResource(backResource.GetAddressOf());
+			m_DeviceContext->CopyResource(backResource.Get(), m_SceneTexture.Get());
+			return;
+		}
+	}
+
+	UINT viewportCount = 1;
+	D3D11_VIEWPORT fullViewport{};
+	m_DeviceContext->RSGetViewports(&viewportCount, &fullViewport);
+
+	SetDepthMode(RenderDepthMode::Disabled);
+	SetParameter(m_PostDefinitionParameters);
+	ID3D11Buffer* passBuffer = m_PostOptionsBuffer.Get();
+	m_DeviceContext->PSSetConstantBuffers(7, 1, &passBuffer);
+	UINT stride = sizeof(VERTEX_3D), offset = 0;
+	m_DeviceContext->IASetVertexBuffers(0, 1, m_PostVertexBuffer.GetAddressOf(), &stride, &offset);
+	m_DeviceContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+
+	constexpr UINT inputCount = 2 + static_cast<UINT>(PostWorkSlots);
+	ID3D11RenderTargetView* backBuffer = m_RenderTargetView.Get();
+	ID3D11ShaderResourceView* previous = m_SceneResource.Get();
+	ID3D11ShaderResourceView* empty[inputCount]{};
+	for (std::size_t i = 0; i < definition.Passes.size(); ++i)
+	{
+		const ShaderPass& pass = definition.Passes[i];
+		const bool last = i + 1 == definition.Passes.size();
+		const std::size_t slot = pass.PostOutput >= 0 && pass.PostOutput < static_cast<int>(PostWorkSlots)
+			? static_cast<std::size_t>(pass.PostOutput) : 2 + i % 2;
+		m_DeviceContext->PSSetShaderResources(0, inputCount, empty);
+		ID3D11RenderTargetView* target = last ? backBuffer : m_PostWorkTargets[slot].Get();
+		m_DeviceContext->OMSetRenderTargets(1, &target, nullptr);
+		D3D11_VIEWPORT viewport = fullViewport;
+		if (!last)
+		{
+			viewport.TopLeftX = 0.0f;
+			viewport.TopLeftY = 0.0f;
+			viewport.Width = static_cast<FLOAT>(SCREEN_WIDTH >> PostWorkSlotShift(slot));
+			viewport.Height = static_cast<FLOAT>(SCREEN_HEIGHT >> PostWorkSlotShift(slot));
+		}
+		m_DeviceContext->RSSetViewports(1, &viewport);
+		m_DeviceContext->UpdateSubresource(m_PostOptionsBuffer.Get(), 0, nullptr, &pass.Parameters, 0, 0);
+		m_DeviceContext->IASetInputLayout(vertexShaders[i]->InputLayout.Get());
+		m_DeviceContext->VSSetShader(vertexShaders[i]->Shader.Get(), nullptr, 0);
+		m_DeviceContext->PSSetShader(pixelShaders[i]->Shader.Get(), nullptr, 0);
+		// t2〜t7 には全作業枠を渡す(このパスが書く枠だけは空にする)。
+		ID3D11ShaderResourceView* inputs[inputCount]{ m_SceneResource.Get(), previous };
+		for (std::size_t s = 0; s < PostWorkSlots; ++s)
+			inputs[2 + s] = !last && s == slot ? nullptr : m_PostWorkResources[s].Get();
+		if (!last && previous == m_PostWorkResources[slot].Get()) inputs[1] = nullptr;
+		m_DeviceContext->PSSetShaderResources(0, inputCount, inputs);
+		m_DeviceContext->Draw(3, 0);
+		previous = m_PostWorkResources[slot].Get();
+	}
+	m_DeviceContext->PSSetShaderResources(0, inputCount, empty);
 }
 
 bool Renderer::SetPostEffectFloat(std::string_view name, float value)

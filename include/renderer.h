@@ -1,10 +1,12 @@
 #pragma once
 
 #include "engineCommon.h"
+#include <array>
 #include <string>
 #include <string_view>
 namespace Engine
 {
+struct ShaderDefinition;
 // Engine内で共有する標準頂点形式です。OBJ、2D、パーティクルで同じ入力レイアウトを使います。
 struct VERTEX_3D
 {
@@ -95,6 +97,14 @@ private:
 	static ComPtr<ID3D11RenderTargetView> m_SceneRenderTarget;
 	static ComPtr<ID3D11ShaderResourceView> m_SceneResource;
 	static ComPtr<ID3D11Buffer>			m_PostVertexBuffer;
+public:
+	// 複数パスのポスト効果用の作業バッファの枠数。枠 0,1 は 1/2、2,3 は 1/4、4,5 は 1/8 解像度。
+	static constexpr std::size_t PostWorkSlots = 6;
+	static constexpr int PostWorkSlotShift(std::size_t slot) { return static_cast<int>(slot / 2) + 1; }
+private:
+	static std::array<ComPtr<ID3D11Texture2D>, PostWorkSlots> m_PostWorkTextures;
+	static std::array<ComPtr<ID3D11RenderTargetView>, PostWorkSlots> m_PostWorkTargets;
+	static std::array<ComPtr<ID3D11ShaderResourceView>, PostWorkSlots> m_PostWorkResources;
 	static PostEffectMode m_PostEffectMode;
 	static std::string m_PostDefinitionId;
 	static void (*m_OverlayCallback)();
@@ -102,6 +112,7 @@ private:
 	static XMFLOAT4 m_PostExtraOptions;
 	static bool m_CustomPostOptions;
 	static XMFLOAT4 m_PostDefinitionParameters;
+	static XMFLOAT4 m_ClearColor;
 
 
 	static ComPtr<ID3D11DepthStencilState> m_DepthStateEnable;
@@ -120,13 +131,20 @@ private:
 
 
 
+	static void DrawPostDefinition(const ShaderDefinition& definition);
+
 public:
+	static constexpr std::size_t MaxPostPasses = 16;
+
 	static bool Init();
 	static void Uninit();
 	// Beginでフレーム共通状態を初期化し、EndでPresentします。
 	static void Begin();
 	static void End();
 	static void SetOverlayCallback(void (*callback)()) { m_OverlayCallback = callback; }
+	static constexpr XMFLOAT4 DefaultClearColor{ 0.42f, 0.62f, 0.82f, 1.0f };
+	// Beginで画面を塗りつぶす色です。シーンを抜けるときはDefaultClearColorへ戻してください。
+	static void SetClearColor(XMFLOAT4 color) { m_ClearColor = color; }
 
 	static void SetDepthMode(RenderDepthMode Mode);
 	static RenderDepthMode GetDepthMode() { return m_DepthMode; }

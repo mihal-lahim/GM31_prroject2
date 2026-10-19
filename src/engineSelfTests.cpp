@@ -5,6 +5,7 @@
 #include "collider.h"
 #include "modelRenderer.h"
 #include "renderQueue.h"
+#include "renderer.h"
 #include "resourceManager.h"
 #include "runtimeConfig.h"
 #include "shaderCatalog.h"
@@ -598,7 +599,7 @@ namespace
 			if (definition.Id.empty() || !ids.insert(definition.Id).second
 				|| !definition.DisplayName || definition.Passes.empty()
 				|| (definition.Usage == Engine::ShaderUsage::Post
-					&& definition.Passes.size() != 1)) return false;
+					&& definition.Passes.size() > Renderer::MaxPostPasses)) return false;
 			for (const Engine::ShaderPass& pass : definition.Passes)
 			{
 				if (pass.VertexFile.empty() || pass.PixelFile.empty()

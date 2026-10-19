@@ -133,9 +133,26 @@ int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLi
 
 		RegisterClassEx(&wcex);
 
-		RECT rc = GetFullscreenWindowRect();
-		g_Window = CreateWindowEx(WS_EX_APPWINDOW, CLASS_NAME, windowName, WS_POPUP, rc.left, rc.top,
-			rc.right - rc.left, rc.bottom - rc.top, nullptr, nullptr, hInstance, nullptr);
+		if (gameDefinition.Windowed)
+		{
+			// 描画解像度と同じ大きさのクライアント領域を、主モニターの中央に置きます。
+			constexpr DWORD style = WS_OVERLAPPEDWINDOW & ~(WS_THICKFRAME | WS_MAXIMIZEBOX);
+			RECT client{ 0, 0, SCREEN_WIDTH, SCREEN_HEIGHT };
+			AdjustWindowRectEx(&client, style, FALSE, WS_EX_APPWINDOW);
+			const RECT monitor = GetFullscreenWindowRect();
+			const int width = client.right - client.left;
+			const int height = client.bottom - client.top;
+			g_Window = CreateWindowEx(WS_EX_APPWINDOW, CLASS_NAME, windowName, style,
+				monitor.left + (std::max)(0L, (monitor.right - monitor.left - width) / 2),
+				monitor.top + (std::max)(0L, (monitor.bottom - monitor.top - height) / 2),
+				width, height, nullptr, nullptr, hInstance, nullptr);
+		}
+		else
+		{
+			RECT rc = GetFullscreenWindowRect();
+			g_Window = CreateWindowEx(WS_EX_APPWINDOW, CLASS_NAME, windowName, WS_POPUP, rc.left, rc.top,
+				rc.right - rc.left, rc.bottom - rc.top, nullptr, nullptr, hInstance, nullptr);
+		}
 	}
 
 	if (g_Window == nullptr)

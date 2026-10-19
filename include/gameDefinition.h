@@ -20,6 +20,8 @@ struct GameDefinition
 	void (*BeginUiFrame)() = nullptr;
 	void (*DrawUi)() = nullptr;
 	bool (*HandleWindowMessage)(unsigned int, std::uintptr_t, std::intptr_t) = nullptr;
+	// true なら全画面ではなく、描画解像度(SCREEN_WIDTH x SCREEN_HEIGHT)のウィンドウで開きます。
+	bool Windowed = false;
 };
 
 const GameDefinition& GetGameDefinition();

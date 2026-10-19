@@ -57,6 +57,9 @@
     <RuntimeAsset Include="assets\model\shaderDonut.obj"><TargetPath>assets\model\shaderDonut.obj</TargetPath></RuntimeAsset>
     <RuntimeAsset Include="assets\model\shaderDonut.mtl"><TargetPath>assets\model\shaderDonut.mtl</TargetPath></RuntimeAsset>
     <RuntimeAsset Include="assets\model\shaderDonut.jpg"><TargetPath>assets\model\shaderDonut.jpg</TargetPath></RuntimeAsset>
+    <RuntimeAsset Include="assets\model\galleryFloor.obj"><TargetPath>assets\model\galleryFloor.obj</TargetPath></RuntimeAsset>
+    <RuntimeAsset Include="assets\model\galleryFloor.mtl"><TargetPath>assets\model\galleryFloor.mtl</TargetPath></RuntimeAsset>
+    <RuntimeAsset Include="assets\model\galleryFloor.jpg"><TargetPath>assets\model\galleryFloor.jpg</TargetPath></RuntimeAsset>
     <RuntimeAsset Include="assets\model\box.obj"><TargetPath>assets\model\box.obj</TargetPath></RuntimeAsset>
     <RuntimeAsset Include="assets\model\box.mtl"><TargetPath>assets\model\box.mtl</TargetPath></RuntimeAsset>
     <RuntimeAsset Include="assets\model\grass.jpg"><TargetPath>assets\model\grass.jpg</TargetPath></RuntimeAsset>

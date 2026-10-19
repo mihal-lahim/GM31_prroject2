@@ -13,7 +13,8 @@ const GameDefinition& GetGameDefinition()
 		[]() -> std::unique_ptr<Scene> { return std::make_unique<ShaderGalleryScene>(); },
 		nullptr, RunShaderGalleryRenderTest,
 		InitializeGalleryUi, ShutdownGalleryUi, BeginGalleryUiFrame,
-		DrawGalleryUi, HandleGalleryWindowMessage
+		DrawGalleryUi, HandleGalleryWindowMessage,
+		true
 	};
 	return definition;
 }

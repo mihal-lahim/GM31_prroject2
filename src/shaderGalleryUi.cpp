@@ -22,7 +22,7 @@ constexpr const char* names[] = {
 };
 constexpr const char* effects[] = {
 	"なし", "グレースケール", "モザイク", "4点平均モザイク", "円形モザイク",
-	"ホラー風ノイズ", "ミップ確認", "図形生成", "RGBシフト", "ポスタライズ"
+	"ホラー風ノイズ", "ミップ確認", "図形生成", "RGBシフト", "ポスタライズ", "ブルーム"
 };
 }
 
@@ -35,21 +35,31 @@ bool InitializeGalleryUi()
 	state.Enabled[11] = true;
 	state.Parameters[8] = { 0.35f, 0.5f, 0.0f, 0.0f };
 	state.Parameters[9] = { 0.5f, 0.2f, 3.0f, 0.0f };
-	state.Parameters[10] = { 4.0f, 0.7f, 0.25f, 0.3f };
-	state.Parameters[11] = { 4.0f, 0.02f, 0.65f, 0.0f };
-	state.Parameters[12] = { 4.0f, 0.02f, 0.65f, 0.0f };
+	// トゥーン3方式は SP31 のシェーダーを移植した sp31-* 定義と同じ意味・既定値です。
+	state.Parameters[10] = { 0.4f, 0.7f, 0.25f, 0.3f };
+	state.Parameters[11] = { 8.0f / 256.0f, 0.25f, 0.3f, 0.0f };
+	state.Parameters[12] = { 8.0f / 256.0f, 0.25f, 0.3f, 0.08f };
 	state.Parameters[13] = { 2.5f, 0.0f, 1.0f, 0.0f };
 	state.Parameters[14] = { 12.0f, 0.75f, 0.7f, 0.0f };
+	// SP31 のギャラリーと同じ初期ライトです。
 	state.Light.Enable = TRUE;
-	state.Light.Direction = { -0.45f, -0.78f, 0.43f, 0.0f };
-	state.Light.Diffuse = { 1.4f, 1.3f, 1.15f, 1.0f };
-	state.Light.Ambient = { 0.48f, 0.48f, 0.50f, 1.0f };
-	state.Light.Position = { 1.0f, 9.0f, -4.0f, 1.0f };
-	state.Light.PointLightparam = { 40.0f, 3.0f, 0.0f, 0.0f };
-	state.Light.SkyColor = { 0.5f, 0.66f, 0.82f, 1.0f };
-	state.Light.GroundColor = { 0.16f, 0.12f, 0.09f, 1.0f };
+	state.Light.Direction = { 0.0f, -1.0f, 0.0f, 0.0f };
+	state.Light.Diffuse = { 1.0f, 1.0f, 1.0f, 1.0f };
+	state.Light.Ambient = { 0.16f, 0.16f, 0.16f, 1.0f };
+	state.Light.Position = { 0.0f, 2.5f, -1.0f, 1.0f };
+	state.Light.PointLightparam = { 10.0f, 3.0f, 0.0f, 0.0f };
+	state.Light.SkyColor = { 0.12f, 0.17f, 0.3f, 1.0f };
+	state.Light.GroundColor = { 0.12f, 0.08f, 0.05f, 1.0f };
 	state.Light.GroundNormal = { 0.0f, 1.0f, 0.0f, 0.0f };
-	state.Light.Angle = { XM_PIDIV4, 0.0f, 0.0f, 0.0f };
+	// SP31 の BumpField3D と同じ専用ライト(真上 1.0 の点光源、到達距離 3000)。
+	state.BumpLight.Enable = TRUE;
+	state.BumpLight.Direction = { 0.0f, -1.0f, 0.0f, 0.0f };
+	state.BumpLight.Position = { 0.0f, 1.0f, 0.0f, 1.0f };
+	state.BumpLight.Diffuse = { 0.8f, 0.8f, 0.8f, 1.0f };
+	state.BumpLight.Ambient = { 0.3f, 0.3f, 0.3f, 1.0f };
+	state.BumpLight.PointLightparam = { 3000.0f, 0.0f, 0.0f, 0.0f };
+	// y は床のスポットライトの縁をぼかす幅(円錐角に対する割合、縁の内側)です。
+	state.Light.Angle = { XM_PIDIV4, 0.3f, 0.0f, 0.0f };
 	IMGUI_CHECKVERSION();
 	ImGui::CreateContext();
 	ImGuiIO& io = ImGui::GetIO();
@@ -102,6 +112,7 @@ void BeginGalleryUiFrame()
 	ImGui::SetNextWindowPos({ 12, 12 }, ImGuiCond_FirstUseEver);
 	ImGui::SetNextWindowSize({ 350, 680 }, ImGuiCond_FirstUseEver);
 	ImGui::Begin("シェーダー一覧");
+	ImGui::TextUnformatted("表示するシェーダーを選択");
 	if (ImGui::Button("すべて表示")) state.Enabled.fill(true);
 	ImGui::SameLine();
 	if (ImGui::Button("すべて非表示")) state.Enabled.fill(false);
@@ -120,16 +131,20 @@ void BeginGalleryUiFrame()
 	ImGui::Checkbox("ランプ画像", &state.ShowRamp);
 	ImGui::Checkbox("モデル名を表示", &state.ShowNames);
 	ImGui::Checkbox("モデルを回転", &state.Animate);
-	ImGui::TextDisabled("A/D: 回転  W/S: ズーム");
+	ImGui::TextDisabled("左ドラッグ: 回転 / 右ドラッグ: 平行移動");
+	ImGui::TextDisabled("ホイール・W/S: 拡大縮小 / A/D: 回転");
+	ImGui::Separator();
+	ImGui::Text("編集中: %s", names[state.Selected]);
 	if (ImGui::CollapsingHeader("ライト", ImGuiTreeNodeFlags_DefaultOpen))
 	{
-		ImGui::SliderFloat3("位置", &state.Light.Position.x, -10.0f, 10.0f);
+		ImGui::SliderFloat3("位置", &state.Light.Position.x, -5.0f, 5.0f);
 		ImGui::SliderFloat3("方向", &state.Light.Direction.x, -1.0f, 1.0f);
 		ImGui::ColorEdit3("光の色", &state.Light.Diffuse.x);
 		ImGui::ColorEdit3("環境光", &state.Light.Ambient.x);
-		ImGui::SliderFloat("到達距離", &state.Light.PointLightparam.x, 0.1f, 40.0f);
+		ImGui::SliderFloat("到達距離", &state.Light.PointLightparam.x, 0.1f, 20.0f);
 		float degrees = XMConvertToDegrees(state.Light.Angle.x);
 		if (ImGui::SliderFloat("スポット角度", &degrees, 1.0f, 90.0f)) state.Light.Angle.x = XMConvertToRadians(degrees);
+		ImGui::SliderFloat("スポットの境界ぼかし", &state.Light.Angle.y, 0.0f, 1.0f);
 		ImGui::SliderFloat("スポット減衰／リム", &state.Light.PointLightparam.y, 0.1f, 12.0f);
 		ImGui::ColorEdit3("空の色", &state.Light.SkyColor.x);
 		ImGui::ColorEdit3("地面の色", &state.Light.GroundColor.x);
@@ -137,18 +152,25 @@ void BeginGalleryUiFrame()
 	if (ImGui::CollapsingHeader("シェーダー設定", ImGuiTreeNodeFlags_DefaultOpen))
 	{
 		auto& p = state.Parameters[state.Selected];
-		ImGui::Text("編集中: %s", names[state.Selected]);
 		if (state.Selected == 8 || state.Selected == 9)
 		{
 			ImGui::SliderFloat("粗さ", &p.x, 0.05f, 1.0f);
 			ImGui::SliderFloat("金属度", &p.y, 0.0f, 1.0f);
 			if (state.Selected == 9) ImGui::SliderFloat("ライト数", &p.z, 1.0f, 10.0f, "%.0f");
 		}
-		else if (state.Selected >= 10 && state.Selected <= 12)
+		else if (state.Selected == 10)
 		{
-			ImGui::SliderFloat("暗部境界／段階数", &p.x, 0.0f, 8.0f);
-			ImGui::SliderFloat("明部境界／輪郭幅", &p.y, 0.0f, 1.0f);
+			ImGui::SliderFloat("暗部の境界", &p.x, 0.0f, p.y);
+			ImGui::SliderFloat("明部の境界", &p.y, p.x, 1.0f);
+			ImGui::SliderFloat("輪郭の幅", &p.z, 0.01f, 0.8f);
+			ImGui::SliderFloat("輪郭の暗さ", &p.w, 0.0f, 1.0f);
+		}
+		else if (state.Selected == 11 || state.Selected == 12)
+		{
+			ImGui::SliderFloat("ランプの行", &p.x, 0.01f, 0.99f);
+			ImGui::SliderFloat("輪郭の幅", &p.y, 0.01f, 0.8f);
 			ImGui::SliderFloat("輪郭の暗さ", &p.z, 0.0f, 1.0f);
+			if (state.Selected == 12) ImGui::SliderFloat("背面輪郭の幅", &p.w, 0.0f, 0.3f);
 		}
 		else if (state.Selected == 13) ImGui::SliderFloat("法線の強さ", &p.x, 0.0f, 6.0f);
 		else if (state.Selected == 14)
@@ -173,12 +195,30 @@ void BeginGalleryUiFrame()
 	if (state.Post == 7) { const char* shapes[] = { "円", "円環", "ひし形", "ハート" }; ImGui::Combo("図形", &state.Shape, shapes, 4); ImGui::SliderFloat("大きさ", &state.ShapeScale, 0.1f, 1.0f); }
 	if (state.Post == 8) { ImGui::SliderFloat("赤・青の横ずれ", &state.ShiftX, 0.0f, 0.5f); ImGui::SliderFloat("緑の縦ずれ", &state.ShiftY, -0.5f, 0.5f); }
 	if (state.Post == 9) { ImGui::SliderFloat("階調数", &state.PosterLevels, 2.0f, 64.0f); ImGui::SliderFloat("ディザ量", &state.Dither, 0.0f, 1.0f); ImGui::Checkbox("グレースケール", &state.PosterGray); ImGui::SliderFloat("コントラスト", &state.PosterContrast, 0.5f, 4.0f); }
+	if (state.Post == GalleryBloomPost)
+	{
+		ImGui::SliderFloat("輝度しきい値", &state.BloomLuminance, 0.0f, 1.0f);
+		ImGui::SliderFloat("強さ1（細）", &state.BloomBlend[0], 0.0f, 4.0f);
+		ImGui::SliderFloat("強さ2（中）", &state.BloomBlend[1], 0.0f, 4.0f);
+		ImGui::SliderFloat("強さ3（広）", &state.BloomBlend[2], 0.0f, 4.0f);
+	}
 	if (state.Post != 0 && Renderer::GetPostSource() != nullptr)
 	{
 		ImGui::TextUnformatted("描画テクスチャ");
 		ImGui::Image(reinterpret_cast<ImTextureID>(Renderer::GetPostSource()), { 270, 152 });
 	}
 	ImGui::End();
+
+	if (state.BumpFloor)
+	{
+		// SP31 の BumpField3D と同じく、法線マップの床は専用ライトの位置だけを動かせる。
+		ImGui::SetNextWindowPos({ 370, 110 }, ImGuiCond_FirstUseEver);
+		ImGui::Begin("法線マップのライト");
+		ImGui::SliderFloat("ライト X", &state.BumpLight.Position.x, -3.0f, 3.0f, "%.1f");
+		ImGui::SliderFloat("ライト Y", &state.BumpLight.Position.y, -3.0f, 3.0f, "%.1f");
+		ImGui::SliderFloat("ライト Z", &state.BumpLight.Position.z, -3.0f, 3.0f, "%.1f");
+		ImGui::End();
+	}
 
 	ImGui::SetNextWindowPos({ 455, 12 }, ImGuiCond_FirstUseEver);
 	ImGui::Begin("映像プレビュー");
@@ -199,14 +239,14 @@ void DrawGalleryUi()
 	if (!initialized) return;
 	if (state.ShowNames && !state.Playing)
 	{
-		const XMMATRIX projection = XMMatrixPerspectiveFovLH(1.0f,
-			static_cast<float>(SCREEN_WIDTH) / SCREEN_HEIGHT, 0.1f, 200.0f);
+		const XMMATRIX projection = XMMatrixPerspectiveFovLH(GalleryFieldOfView,
+			static_cast<float>(SCREEN_WIDTH) / SCREEN_HEIGHT, GalleryNearClip, GalleryFarClip);
 		for (int i = 0; i < static_cast<int>(state.Enabled.size()); ++i)
 		{
-			if (!state.Enabled[i]) continue;
-			const float x = (static_cast<float>(i % 4) - 1.5f) * 3.8f;
-			const float z = (static_cast<float>(i / 4) - 1.5f) * 3.8f;
-			const XMVECTOR projected = XMVector3Project(XMVectorSet(x, 2.3f, z, 1.0f),
+			GalleryPlacement placement{};
+			if (!GetGalleryPlacement(state, i, placement)) continue;
+			const XMVECTOR projected = XMVector3Project(XMVectorSet(placement.Position.x,
+				placement.LabelHeight, placement.Position.z, 1.0f),
 				0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, 0, 1, projection, state.View, XMMatrixIdentity());
 			XMFLOAT3 point{};
 			XMStoreFloat3(&point, projected);
