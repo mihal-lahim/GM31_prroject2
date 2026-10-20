@@ -328,6 +328,100 @@ namespace
 			&& hits[3]->GetOwner() == dynamicFirst;
 	}
 
+	bool TestCollisionRaycast()
+	{
+		constexpr CollisionLayer boxLayer = 1u << 7;
+		constexpr CollisionLayer sphereLayer = 1u << 8;
+		constexpr CollisionLayer capsuleLayer = 1u << 9;
+		const auto closeTo = [](float left, float right) { return std::abs(left - right) <= 0.0005f; };
+		const auto closeVector = [&closeTo](const Vector3& left, const Vector3& right)
+		{
+			return closeTo(left.x, right.x) && closeTo(left.y, right.y) && closeTo(left.z, right.z);
+		};
+
+		World world;
+		CollisionWorld& collisionWorld = world.GetCollisionWorld();
+
+		CollisionTestObject* box = world.Spawn<CollisionTestObject>();
+		box->SetPosition({ 10.0f, 0.0f, 0.0f });
+		box->GetCollider().SetAABB({ 1.0f, 1.0f, 1.0f })->SetCollisionLayer(boxLayer)->SetStatic();
+
+		CollisionTestObject* sphere = world.Spawn<CollisionTestObject>();
+		sphere->SetPosition({ 5.0f, 0.0f, 0.0f });
+		sphere->GetCollider().SetSphere(0.5f)->SetCollisionLayer(sphereLayer);
+
+		CollisionTestObject* capsule = world.Spawn<CollisionTestObject>();
+		capsule->SetPosition({ 0.0f, 0.0f, 5.0f });
+		// 半径0.5、全高3なので線分は y=-1..1 です。
+		capsule->GetCollider().SetCapsule(0.5f, 3.0f)->SetCollisionLayer(capsuleLayer);
+
+		CollisionTestObject* farBox = world.Spawn<CollisionTestObject>();
+		farBox->SetPosition({ 41.0f, 0.0f, 0.0f });
+		farBox->GetCollider().SetAABB({ 1.0f, 1.0f, 1.0f })->SetCollisionLayer(capsuleLayer)->SetStatic();
+
+		// 手前の球が奥の箱より優先されます。
+		RaycastHit hit;
+		if (!collisionWorld.Raycast({ 0.0f, 0.0f, 0.0f }, { 1.0f, 0.0f, 0.0f }, 100.0f, hit,
+				boxLayer | sphereLayer)
+			|| hit.HitCollider->GetOwner() != sphere
+			|| !closeTo(hit.Distance, 4.5f)
+			|| !closeVector(hit.Normal, { -1.0f, 0.0f, 0.0f })
+			|| !closeVector(hit.Point, { 4.5f, 0.0f, 0.0f }))
+		{
+			return false;
+		}
+
+		// マスクと無視指定のどちらでも球を外せます。
+		if (!collisionWorld.Raycast({ 0.0f, 0.0f, 0.0f }, { 1.0f, 0.0f, 0.0f }, 100.0f, hit, boxLayer)
+			|| hit.HitCollider->GetOwner() != box
+			|| !closeTo(hit.Distance, 9.0f)
+			|| !closeVector(hit.Normal, { -1.0f, 0.0f, 0.0f }))
+		{
+			return false;
+		}
+		if (!collisionWorld.Raycast({ 0.0f, 0.0f, 0.0f }, { 1.0f, 0.0f, 0.0f }, 100.0f, hit,
+				boxLayer | sphereLayer, &sphere->GetCollider())
+			|| hit.HitCollider->GetOwner() != box)
+		{
+			return false;
+		}
+
+		// 射程外は当たりません。
+		if (collisionWorld.Raycast({ 0.0f, 0.0f, 0.0f }, { 1.0f, 0.0f, 0.0f }, 8.0f, hit, boxLayer))
+		{
+			return false;
+		}
+
+		// カプセルの側面と上端です。
+		if (!collisionWorld.Raycast({ 0.0f, 0.0f, 0.0f }, { 0.0f, 0.0f, 1.0f }, 100.0f, hit, capsuleLayer)
+			|| hit.HitCollider->GetOwner() != capsule
+			|| !closeTo(hit.Distance, 4.5f)
+			|| !closeVector(hit.Normal, { 0.0f, 0.0f, -1.0f }))
+		{
+			return false;
+		}
+		if (!collisionWorld.Raycast({ 0.0f, 5.0f, 5.0f }, { 0.0f, -1.0f, 0.0f }, 100.0f, hit, capsuleLayer)
+			|| hit.HitCollider->GetOwner() != capsule
+			|| !closeTo(hit.Distance, 3.5f)
+			|| !closeVector(hit.Normal, { 0.0f, 1.0f, 0.0f }))
+		{
+			return false;
+		}
+
+		// 複数セル先の静的Colliderにも届き、方向は正規化しなくて構いません。
+		if (!collisionWorld.Raycast({ 0.0f, 0.0f, 0.0f }, { 2.0f, 0.0f, 0.0f }, 100.0f, hit, capsuleLayer)
+			|| hit.HitCollider->GetOwner() != farBox
+			|| !closeTo(hit.Distance, 40.0f))
+		{
+			return false;
+		}
+
+		// 始点が箱の内側なら距離0で当たります。
+		return collisionWorld.Raycast({ 10.0f, 0.0f, 0.0f }, { 0.0f, 1.0f, 0.0f }, 100.0f, hit, boxLayer)
+			&& hit.HitCollider->GetOwner() == box
+			&& closeTo(hit.Distance, 0.0f);
+	}
+
 	bool TestGameTime()
 	{
 		GameTime::Init();
@@ -625,6 +719,7 @@ bool RunEngineSelfTests()
 		{ "guaranteed component lifecycle", TestGuaranteedComponentLifecycle },
 		{ "collision world isolation", TestCollisionWorldIsolation },
 		{ "collision query order", TestCollisionQueryOrder },
+		{ "collision raycast", TestCollisionRaycast },
 		{ "render ordering", TestRenderOrdering },
 		{ "render tie break keeps submission order", TestRenderTieBreakKeepsSubmissionOrder },
 		{ "game time", TestGameTime },

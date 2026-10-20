@@ -147,6 +147,9 @@ public:
 	static void SetClearColor(XMFLOAT4 color) { m_ClearColor = color; }
 
 	static void SetDepthMode(RenderDepthMode Mode);
+	// 描画中の深度だけを消します。一人称の手持ち武器のように、壁へめり込ませず
+	// 常に手前へ描きたいものを、ワールドを描き終えた後で描く直前に呼びます。
+	static void ClearDepth();
 	static RenderDepthMode GetDepthMode() { return m_DepthMode; }
 	// 既存コード向けの互換APIです。新規コードはSetDepthModeを使用します。
 	static void SetDepthEnable(bool Enable)

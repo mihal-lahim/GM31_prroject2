@@ -537,6 +537,13 @@ void Renderer::Begin()
 
 
 
+void Renderer::ClearDepth()
+{
+	m_DeviceContext->ClearDepthStencilView(m_DepthStencilView.Get(), D3D11_CLEAR_DEPTH, 1.0f, 0);
+}
+
+
+
 void Renderer::End()
 {
 	if (m_PostEffectMode != PostEffectMode::None || !m_PostDefinitionId.empty())

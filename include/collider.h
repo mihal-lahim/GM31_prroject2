@@ -82,6 +82,10 @@ public:
 
 	bool Intersects(const Collider& other) const;
 	bool IntersectsCapsule(const Vector3& start, const Vector3& end, float radius) const;
+	// 正規化済みのdirectionへoriginから伸ばしたレイが、maxDistance以内で最初に当たる距離と法線を返します。
+	// originが形状の内側にある場合は距離0、法線は-directionの当たりとして扱います。
+	bool Raycast(const Vector3& origin, const Vector3& direction, float maxDistance,
+		float& distance, Vector3& normal) const;
 	std::vector<Collider*> GetOverlaps(CollisionLayer layerMask = CollisionLayers::All) const;
 	static void SetDebugDrawEnabled(bool enabled) { s_DebugDrawEnabled = enabled; }
 	static bool GetDebugDrawEnabled() { return s_DebugDrawEnabled; }

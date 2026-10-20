@@ -19,6 +19,14 @@ namespace CollisionLayers
 	inline constexpr CollisionLayer All = ~CollisionLayer{ 0 };
 }
 
+struct RaycastHit
+{
+	Collider* HitCollider = nullptr;
+	Vector3 Point{ 0.0f, 0.0f, 0.0f };
+	Vector3 Normal{ 0.0f, 0.0f, 0.0f };
+	float Distance = 0.0f;
+};
+
 // Worldごとに独立した衝突レジストリです。
 // 静的Colliderだけを空間ハッシュへ登録し、動的Colliderは常に最新状態で評価します。
 class CollisionWorld
@@ -87,6 +95,16 @@ public:
 		const Vector3& maximum,
 		CollisionLayer layerMask,
 		std::vector<Collider*>& out);
+
+	// originからdirection(正規化不要)へmaxDistanceまでレイを飛ばし、最も手前の当たりをhitへ返します。
+	// 同じ距離の当たりは登録順の早い方を返します。ignoreには撃った本人のColliderなどを渡します。
+	bool Raycast(
+		const Vector3& origin,
+		const Vector3& direction,
+		float maxDistance,
+		RaycastHit& hit,
+		CollisionLayer layerMask = CollisionLayers::All,
+		const Collider* ignore = nullptr);
 
 	std::size_t GetColliderCount() const { return m_StaticColliders.size() + m_DynamicColliders.size(); }
 };

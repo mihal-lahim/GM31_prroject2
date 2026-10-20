@@ -22,7 +22,7 @@ jobs:
         shell: powershell
         run: powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\validate-project-boundaries.ps1
 
-      - name: Build all four projects
+      - name: Build all projects
         run: msbuild GM31_prroject2.slnx /m /p:Configuration=${{ matrix.configuration }} /p:Platform=x64 /nologo /v:minimal
 
       - name: Test Batting Center
@@ -36,3 +36,7 @@ jobs:
       - name: Test Classroom Walk
         working-directory: bin/x64/${{ matrix.configuration }}/ClassroomWalk
         run: .\ClassroomWalk.exe --self-test
+
+      - name: Test FPS Game
+        working-directory: bin/x64/${{ matrix.configuration }}/FpsGame
+        run: .\FpsGame.exe --self-test

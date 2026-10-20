@@ -1,6 +1,10 @@
 #include "main.h"
 #include "collider.h"
 
+#include <cfloat>
+#include <cmath>
+#include <utility>
+
 namespace
 {
 	float AbsFloat(float value)
@@ -151,6 +155,189 @@ namespace
 
 		return true;
 	}
+
+	// originが球の外側にある前提で、手前側の交点を求めます。
+	bool RaySphereFromOutside(const Vector3& origin, const Vector3& direction, const Vector3& center,
+		float radius, float maxDistance, float& distance, Vector3& normal)
+	{
+		const Vector3 offset = origin - center;
+		const float b = Vector3::dot(offset, direction);
+		const float c = Vector3::dot(offset, offset) - radius * radius;
+		if (b > 0.0f)
+		{
+			return false;
+		}
+		const float discriminant = b * b - c;
+		if (discriminant < 0.0f)
+		{
+			return false;
+		}
+		const float t = MaxFloat(0.0f, -b - sqrtf(discriminant));
+		if (t > maxDistance)
+		{
+			return false;
+		}
+		distance = t;
+		normal = origin + direction * t - center;
+		normal.normalize();
+		return true;
+	}
+
+	bool RayAABB(const Vector3& origin, const Vector3& direction, const Vector3& boxCenter,
+		const Vector3& halfSize, float maxDistance, float& distance, Vector3& normal)
+	{
+		const float originValues[3] = { origin.x, origin.y, origin.z };
+		const float directionValues[3] = { direction.x, direction.y, direction.z };
+		const float centerValues[3] = { boxCenter.x, boxCenter.y, boxCenter.z };
+		const float halfValues[3] = { halfSize.x, halfSize.y, halfSize.z };
+
+		float tEnter = -FLT_MAX;
+		float tExit = FLT_MAX;
+		int enterAxis = -1;
+		float enterSign = 0.0f;
+		for (int axis = 0; axis < 3; axis++)
+		{
+			const float minValue = centerValues[axis] - halfValues[axis];
+			const float maxValue = centerValues[axis] + halfValues[axis];
+			if (AbsFloat(directionValues[axis]) < 0.00001f)
+			{
+				if (originValues[axis] < minValue || originValues[axis] > maxValue)
+				{
+					return false;
+				}
+				continue;
+			}
+
+			const float invDirection = 1.0f / directionValues[axis];
+			float t1 = (minValue - originValues[axis]) * invDirection;
+			float t2 = (maxValue - originValues[axis]) * invDirection;
+			if (t1 > t2)
+			{
+				std::swap(t1, t2);
+			}
+			if (t1 > tEnter)
+			{
+				tEnter = t1;
+				enterAxis = axis;
+				// 正方向へ進むレイは最小側の面から入るので、法線は負の向きです。
+				enterSign = directionValues[axis] > 0.0f ? -1.0f : 1.0f;
+			}
+			tExit = MinFloat(tExit, t2);
+			if (tEnter > tExit)
+			{
+				return false;
+			}
+		}
+
+		if (tExit < 0.0f)
+		{
+			return false;
+		}
+		if (tEnter <= 0.0f || enterAxis < 0)
+		{
+			distance = 0.0f;
+			normal = -direction;
+			return true;
+		}
+		if (tEnter > maxDistance)
+		{
+			return false;
+		}
+
+		distance = tEnter;
+		float normalValues[3] = { 0.0f, 0.0f, 0.0f };
+		normalValues[enterAxis] = enterSign;
+		normal = Vector3(normalValues[0], normalValues[1], normalValues[2]);
+		return true;
+	}
+
+	// Y軸に沿ったカプセル(start.y <= end.y)との交差です。側面の円柱と両端の球を比べます。
+	bool RayVerticalCapsule(const Vector3& origin, const Vector3& direction, const Vector3& start,
+		const Vector3& end, float radius, float maxDistance, float& distance, Vector3& normal)
+	{
+		if (DistancePointSegmentSquared(origin, start, end) <= radius * radius)
+		{
+			distance = 0.0f;
+			normal = -direction;
+			return true;
+		}
+
+		bool found = false;
+		float best = maxDistance;
+		const float a = direction.x * direction.x + direction.z * direction.z;
+		if (a > 0.00001f)
+		{
+			const float offsetX = origin.x - start.x;
+			const float offsetZ = origin.z - start.z;
+			const float b = offsetX * direction.x + offsetZ * direction.z;
+			const float c = offsetX * offsetX + offsetZ * offsetZ - radius * radius;
+			const float discriminant = b * b - a * c;
+			if (discriminant >= 0.0f)
+			{
+				const float t = (-b - sqrtf(discriminant)) / a;
+				const float y = origin.y + direction.y * t;
+				if (t >= 0.0f && t <= best && y >= start.y && y <= end.y)
+				{
+					best = t;
+					normal = Vector3(offsetX + direction.x * t, 0.0f, offsetZ + direction.z * t);
+					normal.normalize();
+					found = true;
+				}
+			}
+		}
+
+		const Vector3 caps[2] = { start, end };
+		for (const Vector3& cap : caps)
+		{
+			float capDistance = 0.0f;
+			Vector3 capNormal;
+			if (RaySphereFromOutside(origin, direction, cap, radius, best, capDistance, capNormal)
+				&& (!found || capDistance < best))
+			{
+				best = capDistance;
+				normal = capNormal;
+				found = true;
+			}
+		}
+
+		if (found)
+		{
+			distance = best;
+		}
+		return found;
+	}
+}
+
+bool Collider::Raycast(const Vector3& origin, const Vector3& direction, float maxDistance,
+	float& distance, Vector3& normal) const
+{
+	if (m_GameObject == nullptr || maxDistance < 0.0f)
+	{
+		return false;
+	}
+
+	if (m_Shape == Shape::Sphere)
+	{
+		const Vector3 center = GetCenter();
+		const float radius = GetRadius();
+		if (DistanceSquared(origin, center) <= radius * radius)
+		{
+			distance = 0.0f;
+			normal = -direction;
+			return true;
+		}
+		return RaySphereFromOutside(origin, direction, center, radius, maxDistance, distance, normal);
+	}
+
+	if (m_Shape == Shape::Capsule)
+	{
+		Vector3 start;
+		Vector3 end;
+		GetCapsuleSegment(start, end);
+		return RayVerticalCapsule(origin, direction, start, end, GetRadius(), maxDistance, distance, normal);
+	}
+
+	return RayAABB(origin, direction, GetCenter(), GetHalfSize(), maxDistance, distance, normal);
 }
 
 bool Collider::Intersects(const Collider& other) const

@@ -1,0 +1,187 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|Win32">
+      <Configuration>Debug</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|Win32">
+      <Configuration>Release</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Debug|x64">
+      <Configuration>Debug</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|x64">
+      <Configuration>Release</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <VCProjectVersion>18.0</VCProjectVersion>
+    <Keyword>Win32Proj</Keyword>
+    <ProjectGuid>{2B07823C-ACB9-4670-8895-05AE7CD68ACA}</ProjectGuid>
+    <RootNamespace>FpsGame</RootNamespace>
+    <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <PlatformToolset>v143</PlatformToolset>
+    <CharacterSet>MultiByte</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <PlatformToolset>v143</PlatformToolset>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+    <CharacterSet>MultiByte</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <PlatformToolset>v143</PlatformToolset>
+    <CharacterSet>MultiByte</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <PlatformToolset>v143</PlatformToolset>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+    <CharacterSet>MultiByte</CharacterSet>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <ImportGroup Label="ExtensionSettings" />
+  <ImportGroup Label="Shared" />
+  <PropertyGroup>
+    <OutDir>$(ProjectDir)bin\$(Platform)\$(Configuration)\$(ProjectName)\</OutDir>
+    <IntDir>$(ProjectDir)obj\$(ProjectName)\$(Platform)\$(Configuration)\</IntDir>
+  </PropertyGroup>
+  <Import Project="Common.props" />
+  <Import Project="SurfaceShaders.props" />
+  <ItemDefinitionGroup>
+    <ClCompile>
+      <AdditionalIncludeDirectories>$(ProjectDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+    </ClCompile>
+    <Link>
+      <AdditionalLibraryDirectories>$(ProjectDir);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemGroup>
+    <ClInclude Include="include\fpsGame.h" />
+    <ClInclude Include="include\sky.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="src\main.cpp" />
+    <ClCompile Include="src\fpsGame.cpp" />
+    <ClCompile Include="src\fpsGameDefinition.cpp" />
+    <ClCompile Include="src\fpsRenderTest.cpp" />
+    <ClCompile Include="src\sky.cpp" />
+    <ClCompile Include="src\enginePch.cpp">
+      <PrecompiledHeader>Create</PrecompiledHeader>
+      <ForcedIncludeFiles />
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="Engine.vcxproj">
+      <Project>{4F1C6718-071A-4B3E-AED7-938C39C32F02}</Project>
+    </ProjectReference>
+  </ItemGroup>
+  <ItemGroup>
+    <FxCompile Include="shaders\unlitTexturePS.hlsl">
+      <ShaderType>Pixel</ShaderType>
+      <ShaderModel>5.0</ShaderModel>
+      <ObjectFileOutput>$(OutDir)%(Filename).cso</ObjectFileOutput>
+    </FxCompile>
+    <FxCompile Include="shaders\unlitTextureVS.hlsl">
+      <ShaderType>Vertex</ShaderType>
+      <ShaderModel>5.0</ShaderModel>
+      <ObjectFileOutput>$(OutDir)%(Filename).cso</ObjectFileOutput>
+    </FxCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <RuntimeAsset Include="THIRD_PARTY.md">
+      <TargetPath>THIRD_PARTY.md</TargetPath>
+    </RuntimeAsset>
+    <RuntimeAsset Include="licenses\DirectXTex-LICENSE.txt">
+      <TargetPath>licenses\DirectXTex-LICENSE.txt</TargetPath>
+    </RuntimeAsset>
+    <RuntimeAsset Include="assimp-vc143-mt.dll">
+      <TargetPath>assimp-vc143-mt.dll</TargetPath>
+    </RuntimeAsset>
+    <RuntimeAsset Include="assets\config\fps.cfg">
+      <TargetPath>assets\config\fps.cfg</TargetPath>
+    </RuntimeAsset>
+    <RuntimeAsset Include="assets\audio\wan.wav">
+      <TargetPath>assets\audio\wan.wav</TargetPath>
+    </RuntimeAsset>
+    <RuntimeAsset Include="assets\model\fpsGun.obj">
+      <TargetPath>assets\model\fpsGun.obj</TargetPath>
+    </RuntimeAsset>
+    <RuntimeAsset Include="assets\model\fpsGun.mtl">
+      <TargetPath>assets\model\fpsGun.mtl</TargetPath>
+    </RuntimeAsset>
+    <RuntimeAsset Include="assets\audio\fpsRifle.wav">
+      <TargetPath>assets\audio\fpsRifle.wav</TargetPath>
+    </RuntimeAsset>
+    <RuntimeAsset Include="assets\audio\fpsTargetBreak.wav">
+      <TargetPath>assets\audio\fpsTargetBreak.wav</TargetPath>
+    </RuntimeAsset>
+    <RuntimeAsset Include="assets\model\fpsMuzzleFlash.obj">
+      <TargetPath>assets\model\fpsMuzzleFlash.obj</TargetPath>
+    </RuntimeAsset>
+    <RuntimeAsset Include="assets\model\fpsMuzzleFlash.mtl">
+      <TargetPath>assets\model\fpsMuzzleFlash.mtl</TargetPath>
+    </RuntimeAsset>
+    <RuntimeAsset Include="assets\model\fpsTarget.obj">
+      <TargetPath>assets\model\fpsTarget.obj</TargetPath>
+    </RuntimeAsset>
+    <RuntimeAsset Include="assets\model\fpsTarget.mtl">
+      <TargetPath>assets\model\fpsTarget.mtl</TargetPath>
+    </RuntimeAsset>
+    <RuntimeAsset Include="assets\model\fpsBlock.obj">
+      <TargetPath>assets\model\fpsBlock.obj</TargetPath>
+    </RuntimeAsset>
+    <RuntimeAsset Include="assets\model\fpsBlock.mtl">
+      <TargetPath>assets\model\fpsBlock.mtl</TargetPath>
+    </RuntimeAsset>
+    <RuntimeAsset Include="assets\model\sky.obj">
+      <TargetPath>assets\model\sky.obj</TargetPath>
+    </RuntimeAsset>
+    <RuntimeAsset Include="assets\model\sky.mtl">
+      <TargetPath>assets\model\sky.mtl</TargetPath>
+    </RuntimeAsset>
+    <RuntimeAsset Include="assets\model\sky.jpg">
+      <TargetPath>assets\model\sky.jpg</TargetPath>
+    </RuntimeAsset>
+    <RuntimeAsset Include="assets\texture\particle.png">
+      <TargetPath>assets\texture\particle.png</TargetPath>
+    </RuntimeAsset>
+    <RuntimeAsset Include="assets\texture\number.png">
+      <TargetPath>assets\texture\number.png</TargetPath>
+    </RuntimeAsset>
+    <RuntimeAsset Include="assets\texture\alphabet.png">
+      <TargetPath>assets\texture\alphabet.png</TargetPath>
+    </RuntimeAsset>
+    <RuntimeAsset Include="assets\texture\kana.png">
+      <TargetPath>assets\texture\kana.png</TargetPath>
+    </RuntimeAsset>
+    <RuntimeAsset Include="assets\texture\kanji.png">
+      <TargetPath>assets\texture\kanji.png</TargetPath>
+    </RuntimeAsset>
+    <RuntimeAsset Include="assets\texture\Normal.png">
+      <TargetPath>assets\texture\Normal.png</TargetPath>
+    </RuntimeAsset>
+    <RuntimeAsset Include="assets\texture\Toon2.png">
+      <TargetPath>assets\texture\Toon2.png</TargetPath>
+    </RuntimeAsset>
+  </ItemGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+  <Target Name="CopyRuntimeAssets" AfterTargets="Build">
+    <RemoveDir Directories="$(OutDir)assets" />
+    <Copy SourceFiles="@(RuntimeAsset)" DestinationFiles="@(RuntimeAsset->'$(OutDir)%(TargetPath)')" SkipUnchangedFiles="true" />
+  </Target>
+  <ImportGroup Label="ExtensionTargets" />
+</Project>

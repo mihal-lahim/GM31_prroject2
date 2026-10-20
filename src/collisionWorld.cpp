@@ -234,6 +234,98 @@ void CollisionWorld::QueryBounds(
 	}
 }
 
+bool CollisionWorld::Raycast(
+	const Vector3& origin,
+	const Vector3& direction,
+	float maxDistance,
+	RaycastHit& hit,
+	CollisionLayer layerMask,
+	const Collider* ignore)
+{
+	const float directionLength = direction.length();
+	if (directionLength <= 0.00001f || maxDistance < 0.0f)
+	{
+		return false;
+	}
+	const Vector3 unitDirection = direction / directionLength;
+
+	bool found = false;
+	float bestDistance = maxDistance;
+	const auto consider = [&](Collider* collider)
+	{
+		if (collider == ignore || !IsQueryable(collider, layerMask))
+		{
+			return;
+		}
+		float distance = 0.0f;
+		Vector3 normal;
+		if (!collider->Raycast(origin, unitDirection, bestDistance, distance, normal))
+		{
+			return;
+		}
+		if (found && (distance > bestDistance
+			|| (distance == bestDistance
+				&& collider->GetRegistrationSerial() >= hit.HitCollider->GetRegistrationSerial())))
+		{
+			return;
+		}
+		found = true;
+		bestDistance = distance;
+		hit.HitCollider = collider;
+		hit.Normal = normal;
+		hit.Distance = distance;
+	};
+
+	for (Collider* collider : m_DynamicColliders)
+	{
+		consider(collider);
+	}
+
+	// 静的Colliderはレイをセル幅ずつ区切って手前から調べます。当たり点を含むセルには
+	// そのColliderが必ず登録されているので、当たりが区間内に入った時点で奥は見なくて済みます。
+	EnsureStaticIndex();
+	for (float segmentStart = 0.0f; ; )
+	{
+		const float segmentEnd = (std::min)(segmentStart + kCellSize, maxDistance);
+		const Vector3 from = origin + unitDirection * segmentStart;
+		const Vector3 to = origin + unitDirection * segmentEnd;
+		const CellKey minimumCell = ToCell({
+			(std::min)(from.x, to.x), (std::min)(from.y, to.y), (std::min)(from.z, to.z) });
+		const CellKey maximumCell = ToCell({
+			(std::max)(from.x, to.x), (std::max)(from.y, to.y), (std::max)(from.z, to.z) });
+		for (int z = minimumCell.Z; z <= maximumCell.Z; z++)
+		{
+			for (int y = minimumCell.Y; y <= maximumCell.Y; y++)
+			{
+				for (int x = minimumCell.X; x <= maximumCell.X; x++)
+				{
+					const auto cell = m_StaticCells.find({ x, y, z });
+					if (cell == m_StaticCells.end())
+					{
+						continue;
+					}
+					for (Collider* collider : cell->second)
+					{
+						consider(collider);
+					}
+				}
+			}
+		}
+
+		if (segmentEnd >= bestDistance)
+		{
+			break;
+		}
+		segmentStart = segmentEnd;
+	}
+
+	if (found)
+	{
+		hit.Point = origin + unitDirection * bestDistance;
+	}
+	return found;
+}
+
 std::vector<Collider*> CollisionWorld::QueryCapsule(
 	const Vector3& start,
 	const Vector3& end,
