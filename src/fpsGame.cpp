@@ -17,6 +17,11 @@
 
 namespace
 {
+	constexpr float kAimSeconds = 0.2f;
+	constexpr float kHipFovDegrees = 75.0f;
+	constexpr float kAimFovDegrees = 60.0f;
+	// 銃を固定したまま照準へ目を寄せる量。手元の相対移動にも同じ値を使います。
+	const Vector3 kAimCameraOffset{ 0.17f, -0.087f, 0.12f };
 	constexpr float kWalkSpeed = 5.0f;
 	constexpr float kSprintSpeed = 8.0f;
 	constexpr float kGravity = 20.0f;
@@ -110,6 +115,8 @@ void FpsPlayer::PreUpdate()
 void FpsPlayer::Update()
 {
 	const float deltaTime = GameTime::GetDeltaTime();
+	m_AimProgress = std::clamp(m_AimProgress
+		+ (Mouse_IsRightButtonDown() ? 1.0f : -1.0f) * deltaTime / kAimSeconds, 0.0f, 1.0f);
 	const Vector3 previous = m_Position;
 	Move(deltaTime);
 	const Vector3 moved = m_Position - previous;
@@ -228,6 +235,17 @@ void FpsPlayer::Shoot()
 	}
 }
 
+Vector3 FpsPlayer::GetCameraPosition() const
+{
+	// 照準へカメラ自体を寄せます。射撃レイもこの視点から出します。
+	const Vector3 right{ cosf(m_Yaw), 0.0f, -sinf(m_Yaw) };
+	const Vector3 forward = GetCameraForward();
+	const Vector3 up = Vector3::cross(forward, right);
+	return m_Position + Vector3(0.0f, kEyeHeight, 0.0f)
+		+ (right * kAimCameraOffset.x + up * kAimCameraOffset.y
+			+ forward * kAimCameraOffset.z) * GetAimBlend();
+}
+
 Vector3 FpsPlayer::GetCameraForward() const
 {
 	const float cosPitch = cosf(m_Pitch);
@@ -255,7 +273,8 @@ void FpsPlayer::Draw()
 	light.GroundColor = { 0.16f, 0.12f, 0.09f, 1.0f };
 	light.GroundNormal = { 0.0f, 1.0f, 0.0f, 0.0f };
 	Renderer::SetLight(light);
-	Renderer::SetProjectionMatrix(XMMatrixPerspectiveFovLH(XMConvertToRadians(75.0f),
+	const float fov = kHipFovDegrees + (kAimFovDegrees - kHipFovDegrees) * GetAimBlend();
+	Renderer::SetProjectionMatrix(XMMatrixPerspectiveFovLH(XMConvertToRadians(fov),
 		static_cast<float>(SCREEN_WIDTH) / SCREEN_HEIGHT, 0.05f, 200.0f));
 	Renderer::SetViewMatrix(m_View);
 	const Vector3 eye = GetCameraPosition();
@@ -344,11 +363,15 @@ void FpsWeapon::Draw()
 		static_cast<float>(SCREEN_WIDTH) / SCREEN_HEIGHT, 0.01f, 10.0f));
 
 	// カメラ座標での位置です。右下に構え、歩くと8の字に揺れ、撃つと後ろへ下がって銃口が上がります。
-	const float bobX = sinf(m_BobTime) * 0.012f * m_BobWeight;
-	const float bobY = -fabsf(cosf(m_BobTime)) * 0.010f * m_BobWeight;
+	const float aim = player->GetAimBlend();
+	const float sway = 1.0f - 0.9f * aim;
+	const float bobX = sinf(m_BobTime) * 0.012f * m_BobWeight * sway;
+	const float bobY = -fabsf(cosf(m_BobTime)) * 0.010f * m_BobWeight * sway;
 	const XMMATRIX local =
-		XMMatrixRotationRollPitchYaw(-0.12f * m_Recoil, XMConvertToRadians(-2.5f), 0.0f)
-		* XMMatrixTranslation(0.17f + bobX, -0.17f + bobY, 0.46f - 0.045f * m_Recoil);
+		XMMatrixRotationRollPitchYaw(-0.12f * m_Recoil, XMConvertToRadians(-2.5f * (1.0f - aim)), 0.0f)
+		* XMMatrixTranslation(0.17f - kAimCameraOffset.x * aim + bobX,
+			-0.17f - kAimCameraOffset.y * aim + bobY,
+			0.46f - kAimCameraOffset.z * aim - 0.045f * m_Recoil);
 	// ライトはワールド座標で計算されるので、カメラの逆行列でワールドへ戻してから描きます。
 	m_GunWorld = local * XMMatrixInverse(nullptr, player->GetViewMatrix());
 	Renderer::SetWorldMatrix(m_GunWorld);

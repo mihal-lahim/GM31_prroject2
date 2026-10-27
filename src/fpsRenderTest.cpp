@@ -3,6 +3,7 @@
 #endif
 #include "DirectXTex.h"
 #include "fpsGame.h"
+#include "mouseInput.h"
 #include "gameTime.h"
 #include "renderQueue.h"
 #include "renderer.h"
@@ -65,6 +66,7 @@ namespace
 //   fps-render.png        起動直後
 //   fps-render-shot.png   撃った直後(マズルフラッシュ)
 //   fps-render-impact.png 撃って少し後(的の破片と火花)
+//   fps-render-aim-half.png / fps-render-aim.png エイム途中と完了
 bool RunFpsRenderTest()
 {
 	std::ofstream log("render-test-fps.log");
@@ -79,6 +81,42 @@ bool RunFpsRenderTest()
 
 	// 正面の中央の台の上にある的を狙った状態で撃ちます。
 	FpsPlayer* player = scene.GetWorld().FindFirst<FpsPlayer>();
+	bool aimPassed = player != nullptr;
+	if (player != nullptr)
+	{
+		// 非表示ウィンドウにも通常の右ボタン入力経路を通します。
+		Mouse_ProcessMessage(WM_ACTIVATEAPP, TRUE, 0);
+		Mouse_EndFrame();
+		Mouse_Reset();
+		const Vector3 hipEye = player->GetCameraPosition();
+		const Vector3 feet = player->GetPosition();
+		Mouse_ProcessMessage(WM_RBUTTONDOWN, MK_RBUTTON, MAKELPARAM(32, 32));
+		Step(scene);
+		const float firstBlend = player->GetAimBlend();
+		aimPassed &= firstBlend > 0.0f && firstBlend < 0.1f;
+		for (int i = 0; i < 5; ++i) Step(scene);
+		const float halfBlend = player->GetAimBlend();
+		aimPassed &= fabsf(halfBlend - 0.5f) < 0.01f;
+		passed &= Capture(L"fps-render-aim-half.png");
+		// 移行途中で離しても通常位置へ瞬間移動せず、押し直せます。
+		Mouse_ProcessMessage(WM_RBUTTONUP, 0, 0);
+		Step(scene);
+		aimPassed &= player->GetAimBlend() > 0.0f && player->GetAimBlend() < halfBlend;
+		Mouse_ProcessMessage(WM_RBUTTONDOWN, MK_RBUTTON, MAKELPARAM(32, 32));
+		for (int i = 0; i < 8; ++i) Step(scene);
+		aimPassed &= player->GetAimBlend() == 1.0f;
+		aimPassed &= (player->GetCameraPosition() - hipEye).length() > 0.15f;
+		aimPassed &= (player->GetPosition() - feet).length() < 0.001f;
+		passed &= Capture(L"fps-render-aim.png");
+		// フォーカスを失った場合も右ボタン状態が解除され、滑らかに戻ります。
+		Mouse_ProcessMessage(WM_KILLFOCUS, 0, 0);
+		Step(scene);
+		aimPassed &= player->GetAimBlend() > 0.9f && player->GetAimBlend() < 1.0f;
+		for (int i = 0; i < 12; ++i) Step(scene);
+		aimPassed &= player->GetAimBlend() == 0.0f;
+		aimPassed &= (player->GetCameraPosition() - hipEye).length() < 0.001f;
+	}
+	log << (aimPassed ? "PASS" : "FAIL") << " right-button aim transition, camera movement, reversal and focus release\n";
 	const std::size_t targetsBefore = scene.GetWorld().FindAll<FpsTarget>().size();
 	if (player != nullptr)
 	{
@@ -108,5 +146,5 @@ bool RunFpsRenderTest()
 		soundsLoaded &= loaded;
 	}
 	scene.Uninit();
-	return passed && targetDestroyed && soundsLoaded;
+	return passed && aimPassed && targetDestroyed && soundsLoaded;
 }
