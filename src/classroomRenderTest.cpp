@@ -131,7 +131,7 @@ bool RunClassroomRenderTest()
 		model->Load("assets/model/Akai.fbx");
 		model->SetModelScale(0.01f);
 		model->SetModelYawOffset(XM_PI);
-		animationWorld.Spawn<ClassroomField>();
+		animationWorld.Spawn<MeshField>();
 		auto* animationCamera = animationWorld.Spawn<ClassroomCamera>();
 		animationCamera->LateUpdate();
 		const char* names[] = { "Idle", "Run", "Jump", "TreadWater", "Swim", "Flair" };
@@ -259,20 +259,20 @@ bool RunClassroomRenderTest()
 	const bool slopeCaptured = capture(L"classroom-slope.png");
 	frames(25);
 	const bool slopeStoppedCaptured = capture(L"classroom-slope-stopped.png");
-	const bool terrainHasSlope = ClassroomField::GetHeight(-12.0f, 13.0f)
-		> ClassroomField::GetHeight(0.0f, 0.0f) + 0.5f;
+	const bool terrainHasSlope = MeshField::GetHeight(-12.0f, 13.0f)
+		> MeshField::GetHeight(0.0f, 0.0f) + 0.5f;
 	bool steepHill = false;
 	for (int z = 18; z <= 20; ++z)
-		steepHill |= ClassroomField::GetNormal(0.0f, static_cast<float>(z) + 0.25f).y < 0.82f;
-	const bool lakeFloorBelowWater = ClassroomField::GetHeight(ClassroomLake::CenterX, ClassroomLake::CenterZ)
+		steepHill |= MeshField::GetNormal(0.0f, static_cast<float>(z) + 0.25f).y < 0.82f;
+	const bool lakeFloorBelowWater = MeshField::GetHeight(ClassroomLake::CenterX, ClassroomLake::CenterZ)
 		< ClassroomLake::WaterLevel - 1.0f;
-	const bool lakeBankAboveWater = ClassroomField::GetHeight(ClassroomLake::CenterX + ClassroomLake::WaterRadius,
+	const bool lakeBankAboveWater = MeshField::GetHeight(ClassroomLake::CenterX + ClassroomLake::WaterRadius,
 		ClassroomLake::CenterZ) > ClassroomLake::WaterLevel;
 	World contactWorld;
 	ClassroomPlayer* contactPlayer = contactWorld.Spawn<ClassroomPlayer>();
 	auto placeOnGround = [&](float x, float z)
 	{
-		contactPlayer->SetPosition({ x, ClassroomField::GetHeight(x, z), z });
+		contactPlayer->SetPosition({ x, MeshField::GetHeight(x, z), z });
 		for (int i = 0; i < 30; ++i) contactPlayer->Update();
 	};
 	float flatClearance[2]{}, hillClearance[2]{}, sideClearance[2]{};
@@ -289,12 +289,12 @@ bool RunClassroomRenderTest()
 	float slopeEndClearance[2][2]{};
 	const bool slopeEndsMeasured = contactPlayer->GetFootEndClearance(slopeEndClearance);
 	bool slopeEndsPlanted = slopeEndsMeasured
-		&& ClassroomField::GetNormal(0.0f, 19.0f).y < 0.85f;
+		&& MeshField::GetNormal(0.0f, 19.0f).y < 0.85f;
 	for (const auto& foot : slopeEndClearance)
 		for (float gap : foot)
 			slopeEndsPlanted &= std::abs(gap) < 0.035f;
-	contactWorld.Spawn<ClassroomField>();
-	ClassroomField* comparisonField = contactWorld.FindFirst<ClassroomField>();
+	contactWorld.Spawn<MeshField>();
+	MeshField* comparisonField = contactWorld.FindFirst<MeshField>();
 	ClassroomCamera* slopeCamera = contactWorld.Spawn<ClassroomCamera>();
 	slopeCamera->LateUpdate();
 	Renderer::Begin();
@@ -414,7 +414,7 @@ bool RunClassroomRenderTest()
 	const bool lightingModesVisible = workingLightingModes == static_cast<int>(lightingModes.size());
 	comparisonField->UseRealisticShader();
 	GameObject* outlineObject = contactWorld.Spawn<GameObject>();
-	outlineObject->SetPosition({ 3.0f, ClassroomField::GetHeight(3.0f, 23.0f) + 0.42f, 23.0f });
+	outlineObject->SetPosition({ 3.0f, MeshField::GetHeight(3.0f, 23.0f) + 0.42f, 23.0f });
 	outlineObject->SetScale({ 0.015f, 0.015f, 0.015f });
 	ModelRenderer* outlineModel = outlineObject->AddComponent<ModelRenderer>();
 	outlineModel->Load("assets/model/shaderDonut.obj");
@@ -576,14 +576,14 @@ bool RunClassroomRenderTest()
 	{
 		World norenWorld;
 		norenWorld.Spawn<Sky>()->SetRadius(90.0f);
-		norenWorld.Spawn<ClassroomField>();
+		norenWorld.Spawn<MeshField>();
 		norenWorld.Spawn<ClassroomWater>();
 		ClassroomNoren* noren = norenWorld.Spawn<ClassroomNoren>();
 		ClassroomPlayer* walker = norenWorld.Spawn<ClassroomPlayer>();
 		// ClassroomCameraは置きません(ビュー行列を上書きし合うため)。プレイヤーの移動はWで+Zです。
 		NorenSideCamera* norenCamera = norenWorld.Spawn<NorenSideCamera>();
 		Cloth* cloth = noren->GetCloth();
-		const float norenGround = ClassroomField::GetHeight(ClassroomNoren::PositionX, ClassroomNoren::PositionZ);
+		const float norenGround = MeshField::GetHeight(ClassroomNoren::PositionX, ClassroomNoren::PositionZ);
 		auto viewFromBehind = [&]()
 		{
 			norenCamera->Place({ 1.4f, norenGround + 2.2f, ClassroomNoren::PositionZ - 3.6f },
@@ -598,7 +598,7 @@ bool RunClassroomRenderTest()
 		// 風の揺れと押された揺れを分けて測るため、この検証では無風にします。
 		cloth->SetWind({}, 0.0f);
 		const float startZ = ClassroomNoren::PositionZ - 1.2f;
-		walker->SetPosition({ 0.0f, ClassroomField::GetHeight(0.0f, startZ), startZ });
+		walker->SetPosition({ 0.0f, MeshField::GetHeight(0.0f, startZ), startZ });
 
 		auto step = [&](int count)
 		{

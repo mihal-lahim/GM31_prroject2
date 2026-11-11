@@ -21,78 +21,13 @@
 
 namespace
 {
-	constexpr int kTerrainHalfSize = 32;
-	constexpr int kTerrainSide = kTerrainHalfSize * 2 + 1;
 	constexpr float kFloatingOriginDepth = 1.10f;
 	constexpr float kSwimmingChestDepth = 0.12f;
-
-	float HeightSample(float x, float z)
-	{
-		auto naturalHeight = [](float sampleX, float sampleZ)
-		{
-			const float rolling = 0.42f * sinf(sampleX * 0.23f) * cosf(sampleZ * 0.21f)
-				+ 0.18f * sinf(sampleX * 0.57f + sampleZ * 0.31f);
-			// 基準ボーンと3つの丘ボーンで静的な地形をCPUスキニングする。
-			const float hillWeightA = 0.66f * expf(-((sampleX + 10.0f) * (sampleX + 10.0f)
-				+ (sampleZ - 13.0f) * (sampleZ - 13.0f)) / 90.0f);
-			const float hillWeightB = 0.78f * expf(-((sampleX - 14.0f) * (sampleX - 14.0f)
-				+ (sampleZ + 7.0f) * (sampleZ + 7.0f)) / 120.0f);
-			// 開始位置から+Zへ進むと急斜面に入る。足IKの確認用。
-			const float steepWeight = 0.85f * expf(-(sampleX * sampleX
-				+ (sampleZ - 14.0f) * (sampleZ - 14.0f)) / 18.0f);
-			const float baseWeight = 1.0f - hillWeightA - hillWeightB - steepWeight;
-			return rolling * baseWeight
-				+ (rolling + 2.9f) * hillWeightA
-				+ (rolling + 3.2f) * hillWeightB
-				+ (rolling + 5.0f) * steepWeight;
-		};
-
-		const float distance = sqrtf((x - ClassroomLake::CenterX) * (x - ClassroomLake::CenterX)
-			+ (z - ClassroomLake::CenterZ) * (z - ClassroomLake::CenterZ));
-		const float natural = naturalHeight(x, z);
-		if (distance >= ClassroomLake::BasinRadius) return natural;
-
-		constexpr float floorHeight = ClassroomLake::WaterLevel - 1.45f;
-		constexpr float bankHeight = ClassroomLake::WaterLevel + 0.25f;
-		if (distance <= ClassroomLake::FloorRadius) return floorHeight;
-		if (distance < ClassroomLake::ShoreRadius)
-		{
-			const float edge = (distance - ClassroomLake::FloorRadius)
-				/ (ClassroomLake::ShoreRadius - ClassroomLake::FloorRadius);
-			const float smoothEdge = edge * edge * (3.0f - 2.0f * edge);
-			return floorHeight + (bankHeight - floorHeight) * smoothEdge;
-		}
-		const float edge = (distance - ClassroomLake::ShoreRadius)
-			/ (ClassroomLake::BasinRadius - ClassroomLake::ShoreRadius);
-		const float smoothEdge = edge * edge * (3.0f - 2.0f * edge);
-		return bankHeight + (natural - bankHeight) * smoothEdge;
-	}
-
-	float GridHeight(float x, float z)
-	{
-		static const std::array<float, kTerrainSide * kTerrainSide> heights = []
-		{
-			std::array<float, kTerrainSide * kTerrainSide> values{};
-			for (int row = 0; row < kTerrainSide; ++row)
-			{
-				for (int column = 0; column < kTerrainSide; ++column)
-				{
-					values[row * kTerrainSide + column] = HeightSample(
-						static_cast<float>(column - kTerrainHalfSize),
-						static_cast<float>(kTerrainHalfSize - row));
-				}
-			}
-			return values;
-		}();
-		const int column = static_cast<int>(x) + kTerrainHalfSize;
-		const int row = kTerrainHalfSize - static_cast<int>(z);
-		return heights[row * kTerrainSide + column];
-	}
 }
 
 void ClassroomPlayer::Init()
 {
-	m_Position = { 0.0f, ClassroomField::GetHeight(0.0f, 0.0f), 0.0f };
+	m_Position = { 0.0f, MeshField::GetHeight(0.0f, 0.0f), 0.0f };
 	m_Model = AddComponent<AnimationModel>();
 	m_Model->Load("assets/model/Akai.fbx");
 	m_Model->LoadAnimation("assets/model/Akai_Idle.fbx", "Idle");
@@ -104,7 +39,7 @@ void ClassroomPlayer::Init()
 	m_Model->SetModelScale(0.01f);
 	// Akai のモデル正面は -Z。移動角度の基準 (+Z) に合わせる。
 	m_Model->SetModelYawOffset(XM_PI);
-	m_Model->SetFootIK(ClassroomField::GetHeight, 1.0f, ClassroomField::GetNormal);
+	m_Model->SetFootIK(MeshField::GetHeight, 1.0f, MeshField::GetNormal);
 	m_Model->PlayAnimation("Idle", 0.0f);
 	m_Model->TickAnimation(0.0f, false);
 	AlignFeetToField();
@@ -131,11 +66,11 @@ void ClassroomPlayer::Update()
 		const float dx = p.x - ClassroomLake::CenterX;
 		const float dz = p.z - ClassroomLake::CenterZ;
 		return dx * dx + dz * dz < 8.0f * 8.0f
-			&& ClassroomField::GetHeight(p.x, p.z) < ClassroomLake::WaterLevel - 0.9f
+			&& MeshField::GetHeight(p.x, p.z) < ClassroomLake::WaterLevel - 0.9f
 			&& p.y < ClassroomLake::WaterLevel + 0.15f;
 	};
 	Vector3 position = GetPosition();
-	const float groundBeforeMove = ClassroomField::GetHeight(position.x, position.z);
+	const float groundBeforeMove = MeshField::GetHeight(position.x, position.z);
 	const bool submergedBeforeMove = inDeepWater(position);
 	if (Keyboard_IsKeyDownTrigger(KK_R) && !submergedBeforeMove
 		&& position.y <= groundBeforeMove + 0.05f)
@@ -163,7 +98,7 @@ void ClassroomPlayer::Update()
 		SetRotation({ 0.0f, atan2f(input.x, input.z), 0.0f });
 	}
 	position = GetPosition();
-	const float ground = ClassroomField::GetHeight(position.x, position.z);
+	const float ground = MeshField::GetHeight(position.x, position.z);
 	const bool inWater = inDeepWater(position);
 	if (inWater)
 	{
@@ -209,8 +144,8 @@ void ClassroomPlayer::Update()
 	const float ikTarget = useFootIK ? 1.0f : 0.0f;
 	m_FootIKBlend += std::clamp(ikTarget - m_FootIKBlend, -0.12f, 0.12f);
 	if (inWater || airborne) m_FootIKBlend = 0.0f;
-	m_Model->SetFootIK(m_FootIKBlend > 0.0f ? ClassroomField::GetHeight : nullptr,
-		moving && !m_Dancing ? 0.75f : 1.0f, ClassroomField::GetNormal);
+	m_Model->SetFootIK(m_FootIKBlend > 0.0f ? MeshField::GetHeight : nullptr,
+		moving && !m_Dancing ? 0.75f : 1.0f, MeshField::GetNormal);
 	m_Model->SetFootIKFade(m_FootIKBlend);
 	m_Model->TickAnimation(1.0f / 60.0f, false);
 	// The FBX's root is a standing-foot origin even in a horizontal swimming pose.
@@ -245,7 +180,7 @@ void ClassroomPlayer::AlignFeetToField()
 		for (int pass = 0; pass < 6; ++pass)
 		{
 			float clearance[2]{};
-			if (!m_Model->GetFootClearance(ClassroomField::GetHeight, clearance)) break;
+			if (!m_Model->GetFootClearance(MeshField::GetHeight, clearance)) break;
 			bool needsCorrection = false;
 			for (int foot = 0; foot < 2; ++foot)
 			{
@@ -260,7 +195,7 @@ void ClassroomPlayer::AlignFeetToField()
 	};
 	solveContacts();
 	float clearance[2]{};
-	if (m_Model->GetFootClearance(ClassroomField::GetHeight, clearance))
+	if (m_Model->GetFootClearance(MeshField::GetHeight, clearance))
 	{
 		float unreachableGap = 0.0f;
 		for (int foot = 0; foot < 2; ++foot)
@@ -281,13 +216,13 @@ void ClassroomPlayer::AlignFeetToField()
 bool ClassroomPlayer::GetFootClearance(float (&clearance)[2]) const
 {
 	return m_Model != nullptr
-		&& m_Model->GetFootClearance(ClassroomField::GetHeight, clearance);
+		&& m_Model->GetFootClearance(MeshField::GetHeight, clearance);
 }
 
 bool ClassroomPlayer::GetFootEndClearance(float (&clearance)[2][2]) const
 {
 	return m_Model != nullptr
-		&& m_Model->GetFootEndClearance(ClassroomField::GetHeight, clearance);
+		&& m_Model->GetFootEndClearance(MeshField::GetHeight, clearance);
 }
 
 bool ClassroomPlayer::SetShaderDefinition(std::string_view id)
@@ -348,7 +283,7 @@ void ClassroomCamera::LateUpdate()
 		const Vector3 forward{ sinf(m_Yaw) * cosPitch, sinf(m_Pitch), cosf(m_Yaw) * cosPitch };
 		m_Position = m_Target - forward * distance;
 		m_Position.y = (std::max)(m_Position.y,
-			ClassroomField::GetHeight(m_Position.x, m_Position.z) + 0.35f);
+			MeshField::GetHeight(m_Position.x, m_Position.z) + 0.35f);
 	}
 	m_View = XMMatrixLookAtLH(
 		XMVectorSet(m_Position.x, m_Position.y, m_Position.z, 1.0f),
@@ -381,157 +316,6 @@ void ClassroomCamera::Draw()
 		static_cast<float>(SCREEN_WIDTH) / SCREEN_HEIGHT, 0.1f, 200.0f));
 	Renderer::SetViewMatrix(m_View);
 	Renderer::SetCameraPosition(XMFLOAT3(m_Position.x, m_Position.y, m_Position.z));
-}
-
-float ClassroomField::GetHeight(float x, float z)
-{
-	// 実際に描画している2枚の三角形と同じ対角線で補間する。
-	x = std::clamp(x, -static_cast<float>(kTerrainHalfSize), static_cast<float>(kTerrainHalfSize));
-	z = std::clamp(z, -static_cast<float>(kTerrainHalfSize), static_cast<float>(kTerrainHalfSize));
-	const float left = (std::min)(floorf(x), static_cast<float>(kTerrainHalfSize - 1));
-	const float back = (std::min)(floorf(z), static_cast<float>(kTerrainHalfSize - 1));
-	const float right = left + 1.0f, front = back + 1.0f;
-	const float tx = x - left, tz = z - back;
-	const float a = GridHeight(left, front), b = GridHeight(right, front);
-	const float c = GridHeight(left, back), d = GridHeight(right, back);
-	return tx <= tz
-		? c * (1.0f - tz) + a * (tz - tx) + b * tx
-		: c * (1.0f - tx) + d * (tx - tz) + b * tz;
-}
-
-Vector3 ClassroomField::GetNormal(float x, float z)
-{
-	x = std::clamp(x, -static_cast<float>(kTerrainHalfSize), static_cast<float>(kTerrainHalfSize));
-	z = std::clamp(z, -static_cast<float>(kTerrainHalfSize), static_cast<float>(kTerrainHalfSize));
-	const float left = (std::min)(floorf(x), static_cast<float>(kTerrainHalfSize - 1));
-	const float back = (std::min)(floorf(z), static_cast<float>(kTerrainHalfSize - 1));
-	const float tx = x - left, tz = z - back;
-	const float a = GridHeight(left, back + 1.0f);
-	const float b = GridHeight(left + 1.0f, back + 1.0f);
-	const float c = GridHeight(left, back);
-	const float d = GridHeight(left + 1.0f, back);
-	Vector3 normal = tx <= tz
-		? Vector3{ a - b, 1.0f, c - a }
-		: Vector3{ c - d, 1.0f, d - b };
-	normal.normalize();
-	return normal;
-}
-
-void ClassroomField::Init()
-{
-	std::vector<VERTEX_3D> vertices;
-	std::vector<unsigned int> indices;
-	vertices.reserve(kTerrainSide * kTerrainSide);
-	indices.reserve((kTerrainSide - 1) * (kTerrainSide - 1) * 6);
-	for (int row = 0; row < kTerrainSide; ++row)
-	{
-		const float z = static_cast<float>(kTerrainHalfSize - row);
-		for (int column = 0; column < kTerrainSide; ++column)
-		{
-			const float x = static_cast<float>(column - kTerrainHalfSize);
-			const float y = GridHeight(x, z);
-			const float slopeX = (HeightSample(x + 0.5f, z) - HeightSample(x - 0.5f, z));
-			const float slopeZ = (HeightSample(x, z + 0.5f) - HeightSample(x, z - 0.5f));
-			Vector3 normal{ -slopeX, 1.0f, -slopeZ };
-			normal.normalize();
-			const float shade = std::clamp(0.86f + y * 0.035f + normal.y * 0.1f, 0.75f, 1.0f);
-			VERTEX_3D vertex{};
-			vertex.Position = { x, y, z };
-			vertex.Normal = { normal.x, normal.y, normal.z };
-			vertex.Diffuse = { shade, shade, shade, 1.0f };
-			vertex.TexCoord = { x * 0.24f, z * 0.24f };
-			vertices.push_back(vertex);
-		}
-	}
-	for (int row = 0; row < kTerrainSide - 1; ++row)
-	{
-		for (int column = 0; column < kTerrainSide - 1; ++column)
-		{
-			const unsigned int a = row * kTerrainSide + column;
-			const unsigned int b = a + 1;
-			const unsigned int c = a + kTerrainSide;
-			const unsigned int d = c + 1;
-			indices.insert(indices.end(), { a, b, c, b, d, c });
-		}
-	}
-	D3D11_BUFFER_DESC description{};
-	description.Usage = D3D11_USAGE_DEFAULT;
-	description.ByteWidth = static_cast<UINT>(vertices.size() * sizeof(VERTEX_3D));
-	description.BindFlags = D3D11_BIND_VERTEX_BUFFER;
-	D3D11_SUBRESOURCE_DATA data{};
-	data.pSysMem = vertices.data();
-	m_RenderingAvailable = Engine::GraphicsResourceFactory::CreateBuffer(
-		m_VertexBuffer, description, &data, "ClassroomField");
-	description.ByteWidth = static_cast<UINT>(indices.size() * sizeof(unsigned int));
-	description.BindFlags = D3D11_BIND_INDEX_BUFFER;
-	data.pSysMem = indices.data();
-	m_RenderingAvailable = Engine::GraphicsResourceFactory::CreateBuffer(
-		m_IndexBuffer, description, &data, "ClassroomFieldIndices") && m_RenderingAvailable;
-	m_IndexCount = static_cast<UINT>(indices.size());
-	m_Texture = ResourceManager::LoadTexture(L"assets/model/grass.jpg");
-	m_RenderingAvailable = m_Texture != nullptr && m_RenderingAvailable;
-	m_RenderingAvailable = UseRealisticShader() && m_RenderingAvailable;
-}
-
-bool ClassroomField::UseRealisticShader()
-{
-	// 草地はほぼつや消し。草の模様の明るさから凹凸を作り、斜めの光で細かな陰影を出します。
-	if (!m_Surface.Load("realistic", m_Texture)) return false;
-	m_Surface.SetFloat("roughness", 0.92f);
-	m_Surface.SetFloat("metallic", 0.0f);
-	m_Surface.SetFloat("bump", 0.9f);
-	m_Surface.SetFloat("rim", 0.0f);
-	return true;
-}
-
-void ClassroomField::Draw()
-{
-	if (!m_RenderingAvailable) return;
-	auto* context = Renderer::GetDeviceContext();
-	Renderer::SetWorldMatrix(XMMatrixIdentity());
-	m_Surface.Bind();
-	UINT stride = sizeof(VERTEX_3D), offset = 0;
-	context->IASetVertexBuffers(0, 1, m_VertexBuffer.GetAddressOf(), &stride, &offset);
-	context->IASetIndexBuffer(m_IndexBuffer.Get(), DXGI_FORMAT_R32_UINT, 0);
-	context->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-	context->DrawIndexed(m_IndexCount, 0, 0);
-}
-
-bool ClassroomField::SetShaderMode(Engine::SurfaceShader shader)
-{
-	if (shader == Engine::SurfaceShader::Water) return false;
-	const bool loaded = m_Surface.Load(shader, m_Texture);
-	m_Surface.DetailTexture = shader == Engine::SurfaceShader::Bump
-		? ResourceManager::LoadTexture(L"assets/texture/Normal.png")
-		: shader == Engine::SurfaceShader::ToonRamp
-		? ResourceManager::LoadTexture(L"assets/texture/Toon2.png") : TextureHandle{};
-	if (shader == Engine::SurfaceShader::Toon) m_Surface.Parameter.x = 3.0f;
-	if (shader == Engine::SurfaceShader::Bump) m_Surface.Parameter.x = 2.5f;
-	if (shader == Engine::SurfaceShader::CookTorrance) m_Surface.Parameter.x = 0.45f;
-	if (shader == Engine::SurfaceShader::ToonRamp)
-		m_Surface.Parameter = { 4.0f, 0.02f, 0.65f, 0.0f };
-	if (shader == Engine::SurfaceShader::Disney)
-		m_Surface.Parameter = { 0.45f, 0.1f, 3.0f, 0.0f };
-	return loaded;
-}
-
-bool ClassroomField::SetShaderDefinition(std::string_view id)
-{
-	if (!m_Surface.Load(id, m_Texture)) return false;
-	m_Surface.DetailTexture.reset();
-	return true;
-}
-
-void ClassroomField::DrawShadow()
-{
-	auto* context = Renderer::GetDeviceContext();
-	Engine::ShadowMap::BindCaster(false);
-	Renderer::SetWorldMatrix(XMMatrixIdentity());
-	UINT stride = sizeof(VERTEX_3D), offset = 0;
-	context->IASetVertexBuffers(0, 1, m_VertexBuffer.GetAddressOf(), &stride, &offset);
-	context->IASetIndexBuffer(m_IndexBuffer.Get(), DXGI_FORMAT_R32_UINT, 0);
-	context->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-	context->DrawIndexed(m_IndexCount, 0, 0);
 }
 
 namespace
@@ -780,7 +564,7 @@ namespace
 
 void ClassroomNoren::Init()
 {
-	const float groundHeight = ClassroomField::GetHeight(PositionX, PositionZ);
+	const float groundHeight = MeshField::GetHeight(PositionX, PositionZ);
 	m_Position = { PositionX, groundHeight, PositionZ };
 	BuildFrame(groundHeight);
 	CreateClothTexture();
@@ -915,7 +699,7 @@ void ClassroomWalkScene::Init()
 	World& world = GetWorld();
 	world.Spawn<ClassroomCamera>();
 	world.Spawn<Sky>()->SetRadius(90.0f);
-	world.Spawn<ClassroomField>();
+	world.Spawn<MeshField>();
 	world.Spawn<ClassroomWater>();
 	world.Spawn<ClassroomNoren>();
 	world.Spawn<ClassroomPlayer>();
@@ -933,7 +717,7 @@ void ClassroomWalkScene::Init()
 				+ (z - ClassroomLake::CenterZ) * (z - ClassroomLake::CenterZ));
 			if (pondDistance < 10.0f) continue;
 			ClassroomTree* tree = world.Spawn<ClassroomTree>();
-			tree->SetPosition({ x, ClassroomField::GetHeight(x, z), z });
+			tree->SetPosition({ x, MeshField::GetHeight(x, z), z });
 			const float size = 0.75f + static_cast<float>(hash % 6) * 0.09f;
 			tree->SetScale({ size, size, size });
 		}
@@ -950,7 +734,7 @@ void ClassroomWalkScene::Init()
 				+ (z - ClassroomLake::CenterZ) * (z - ClassroomLake::CenterZ));
 			if (pondDistance < 10.0f) continue;
 			ClassroomGrass* grass = world.Spawn<ClassroomGrass>();
-			grass->SetPosition({ x, ClassroomField::GetHeight(x, z) + 0.015f, z });
+			grass->SetPosition({ x, MeshField::GetHeight(x, z) + 0.015f, z });
 			const float size = 0.72f + static_cast<float>(hash % 6) * 0.09f;
 			grass->SetScale({ size, size, size });
 		}

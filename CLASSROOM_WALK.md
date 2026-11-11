@@ -95,5 +95,5 @@ cloth->SetWind({ 0.0f, 0.0f, -0.5f }, 0.9f);
 布が押しのけられること・体にめり込まないこと・通過後に戻ることを数値でも確認します。
 
 授業で変える箇所は `src/classroomWalk.cpp` の `ClassroomPlayer`、
-`ClassroomCamera`、`ClassroomField` です。初期画面は
+`ClassroomCamera`、`MeshField` です。初期画面は
 `src/classroomGameDefinition.cpp` で登録しています。

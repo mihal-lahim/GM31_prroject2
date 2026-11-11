@@ -54,6 +54,9 @@
     <ClCompile Include="src\classroomRenderTest.cpp">
       <Filter>Code\Game</Filter>
     </ClCompile>
+    <ClCompile Include="src\meshField.cpp">
+      <Filter>Code\Game</Filter>
+    </ClCompile>
     <ClCompile Include="src\classroomWalk.cpp">
       <Filter>Code\Game</Filter>
     </ClCompile>
@@ -70,6 +73,9 @@
     </ClInclude>
     <ClInclude Include="include\wave.h">
       <Filter>Code\Environment</Filter>
+    </ClInclude>
+    <ClInclude Include="include\meshField.h">
+      <Filter>Code\Game</Filter>
     </ClInclude>
     <ClInclude Include="include\classroomWalk.h">
       <Filter>Code\Game</Filter>

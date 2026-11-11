@@ -7,6 +7,7 @@
 #include "dynamicText.h"
 #include "wave.h"
 #include "surfaceMaterial.h"
+#include "meshField.h"
 
 #include <chrono>
 
@@ -52,30 +53,6 @@ private:
 	Vector3 m_Target{};
 	float m_Yaw = 0.0f;
 	float m_Pitch = 0.0f;
-};
-
-class ClassroomField final : public GameObject
-{
-public:
-	static float GetHeight(float x, float z);
-	static Vector3 GetNormal(float x, float z);
-	// 通常は写実表現(realistic)です。ほかのシェーダーへの差し替えはレンダーテストでの検証用です。
-	bool UseRealisticShader();
-	bool SetShaderMode(Engine::SurfaceShader shader);
-	bool SetShaderDefinition(std::string_view id);
-	void Init() override;
-	void Draw() override;
-	// 丘が自分の裏側や周りに影を落とします。
-	void DrawShadow() override;
-private:
-	ComPtr<ID3D11Buffer> m_VertexBuffer;
-	ComPtr<ID3D11Buffer> m_IndexBuffer;
-	UINT m_IndexCount = 0;
-	ComPtr<ID3D11InputLayout> m_Layout;
-	ComPtr<ID3D11VertexShader> m_VertexShader;
-	ComPtr<ID3D11PixelShader> m_PixelShader;
-	TextureHandle m_Texture;
-	Engine::SurfaceMaterial m_Surface;
 };
 
 class ClassroomTree final : public GameObject
