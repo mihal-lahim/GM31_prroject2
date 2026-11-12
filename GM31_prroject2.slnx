@@ -9,4 +9,5 @@
   <Project Path="ClassroomWalk.vcxproj" Id="d64a3b79-5fb0-47c9-9992-cb456278a4d1" />
   <Project Path="ShaderGallery.vcxproj" Id="7b358ef8-3d9a-42e4-abca-88b10fb54654" />
   <Project Path="FpsGame.vcxproj" Id="2b07823c-acb9-4670-8895-05ae7cd68aca" />
+  <Project Path="SlowAction.vcxproj" Id="8e3a5d41-6c2f-4b7a-9d10-5f2c7a1b3e64" />
 </Solution>

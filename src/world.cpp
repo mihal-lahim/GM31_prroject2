@@ -34,6 +34,46 @@ World::~World()
 	Clear();
 }
 
+GameObject* World::FindById(std::uint64_t id)
+{
+	if (id == 0)
+	{
+		return nullptr;
+	}
+	// 更新中にSpawnされた、まだ合流していないオブジェクトも対象にします。
+	for (const auto* objects : { &m_GameObjects, &m_PendingGameObjects })
+	{
+		for (const auto& gameObject : *objects)
+		{
+			if (gameObject->GetId() == id && !gameObject->IsPendingDestroy())
+			{
+				return gameObject.get();
+			}
+		}
+	}
+	return nullptr;
+}
+
+bool World::SetObjectId(GameObject& gameObject, std::uint64_t id)
+{
+	if (id == 0)
+	{
+		return false;
+	}
+	if (gameObject.GetId() == id)
+	{
+		return true;
+	}
+	if (FindById(id) != nullptr)
+	{
+		return false;
+	}
+	gameObject.m_Id = id;
+	// 以後のSpawnが、読み込んだIDと衝突しないようにします。
+	m_NextObjectId = (std::max)(m_NextObjectId, id + 1);
+	return true;
+}
+
 void World::BeginUpdate()
 {
 	m_IsUpdating = true;

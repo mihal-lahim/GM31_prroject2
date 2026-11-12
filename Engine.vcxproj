@@ -59,6 +59,8 @@
 	<ClInclude Include="include\resourceManager.h" />
 	<ClInclude Include="include\runtimeConfig.h" />
 	<ClInclude Include="include\sceneFade.h" />
+	<ClInclude Include="include\sceneSerializer.h" />
+	<ClInclude Include="include\propertyVisitor.h" />
     <ClInclude Include="include\scene.h" />
     <ClInclude Include="include\score.h" />
 	<ClInclude Include="include\shaderCatalog.h" />
@@ -97,6 +99,7 @@
 	<ClCompile Include="src\resourceManager.cpp" />
 	<ClCompile Include="src\runtimeConfig.cpp" />
 	<ClCompile Include="src\sceneFade.cpp" />
+	<ClCompile Include="src\sceneSerializer.cpp" />
     <ClCompile Include="src\score.cpp" />
 	<ClCompile Include="src\glyphRenderer2D.cpp" />
 	<ClCompile Include="src\alphabetText.cpp" />

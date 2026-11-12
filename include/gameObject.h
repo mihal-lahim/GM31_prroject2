@@ -7,6 +7,7 @@
 #include <utility>
 
 class World;
+namespace Engine { class PropertyVisitor; }
 
 enum class Layer
 {
@@ -48,6 +49,10 @@ protected:
 
 	std::list<std::unique_ptr<Component>> m_Components;
 	World* m_World = nullptr;
+	// World内で重複しない番号です。Spawn時にWorldが振り、シーンファイルにも保存されます。
+	std::uint64_t m_Id = 0;
+	// エディタの階層表示とシーンファイルで使う表示名です。空でも構いません。
+	std::string m_Name;
 
 	// Spawn直後にWorldが一度だけ設定します。ゲーム側からの差し替えは禁止です。
 	void AttachWorld(World* world) { m_World = world; }
@@ -126,6 +131,18 @@ public:
 	Vector3 GetPosition() const { return m_Position; }
 	Vector3 GetRotation() const { return m_Rotation; }
 	Vector3 GetScale() const { return m_Scale; }
+
+	std::uint64_t GetId() const { return m_Id; }
+	const std::string& GetName() const { return m_Name; }
+	void SetName(std::string name) { m_Name = std::move(name); }
+	const std::list<std::unique_ptr<Component>>& GetComponents() const { return m_Components; }
+
+	// 保存・読込・インスペクタ表示の対象にしたい値を、visitorへ1つずつ渡します。
+	// 位置・回転・スケールと名前は共通で扱われるので、ここへ書く必要はありません。
+	virtual void Reflect(Engine::PropertyVisitor& visitor) { (void)visitor; }
+	// シーンファイルから読み込んだ直後と、エディタが位置や値を書き換えた後に呼ばれます。
+	// Reflectで受け取った値を、モデルの切り替えなど実際の状態へ反映する場所です。
+	virtual void OnPropertiesChanged() {}
 
 	void MarkForDestroy() { m_Destroy = true; }
 	bool IsPendingDestroy() const { return m_Destroy; }

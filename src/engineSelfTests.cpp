@@ -8,6 +8,8 @@
 #include "renderer.h"
 #include "resourceManager.h"
 #include "runtimeConfig.h"
+#include "propertyVisitor.h"
+#include "sceneSerializer.h"
 #include "shaderCatalog.h"
 #include "world.h"
 
@@ -647,6 +649,134 @@ namespace
 		return ResourceManager::GetModelCount() == 0 && first != nullptr;
 	}
 
+	// シーンファイルの読み書きを確かめるための、値を一通り持つオブジェクトです。
+	class SerializableTestObject final : public GameObject
+	{
+	public:
+		float Speed = 1.0f;
+		int Count = 2;
+		bool Enabled = false;
+		Vector3 Offset{ 0.0f, 0.0f, 0.0f };
+		std::string Label = "default";
+		int ChangedCalls = 0;
+
+		void Reflect(Engine::PropertyVisitor& visitor) override
+		{
+			visitor.Visit("Speed", Speed);
+			visitor.Visit("Count", Count);
+			visitor.Visit("Enabled", Enabled);
+			visitor.Visit("Offset", Offset);
+			visitor.Visit("Label", Label);
+		}
+		void OnPropertiesChanged() override { ChangedCalls++; }
+	};
+
+	bool TestSceneSerialization()
+	{
+		using Engine::ObjectTypeRegistry;
+		using Engine::SceneSerializer;
+		ObjectTypeRegistry::Register<SerializableTestObject>("SerializableTestObject");
+
+		World source;
+		SerializableTestObject* first = source.Spawn<SerializableTestObject>();
+		first->SetName("first object");
+		first->SetPosition({ 1.25f, -2.5f, 3.0f });
+		first->SetRotation({ 0.1f, 0.2f, 0.3f });
+		first->SetScale({ 2.0f, 3.0f, 4.0f });
+		first->Speed = 0.1f;
+		first->Count = -7;
+		first->Enabled = true;
+		first->Offset = { 0.5f, 1.5f, -2.5f };
+		first->Label = "hello world";
+		// 登録していない型は保存されません。
+		source.Spawn<TestGameObject>();
+		SerializableTestObject* second = source.Spawn<SerializableTestObject>();
+		const std::string text = SceneSerializer::Write(source);
+
+		World loaded;
+		std::vector<GameObject*> created;
+		if (!SceneSerializer::Read(loaded, text, &created) || created.size() != 2)
+		{
+			return false;
+		}
+		const auto* copy = dynamic_cast<SerializableTestObject*>(created[0]);
+		if (copy == nullptr || copy->GetName() != "first object" || copy->GetId() != first->GetId()
+			|| created[1]->GetId() != second->GetId()
+			|| !(copy->GetPosition() == first->GetPosition()) || !(copy->GetRotation() == first->GetRotation())
+			|| !(copy->GetScale() == first->GetScale())
+			|| copy->Speed != first->Speed || copy->Count != -7 || !copy->Enabled
+			|| !(copy->Offset == first->Offset) || copy->Label != "hello world" || copy->ChangedCalls != 1)
+		{
+			return false;
+		}
+		// 書いたものを読んで書き直しても、同じテキストになります。
+		if (SceneSerializer::Write(loaded) != text)
+		{
+			return false;
+		}
+		// 読み込んだIDの次から振られるので、後から生成しても衝突しません。
+		if (loaded.Spawn<SerializableTestObject>()->GetId() <= second->GetId()
+			|| loaded.FindById(first->GetId()) != copy)
+		{
+			return false;
+		}
+
+		// 同じテキストをもう一度読むとIDが衝突するので、新しいIDが振られます(複製の動作)。
+		created.clear();
+		if (!SceneSerializer::Read(loaded, text, &created) || created.size() != 2
+			|| created[0]->GetId() == first->GetId())
+		{
+			return false;
+		}
+
+		// 知らない値は無視し、書かれていない値は初期値のまま。型でのフィルタと、壊れた入力の検出も確かめます。
+		World partial;
+		created.clear();
+		const char* loose =
+			"object SerializableTestObject\n"
+			"position 1 2 3\n"
+			"int Count 9\n"
+			"float Removed 4\n"
+			"end\n"
+			"object UnknownType\n"
+			"end\n";
+		const bool cleanRead = SceneSerializer::Read(partial, loose, &created);
+		const auto* loose0 = created.size() == 1 ? dynamic_cast<SerializableTestObject*>(created[0]) : nullptr;
+		if (cleanRead || loose0 == nullptr || loose0->Count != 9 || loose0->Speed != 1.0f
+			|| loose0->Label != "default" || !(loose0->GetScale() == Vector3(1.0f, 1.0f, 1.0f)))
+		{
+			return false;
+		}
+		created.clear();
+		SceneSerializer::Read(partial, text, &created, [](std::string_view) { return false; });
+		if (!created.empty())
+		{
+			return false;
+		}
+		created.clear();
+		if (SceneSerializer::Read(partial, "object SerializableTestObject\nposition 1 2\nend\n", &created)
+			|| SceneSerializer::Read(partial, "object SerializableTestObject\n", &created))
+		{
+			return false;
+		}
+
+		// ファイルを経由しても同じ内容で戻ります。
+		const std::filesystem::path path = "self-test-scene.scene";
+		World fromFile;
+		const bool fileRoundTrip = SceneSerializer::SaveFile(source, path)
+			&& SceneSerializer::LoadFile(fromFile, path) && SceneSerializer::Write(fromFile) == text;
+		std::error_code removeError;
+		std::filesystem::remove(path, removeError);
+		if (!fileRoundTrip)
+		{
+			return false;
+		}
+
+		SceneSerializer::DestroyAll(source);
+		source.DestroyRequestedObjects();
+		return source.FindAll<SerializableTestObject>().empty() && source.FindAll<TestGameObject>().size() == 1;
+	}
+
 	bool TestRuntimeConfigValidationAndReload()
 	{
 		const std::filesystem::path configPath =
@@ -723,6 +853,7 @@ bool RunEngineSelfTests()
 		{ "render ordering", TestRenderOrdering },
 		{ "render tie break keeps submission order", TestRenderTieBreakKeepsSubmissionOrder },
 		{ "game time", TestGameTime },
+		{ "scene serialization", TestSceneSerialization },
 		{ "runtime config validation and reload", TestRuntimeConfigValidationAndReload },
 		{ "shader catalog", TestShaderCatalog },
 		{ "wave resource cache", TestWaveResourceCache },

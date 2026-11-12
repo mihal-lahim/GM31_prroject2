@@ -22,6 +22,8 @@
   <ItemDefinitionGroup><ClCompile><AdditionalIncludeDirectories>$(ProjectDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories></ClCompile></ItemDefinitionGroup>
   <Import Project="SurfaceShaders.props" />
   <ItemGroup>
+    <FxCompile Include="shaders\forestVS.hlsl"><ShaderType>Vertex</ShaderType><ShaderModel>5.0</ShaderModel><ObjectFileOutput>$(OutDir)%(Filename).cso</ObjectFileOutput></FxCompile>
+    <FxCompile Include="shaders\forestPS.hlsl"><ShaderType>Pixel</ShaderType><ShaderModel>5.0</ShaderModel><ObjectFileOutput>$(OutDir)%(Filename).cso</ObjectFileOutput></FxCompile>
     <FxCompile Include="shaders\unlitTextureVS.hlsl">
       <ShaderType>Vertex</ShaderType><ShaderModel>5.0</ShaderModel>
       <ObjectFileOutput>$(OutDir)%(Filename).cso</ObjectFileOutput>
@@ -32,6 +34,7 @@
     </FxCompile>
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="include\forestDemo.h" /><ClCompile Include="src\forestDemo.cpp" />
     <ClInclude Include="include\shaderGalleryScene.h" />
     <ClInclude Include="include\shaderGalleryUi.h" />
     <ClCompile Include="src\main.cpp" />

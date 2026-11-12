@@ -73,6 +73,37 @@ spawns a field, follow camera, and the previously unused `Akai.fbx` player.
 `Akai_Idle.fbx` plays while still and `Akai_Run.fbx` while moving. WASD or arrow
 keys walk on the field. The application packages only its own runtime assets.
 
+### SlowAction (`SlowAction.vcxproj`)
+
+`SlowAction` is a prototype for a time-slow melee action game. Only world-side
+time is slowed; the player and camera keep running on real time.
+
+- `slowAction.*`: scene, test arena, debug HUD, `SlowInput` (one input snapshot per step,
+  replaceable from tests) and `SlowClock` (world time scale and the slow gauge).
+  Enemies read `SlowClock::GetWorldDeltaTime()`; the player and camera read `GameTime`.
+- `slowPlayer.cpp`: move / dash / attack state machine, attack buffering and dash cancel.
+- `slowEnemy.cpp`: melee AI, launch arc, wall bounce and pursuit. Launch speed and height are
+  functions of elapsed launch time, so repeated pursuits and bounces cannot accumulate speed.
+- `slowCamera.cpp`: third-person follow camera with dash FOV, launch assist and wall pull-in.
+- `slowActionTuning.*`: every gameplay number, overridable from `assets/config/slow-gameplay.cfg`.
+- `slowActionRenderTest.cpp`: scripted checks of the specified numbers and transitions.
+- `sceneEditor.*`: the in-game editor UI (hierarchy, inspector, save, free camera). It depends on
+  ImGui, so it is compiled by the application instead of living in `Engine.lib`, and it knows no
+  game types: it only uses `Engine::SceneSerializer` and `GameObject::Reflect`.
+  The stage layout lives in `assets/scene/slow-stage.scene`, not in code.
+
+## Scene files and reflection
+
+- Every `GameObject` has a `World`-unique id (assigned by `World::Spawn`) and an optional name.
+- `GameObject::Reflect(Engine::PropertyVisitor&)` exposes values once; the same description drives
+  saving, loading, and the inspector. `OnPropertiesChanged()` applies them after a load or an edit.
+- `Engine::ObjectTypeRegistry` maps type names to factories. Only registered types are saved.
+- `Engine::SceneSerializer` reads and writes the line-based scene text. Unknown values are ignored
+  and missing values keep their defaults, so adding or removing a reflected value does not break
+  existing files.
+- Not covered yet: component-level serialization (objects build their components in `Init`),
+  parent/child transforms, references between objects, undo, prefabs, and gizmos.
+
 ### ShaderGallery (`ShaderGallery.vcxproj`)
 
 `ShaderGallery` compares the SP31 surface modes using GM31's shared Engine,

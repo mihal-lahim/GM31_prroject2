@@ -29,6 +29,8 @@ private:
 
 	mutable std::unordered_map<std::type_index, QueryCacheEntry> m_QueryCache;
 	bool m_IsUpdating = false;
+	// 次のSpawnで振るIDです。0は「未割り当て」を表すので使いません。
+	std::uint64_t m_NextObjectId = 1;
 
 	void InvalidateQueryCache() const { m_QueryCache.clear(); }
 	// 追記は必ず末尾です。検索結果は登録順を保つことが決定性の前提になっています。
@@ -70,6 +72,7 @@ public:
 		auto gameObject = std::make_unique<T>(std::forward<Args>(args)...);
 		T* gameObjectPtr = gameObject.get();
 		gameObject->AttachWorld(this);
+		gameObject->m_Id = m_NextObjectId++;
 		gameObject->Initialize();
 		if (m_IsUpdating)
 		{
@@ -115,6 +118,12 @@ public:
 		}
 		return foundObjects;
 	}
+
+	// 破棄待ちを除いて、そのIDのオブジェクトを返します。なければnullptrです。
+	GameObject* FindById(std::uint64_t id);
+	// シーンファイルに保存されていたIDへ付け替えます。
+	// 0や、ほかのオブジェクトが使用中のIDは受け付けず、falseを返します(IDは元のまま)。
+	bool SetObjectId(GameObject& gameObject, std::uint64_t id);
 
 	void BeginUpdate();
 	void EndUpdate();

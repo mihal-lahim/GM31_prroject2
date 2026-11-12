@@ -40,3 +40,7 @@ jobs:
       - name: Test FPS Game
         working-directory: bin/x64/${{ matrix.configuration }}/FpsGame
         run: .\FpsGame.exe --self-test
+
+      - name: Test Slow Action
+        working-directory: bin/x64/${{ matrix.configuration }}/SlowAction
+        run: .\SlowAction.exe --self-test

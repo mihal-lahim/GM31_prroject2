@@ -1,0 +1,142 @@
+# GM31 scene v1
+
+object SlowFloor
+name 床
+id 1
+position 0 0 0
+rotation 0 0 0
+scale 1 1 1
+end
+
+object SlowPlayer
+name プレイヤー
+id 2
+position 0 0 -4
+rotation 0 0 0
+scale 1 1 1
+end
+
+object SlowBlock
+name 外周の壁 北
+id 3
+position 0 2.5 20.5
+rotation 0 0 0
+scale 21 2.5 0.5
+bool Obstacle 0
+end
+
+object SlowBlock
+name 外周の壁 南
+id 4
+position 0 2.5 -20.5
+rotation 0 0 0
+scale 21 2.5 0.5
+bool Obstacle 0
+end
+
+object SlowBlock
+name 外周の壁 東
+id 5
+position 20.5 2.5 0
+rotation 0 0 0
+scale 0.5 2.5 20
+bool Obstacle 0
+end
+
+object SlowBlock
+name 外周の壁 西
+id 6
+position -20.5 2.5 0
+rotation 0 0 0
+scale 0.5 2.5 20
+bool Obstacle 0
+end
+
+object SlowBlock
+name 正面の長い壁
+id 7
+position 0 2.5 10
+rotation 0 0 0
+scale 5 2.5 0.600000024
+bool Obstacle 1
+end
+
+object SlowBlock
+name 柱 左
+id 8
+position -9 2.5 1
+rotation 0 0 0
+scale 1.20000005 2.5 1.20000005
+bool Obstacle 1
+end
+
+object SlowBlock
+name 柱 右
+id 9
+position 9 2.5 1
+rotation 0 0 0
+scale 1.20000005 2.5 1.20000005
+bool Obstacle 1
+end
+
+object SlowBlock
+name 柱 手前
+id 10
+position 0 2.5 -12
+rotation 0 0 0
+scale 1.20000005 2.5 1.20000005
+bool Obstacle 1
+end
+
+object SlowEnemy
+name 敵 正面
+id 11
+position 0 0 3
+rotation 0 3.14159274 0
+scale 1 1 1
+int HpOverride 0
+end
+
+object SlowEnemy
+name 敵 左前
+id 12
+position -3 0 5
+rotation 0 3.14159274 0
+scale 1 1 1
+int HpOverride 0
+end
+
+object SlowEnemy
+name 敵 右前
+id 13
+position 4.4000001 0.0500000007 5
+rotation 0 3.14159274 0
+scale 1 1 1
+int HpOverride 1
+end
+
+object SlowEnemy
+name 敵 左奥
+id 14
+position -12 0 12
+rotation 0 3.14159274 0
+scale 1 1 1
+int HpOverride 0
+end
+
+object SlowEnemy
+name 敵 右奥
+id 15
+position 12 0 12
+rotation 0 3.14159274 0
+scale 1 1 1
+int HpOverride 0
+end
+
+object SlowEnemy
+id 37
+position -4.58765221 0 -6.54448652
+rotation 0 0 0
+scale 1 1 1
+int HpOverride 0
+end

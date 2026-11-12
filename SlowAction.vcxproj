@@ -1,0 +1,225 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|Win32">
+      <Configuration>Debug</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|Win32">
+      <Configuration>Release</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Debug|x64">
+      <Configuration>Debug</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|x64">
+      <Configuration>Release</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <VCProjectVersion>18.0</VCProjectVersion>
+    <Keyword>Win32Proj</Keyword>
+    <ProjectGuid>{8E3A5D41-6C2F-4B7A-9D10-5F2C7A1B3E64}</ProjectGuid>
+    <RootNamespace>SlowAction</RootNamespace>
+    <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <PlatformToolset>v143</PlatformToolset>
+    <CharacterSet>MultiByte</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <PlatformToolset>v143</PlatformToolset>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+    <CharacterSet>MultiByte</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <PlatformToolset>v143</PlatformToolset>
+    <CharacterSet>MultiByte</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <PlatformToolset>v143</PlatformToolset>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+    <CharacterSet>MultiByte</CharacterSet>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <ImportGroup Label="ExtensionSettings" />
+  <ImportGroup Label="Shared" />
+  <PropertyGroup>
+    <OutDir>$(ProjectDir)bin\$(Platform)\$(Configuration)\$(ProjectName)\</OutDir>
+    <IntDir>$(ProjectDir)obj\$(ProjectName)\$(Platform)\$(Configuration)\</IntDir>
+  </PropertyGroup>
+  <Import Project="Common.props" />
+  <Import Project="SurfaceShaders.props" />
+  <ItemDefinitionGroup>
+    <ClCompile>
+      <AdditionalIncludeDirectories>$(ProjectDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+    </ClCompile>
+    <Link>
+      <AdditionalLibraryDirectories>$(ProjectDir);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemGroup>
+    <ClInclude Include="include\slowAction.h" />
+    <ClInclude Include="include\slowActionTuning.h" />
+    <ClInclude Include="include\slowActionUtil.h" />
+    <ClInclude Include="include\sceneEditor.h" />
+    <ClInclude Include="include\sky.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="src\main.cpp" />
+    <ClCompile Include="src\slowAction.cpp" />
+    <ClCompile Include="src\slowActionGameDefinition.cpp" />
+    <ClCompile Include="src\slowActionRenderTest.cpp" />
+    <ClCompile Include="src\slowActionTuning.cpp" />
+    <ClCompile Include="src\slowCamera.cpp" />
+    <ClCompile Include="src\slowEnemy.cpp" />
+    <ClCompile Include="src\slowPlayer.cpp" />
+    <ClCompile Include="src\sceneEditor.cpp" />
+    <ClCompile Include="third_party\imgui\imgui.cpp"><PrecompiledHeader>NotUsing</PrecompiledHeader><ForcedIncludeFiles /></ClCompile>
+    <ClCompile Include="third_party\imgui\imgui_draw.cpp"><PrecompiledHeader>NotUsing</PrecompiledHeader><ForcedIncludeFiles /></ClCompile>
+    <ClCompile Include="third_party\imgui\imgui_tables.cpp"><PrecompiledHeader>NotUsing</PrecompiledHeader><ForcedIncludeFiles /></ClCompile>
+    <ClCompile Include="third_party\imgui\imgui_widgets.cpp"><PrecompiledHeader>NotUsing</PrecompiledHeader><ForcedIncludeFiles /></ClCompile>
+    <ClCompile Include="third_party\imgui\imgui_impl_dx11.cpp"><PrecompiledHeader>NotUsing</PrecompiledHeader><ForcedIncludeFiles /></ClCompile>
+    <ClCompile Include="third_party\imgui\imgui_impl_win32.cpp"><PrecompiledHeader>NotUsing</PrecompiledHeader><ForcedIncludeFiles /></ClCompile>
+    <ClCompile Include="src\sky.cpp" />
+    <ClCompile Include="src\enginePch.cpp">
+      <PrecompiledHeader>Create</PrecompiledHeader>
+      <ForcedIncludeFiles />
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="Engine.vcxproj">
+      <Project>{4F1C6718-071A-4B3E-AED7-938C39C32F02}</Project>
+    </ProjectReference>
+  </ItemGroup>
+  <ItemGroup>
+    <FxCompile Include="shaders\unlitTexturePS.hlsl">
+      <ShaderType>Pixel</ShaderType>
+      <ShaderModel>5.0</ShaderModel>
+      <ObjectFileOutput>$(OutDir)%(Filename).cso</ObjectFileOutput>
+    </FxCompile>
+    <FxCompile Include="shaders\unlitTextureVS.hlsl">
+      <ShaderType>Vertex</ShaderType>
+      <ShaderModel>5.0</ShaderModel>
+      <ObjectFileOutput>$(OutDir)%(Filename).cso</ObjectFileOutput>
+    </FxCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <RuntimeAsset Include="THIRD_PARTY.md">
+      <TargetPath>THIRD_PARTY.md</TargetPath>
+    </RuntimeAsset>
+    <RuntimeAsset Include="licenses\DirectXTex-LICENSE.txt">
+      <TargetPath>licenses\DirectXTex-LICENSE.txt</TargetPath>
+    </RuntimeAsset>
+    <RuntimeAsset Include="assimp-vc143-mt.dll">
+      <TargetPath>assimp-vc143-mt.dll</TargetPath>
+    </RuntimeAsset>
+    <RuntimeAsset Include="assets\audio\wan.wav">
+      <TargetPath>assets\audio\wan.wav</TargetPath>
+    </RuntimeAsset>
+    <RuntimeAsset Include="assets\scene\slow-stage.scene">
+      <TargetPath>assets\scene\slow-stage.scene</TargetPath>
+    </RuntimeAsset>
+    <RuntimeAsset Include="assets\config\slow.cfg">
+      <TargetPath>assets\config\slow.cfg</TargetPath>
+    </RuntimeAsset>
+    <RuntimeAsset Include="assets\config\slow-gameplay.cfg">
+      <TargetPath>assets\config\slow-gameplay.cfg</TargetPath>
+    </RuntimeAsset>
+    <RuntimeAsset Include="assets\model\slowPlayer.obj">
+      <TargetPath>assets\model\slowPlayer.obj</TargetPath>
+    </RuntimeAsset>
+    <RuntimeAsset Include="assets\model\slowPlayer.mtl">
+      <TargetPath>assets\model\slowPlayer.mtl</TargetPath>
+    </RuntimeAsset>
+    <RuntimeAsset Include="assets\model\slowEnemy.obj">
+      <TargetPath>assets\model\slowEnemy.obj</TargetPath>
+    </RuntimeAsset>
+    <RuntimeAsset Include="assets\model\slowEnemy.mtl">
+      <TargetPath>assets\model\slowEnemy.mtl</TargetPath>
+    </RuntimeAsset>
+    <RuntimeAsset Include="assets\model\slowEnemyWindup.obj">
+      <TargetPath>assets\model\slowEnemyWindup.obj</TargetPath>
+    </RuntimeAsset>
+    <RuntimeAsset Include="assets\model\slowEnemyWindup.mtl">
+      <TargetPath>assets\model\slowEnemyWindup.mtl</TargetPath>
+    </RuntimeAsset>
+    <RuntimeAsset Include="assets\model\slowEnemyLaunched.obj">
+      <TargetPath>assets\model\slowEnemyLaunched.obj</TargetPath>
+    </RuntimeAsset>
+    <RuntimeAsset Include="assets\model\slowEnemyLaunched.mtl">
+      <TargetPath>assets\model\slowEnemyLaunched.mtl</TargetPath>
+    </RuntimeAsset>
+    <RuntimeAsset Include="assets\model\slowEnemyDown.obj">
+      <TargetPath>assets\model\slowEnemyDown.obj</TargetPath>
+    </RuntimeAsset>
+    <RuntimeAsset Include="assets\model\slowEnemyDown.mtl">
+      <TargetPath>assets\model\slowEnemyDown.mtl</TargetPath>
+    </RuntimeAsset>
+    <RuntimeAsset Include="assets\model\slowWall.obj">
+      <TargetPath>assets\model\slowWall.obj</TargetPath>
+    </RuntimeAsset>
+    <RuntimeAsset Include="assets\model\slowWall.mtl">
+      <TargetPath>assets\model\slowWall.mtl</TargetPath>
+    </RuntimeAsset>
+    <RuntimeAsset Include="assets\model\slowObstacle.obj">
+      <TargetPath>assets\model\slowObstacle.obj</TargetPath>
+    </RuntimeAsset>
+    <RuntimeAsset Include="assets\model\slowObstacle.mtl">
+      <TargetPath>assets\model\slowObstacle.mtl</TargetPath>
+    </RuntimeAsset>
+    <RuntimeAsset Include="assets\model\slowFloor.obj">
+      <TargetPath>assets\model\slowFloor.obj</TargetPath>
+    </RuntimeAsset>
+    <RuntimeAsset Include="assets\model\slowFloor.mtl">
+      <TargetPath>assets\model\slowFloor.mtl</TargetPath>
+    </RuntimeAsset>
+    <RuntimeAsset Include="assets\model\sky.obj">
+      <TargetPath>assets\model\sky.obj</TargetPath>
+    </RuntimeAsset>
+    <RuntimeAsset Include="assets\model\sky.mtl">
+      <TargetPath>assets\model\sky.mtl</TargetPath>
+    </RuntimeAsset>
+    <RuntimeAsset Include="assets\model\sky.jpg">
+      <TargetPath>assets\model\sky.jpg</TargetPath>
+    </RuntimeAsset>
+    <RuntimeAsset Include="assets\texture\particle.png">
+      <TargetPath>assets\texture\particle.png</TargetPath>
+    </RuntimeAsset>
+    <RuntimeAsset Include="assets\texture\number.png">
+      <TargetPath>assets\texture\number.png</TargetPath>
+    </RuntimeAsset>
+    <RuntimeAsset Include="assets\texture\alphabet.png">
+      <TargetPath>assets\texture\alphabet.png</TargetPath>
+    </RuntimeAsset>
+    <RuntimeAsset Include="assets\texture\kana.png">
+      <TargetPath>assets\texture\kana.png</TargetPath>
+    </RuntimeAsset>
+    <RuntimeAsset Include="assets\texture\kanji.png">
+      <TargetPath>assets\texture\kanji.png</TargetPath>
+    </RuntimeAsset>
+    <RuntimeAsset Include="assets\texture\Normal.png">
+      <TargetPath>assets\texture\Normal.png</TargetPath>
+    </RuntimeAsset>
+    <RuntimeAsset Include="assets\texture\Toon2.png">
+      <TargetPath>assets\texture\Toon2.png</TargetPath>
+    </RuntimeAsset>
+  </ItemGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+  <Target Name="CopyRuntimeAssets" AfterTargets="Build">
+    <RemoveDir Directories="$(OutDir)assets" />
+    <Copy SourceFiles="@(RuntimeAsset)" DestinationFiles="@(RuntimeAsset->'$(OutDir)%(TargetPath)')" SkipUnchangedFiles="true" />
+  </Target>
+  <ImportGroup Label="ExtensionTargets" />
+</Project>

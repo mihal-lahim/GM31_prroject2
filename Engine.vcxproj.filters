@@ -72,6 +72,9 @@
     <ClCompile Include="src\world.cpp">
       <Filter>Code\Core</Filter>
     </ClCompile>
+    <ClCompile Include="src\sceneSerializer.cpp">
+      <Filter>Code\Core</Filter>
+    </ClCompile>
     <ClCompile Include="src\crashReporter.cpp">
       <Filter>Code\Diagnostics</Filter>
     </ClCompile>
@@ -145,6 +148,12 @@
     </ClInclude>
     <ClInclude Include="include\runtimeConfig.h">
       <Filter>Code\Configuration</Filter>
+    </ClInclude>
+    <ClInclude Include="include\sceneSerializer.h">
+      <Filter>Code\Core</Filter>
+    </ClInclude>
+    <ClInclude Include="include\propertyVisitor.h">
+      <Filter>Code\Core</Filter>
     </ClInclude>
     <ClInclude Include="include\component.h">
       <Filter>Code\Core</Filter>
