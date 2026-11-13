@@ -61,7 +61,11 @@ void ModelRenderer::Draw()
 		Renderer::GetDeviceContext()->PSSetShader(m_DefaultPixelShader.Get(), nullptr, 0);
 	}
 
-	if (m_UseOwnerTransform && m_GameObject != nullptr)
+	if (m_UseWorldOverride)
+	{
+		Renderer::SetWorldMatrix(XMLoadFloat4x4(&m_WorldOverride));
+	}
+	else if (m_UseOwnerTransform && m_GameObject != nullptr)
 	{
 		Vector3 scaleValue = m_GameObject->GetScale();
 		Vector3 rotationValue = m_GameObject->GetRotation() + m_RotationOffset;

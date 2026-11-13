@@ -69,6 +69,8 @@ private:
 	Engine::SurfaceMaterial m_Surface;
 	bool m_UseSurfaceShader = false;
 	bool m_Visible = true;
+	bool m_UseWorldOverride = false;
+	XMFLOAT4X4 m_WorldOverride{};
 
 public:
 
@@ -81,6 +83,9 @@ public:
 	void Load( const char *FileName );
 	ModelRenderer* SetUseOwnerTransform(bool enabled = true);
 	ModelRenderer* SetRotationOffset(const Vector3& offset);
+	// 持ち主の変換の代わりに、このワールド行列で描きます(手に持たせた武器など、骨に付ける物に使います)。
+	void SetWorldMatrixOverride(const XMMATRIX& world) { XMStoreFloat4x4(&m_WorldOverride, world); m_UseWorldOverride = true; }
+	void ClearWorldMatrixOverride() { m_UseWorldOverride = false; }
 	ModelRenderer* SetShaderMode(Engine::SurfaceShader shader,
 		XMFLOAT4 parameter = { 0.45f, 0.0f, 1.0f, 0.0f });
 	bool SetShaderDefinition(std::string_view id);

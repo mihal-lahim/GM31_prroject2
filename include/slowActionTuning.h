@@ -23,8 +23,27 @@ struct SlowActionTuning
 	float StrongHoldSeconds = 0.25f;
 	// 攻撃終了前のこの秒数の間に離した入力は、次の攻撃として予約します。
 	float AttackBufferSeconds = 0.2f;
-	float NormalDuration = 0.26f;
-	float NormalHitDelay = 0.05f;
+	// 通常攻撃は3段のコンボです。大剣の3連撃のクリップ(Akai_Slash.fbx)を3区間に分けて1段ずつ再生します。
+	// Start/End/Hitは元クリップに対する割合(0〜1)です。攻撃の長さと当たる瞬間はこの区間と再生倍率から決まるので、
+	// 斬る動きと当たり判定が常に一致します。
+	float Combo1Start = 0.14f;
+	float Combo1Hit = 0.19f;
+	float Combo1End = 0.31f;
+	float Combo2Start = 0.31f;
+	float Combo2Hit = 0.475f;
+	float Combo2End = 0.56f;
+	float Combo3Start = 0.56f;
+	float Combo3Hit = 0.71f;
+	float Combo3End = 0.95f;
+	float ComboPlaybackSpeed = 2.0f;
+	// 攻撃が終わってからこの秒数以内に通常攻撃を出すと、次の段へつながります。
+	float ComboChainSeconds = 0.3f;
+	// 右手に持たせる剣(slowSword.obj、長さ1.4m)の見た目です。向きは指の骨から毎フレーム決めるので、
+	// ここでは大きさと、握る位置のずれ(剣の軸方向・刃の向き・厚み方向、メートル)だけを調整します。
+	float SwordScale = 1.0f;
+	float SwordGripOffsetX = 0.0f;
+	float SwordGripOffsetY = 0.0f;
+	float SwordGripOffsetZ = 0.0f;
 	float NormalRange = 2.8f;
 	float NormalHalfAngleDegrees = 40.0f;
 	int NormalDamage = 1;
@@ -36,10 +55,16 @@ struct SlowActionTuning
 	// 足元から上下この範囲にいる敵へ届きます。吹き飛び中の敵を地上から追撃できる高さです。
 	float AttackVerticalReach = 3.2f;
 	// 向きの前方この範囲・角度に敵がいれば、攻撃方向をその敵へ寄せます。
+	// 移動入力があればその方向、なければ今の向きを基準にします。
 	float AimAssistRange = 6.0f;
-	float AimAssistHalfAngleDegrees = 40.0f;
+	float AimAssistHalfAngleDegrees = 50.0f;
+	// 通常攻撃は寄せた敵をロックし、当たる瞬間まで向きを追わせながら踏み込みます。
+	// 踏み込みは敵との隙間がNormalLungeGapになるまでで、最大NormalLungeMaxDistanceまでです。
+	float NormalLungeMaxDistance = 2.2f;
+	float NormalLungeGap = 0.7f;
+	float AimTrackDegreesPerSecond = 720.0f;
 	// 強攻撃が当たった瞬間のヒットストップです。0で無効になります。
-	int StrongHitStopFrames = 3;
+	int StrongHitStopFrames = 9;
 	float HitStopScale = 0.1f;
 
 	// ---- 時間減速 ----
@@ -61,6 +86,10 @@ struct SlowActionTuning
 	float LaunchMaxHeight = 2.4f;
 	// 吹き飛びの終わりに初速の何割を失うか(0〜1)。大きいほど出だしが速く、終わりが遅くなります。
 	float LaunchSpeedFalloff = 0.8f;
+	// 通常攻撃3段目の小さな吹き飛ばしです。強攻撃より近く・低く・短く飛びます。
+	float FinisherLaunchDistance = 2.5f;
+	float FinisherLaunchHeight = 0.9f;
+	float FinisherLaunchSeconds = 0.6f;
 	int MaxWallBounces = 1;
 	// 壁で反射した直後に空中へ留まる時間(ワールド時間)です。
 	float WallBounceHangSeconds = 0.3f;
@@ -121,9 +150,11 @@ struct SlowActionTuning
 	float BruteLaunchScale = 0.6f;
 
 	// ---- 手触り ----
-	int NormalHitStopFrames = 2;
-	int PursuitHitStopFrames = 4;
-	int KillHitStopFrames = 6;
+	// 通常攻撃1・2段目のヒットストップ(フレーム数)。3段目はFinisherHitStopFramesを使います。
+	int NormalHitStopFrames = 7;
+	int FinisherHitStopFrames = 11;
+	int PursuitHitStopFrames = 9;
+	int KillHitStopFrames = 13;
 	// 画面揺れの強さ(m)と、揺れが収まる速さ(1/秒)です。
 	float ShakeStrongHit = 0.12f;
 	float ShakeWallBounce = 0.18f;

@@ -2,6 +2,7 @@
 
 #include "slowActionTuning.h"
 #include "slowActionUtil.h"
+#include "animationModel.h"
 #include "collider.h"
 #include "gameTime.h"
 #include "modelRenderer.h"
@@ -35,6 +36,66 @@ namespace
 		case SlowEnemy::Kind::Brute: return "slowBrute";
 		default: return "slowEnemy";
 		}
+	}
+
+	// Enemy_Walk.fbxの歩幅から求めた、そのまま再生したときの進む速さ(m/秒)です(その場で足踏みするクリップなので、
+	// 接地している足が後ろへ流れる速さを測りました)。歩きの再生倍率をこれと実際の速さの比で決めます。
+	constexpr float kWalkClipSpeed = 0.72f;
+	// 速すぎる足運びは不自然なので、再生倍率はここまでにします。これより速く動くと少し足が滑ります。
+	constexpr float kWalkMaxPlayback = 4.0f;
+
+	// 人型モデルのクリップの中身です(クリップを実際にサンプリングして確かめた値。割合は元クリップに対するもの)。
+	//   Walk      : その場の歩き。2.31秒で1周(左右1歩ずつ)が2周入っています。
+	//   Flinch    : 立ったまま上体がのけぞって戻ります(1.55秒)。先頭は素直な立ち姿勢で、0.7秒あたりが一番のけぞった所です。
+	//   Stand     : Flinchの先頭の姿勢を止めたもの。立ち止まっている間に使います。
+	//   Knockdown : 殴られて宙に浮き、背中から落ちて倒れたままになります(2.1秒)。約1.05秒で地面に着き、後は動きません。
+	//               先頭が原点から3m離れているので、必ずその場(InPlace)で再生します。
+	// のけぞりは先頭の溜め(ほぼ動かない0.15秒)を飛ばして、当たった瞬間に動き出すようにします。
+	constexpr float kFlinchStart = 0.1f;
+	constexpr float kFlinchSpeed = 2.4f;
+	// Knockdownで体が地面に着く時点(秒)です。吹き飛びの着地とここを合わせます。
+	constexpr float kKnockdownLandSeconds = 1.05f;
+	// 着地後に倒れたままでいてから起き上がる(立ち姿勢へ戻す)までのブレンド時間です。
+	constexpr float kGetUpBlendSeconds = 0.3f;
+	// 向きを変える速さ(ラジアン/秒)です。起き上がった直後などに、一瞬で振り向いて見えないようにします。
+	constexpr float kHumanoidTurnSpeed = 10.0f;
+
+	// 近接型の人型モデル(Mixamo)を読み込みます。
+	AnimationModel* LoadHumanoid(GameObject& owner)
+	{
+		AnimationModel* body = owner.AddComponent<AnimationModel>();
+		body->Load("assets/model/Enemy.fbx");
+		if (!body->IsLoaded())
+		{
+			// 読めないとき(古い形式のFBXなど)は、今まで通りの形の敵で動かします。
+			body->SetVisible(false);
+			return nullptr;
+		}
+		body->LoadAnimation("assets/model/Enemy_Walk.fbx", "Walk");
+		body->SetAnimationInPlace("Walk");
+		body->LoadAnimation("assets/model/Enemy_Flinch.fbx", "Flinch");
+		body->SetAnimationInPlace("Flinch");
+		body->LoadAnimation("assets/model/Enemy_Flinch.fbx", "Stand");
+		body->SetAnimationInPlace("Stand");
+		body->LoadAnimation("assets/model/Enemy_Knockdown.fbx", "Knockdown");
+		body->SetAnimationInPlace("Knockdown");
+		body->SetModelScale(0.01f);
+		// Mixamoのモデルの正面は-Zなので、移動の向きの基準(+Z)へ回します。
+		body->SetModelYawOffset(XM_PI);
+		if (body->SetShaderDefinition("realistic"))
+		{
+			body->SetShaderFloat("roughness", 0.6f);
+			body->SetShaderFloat("metallic", 0.0f);
+			body->SetShaderFloat("bump", 0.0f);
+			body->SetShaderFloat("rim", 0.35f);
+		}
+		return body;
+	}
+
+	void PlayStand(AnimationModel& body, float blendSeconds)
+	{
+		body.SetPlayback(0.01f, 0.0f, 0.01f, true);
+		body.PlayAnimation("Stand", blendSeconds);
 	}
 
 	float BodyHeight(SlowEnemy::Kind kind)
@@ -91,6 +152,12 @@ void SlowEnemy::Init()
 			m_Models[kind][slot] = AddModel(*this, std::string("assets\\model\\")
 				+ ModelBaseName(static_cast<Kind>(kind)) + kSlotSuffix[slot] + ".obj");
 		}
+	}
+	m_Body = LoadHumanoid(*this);
+	if (m_Body != nullptr)
+	{
+		PlayStand(*m_Body, 0.0f);
+		m_Body->TickAnimation(0.0f);
 	}
 	m_Collider = AddComponent<Collider>()
 		->SetCollisionLayer(SlowCollisionLayers::Enemy)
@@ -153,19 +220,142 @@ void SlowEnemy::RefreshModel()
 	else if (m_State == State::Windup) shown = Windup;
 	else if (m_State == State::Launched) shown = Launched;
 	else if (m_State == State::Stagger || m_State == State::Recover) shown = Down;
+	const bool skinned = HasSkinnedBody();
 	for (int kind = 0; kind < static_cast<int>(Kind::Count); ++kind)
 	{
 		for (int slot = 0; slot < SlotCount; ++slot)
 		{
-			m_Models[kind][slot]->SetVisible(kind == static_cast<int>(m_Kind) && slot == shown);
+			m_Models[kind][slot]->SetVisible(!skinned && kind == static_cast<int>(m_Kind) && slot == shown);
 		}
 	}
+	if (m_Body == nullptr)
+	{
+		return;
+	}
+	m_Body->SetVisible(skinned);
+	// 人型のモデルは色違いを持たないので、同じ合図を色を掛けて見せます。被弾は白く、予兆は赤くします。
+	switch (shown)
+	{
+	case Flash: m_Body->SetTint({ 2.6f, 2.6f, 2.6f, 1.0f }); break;
+	case Windup: m_Body->SetTint({ 1.9f, 0.45f, 0.4f, 1.0f }); break;
+	case Launched: m_Body->SetTint({ 1.25f, 1.15f, 0.8f, 1.0f }); break;
+	default: m_Body->SetTint({ 1.0f, 1.0f, 1.0f, 1.0f }); break;
+	}
+}
+
+const std::string& SlowEnemy::GetBodyAnimationName() const
+{
+	static const std::string empty;
+	return m_Body != nullptr ? m_Body->GetAnimationName() : empty;
+}
+
+bool SlowEnemy::IsHitReactionPlaying() const
+{
+	return m_Body != nullptr && m_Body->IsActionActive(0);
+}
+
+// 歩きと立ち止まりはベース層、被弾はアクション層で重ねます。
+// 被弾の動きはひるみ・吹き飛び・受け身の間だけ見せ、行動へ戻ったら短く消して歩きへつなぎます。
+void SlowEnemy::UpdateBody(float worldDeltaTime)
+{
+	if (!HasSkinnedBody())
+	{
+		return;
+	}
+	const float travelled = Flatten(m_Position - m_BodyPreviousPosition).length();
+	m_BodyPreviousPosition = m_Position;
+	const float speed = // 置き直しなどで大きく飛んだフレームは、歩いたとは扱いません。
+		worldDeltaTime > 0.0f && travelled < 1.0f ? travelled / worldDeltaTime : 0.0f;
+	const bool walking = (m_State == State::Chase || m_State == State::Idle) && speed > 0.3f;
+	if (walking)
+	{
+		m_Body->SetPlayback(std::clamp(speed / kWalkClipSpeed, 0.6f, kWalkMaxPlayback), 0.0f, 1.0f, true);
+		m_Body->PlayAnimation("Walk", 0.2f);
+	}
+	else
+	{
+		PlayStand(*m_Body, 0.2f);
+	}
+
+	// 被弾の動きは自分の長さで終わり、最後は立ち姿勢・歩きへ溶けて戻ります。
+	// 予兆(殴りかかる合図)に入ったときだけは、合図が読めるよう早めに消します。
+	if (m_State == State::Windup && m_Body->IsActionActive(0))
+	{
+		m_Body->StopAction(0, 0.15f);
+	}
+	m_Body->TickAnimation(worldDeltaTime);
+}
+
+const std::string& SlowEnemy::GetHitReactionName() const
+{
+	static const std::string empty;
+	return m_Body != nullptr ? m_Body->GetAnimator().GetActionName(0) : empty;
+}
+
+float SlowEnemy::GetBodyHipsOffset() const
+{
+	Vector3 hips;
+	if (m_Body == nullptr || !m_Body->GetBoneWorldPosition("mixamorig:Hips", hips))
+	{
+		return 0.0f;
+	}
+	return Flatten(hips - m_Position).length();
+}
+
+void SlowEnemy::PlayFlinch()
+{
+	if (!HasSkinnedBody())
+	{
+		return;
+	}
+	Anim::ActionOptions options;
+	options.Playback = { kFlinchSpeed, kFlinchStart, 1.0f, false };
+	options.FadeIn = 0.05f;
+	// 終わりの0.25秒で立ち姿勢・歩きへ戻します。ひるみが解けて歩き出すのと重なります。
+	options.FadeOut = 0.25f;
+	options.RootMotionMode = Anim::RootMotion::Lock;
+	m_Body->PlayAction("Flinch", options);
+}
+
+void SlowEnemy::PlayKnockdown(float startSeconds, float secondsUntilLanding)
+{
+	if (!HasSkinnedBody())
+	{
+		return;
+	}
+	const SlowActionTuning& tuning = GetSlowActionTuning();
+	const float clipSeconds = (std::max)(m_Body->GetAnimationSeconds("Knockdown"), kKnockdownLandSeconds + 0.1f);
+	// 宙に浮いて落ちる部分を、ゲーム側の吹き飛びの残り時間にちょうど収めます。
+	startSeconds = std::clamp(startSeconds, 0.0f, kKnockdownLandSeconds - 0.05f);
+	const float speed = std::clamp((kKnockdownLandSeconds - startSeconds) / (std::max)(secondsUntilLanding, 0.05f), 0.3f, 4.0f);
+	// 着地後は受け身の時間だけ倒れた姿勢を続け、最後のkGetUpBlendSecondsで立ち姿勢へ戻します。
+	const float endSeconds = (std::min)(kKnockdownLandSeconds + tuning.RecoverSeconds * speed, clipSeconds);
+	m_KnockdownStartSeconds = startSeconds;
+	m_KnockdownEndSeconds = endSeconds;
+
+	Anim::ActionOptions options;
+	options.Playback = { speed, startSeconds / clipSeconds, endSeconds / clipSeconds, false };
+	options.FadeIn = 0.06f;
+	options.FadeOut = (std::min)(kGetUpBlendSeconds, tuning.RecoverSeconds);
+	// 飛ぶ距離と高さはゲーム側で動かすので、クリップの腰の水平移動は打ち消します(上下の動きは残します)。
+	options.RootMotionMode = Anim::RootMotion::Lock;
+	m_Body->PlayAction("Knockdown", options);
+}
+
+float SlowEnemy::GetKnockdownSeconds() const
+{
+	if (m_Body == nullptr || m_Body->GetAnimator().GetActionName(0) != "Knockdown")
+	{
+		return 0.0f;
+	}
+	const float phase = std::clamp(m_Body->GetActionTime(0), 0.0f, 1.0f);
+	return m_KnockdownStartSeconds + (m_KnockdownEndSeconds - m_KnockdownStartSeconds) * phase;
 }
 
 float SlowEnemy::GetLaunchRemaining() const
 {
 	return m_State == State::Launched
-		? (std::max)(0.0f, GetSlowActionTuning().LaunchSeconds - m_LaunchTime)
+		? (std::max)(0.0f, m_LaunchSeconds - m_LaunchTime)
 		: 0.0f;
 }
 
@@ -272,6 +462,7 @@ void SlowEnemy::Update()
 		UpdateLaunched(worldDeltaTime);
 		break;
 	}
+	UpdateBody(worldDeltaTime);
 }
 
 // 地上の敵どうしが重なって1体に見えないよう、近すぎる相手から離れる向きをstepへ足して動かします。
@@ -293,6 +484,11 @@ void SlowEnemy::UpdateChase(float worldDeltaTime)
 	}
 	if (distance <= spec.Range)
 	{
+		// 殴る向きは予兆に入った時点で決めます(人型は振り向きに時間が掛かるので、ここで向きを合わせます)。
+		if (distance > 0.01f)
+		{
+			m_Rotation.y = YawFromDirection(toPlayer);
+		}
 		SetState(State::Windup, spec.WindupSeconds);
 		return;
 	}
@@ -399,9 +595,10 @@ void SlowEnemy::Fire()
 	SlowSound::Play(SlowSound::Id::Shot);
 }
 
-SlowEnemy::HitResult SlowEnemy::ApplyHit(const Vector3& direction, bool strong, int damage)
+SlowEnemy::HitResult SlowEnemy::ApplyHit(const Vector3& direction, HitStrength strength, int damage)
 {
 	const SlowActionTuning& tuning = GetSlowActionTuning();
+	const bool strong = strength == HitStrength::Strong;
 	HitResult result;
 	const bool wasLaunched = m_State == State::Launched;
 	result.Pursuit = wasLaunched;
@@ -421,6 +618,21 @@ SlowEnemy::HitResult SlowEnemy::ApplyHit(const Vector3& direction, bool strong, 
 		SlowSound::Play(SlowSound::Id::Kill);
 		SlowCamera::Shake(GetWorld(), tuning.ShakeKill);
 		GameTime::StartHitStop(tuning.KillHitStopFrames, tuning.HitStopScale);
+		// 人型の敵は亡骸を残して、倒れるモーションを見せます。
+		if (HasSkinnedBody())
+		{
+			if (wasLaunched)
+			{
+				// 吹き飛び中に倒したときは、向きも倒れるモーションもそのまま続きから引き継ぎます。
+				GetWorld().Spawn<SlowCorpse>()->Begin(m_Position, m_Rotation.y, GetKnockdownSeconds());
+			}
+			else
+			{
+				// 攻撃してきた方を向いて、後ろへ倒れます。
+				const Vector3 facing = Flatten(direction) * -1.0f;
+				GetWorld().Spawn<SlowCorpse>()->Begin(m_Position, facing.length() > 0.01f ? YawFromDirection(facing) : m_Rotation.y);
+			}
+		}
 		MarkForDestroy();
 		return result;
 	}
@@ -461,10 +673,17 @@ SlowEnemy::HitResult SlowEnemy::ApplyHit(const Vector3& direction, bool strong, 
 		result.Launched = true;
 		Launch(direction);
 	}
+	else if (strength == HitStrength::Finisher)
+	{
+		// 通常攻撃3段目は、少しだけ浮かせて飛ばします。吹き飛び中なので追撃もできます。
+		result.Launched = true;
+		Launch(direction, true);
+	}
 	else
 	{
 		m_StaggerVelocity = direction * (tuning.EnemyStaggerPush / (std::max)(tuning.EnemyStaggerSeconds, 0.01f));
 		SetState(State::Stagger, tuning.EnemyStaggerSeconds);
+		PlayFlinch();
 	}
 	RefreshModel();
 	return result;
@@ -473,7 +692,8 @@ SlowEnemy::HitResult SlowEnemy::ApplyHit(const Vector3& direction, bool strong, 
 // 吹き飛びの設計です。速さも高さも「経過時間」から決まるので、何度追撃・反射しても暴走しません。
 //   水平: 速さ = 初速 × (1 - Falloff × 経過/全体)。全体時間でちょうどLaunchDistance進みます。
 //   垂直: 今の高さから始めて、全体時間でちょうど着地する放物線です。
-void SlowEnemy::Launch(const Vector3& direction)
+// lightは通常攻撃3段目の小さな吹き飛ばしで、Finisher*の距離・高さ・時間を使います。
+void SlowEnemy::Launch(const Vector3& direction, bool light)
 {
 	const SlowActionTuning& tuning = GetSlowActionTuning();
 	Vector3 flat = Flatten(direction);
@@ -490,20 +710,32 @@ void SlowEnemy::Launch(const Vector3& direction)
 
 	// 頂点の高さを決めてから、全体時間で着地する重力と初速を逆算します。
 	// 空中で追撃しても頂点はLaunchMaxHeightを超えません。
+	m_LaunchDistance = light ? tuning.FinisherLaunchDistance : tuning.LaunchDistance;
+	m_LaunchSeconds = light ? tuning.FinisherLaunchSeconds : tuning.LaunchSeconds;
+	const float launchHeight = light ? tuning.FinisherLaunchHeight : tuning.LaunchHeight;
 	const float height = (std::max)(m_Position.y, 0.0f);
-	const float apex = (std::max)((std::min)((std::max)(tuning.LaunchHeight, height + 0.15f), tuning.LaunchMaxHeight), height);
+	const float apex = (std::max)((std::min)((std::max)(launchHeight, height + 0.15f), tuning.LaunchMaxHeight), height);
 	const float rise = sqrtf(2.0f * (apex - height));
 	const float fall = sqrtf(2.0f * apex);
-	m_LaunchGravity = (rise + fall) * (rise + fall) / (tuning.LaunchSeconds * tuning.LaunchSeconds);
+	m_LaunchGravity = (rise + fall) * (rise + fall) / (m_LaunchSeconds * m_LaunchSeconds);
 	m_VerticalSpeed = sqrtf(m_LaunchGravity) * rise;
 	SetState(State::Launched);
+	if (HasSkinnedBody())
+	{
+		// 人型は回さず、飛ぶ方向に背を向けて(殴られた方を向いたまま)後ろへ飛びます。倒れるモーションの向きと合います。
+		m_Rotation.y = YawFromDirection(flat * -1.0f);
+		PlayKnockdown(0.0f, m_LaunchSeconds);
+	}
 }
 
 void SlowEnemy::UpdateLaunched(float worldDeltaTime)
 {
 	const SlowActionTuning& tuning = GetSlowActionTuning();
-	// 吹き飛び中は回って見せます。向きはAIに戻るときに付け直します。
-	m_Rotation.y = WrapAngle(m_Rotation.y + 12.0f * worldDeltaTime);
+	// 吹き飛び中は回って見せます。向きはAIに戻るときに付け直します。人型はモーションで見せるので回しません。
+	if (!HasSkinnedBody())
+	{
+		m_Rotation.y = WrapAngle(m_Rotation.y + 12.0f * worldDeltaTime);
+	}
 
 	if (m_HangTime > 0.0f)
 	{
@@ -513,10 +745,10 @@ void SlowEnemy::UpdateLaunched(float worldDeltaTime)
 	}
 
 	// このステップの中間の時刻で速さを決めると、刻み幅に関係なく合計がLaunchDistanceに合います。
-	const float progress = (std::min)((m_LaunchTime + worldDeltaTime * 0.5f) / tuning.LaunchSeconds, 1.0f);
+	const float progress = (std::min)((m_LaunchTime + worldDeltaTime * 0.5f) / m_LaunchSeconds, 1.0f);
 	m_LaunchTime += worldDeltaTime;
-	const float initialSpeed = tuning.LaunchDistance * m_LaunchScale
-		/ (tuning.LaunchSeconds * (1.0f - tuning.LaunchSpeedFalloff * 0.5f));
+	const float initialSpeed = m_LaunchDistance * m_LaunchScale
+		/ (m_LaunchSeconds * (1.0f - tuning.LaunchSpeedFalloff * 0.5f));
 	const float speed = initialSpeed * (1.0f - tuning.LaunchSpeedFalloff * progress);
 	const Vector3 step = m_LaunchDirection * (speed * worldDeltaTime);
 
@@ -531,6 +763,8 @@ void SlowEnemy::UpdateLaunched(float worldDeltaTime)
 			if (blockedZ) m_LaunchDirection.z = -m_LaunchDirection.z;
 			m_WallBounces++;
 			m_HangTime = tuning.WallBounceHangSeconds;
+			// 壁で留まる分だけ着地が遅れるので、倒れるモーションを残り時間に合わせ直します。
+			PlayKnockdown(GetKnockdownSeconds(), m_HangTime + (std::max)(m_LaunchSeconds - m_LaunchTime, 0.0f));
 			EmitBurst(m_Position + Vector3(0.0f, 0.9f, 0.0f), 16, 6.0f, 0.35f, 18, { 0.7f, 0.9f, 1.0f, 1.0f });
 			SlowScore::Add(SlowScore::Event::WallBounce);
 			SlowSound::Play(SlowSound::Id::Bounce);
@@ -546,7 +780,7 @@ void SlowEnemy::UpdateLaunched(float worldDeltaTime)
 
 	m_VerticalSpeed -= m_LaunchGravity * worldDeltaTime;
 	float height = m_Position.y + m_VerticalSpeed * worldDeltaTime;
-	const bool landed = (height <= 0.0f && m_VerticalSpeed < 0.0f) || m_LaunchTime >= tuning.LaunchSeconds;
+	const bool landed = (height <= 0.0f && m_VerticalSpeed < 0.0f) || m_LaunchTime >= m_LaunchSeconds;
 	if (landed)
 	{
 		height = 0.0f;
@@ -562,7 +796,15 @@ void SlowEnemy::UpdateLaunched(float worldDeltaTime)
 
 void SlowEnemy::FaceTowards(const Vector3& direction)
 {
-	m_Rotation.y = YawFromDirection(direction);
+	const float target = YawFromDirection(direction);
+	if (!HasSkinnedBody())
+	{
+		m_Rotation.y = target;
+		return;
+	}
+	// 人型は一瞬で振り向くと不自然なので、速さを決めて回します。
+	const float step = kHumanoidTurnSpeed * SlowClock::GetWorldDeltaTime();
+	m_Rotation.y = WrapAngle(m_Rotation.y + std::clamp(WrapAngle(target - m_Rotation.y), -step, step));
 }
 
 bool SlowEnemy::TryMove(const Vector3& offset)
@@ -579,4 +821,77 @@ bool SlowEnemy::TryMove(const Vector3& offset)
 	}
 	SetPosition(previous);
 	return false;
+}
+
+namespace
+{
+	// 倒れ終わってから沈み始めるまでと、沈みきるまでの時間(ワールド時間)です。
+	constexpr float kCorpseLingerSeconds = 1.2f;
+	constexpr float kCorpseSinkSeconds = 1.0f;
+	constexpr float kCorpseFallGravity = 20.0f;
+}
+
+void SlowCorpse::Init()
+{
+	m_Layer = Layer::World;
+	m_Body = LoadHumanoid(*this);
+	if (m_Body == nullptr)
+	{
+		// モデルが読めなければ亡骸は出せないので、すぐ消えます。
+		MarkForDestroy();
+		return;
+	}
+	Begin(m_Position, m_Rotation.y);
+}
+
+void SlowCorpse::Begin(const Vector3& position, float yaw, float startSeconds)
+{
+	SetPosition(position);
+	m_Rotation.y = yaw;
+	if (m_Body == nullptr)
+	{
+		return;
+	}
+	// 殴られて浮き、背中から落ちて倒れるモーションを1回だけ再生し、最後の姿勢(倒れた姿)で止めます。
+	// 吹き飛び中に倒した敵は、敵が再生していた所から続けます。
+	const float clipSeconds = (std::max)(m_Body->GetAnimationSeconds("Knockdown"), 0.1f);
+	startSeconds = std::clamp(startSeconds, 0.0f, clipSeconds - 0.05f);
+	m_Body->SetPlayback(1.0f, startSeconds / clipSeconds, 1.0f, false);
+	m_Body->PlayAnimation("Knockdown", 0.0f);
+	m_Body->TickAnimation(0.0f);
+	m_DyingSeconds = clipSeconds - startSeconds;
+}
+
+const std::string& SlowCorpse::GetAnimationName() const
+{
+	static const std::string empty;
+	return m_Body != nullptr ? m_Body->GetAnimationName() : empty;
+}
+
+void SlowCorpse::Update()
+{
+	if (SceneEditor::IsActive() || m_Body == nullptr)
+	{
+		return;
+	}
+	const float worldDeltaTime = SlowClock::GetWorldDeltaTime();
+	m_Age += worldDeltaTime;
+	Vector3 position = m_Position;
+	// 吹き飛び中に倒したときは、床まで落としてから倒れさせます。
+	if (position.y > 0.0f)
+	{
+		m_FallSpeed += kCorpseFallGravity * worldDeltaTime;
+		position.y = (std::max)(0.0f, position.y - m_FallSpeed * worldDeltaTime);
+	}
+	const float sinkStart = m_DyingSeconds + kCorpseLingerSeconds;
+	if (m_Age > sinkStart)
+	{
+		position.y -= 0.8f * worldDeltaTime / kCorpseSinkSeconds;
+	}
+	SetPosition(position);
+	m_Body->TickAnimation(worldDeltaTime);
+	if (m_Age > sinkStart + kCorpseSinkSeconds)
+	{
+		MarkForDestroy();
+	}
 }

@@ -111,7 +111,7 @@ void SlowBullet::Update()
 		{
 			continue;
 		}
-		const SlowEnemy::HitResult result = enemy->ApplyHit(Flatten(m_Velocity), true, tuning.DeflectDamage);
+		const SlowEnemy::HitResult result = enemy->ApplyHit(Flatten(m_Velocity), SlowEnemy::HitStrength::Strong, tuning.DeflectDamage);
 		SlowScore::Add(result.Pursuit ? SlowScore::Event::Pursuit : SlowScore::Event::StrongHit);
 		SlowClock::AddGauge(tuning.GaugeGainStrongHit);
 		SlowSound::Play(SlowSound::Id::StrongHit);

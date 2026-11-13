@@ -406,6 +406,21 @@ namespace
 		return Near(travelled, 36.0f);
 	}
 
+	// ベース層で前へ進むクリップを、InPlaceでその場に固定する(上下の動きは残す)。
+	bool TestBaseClipInPlace()
+	{
+		Fixture moving;
+		moving.Graph.Play("Dodge", 0.0f);
+		moving.Graph.Advance(0.1f);
+		const aiVector3D moved = moving.Bone(kHipsIndex).Position;
+		Fixture fixture;
+		fixture.Graph.SetClipInPlace("Dodge", true);
+		fixture.Graph.Play("Dodge", 0.0f);
+		fixture.Graph.Advance(0.1f);
+		const aiVector3D locked = fixture.Bone(kHipsIndex).Position;
+		return moved.z > 1.0f && Near(locked.z, 0.0f) && Near(locked.y, moved.y);
+	}
+
 	bool TestRootMotionIgnoresMaskedRoot()
 	{
 		Fixture fixture;
@@ -503,6 +518,7 @@ bool RunAnimatorSelfTests()
 		{ "root motion extract", TestRootMotionExtract },
 		{ "root motion across loop", TestRootMotionAcrossLoop },
 		{ "root motion ignores masked root", TestRootMotionIgnoresMaskedRoot },
+		{ "base clip in place", TestBaseClipInPlace },
 		{ "additive adds difference", TestAdditiveAddsDifference },
 		{ "additive over attack", TestAdditiveOverAttack },
 		{ "additive reference clip", TestAdditiveReferenceClip },

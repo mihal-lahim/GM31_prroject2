@@ -318,10 +318,14 @@ void SlowActionScene::ToggleEditMode()
 		g_StageText = Engine::SceneSerializer::Write(world);
 	}
 	Engine::SceneSerializer::DestroyAll(world);
-	// 弾はステージの記述に含まれないので、別に片付けます。
+	// 弾と亡骸はステージの記述に含まれないので、別に片付けます。
 	for (SlowBullet* bullet : world.FindAll<SlowBullet>())
 	{
 		bullet->MarkForDestroy();
+	}
+	for (SlowCorpse* corpse : world.FindAll<SlowCorpse>())
+	{
+		corpse->MarkForDestroy();
 	}
 	Engine::SceneSerializer::Read(world, g_StageText);
 	SlowClock::Reset();
@@ -452,7 +456,13 @@ void SlowActionScene::UpdateHud()
 	{
 	case SlowPlayer::State::Move: state = player->GetSpeed() > 0.1f ? L"移動" : L"待機"; break;
 	case SlowPlayer::State::Dash: state = L"ダッシュ"; break;
-	case SlowPlayer::State::Attack: state = std::wstring(AttackName(player->GetAttackType())) + L"攻撃"; break;
+	case SlowPlayer::State::Attack:
+		state = std::wstring(AttackName(player->GetAttackType())) + L"攻撃";
+		if (player->GetComboStep() > 0)
+		{
+			state += Format(L"(%d段目)", player->GetComboStep());
+		}
+		break;
 	}
 	if (player->GetBufferedAttack() != SlowPlayer::AttackType::None)
 	{

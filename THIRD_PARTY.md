@@ -46,3 +46,36 @@ files (and their `RuntimeAsset` entries in `FpsGame.vcxproj`) from the
 repository and its history, or obtain redistribution permission.** A public
 repository makes the raw files downloadable, which the terms treat as
 redistribution.
+
+## 50Swords (sword models)
+
+SlowAction's player sword is `Sword138.fbx` from the "50Swords" FBX pack
+(`50Swords_fbx.zip`). The pack itself contains no license file; it was recorded
+as CC0 (free to use, no attribution required) per the person who supplied it.
+If the original source page is found, add its URL here.
+
+| File | Original | Change |
+|---|---|---|
+| `assets/model/slowSword.obj` / `.mtl` | `FBX/Sword138.fbx` | Converted to OBJ: grip moved to the origin, blade along +Y, scaled to 1.4 m, Z mirrored for the engine's left-handed space |
+| `assets/model/slowSword.png` | `FBX/color.png` | Unchanged (the pack's shared color atlas) |
+
+## Mixamo (SlowAction melee enemy)
+
+SlowAction's melee enemy uses the Mixamo character "Maw J Laygo" and three
+Mixamo animations, downloaded from https://www.mixamo.com/ (Adobe).
+
+| File | Original | Use |
+|---|---|---|
+| `assets/model/Enemy.fbx` | `Maw J Laygo.fbx` (FBX Binary 7.7, with skin) | Mesh, skeleton and embedded textures. Its own animation is not used |
+| `assets/model/Enemy_Walk.fbx` | `Walking.fbx` (without skin) | Walking while chasing |
+| `assets/model/Enemy_Knockdown.fbx` | `Big Body Blow.fbx` (without skin) | Knocked into the air and landing flat on the back (2.1 s, on the ground at about 1.05 s). Used for launches and for the corpse. Starts 3 m away from the origin, so it is always played in place |
+| `assets/model/Enemy_Flinch.fbx` | `Dying.fbx` (without skin) | Despite the name, the character stays standing and only recoils (1.55 s). Used for the light hit reaction; its first frame is the standing pose |
+
+Download the character as FBX Binary together with an animation ("With Skin").
+Mixamo's character-only download of this model is FBX 6.1, which assimp cannot
+read (it supports FBX 2011–2013 and later only).
+
+Mixamo characters and animations may be used in games, including commercial
+ones, without credit. Distributing the raw files on their own is not allowed.
+This repository is private. **Before making it public, remove these files from
+the repository and its history, the same as the sound effects above.**

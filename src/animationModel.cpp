@@ -73,6 +73,44 @@ namespace
 		return shared;
 	}
 
+	// FBXに埋め込まれたテクスチャの共有キャッシュです。aiSceneと同じくweak_ptrで持ち、
+	// そのFBXを使うモデルが全部消えたら解放します。同じ敵を何体出しても、PNGの解凍は最初の1回だけです。
+	std::shared_ptr<const AnimationModel::TextureTable> AcquireEmbeddedTextures(const std::string& modelPath, const aiScene& scene)
+	{
+		static std::unordered_map<std::string, std::weak_ptr<const AnimationModel::TextureTable>> cache;
+		if (const auto found = cache.find(modelPath); found != cache.end())
+		{
+			if (auto shared = found->second.lock())
+			{
+				return shared;
+			}
+		}
+
+		auto table = std::make_shared<AnimationModel::TextureTable>();
+		for (unsigned int i = 0; i < scene.mNumTextures; i++)
+		{
+			const aiTexture* aitexture = scene.mTextures[i];
+			ComPtr<ID3D11ShaderResourceView> texture;
+			TexMetadata metadata{};
+			ScratchImage image{};
+			const HRESULT loadResult = LoadFromWICMemory(
+				aitexture->pcData, aitexture->mWidth, WIC_FLAGS_NONE, &metadata, image);
+			if (SUCCEEDED(loadResult))
+			{
+				CreateShaderResourceView(
+					Renderer::GetDevice(), image.GetImages(), image.GetImageCount(), metadata,
+					texture.GetAddressOf());
+			}
+			if (texture != nullptr)
+			{
+				(*table)[aitexture->mFilename.data] = std::move(texture);
+			}
+		}
+		std::shared_ptr<const AnimationModel::TextureTable> shared = std::move(table);
+		cache[modelPath] = shared;
+		return shared;
+	}
+
 	// ボーン名から左足(0)・右足(1)・それ以外(-1)を判定します。読み込み時にボーンごと1回だけ呼びます。
 	int ClassifyFootBone(const std::string& name)
 	{
@@ -144,10 +182,10 @@ void AnimationModel::Draw()
 		aimaterial->Get(AI_MATKEY_OPACITY, opacity);
 
 		ID3D11ShaderResourceView* textureView = nullptr;
-		if (texture != aiString(""))
+		if (texture != aiString("") && m_Texture != nullptr)
 		{
-			const auto foundTexture = m_Texture.find(texture.C_Str());
-			if (foundTexture != m_Texture.end())
+			const auto foundTexture = m_Texture->find(texture.C_Str());
+			if (foundTexture != m_Texture->end())
 			{
 				textureView = foundTexture->second.Get();
 			}
@@ -158,7 +196,7 @@ void AnimationModel::Draw()
 		material.TextureEnable = textureView != nullptr;
 		material.Dummy[0] = m_UseSurfaceShader && m_Surface.DetailTexture ? 1.0f : 0.0f;
 
-		material.Diffuse = XMFLOAT4(diffuse.r, diffuse.g, diffuse.b, opacity);
+		material.Diffuse = XMFLOAT4(diffuse.r * m_Tint.x, diffuse.g * m_Tint.y, diffuse.b * m_Tint.z, opacity * m_Tint.w);
 		material.Ambient = material.Diffuse;
 		Renderer::SetMaterial(material);
 
@@ -234,7 +272,13 @@ void AnimationModel::Load(const char* FileName)
 
 	m_AiScene = AcquireAnimationScene(
 		FileName, aiProcessPreset_TargetRealtime_MaxQuality | aiProcess_ConvertToLeftHanded);
-	assert(m_AiScene);
+	if (m_AiScene == nullptr)
+	{
+		// 古い形式のFBX(6.x)など、assimpが開けないファイルです。止めずに、描かないモデルとして残します。
+		// 呼び出し側はIsLoaded()で確かめて、代わりの見た目を使います。
+		OutputDebugStringA(("AnimationModel: failed to load " + modelPath + ": " + aiGetErrorString() + "\n").c_str());
+		return;
+	}
 
 	m_VertexBuffer.resize(m_AiScene->mNumMeshes);
 	m_IndexBuffer.resize(m_AiScene->mNumMeshes);
@@ -389,33 +433,7 @@ void AnimationModel::Load(const char* FileName)
 
 
 
-	//テクスチャ読み込み
-	for (unsigned int i = 0; i < m_AiScene->mNumTextures; i++)
-	{
-		aiTexture* aitexture = m_AiScene->mTextures[i];
-
-		ComPtr<ID3D11ShaderResourceView> texture;
-
-		// テクスチャ読み込み
-		TexMetadata metadata{};
-		ScratchImage image{};
-		const HRESULT loadResult = LoadFromWICMemory(
-			aitexture->pcData, aitexture->mWidth, WIC_FLAGS_NONE, &metadata, image);
-		if (SUCCEEDED(loadResult))
-		{
-			CreateShaderResourceView(
-				Renderer::GetDevice(), image.GetImages(), image.GetImageCount(), metadata,
-				texture.GetAddressOf());
-		}
-
-		if (texture != nullptr)
-		{
-			m_Texture[aitexture->mFilename.data] = std::move(texture);
-		}
-	}
-
-
-
+	m_Texture = AcquireEmbeddedTextures(modelPath, *m_AiScene);
 }
 
 
@@ -424,8 +442,14 @@ void AnimationModel::LoadAnimation(const char* FileName, const char* Name)
 {
 
 	AnimationScenePtr scene = AcquireAnimationScene(FileName, aiProcess_ConvertToLeftHanded);
-	assert(scene);
-	if (scene != nullptr && scene->mNumAnimations > 0 && scene->mAnimations[0] != nullptr)
+	if (scene == nullptr)
+	{
+		// ファイルが無い・読めないクリップは登録しません(その名前のPlayAnimation/PlayActionは何もしません)。
+		OutputDebugStringA((std::string("AnimationModel: failed to load animation ") + (FileName != nullptr ? FileName : "")
+			+ ": " + aiGetErrorString() + "\n").c_str());
+		return;
+	}
+	if (scene->mNumAnimations > 0 && scene->mAnimations[0] != nullptr)
 	{
 		// aiSceneはm_Animationが保持するので、Animatorへは生ポインタを渡します。
 		m_Animator.AddClip(Name, scene->mAnimations[0]);
@@ -456,7 +480,7 @@ void AnimationModel::Uninit()
 	m_VertexBuffer.clear();
 	m_IndexBuffer.clear();
 	m_DeformVertex.clear();
-	m_Texture.clear();
+	m_Texture.reset();
 
 
 

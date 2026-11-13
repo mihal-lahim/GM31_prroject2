@@ -396,6 +396,19 @@ namespace Anim
 		entry.Binding = BindClip(m_Skeleton, animation);
 	}
 
+	void Animator::SetClipInPlace(const std::string& name, bool inPlace)
+	{
+		const auto found = m_Clips.find(name);
+		if (found != m_Clips.end()) found->second.InPlace = inPlace;
+	}
+
+	float Animator::GetClipSeconds(const std::string& name) const
+	{
+		const ClipEntry* clip = FindClip(name);
+		if (clip == nullptr || clip->Binding.TicksPerSecond <= 0.0) return 0.0f;
+		return static_cast<float>(clip->Binding.DurationTicks / clip->Binding.TicksPerSecond);
+	}
+
 	bool Animator::HasClip(const std::string& name) const
 	{
 		return m_Clips.find(name) != m_Clips.end() || m_BlendSpaces.find(name) != m_BlendSpaces.end();
@@ -564,8 +577,7 @@ namespace Anim
 				return;
 			}
 			const double phase = blendClip.Synchronized ? m_Phase : m_FreePhases[index];
-			SampleClip(clip->Binding, m_Skeleton,
-				PhaseToTicks(clip->Binding, blendClip.Playback, phase), target);
+			SampleBaseClip(*clip, PhaseToTicks(clip->Binding, blendClip.Playback, phase), target);
 		};
 		const size_t lower = static_cast<size_t>(weights.Lower);
 		const size_t upper = static_cast<size_t>(weights.Upper);
@@ -601,7 +613,7 @@ namespace Anim
 				&& m_BaseBlendSeconds >= m_BaseBlendDuration)
 				BeginLoopSeamBlend(cycle);
 			m_Phase = m_Playback.Loop ? m_Phase - std::floor(m_Phase) : (std::min)(m_Phase, 1.0);
-			SampleClip(m_BaseClip->Binding, m_Skeleton, PhaseToTicks(m_BaseClip->Binding, m_Playback, m_Phase), out);
+			SampleBaseClip(*m_BaseClip, PhaseToTicks(m_BaseClip->Binding, m_Playback, m_Phase), out);
 		}
 		else
 		{
@@ -669,6 +681,10 @@ namespace Anim
 		}
 		layer.RootStart = SampleRoot(layer, PhaseToTicks(clip->Binding, layer.Options.Playback, 0.0));
 		layer.PreviousRoot = layer.RootStart;
+		// Lockで腰を固定する位置です。普通は再生を始めた位置ですが、InPlace指定のクリップは
+		// バインドポーズ(モデルの原点の真上)にします。先頭から原点を離れている書き出しでも、体が原点に残ります。
+		layer.LockOrigin = clip->InPlace && m_RootBone >= 0
+			? m_Skeleton.BindPose()[static_cast<size_t>(m_RootBone)].Position : layer.RootStart;
 		layer.Reference.clear();
 		if (layer.Options.Blend == LayerBlend::Additive)
 		{
@@ -683,7 +699,7 @@ namespace Anim
 			if (layer.Options.RootMotionMode != RootMotion::Keep && m_RootBone >= 0)
 			{
 				BoneTransform& root = layer.Reference[static_cast<size_t>(m_RootBone)];
-				root.Position -= Horizontal(root.Position - layer.RootStart);
+				root.Position -= Horizontal(root.Position - layer.LockOrigin);
 			}
 		}
 		return true;
@@ -740,14 +756,31 @@ namespace Anim
 
 	aiVector3D Animator::SampleRoot(const ActionLayer& layer, double ticks)
 	{
-		if (m_RootBone < 0 || layer.Entry == nullptr) return {};
+		if (layer.Entry == nullptr) return {};
+		return SampleRoot(*layer.Entry, ticks);
+	}
+
+	aiVector3D Animator::SampleRoot(const ClipEntry& clip, double ticks) const
+	{
+		if (m_RootBone < 0) return {};
 		const aiVector3D fallback = m_Skeleton.BindPose()[static_cast<size_t>(m_RootBone)].Position;
-		for (const auto& [bone, channel] : layer.Entry->Binding.Channels)
+		for (const auto& [bone, channel] : clip.Binding.Channels)
 		{
 			if (bone == m_RootBone)
 				return SampleVectorKeys(ticks, channel->mNumPositionKeys, channel->mPositionKeys, fallback);
 		}
 		return fallback;
+	}
+
+	void Animator::SampleBaseClip(const ClipEntry& clip, double ticks, Pose& out) const
+	{
+		SampleClip(clip.Binding, m_Skeleton, ticks, out);
+		if (!clip.InPlace || m_RootBone < 0 || static_cast<size_t>(m_RootBone) >= out.size()) return;
+		// 腰の水平位置をバインドポーズ(モデルの原点の真上)に固定します。クリップの先頭で既に
+		// 前へずれている書き出しもあるので、先頭ではなくバインドポーズを基準にします。
+		BoneTransform& root = out[static_cast<size_t>(m_RootBone)];
+		const aiVector3D bind = m_Skeleton.BindPose()[static_cast<size_t>(m_RootBone)].Position;
+		root.Position -= Horizontal(root.Position - bind);
 	}
 
 	aiVector3D Animator::Horizontal(const aiVector3D& value) const
@@ -837,7 +870,7 @@ namespace Anim
 				layer.PreviousRoot = raw;
 			}
 			if (layer.Options.RootMotionMode != RootMotion::Keep)
-				root.Position -= Horizontal(raw - layer.RootStart);
+				root.Position -= Horizontal(raw - layer.LockOrigin);
 		}
 		const bool additive = layer.Options.Blend == LayerBlend::Additive;
 		if (additive) MakeAdditiveDelta(pose, layer.Reference, pose);

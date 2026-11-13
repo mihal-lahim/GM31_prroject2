@@ -1,0 +1,8 @@
+# Converted from 50Swords (Sword138.fbx, CC0). See THIRD_PARTY.md.
+newmtl Sword
+Ka 1.0 1.0 1.0
+Kd 1.0 1.0 1.0
+Ks 0.3 0.3 0.3
+Ns 40
+d 1.0
+map_Kd slowSword.png

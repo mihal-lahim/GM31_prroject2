@@ -57,7 +57,8 @@ private:
 	Engine::SurfaceMaterial m_Surface;
 	bool m_UseSurfaceShader = false;
 
-	std::unordered_map<std::string, ComPtr<ID3D11ShaderResourceView>> m_Texture;
+	// 埋め込みテクスチャです。同じFBXを使うモデルどうしで共有します(1体ごとにPNGを解凍し直すと、出現のたびに止まるため)。
+	std::shared_ptr<const std::unordered_map<std::string, ComPtr<ID3D11ShaderResourceView>>> m_Texture;
 
 	std::vector<std::vector<DEFORM_VERTEX>> m_DeformVertex;//変形後頂点データ(メッシュごと)
 	std::vector<std::vector<aiMatrix4x4>> m_SkinTransforms;
@@ -66,6 +67,7 @@ private:
 	float m_ModelYawOffset = 0.0f;
 	float m_VerticalOffset = 0.0f;
 	bool m_Visible = true;
+	XMFLOAT4 m_Tint{ 1.0f, 1.0f, 1.0f, 1.0f };
 	float (*m_GroundHeight)(float, float) = nullptr;
 	Vector3 (*m_GroundNormal)(float, float) = nullptr;
 	float m_FootIKStrength = 1.0f;
@@ -92,9 +94,17 @@ private:
 
 public:
 	using Component::Component;
+	// 埋め込みテクスチャの表(ファイル内の名前 → テクスチャ)です。
+	using TextureTable = std::unordered_map<std::string, ComPtr<ID3D11ShaderResourceView>>;
 
 	void Load( const char *FileName );
+	// Loadでモデルを読み込めたか。読めなかったモデルは描かれず、アニメーションも動きません。
+	bool IsLoaded() const { return m_AiScene != nullptr; }
 	void LoadAnimation( const char *FileName, const char *Name );
+	// 腰が前へ進んでいくクリップ(In Placeでない走りなど)を、その場で再生するようにします。LoadAnimationの後に呼びます。
+	void SetAnimationInPlace(const char* name, bool inPlace = true) { if (name != nullptr) m_Animator.SetClipInPlace(name, inPlace); }
+	// 読み込んだクリップ全体の長さ(秒、再生倍率1)です。無ければ0です。
+	float GetAnimationSeconds(const char* name) const { return name != nullptr ? m_Animator.GetClipSeconds(name) : 0.0f; }
 	// 変形済みの頂点バッファをそのまま使って、太陽から見た深度を描きます。
 	void DrawShadow() override;
 	void SetModelScale(float Scale) { m_ModelScale = Scale; }
@@ -117,6 +127,8 @@ public:
 	// 被弾中の点滅など、更新は続けたまま描画だけを止めたい場合に使います。
 	void SetVisible(bool Visible) { m_Visible = Visible; }
 	bool IsVisible() const { return m_Visible; }
+	// マテリアルの色に掛ける色です。被弾の光や予兆の色付けなど、状態を色で見せるときに使います。1以上で明るくなります。
+	void SetTint(const XMFLOAT4& tint) { m_Tint = tint; }
 	void Uninit() override;
 	// 切り替え時の現在姿勢から、指定秒数で新しいクリップへ移行する。
 	// nameにはクリップ名か、AddBlendSpace1Dで登録したブレンドツリー名を指定できます。

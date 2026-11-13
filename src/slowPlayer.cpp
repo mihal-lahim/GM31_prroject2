@@ -4,6 +4,7 @@
 #include "slowActionUtil.h"
 #include "collider.h"
 #include "animationModel.h"
+#include "modelRenderer.h"
 #include "gameTime.h"
 #include "sceneEditor.h"
 #include "world.h"
@@ -14,6 +15,28 @@ namespace
 {
 	// 床に立ったときに床と接触扱いにならないよう、カプセルの下端を少し浮かせます。
 	constexpr float kCapsuleLift = 0.05f;
+	// Akai_Dash.fbxをそのまま再生したときの進む速さ(m/秒)。腰が1周(47tick/60fps)で約5.25m進みます。
+	constexpr float kDashClipSpeed = 6.7f;
+	// Akai_Slash.fbx(大剣の3連撃)の長さです。クリップが読めなかったときだけ使います。
+	constexpr float kSlashClipFallbackSeconds = 2.15f;
+
+	// 通常攻撃の段ごとの、クリップ上の区間と当たる瞬間(元クリップに対する割合)です。
+	struct ComboSegment
+	{
+		float Start;
+		float Hit;
+		float End;
+	};
+
+	ComboSegment GetComboSegment(const SlowActionTuning& tuning, int step)
+	{
+		switch (step)
+		{
+		case 2: return { tuning.Combo2Start, tuning.Combo2Hit, tuning.Combo2End };
+		case 3: return { tuning.Combo3Start, tuning.Combo3Hit, tuning.Combo3End };
+		default: return { tuning.Combo1Start, tuning.Combo1Hit, tuning.Combo1End };
+		}
+	}
 
 	// currentをtargetへ、最大でmaxStepだけ近づけます。
 	Vector3 MoveTowards(const Vector3& current, const Vector3& target, float maxStep)
@@ -32,11 +55,16 @@ void SlowPlayer::Init()
 {
 	const SlowActionTuning& tuning = GetSlowActionTuning();
 	m_Layer = Layer::World;
-	// 授業用のキャラクター(Akai)です。剣と攻撃モーションは後から足すので、今は待機と走りだけです。
+	// 授業用のキャラクター(Akai)です。剣はまだ持たせていません。
 	m_Model = AddComponent<AnimationModel>();
 	m_Model->Load("assets/model/Akai.fbx");
 	m_Model->LoadAnimation("assets/model/Akai_Idle.fbx", "Idle");
 	m_Model->LoadAnimation("assets/model/Akai_Run.fbx", "Run");
+	// ダッシュ用の走りです。腰が前へ進むクリップなので、その場で再生させます。
+	m_Model->LoadAnimation("assets/model/Akai_Dash.fbx", "Dash");
+	m_Model->SetAnimationInPlace("Dash");
+	// 通常攻撃の3段コンボです。1本のクリップを段ごとの区間に分けて、アクション層で再生します。
+	m_Model->LoadAnimation("assets/model/Akai_Slash.fbx", "Slash");
 	m_Model->SetModelScale(0.01f);
 	// Akaiのモデルの正面は-Zなので、移動の向きの基準(+Z)へ回します。
 	m_Model->SetModelYawOffset(XM_PI);
@@ -49,6 +77,17 @@ void SlowPlayer::Init()
 	}
 	m_Model->PlayAnimation("Idle", 0.0f);
 	m_Model->TickAnimation(0.0f);
+	// 大剣(50Swords の Sword138、CC0)。握りが原点・刃が+Yのモデルを、右手の骨に合わせて描きます。
+	m_Sword = AddComponent<ModelRenderer>();
+	m_Sword->Load("assets/model/slowSword.obj");
+	if (m_Sword->SetShaderDefinition("realistic"))
+	{
+		m_Sword->SetShaderFloat("roughness", 0.35f);
+		m_Sword->SetShaderFloat("metallic", 0.6f);
+		m_Sword->SetShaderFloat("bump", 0.0f);
+		m_Sword->SetShaderFloat("rim", 0.3f);
+	}
+	UpdateSword();
 	m_Collider = AddComponent<Collider>()
 		->SetCapsule(tuning.PlayerRadius, tuning.PlayerHeight)
 		->SetOffset({ 0.0f, kCapsuleLift + tuning.PlayerHeight * 0.5f, 0.0f })
@@ -66,13 +105,17 @@ void SlowPlayer::Init()
 //   Attack --終了(予約なし)------------->  Move
 //   Attack --Shiftを新しく押す---------->  Move→Dash (いつでもキャンセル。予約は捨てる)
 //
+// 通常攻撃は3段コンボです。予約で続けるか、終わってからComboChainSeconds以内に出すと次の段になり、
+// 3段目は当たった敵を小さく吹き飛ばします。強攻撃・ダッシュ・猶予切れで1段目に戻ります。
+//
 // ロック中はShiftを押し続けていてもダッシュせず、一度離すと解除されます。
 // キャンセルは「新しく押した」瞬間だけなので、押しっぱなしで攻撃が消えることはありません。
 void SlowPlayer::Update()
 {
 	if (SceneEditor::IsActive())
 	{
-		// 編集モードの間は、配置されたまま動きません。
+		// 編集モードの間は、配置されたまま動きません。編集で動かされても剣は手に付いていきます。
+		UpdateSword();
 		return;
 	}
 	const SlowActionTuning& tuning = GetSlowActionTuning();
@@ -102,15 +145,17 @@ void SlowPlayer::Update()
 	m_PreviousDash = input.Dash;
 	m_PreviousAttack = input.Attack;
 
-	if (m_State == State::Attack)
+	const bool wasAttacking = m_State == State::Attack;
+	if (wasAttacking)
 	{
-		const bool strong = m_AttackType == AttackType::Strong;
-		const float duration = strong ? tuning.StrongDuration : tuning.NormalDuration;
+		const float duration = m_AttackDuration;
 		if (dashPressed && !m_DashLocked)
 		{
-			// 空振りでも当たった後でも、ダッシュでいつでも抜けられます。
+			// 空振りでも当たった後でも、ダッシュでいつでも抜けられます。コンボも切れます。
 			m_State = State::Move;
 			m_BufferedAttack = AttackType::None;
+			m_ComboStep = 0;
+			m_Model->StopAction(0, 0.1f);
 		}
 		else
 		{
@@ -119,7 +164,11 @@ void SlowPlayer::Update()
 				m_BufferedAttack = released;
 			}
 			m_AttackTime += deltaTime;
-			if (!m_AttackHitDone && m_AttackTime >= (strong ? tuning.StrongHitDelay : tuning.NormalHitDelay))
+			if (!m_AttackHitDone)
+			{
+				UpdateAttackLunge(deltaTime);
+			}
+			if (!m_AttackHitDone && m_AttackTime >= m_AttackHitDelay)
 			{
 				m_AttackHitDone = true;
 				PerformAttackHit();
@@ -128,18 +177,23 @@ void SlowPlayer::Update()
 			{
 				if (m_BufferedAttack != AttackType::None)
 				{
-					StartAttack(m_BufferedAttack, input.Dash);
+					StartAttack(m_BufferedAttack, input);
 				}
 				else
 				{
 					m_State = State::Move;
+					m_ComboChainTimer = 0.0f;
 				}
 			}
 		}
 	}
-	else if (released != AttackType::None)
+	else
 	{
-		StartAttack(released, input.Dash);
+		m_ComboChainTimer += deltaTime;
+		if (released != AttackType::None)
+		{
+			StartAttack(released, input);
+		}
 	}
 
 	if (m_State != State::Attack)
@@ -150,27 +204,138 @@ void SlowPlayer::Update()
 	UpdateAnimation(deltaTime);
 }
 
+const std::string& SlowPlayer::GetAnimationName() const
+{
+	static const std::string empty;
+	return m_Model != nullptr ? m_Model->GetAnimationName() : empty;
+}
+
+bool SlowPlayer::GetHipsWorldPosition(Vector3& position) const
+{
+	return m_Model != nullptr && m_Model->GetBoneWorldPosition("mixamorig:Hips", position);
+}
+
 void SlowPlayer::UpdateAnimation(float deltaTime)
 {
 	const SlowActionTuning& tuning = GetSlowActionTuning();
-	// 攻撃中は動かないので待機にしておきます(攻撃モーションが入ったらここで切り替えます)。
+	// 攻撃中は動かないのでベース層は待機にし、斬る動きはアクション層(StartAttackのPlayAction)で重ねます。
 	const float speed = m_State == State::Attack ? 0.0f : m_Velocity.length();
 	const bool running = speed > 0.5f;
-	// 走りは速さに合わせて再生を速め、ダッシュで足が滑って見えないようにします。
-	m_Model->SetPlayback(running ? std::clamp(speed / tuning.WalkSpeed, 0.8f, 2.2f) : 1.0f);
-	m_Model->PlayAnimation(running ? "Run" : "Idle", m_State == State::Attack ? 0.08f : 0.15f);
+	const bool dashing = m_State == State::Dash && running;
+	// 走りは速さに合わせて再生を速め、足が滑って見えないようにします。
+	// ダッシュのクリップは元の速さ(kDashClipSpeed)を基準に、DashSpeedで再生倍率を決めます。
+	float playback = 1.0f;
+	if (dashing)
+	{
+		playback = std::clamp(speed / kDashClipSpeed, 0.8f, 2.5f);
+	}
+	else if (running)
+	{
+		playback = std::clamp(speed / tuning.WalkSpeed, 0.8f, 2.2f);
+	}
+	m_Model->SetPlayback(playback);
+	const char* clip = dashing ? "Dash" : (running ? "Run" : "Idle");
+	m_Model->PlayAnimation(clip, m_State == State::Attack ? 0.08f : 0.15f);
 	// ヒットストップ中はGameTimeが遅くなるので、体の動きも一緒に止まります。
 	m_Model->TickAnimation(deltaTime);
+	UpdateSword();
 }
 
-void SlowPlayer::StartAttack(AttackType type, bool dashHeld)
+// 剣の向きは、握った手の指の骨から作ります。回転の調整値を持たないので、どのモーションでも手に沿います。
+//   剣の軸(+Y)  : 小指の付け根 → 人差し指の付け根 (握り拳の穴の向き。親指側へ刃が伸びます)
+//   刃の向き(+X): 手首 → 指の付け根 を、剣の軸に直交させたもの
+//   握る位置    : 指の付け根と第2関節の中間(指が巻き付いている所)
+void SlowPlayer::UpdateSword()
 {
+	if (m_Sword == nullptr || m_Model == nullptr)
+	{
+		return;
+	}
 	const SlowActionTuning& tuning = GetSlowActionTuning();
+	Vector3 wrist, index1, middle1, ring1, pinky1, index2, middle2, ring2, pinky2;
+	const bool found = m_Model->GetBoneWorldPosition("mixamorig:RightHand", wrist)
+		&& m_Model->GetBoneWorldPosition("mixamorig:RightHandIndex1", index1)
+		&& m_Model->GetBoneWorldPosition("mixamorig:RightHandMiddle1", middle1)
+		&& m_Model->GetBoneWorldPosition("mixamorig:RightHandRing1", ring1)
+		&& m_Model->GetBoneWorldPosition("mixamorig:RightHandPinky1", pinky1)
+		&& m_Model->GetBoneWorldPosition("mixamorig:RightHandIndex2", index2)
+		&& m_Model->GetBoneWorldPosition("mixamorig:RightHandMiddle2", middle2)
+		&& m_Model->GetBoneWorldPosition("mixamorig:RightHandRing2", ring2)
+		&& m_Model->GetBoneWorldPosition("mixamorig:RightHandPinky2", pinky2);
+	Vector3 up = index1 - pinky1;
+	m_SwordAttached = false;
+	if (!found || up.length() < 1e-4f)
+	{
+		m_Sword->SetVisible(false);
+		return;
+	}
+	up.normalize();
+	const Vector3 knuckles = (index1 + middle1 + ring1 + pinky1) * 0.25f;
+	const Vector3 secondJoints = (index2 + middle2 + ring2 + pinky2) * 0.25f;
+	Vector3 edge = knuckles - wrist;
+	edge = edge - up * Vector3::dot(edge, up);
+	if (edge.length() < 1e-4f)
+	{
+		m_Sword->SetVisible(false);
+		return;
+	}
+	edge.normalize();
+	const Vector3 side = Vector3::cross(edge, up);
+	const Vector3 grip = (knuckles + secondJoints) * 0.5f
+		+ edge * tuning.SwordGripOffsetX + up * tuning.SwordGripOffsetY + side * tuning.SwordGripOffsetZ;
+
+	// 行ベクトルの規約(DirectXMath)なので、各行が剣のローカル軸のワールドでの向きです。
+	const XMMATRIX basis(
+		edge.x, edge.y, edge.z, 0.0f,
+		up.x, up.y, up.z, 0.0f,
+		side.x, side.y, side.z, 0.0f,
+		grip.x, grip.y, grip.z, 1.0f);
+	const float scale = tuning.SwordScale;
+	m_Sword->SetWorldMatrixOverride(XMMatrixScaling(scale, scale, scale) * basis);
+	m_Sword->SetVisible(true);
+	m_SwordAttached = true;
+}
+
+void SlowPlayer::StartAttack(AttackType type, const SlowInputState& input)
+{
+	const bool dashHeld = input.Dash;
+	const SlowActionTuning& tuning = GetSlowActionTuning();
+	// 通常攻撃が続けて出たら次の段へ進みます。予約からの連続か、終わってから猶予内に出したときです。
+	// 3段目の次は1段目へ戻ります。強攻撃はコンボを切ります。
+	const bool chained = m_ComboStep > 0
+		&& (m_State == State::Attack || m_ComboChainTimer <= tuning.ComboChainSeconds);
 	m_State = State::Attack;
 	m_AttackType = type;
 	m_BufferedAttack = AttackType::None;
 	m_AttackTime = 0.0f;
 	m_AttackHitDone = false;
+	if (type == AttackType::Normal)
+	{
+		m_ComboStep = chained ? m_ComboStep % 3 + 1 : 1;
+		const ComboSegment segment = GetComboSegment(tuning, m_ComboStep);
+		const float clipSeconds = m_Model->GetAnimationSeconds("Slash") > 0.0f
+			? m_Model->GetAnimationSeconds("Slash") : kSlashClipFallbackSeconds;
+		const float secondsPerFraction = clipSeconds / tuning.ComboPlaybackSpeed;
+		m_AttackDuration = (std::max)(segment.End - segment.Start, 0.01f) * secondsPerFraction;
+		m_AttackHitDelay = std::clamp(segment.Hit - segment.Start, 0.0f, segment.End - segment.Start) * secondsPerFraction;
+
+		Anim::ActionOptions options;
+		options.Playback = { tuning.ComboPlaybackSpeed, segment.Start, segment.End, false };
+		// 1段目は待機から素早く構え、2段目以降は前の段の終わりの姿勢からつなぎます。
+		options.FadeIn = m_ComboStep == 1 ? 0.06f : 0.08f;
+		options.FadeOut = 0.12f;
+		// クリップは踏み込みで前へ進みますが、攻撃中はその場に立つ仕様なので腰の移動は打ち消します。
+		options.RootMotionMode = Anim::RootMotion::Lock;
+		m_Model->PlayAction("Slash", options);
+	}
+	else
+	{
+		m_ComboStep = 0;
+		m_AttackDuration = tuning.StrongDuration;
+		m_AttackHitDelay = tuning.StrongHitDelay;
+		// 強攻撃のモーションはまだ無いので、通常攻撃の途中なら止めて待機に戻します。
+		m_Model->StopAction(0, 0.08f);
+	}
 	// 攻撃中は動きません。ダッシュの勢いもここで捨てます。
 	m_Velocity.zero();
 	// Shiftを押したまま攻撃に入ったら、一度離すまでダッシュへ戻しません。
@@ -179,10 +344,16 @@ void SlowPlayer::StartAttack(AttackType type, bool dashHeld)
 		m_DashLocked = true;
 	}
 
-	// 向きの近くに敵がいれば、そちらへ攻撃方向を寄せます。吹き飛び中の敵を優先します。
-	const Vector3 forward = ForwardFromYaw(m_Yaw);
+	// 狙う向きの近くに敵がいれば、そちらへ攻撃方向を寄せます。移動入力があればその方向を、なければ今の向きを基準にします。
+	// 近さと正面からのずれの両方で選び、吹き飛び中の敵を優先します。
+	const SlowCamera* camera = GetWorld().FindFirst<SlowCamera>();
+	const float cameraYaw = camera != nullptr ? camera->GetYaw() : 0.0f;
+	Vector3 forward = ForwardFromYaw(cameraYaw) * input.MoveZ + RightFromYaw(cameraYaw) * input.MoveX;
+	forward = forward.length() > 0.1f ? forward / forward.length() : ForwardFromYaw(m_Yaw);
 	const float cosLimit = cosf(XMConvertToRadians(tuning.AimAssistHalfAngleDegrees));
 	float bestScore = FLT_MAX;
+	SlowEnemy* target = nullptr;
+	float targetDistance = 0.0f;
 	for (SlowEnemy* enemy : GetWorld().FindAll<SlowEnemy>())
 	{
 		Vector3 toEnemy = Flatten(enemy->GetPosition() - m_Position);
@@ -192,31 +363,99 @@ void SlowPlayer::StartAttack(AttackType type, bool dashHeld)
 			continue;
 		}
 		toEnemy = toEnemy / distance;
-		if (Vector3::dot(toEnemy, forward) < cosLimit)
+		const float alignment = Vector3::dot(toEnemy, forward);
+		if (alignment < cosLimit)
 		{
 			continue;
 		}
-		const float score = distance - (enemy->IsLaunched() ? 2.0f : 0.0f);
+		// 正面から外れるほど、遠いのと同じ扱いにします(真横寄りの近い敵より、正面のやや遠い敵を選びます)。
+		const float score = distance + (1.0f - alignment) * 4.0f - (enemy->IsLaunched() ? 2.0f : 0.0f);
 		if (score < bestScore)
 		{
 			bestScore = score;
-			m_Yaw = YawFromDirection(toEnemy);
+			target = enemy;
+			targetDistance = distance;
 		}
 	}
+	if (target != nullptr)
+	{
+		m_Yaw = YawFromDirection(Flatten(target->GetPosition() - m_Position));
+	}
+	else if (input.MoveX != 0.0f || input.MoveZ != 0.0f)
+	{
+		// 敵がいなくても、入力した方向へ振ります。
+		m_Yaw = YawFromDirection(forward);
+	}
 	m_AttackDirection = ForwardFromYaw(m_Yaw);
+
+	// 通常攻撃はロックした敵へ踏み込み、当たる瞬間に剣が届く距離まで詰めます。
+	m_AttackTarget = type == AttackType::Normal ? target : nullptr;
+	m_LungeRemaining = 0.0f;
+	m_LungeSpeed = 0.0f;
+	if (m_AttackTarget != nullptr)
+	{
+		const float stand = tuning.PlayerRadius + m_AttackTarget->GetRadius() + tuning.NormalLungeGap;
+		m_LungeRemaining = std::clamp(targetDistance - stand, 0.0f, tuning.NormalLungeMaxDistance);
+		m_LungeSpeed = m_LungeRemaining / (std::max)(m_AttackHitDelay, 0.05f);
+	}
+}
+
+void SlowPlayer::UpdateAttackLunge(float deltaTime)
+{
+	if (m_AttackTarget == nullptr)
+	{
+		return;
+	}
+	// ロックした敵が倒されて消えていたら、そこで止めます。
+	const std::vector<SlowEnemy*> enemies = GetWorld().FindAll<SlowEnemy>();
+	if (std::find(enemies.begin(), enemies.end(), m_AttackTarget) == enemies.end())
+	{
+		m_AttackTarget = nullptr;
+		return;
+	}
+	const SlowActionTuning& tuning = GetSlowActionTuning();
+	Vector3 toTarget = Flatten(m_AttackTarget->GetPosition() - m_Position);
+	const float distance = toTarget.length();
+	if (distance < 0.05f)
+	{
+		return;
+	}
+	toTarget = toTarget / distance;
+
+	// 敵が動いても、当たる瞬間まで向きを追わせます。
+	const float difference = WrapAngle(YawFromDirection(toTarget) - m_Yaw);
+	const float step = XMConvertToRadians(tuning.AimTrackDegreesPerSecond) * deltaTime;
+	m_Yaw = WrapAngle(m_Yaw + std::clamp(difference, -step, step));
+	m_AttackDirection = ForwardFromYaw(m_Yaw);
+
+	// 敵が近づいてきたら、その分だけ踏み込みを減らします。
+	const float stand = tuning.PlayerRadius + m_AttackTarget->GetRadius() + tuning.NormalLungeGap;
+	const float move = (std::min)({ m_LungeSpeed * deltaTime, m_LungeRemaining, (std::max)(distance - stand, 0.0f) });
+	if (move <= 0.0f)
+	{
+		return;
+	}
+	m_LungeRemaining -= move;
+	// 軸ごとに動かして、壁沿いに滑らせます。
+	TryMove({ toTarget.x * move, 0.0f, 0.0f });
+	TryMove({ 0.0f, 0.0f, toTarget.z * move });
 }
 
 void SlowPlayer::PerformAttackHit()
 {
 	const SlowActionTuning& tuning = GetSlowActionTuning();
 	const bool strong = m_AttackType == AttackType::Strong;
+	// 通常攻撃の3段目は締めの一撃です。範囲は通常のまま、当たった敵を小さく吹き飛ばします。
+	const bool finisher = !strong && m_ComboStep == 3;
+	const SlowEnemy::HitStrength strength = strong ? SlowEnemy::HitStrength::Strong
+		: finisher ? SlowEnemy::HitStrength::Finisher : SlowEnemy::HitStrength::Normal;
 	const float range = strong ? tuning.StrongRange : tuning.NormalRange;
 	const float halfAngle = XMConvertToRadians(strong ? tuning.StrongHalfAngleDegrees : tuning.NormalHalfAngleDegrees);
 	const int damage = strong ? tuning.StrongDamage : tuning.NormalDamage;
 
 	const XMFLOAT4 slashColor = strong ? XMFLOAT4{ 1.0f, 0.6f, 0.2f, 1.0f } : XMFLOAT4{ 0.6f, 0.95f, 1.0f, 1.0f };
 	EmitFan(m_Position + Vector3(0.0f, 1.0f, 0.0f), m_AttackDirection, range, halfAngle,
-		strong ? 17 : 9, strong ? 0.5f : 0.35f, strong ? 14 : 10, slashColor);
+		strong ? 17 : (finisher ? 13 : 9), strong ? 0.5f : 0.35f, strong ? 14 : (finisher ? 12 : 10), slashColor);
 
 	const float cosLimit = cosf(halfAngle);
 	// 攻撃の扇形に入っているか。体が重なるほど近いものは、角度に関係なく当てます。
@@ -246,7 +485,7 @@ void SlowPlayer::PerformAttackHit()
 			continue;
 		}
 
-		const SlowEnemy::HitResult result = enemy->ApplyHit(m_AttackDirection, strong, damage);
+		const SlowEnemy::HitResult result = enemy->ApplyHit(m_AttackDirection, strength, damage);
 		hitAny = true;
 		if (result.Pursuit)
 		{
@@ -287,7 +526,8 @@ void SlowPlayer::PerformAttackHit()
 	}
 	else if (hitAny)
 	{
-		GameTime::StartHitStop(strong ? tuning.StrongHitStopFrames : tuning.NormalHitStopFrames, tuning.HitStopScale);
+		GameTime::StartHitStop(strong ? tuning.StrongHitStopFrames
+			: finisher ? tuning.FinisherHitStopFrames : tuning.NormalHitStopFrames, tuning.HitStopScale);
 	}
 	if (deflected)
 	{
@@ -295,8 +535,8 @@ void SlowPlayer::PerformAttackHit()
 	}
 	if (hitAny)
 	{
-		SlowSound::Play(strong || pursuitAny ? SlowSound::Id::StrongHit : SlowSound::Id::Hit);
-		if (strong || pursuitAny)
+		SlowSound::Play(strong || finisher || pursuitAny ? SlowSound::Id::StrongHit : SlowSound::Id::Hit);
+		if (strong || finisher || pursuitAny)
 		{
 			SlowCamera::Shake(GetWorld(), tuning.ShakeStrongHit);
 		}

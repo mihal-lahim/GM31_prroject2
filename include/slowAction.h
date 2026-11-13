@@ -10,6 +10,7 @@ class Audio;
 class Collider;
 class DynamicText;
 class ModelRenderer;
+class SlowEnemy;
 
 namespace SlowCollisionLayers
 {
@@ -137,10 +138,23 @@ public:
 	void SetYaw(float yaw) { m_Yaw = yaw; m_Rotation.y = yaw; }
 	float GetSpeed() const { return m_Velocity.length(); }
 	int GetPursuitCount() const { return m_PursuitCount; }
+	// 通常攻撃の何段目か(1〜3)。通常攻撃中でなければ0です。
+	int GetComboStep() const { return m_State == State::Attack && m_AttackType == AttackType::Normal ? m_ComboStep : 0; }
+	// 今の攻撃の長さ(秒)です。通常攻撃は段ごとにクリップの区間から決まります。
+	float GetAttackDuration() const { return m_AttackDuration; }
+	float GetAttackHitDelay() const { return m_AttackHitDelay; }
+	// 剣が右手の骨に付いて描かれているか(骨が見つからなければfalseで、剣は隠れます)。
+	bool IsSwordAttached() const { return m_SwordAttached; }
+	// 再生中のベース層のクリップ名(Idle/Run/Dash)と腰の位置です。テストと確認用です。
+	const std::string& GetAnimationName() const;
+	bool GetHipsWorldPosition(Vector3& position) const;
 
 private:
 	Collider* m_Collider = nullptr;
 	AnimationModel* m_Model = nullptr;
+	// 右手に持たせる大剣です。毎フレーム手の骨からワールド行列を作って描きます。
+	ModelRenderer* m_Sword = nullptr;
+	bool m_SwordAttached = false;
 	State m_State = State::Move;
 	AttackType m_AttackType = AttackType::None;
 	AttackType m_BufferedAttack = AttackType::None;
@@ -148,21 +162,35 @@ private:
 	Vector3 m_AttackDirection{ 0.0f, 0.0f, 1.0f };
 	float m_Yaw = 0.0f;
 	float m_AttackTime = 0.0f;
+	float m_AttackDuration = 0.0f;
+	float m_AttackHitDelay = 0.0f;
 	float m_AttackHoldSeconds = 0.0f;
 	bool m_AttackHitDone = false;
+	// 最後に出した通常攻撃の段(1〜3)。強攻撃・ダッシュ・猶予切れで0に戻ります。
+	int m_ComboStep = 0;
+	// 攻撃が終わってからの秒数です。ComboChainSeconds以内なら次の段へつながります。
+	float m_ComboChainTimer = 0.0f;
 	// ダッシュから攻撃へ移ったとき、Shiftを一度離すまで再ダッシュを止めるためのフラグです。
 	bool m_DashLocked = false;
 	bool m_PreviousDash = false;
 	bool m_PreviousAttack = false;
 	int m_Hp = 0;
 	int m_PursuitCount = 0;
+	// 通常攻撃でロックした敵と、当たる瞬間までに残っている踏み込み距離です。
+	SlowEnemy* m_AttackTarget = nullptr;
+	float m_LungeRemaining = 0.0f;
+	float m_LungeSpeed = 0.0f;
 
-	void StartAttack(AttackType type, bool dashHeld);
+	void StartAttack(AttackType type, const SlowInputState& input);
+	// 通常攻撃のロック先へ向きを追わせ、踏み込みます。当たる瞬間までだけ動きます。
+	void UpdateAttackLunge(float deltaTime);
 	void PerformAttackHit();
 	void UpdateMovement(const SlowInputState& input, float deltaTime);
 	bool TryMove(const Vector3& offset);
 	// 状態と速さに合わせてアニメーションを選び、実時間で進めます。
 	void UpdateAnimation(float deltaTime);
+	// 剣を右手の骨に合わせます。アニメーションを進めた後に呼びます。
+	void UpdateSword();
 };
 
 // 効果音です。シーンが持つ音源の組から鳴らします。音源がなければ何もしません(テスト中など)。
@@ -277,8 +305,16 @@ public:
 	void Reflect(Engine::PropertyVisitor& visitor) override;
 	void OnPropertiesChanged() override;
 
+	// 攻撃の重さです。Finisherは通常攻撃3段目で、小さく吹き飛ばします(重量型の装甲は削りません)。
+	enum class HitStrength
+	{
+		Normal,
+		Finisher,
+		Strong
+	};
+
 	// directionは水平の攻撃方向です。吹き飛ばす場合はこの向きへ飛びます。
-	HitResult ApplyHit(const Vector3& direction, bool strong, int damage);
+	HitResult ApplyHit(const Vector3& direction, HitStrength strength, int damage);
 
 	Kind GetKind() const { return m_Kind; }
 	void SetKind(Kind kind) { m_KindValue = static_cast<int>(kind); OnPropertiesChanged(); }
@@ -297,6 +333,15 @@ public:
 	static void SetInvincible(bool enabled) { s_Invincible = enabled; }
 	static bool IsInvincible() { return s_Invincible; }
 
+	// 近接型は人型のモデル(Enemy.fbx)で描き、歩き・被弾のモーションを再生します。ほかの型は今まで通りの形です。
+	bool HasSkinnedBody() const { return m_Body != nullptr && m_Kind == Kind::Melee; }
+	// 人型のモデルのベース層のクリップ名(Walk/Stand)と、重ねている被弾モーションの名前(Flinch/Knockdown、無ければ空)です。テスト用です。
+	const std::string& GetBodyAnimationName() const;
+	bool IsHitReactionPlaying() const;
+	const std::string& GetHitReactionName() const;
+	// 腰の骨が敵の位置から水平にどれだけ離れているか(m)。モーションで体が位置からずれていないかを確かめます。
+	float GetBodyHipsOffset() const;
+
 private:
 	static bool s_Invincible;
 
@@ -305,6 +350,12 @@ private:
 
 	Collider* m_Collider = nullptr;
 	ModelRenderer* m_Models[static_cast<int>(Kind::Count)][SlotCount]{};
+	AnimationModel* m_Body = nullptr;
+	// 歩きの再生速度を、実際に動いた距離から決めるための前フレームの位置です。
+	Vector3 m_BodyPreviousPosition{ 0.0f, 0.0f, 0.0f };
+	// 再生中のKnockdownの区間(クリップ上の秒)です。
+	float m_KnockdownStartSeconds = 0.0f;
+	float m_KnockdownEndSeconds = 0.0f;
 	Kind m_Kind = Kind::Melee;
 	int m_KindValue = 0;
 	State m_State = State::Idle;
@@ -318,6 +369,9 @@ private:
 	float m_LaunchScale = 1.0f;
 	Vector3 m_LaunchDirection{ 0.0f, 0.0f, 1.0f };
 	float m_LaunchTime = 0.0f;
+	// 今の吹き飛びの距離・全体時間です(強攻撃と3段目で違います)。
+	float m_LaunchDistance = 0.0f;
+	float m_LaunchSeconds = 1.0f;
 	float m_LaunchGravity = 0.0f;
 	float m_VerticalSpeed = 0.0f;
 	float m_HangTime = 0.0f;
@@ -327,7 +381,7 @@ private:
 	Vector3 m_AimDirection{ 0.0f, 0.0f, 1.0f };
 
 	void SetState(State state, float seconds = 0.0f);
-	void Launch(const Vector3& direction);
+	void Launch(const Vector3& direction, bool light = false);
 	void UpdateLaunched(float worldDeltaTime);
 	void UpdateChase(float worldDeltaTime);
 	void UpdateGunnerChase(float worldDeltaTime);
@@ -338,6 +392,33 @@ private:
 	void FaceTowards(const Vector3& direction);
 	bool TryMove(const Vector3& offset);
 	void RefreshModel();
+	// 人型のモデルのクリップを状態と移動の速さから選び、ワールド時間で進めます。
+	void UpdateBody(float worldDeltaTime);
+	// 軽い被弾: 立ったままのけぞります。
+	void PlayFlinch();
+	// 吹き飛び: Knockdownをclip上のstartSecondsから再生し、secondsUntilLanding後に体が地面へ着くよう速さを合わせます。
+	// 着地後は受け身の時間だけ倒れたままでいて、最後に立ち姿勢へ戻ります。
+	void PlayKnockdown(float startSeconds, float secondsUntilLanding);
+	// 再生中のKnockdownがクリップ上の何秒目か。再生していなければ0です。
+	float GetKnockdownSeconds() const;
+};
+
+// 倒された近接型の敵の亡骸です。倒れるモーションを再生し、少し置いてから床へ沈んで消えます。
+// 当たり判定もAIも持たないので、敵の数や狙いには含まれません。ステージの記述にも書かれません。
+class SlowCorpse final : public GameObject
+{
+public:
+	void Init() override;
+	void Update() override;
+	// startSecondsは倒れるモーションの開始位置(秒)です。吹き飛び中に倒した敵は、その続きから倒れます。
+	void Begin(const Vector3& position, float yaw, float startSeconds = 0.0f);
+	const std::string& GetAnimationName() const;
+
+private:
+	AnimationModel* m_Body = nullptr;
+	float m_Age = 0.0f;
+	float m_DyingSeconds = 0.0f;
+	float m_FallSpeed = 0.0f;
 };
 
 // 射撃型の敵が撃つ弾です。ワールド時間で進むので、時間減速中は避けたり打ち返したりしやすくなります。

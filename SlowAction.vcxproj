@@ -72,6 +72,7 @@
   <ItemGroup>
     <ClInclude Include="include\slowAction.h" />
     <ClInclude Include="include\animationModel.h" />
+    <ClInclude Include="include\animator.h" />
     <ClInclude Include="include\slowActionTuning.h" />
     <ClInclude Include="include\slowActionUtil.h" />
     <ClInclude Include="include\sceneEditor.h" />
@@ -88,7 +89,25 @@
     <ClCompile Include="src\slowBullet.cpp" />
     <ClCompile Include="src\slowFeedback.cpp" />
     <ClCompile Include="src\slowPlayer.cpp" />
-    <ClCompile Include="src\animationModel.cpp" />
+    <!-- 人型モデルの変形(毎フレーム全頂点)とモーション合成は、Debugでも最適化します。
+         しないと人型1体で約2ms掛かり、敵を数体出すだけで60fpsを保てません。
+         最適化と両立しない設定(エディットコンティニュ・実行時チェック・JustMyCode・最適化なしのPCH)はこの2つだけ外します。 -->
+    <ClCompile Include="src\animationModel.cpp">
+      <Optimization Condition="'$(Configuration)'=='Debug'">MaxSpeed</Optimization>
+      <InlineFunctionExpansion Condition="'$(Configuration)'=='Debug'">AnySuitable</InlineFunctionExpansion>
+      <BasicRuntimeChecks Condition="'$(Configuration)'=='Debug'">Default</BasicRuntimeChecks>
+      <DebugInformationFormat Condition="'$(Configuration)'=='Debug'">ProgramDatabase</DebugInformationFormat>
+      <SupportJustMyCode Condition="'$(Configuration)'=='Debug'">false</SupportJustMyCode>
+      <PrecompiledHeader Condition="'$(Configuration)'=='Debug'">NotUsing</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include="src\animator.cpp">
+      <Optimization Condition="'$(Configuration)'=='Debug'">MaxSpeed</Optimization>
+      <InlineFunctionExpansion Condition="'$(Configuration)'=='Debug'">AnySuitable</InlineFunctionExpansion>
+      <BasicRuntimeChecks Condition="'$(Configuration)'=='Debug'">Default</BasicRuntimeChecks>
+      <DebugInformationFormat Condition="'$(Configuration)'=='Debug'">ProgramDatabase</DebugInformationFormat>
+      <SupportJustMyCode Condition="'$(Configuration)'=='Debug'">false</SupportJustMyCode>
+      <PrecompiledHeader Condition="'$(Configuration)'=='Debug'">NotUsing</PrecompiledHeader>
+    </ClCompile>
     <ClCompile Include="src\sceneEditor.cpp" />
     <ClCompile Include="third_party\imgui\imgui.cpp"><PrecompiledHeader>NotUsing</PrecompiledHeader><ForcedIncludeFiles /></ClCompile>
     <ClCompile Include="third_party\imgui\imgui_draw.cpp"><PrecompiledHeader>NotUsing</PrecompiledHeader><ForcedIncludeFiles /></ClCompile>
@@ -251,6 +270,33 @@
     </RuntimeAsset>
     <RuntimeAsset Include="assets\model\Akai_Run.fbx">
       <TargetPath>assets\model\Akai_Run.fbx</TargetPath>
+    </RuntimeAsset>
+    <RuntimeAsset Include="assets\model\Akai_Dash.fbx">
+      <TargetPath>assets\model\Akai_Dash.fbx</TargetPath>
+    </RuntimeAsset>
+    <RuntimeAsset Include="assets\model\Akai_Slash.fbx">
+      <TargetPath>assets\model\Akai_Slash.fbx</TargetPath>
+    </RuntimeAsset>
+    <RuntimeAsset Include="assets\model\Enemy.fbx">
+      <TargetPath>assets\model\Enemy.fbx</TargetPath>
+    </RuntimeAsset>
+    <RuntimeAsset Include="assets\model\Enemy_Walk.fbx">
+      <TargetPath>assets\model\Enemy_Walk.fbx</TargetPath>
+    </RuntimeAsset>
+    <RuntimeAsset Include="assets\model\Enemy_Knockdown.fbx">
+      <TargetPath>assets\model\Enemy_Knockdown.fbx</TargetPath>
+    </RuntimeAsset>
+    <RuntimeAsset Include="assets\model\Enemy_Flinch.fbx">
+      <TargetPath>assets\model\Enemy_Flinch.fbx</TargetPath>
+    </RuntimeAsset>
+    <RuntimeAsset Include="assets\model\slowSword.obj">
+      <TargetPath>assets\model\slowSword.obj</TargetPath>
+    </RuntimeAsset>
+    <RuntimeAsset Include="assets\model\slowSword.mtl">
+      <TargetPath>assets\model\slowSword.mtl</TargetPath>
+    </RuntimeAsset>
+    <RuntimeAsset Include="assets\model\slowSword.png">
+      <TargetPath>assets\model\slowSword.png</TargetPath>
     </RuntimeAsset>
     <RuntimeAsset Include="assets\model\slowEnemy.obj">
       <TargetPath>assets\model\slowEnemy.obj</TargetPath>

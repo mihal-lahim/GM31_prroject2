@@ -193,9 +193,15 @@ namespace Anim
 		// クリップの寿命は呼び出し側(AnimationModel)が保証します。
 		void AddClip(const std::string& name, const aiAnimation* animation);
 		bool HasClip(const std::string& name) const;
+		// 元クリップ全体の長さ(秒、再生倍率1)です。クリップが無ければ0です。
+		float GetClipSeconds(const std::string& name) const;
 		void AddBlendSpace1D(const std::string& name, BlendSpace1D space);
 		void DefineMask(const std::string& name, const std::vector<std::pair<std::string, float>>& bones);
 		void SetRootBone(const std::string& name) { m_RootBoneName = name; m_RootBone = m_Skeleton.Find(name); }
+		// ベース層(Play/ブレンドツリー)で再生するときに、腰の水平移動を打ち消してその場で再生します。
+		// Mixamoで「In Place」にせず書き出した走りなど、前へ進んでしまうクリップに使います。
+		// アクション層でLock再生するときも、再生を始めた位置ではなく原点の真上に腰を固定します。
+		void SetClipInPlace(const std::string& name, bool inPlace);
 
 		void SetParameter(const std::string& name, float value) { m_Parameters[name] = value; }
 		float GetParameter(const std::string& name) const;
@@ -247,6 +253,7 @@ namespace Anim
 		{
 			const aiAnimation* Animation = nullptr;
 			ClipBinding Binding;
+			bool InPlace = false;
 		};
 		struct ActionLayer
 		{
@@ -270,6 +277,8 @@ namespace Anim
 			Pose LastPose;
 			bool HasLastPose = false;
 			aiVector3D RootStart{};
+			// Lockで腰を固定する水平位置です(普通はRootStart、InPlace指定のクリップはバインドポーズ)。
+			aiVector3D LockOrigin{};
 			// 直前に評価したときの、打ち消す前の腰の位置(親空間)。移動量の差分を取るのに使います。
 			aiVector3D PreviousRoot{};
 			// 加算ブレンドの基準姿勢です。
@@ -286,6 +295,9 @@ namespace Anim
 		const ActionLayer* FindLayer(int layer) const;
 		void BeginLoopSeamBlend(double cycleSeconds);
 		aiVector3D SampleRoot(const ActionLayer& layer, double ticks);
+		aiVector3D SampleRoot(const ClipEntry& clip, double ticks) const;
+		// ベース層用のサンプリングです。InPlaceのクリップは腰の水平位置をバインドポーズに固定します。
+		void SampleBaseClip(const ClipEntry& clip, double ticks, Pose& out) const;
 		aiVector3D Horizontal(const aiVector3D& value) const;
 
 		Skeleton m_Skeleton;

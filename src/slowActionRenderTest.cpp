@@ -80,15 +80,17 @@ namespace
 
 		void Check(const char* name, bool condition, float value = 0.0f)
 		{
-			Log << (condition ? "PASS " : "FAIL ") << name << " (" << value << ")\n";
+			// 途中で落ちても、どこまで進んだか分かるように毎回書き出します。
+			Log << (condition ? "PASS " : "FAIL ") << name << " (" << value << ")" << std::endl;
 			Passed &= condition;
 		}
 
-		// 入力をすべて離し、進行中の攻撃が終わるまで待ってから、時計とプレイヤー位置をそろえます。
+		// 入力をすべて離し、進行中の攻撃が終わってコンボの猶予も切れるまで待ってから、
+		// 時計とプレイヤー位置をそろえます。次の攻撃は必ず1段目から始まります。
 		void Settle(const Vector3& playerPosition, float playerYaw)
 		{
 			Input = SlowInputState{};
-			Step(40);
+			Step(40 + static_cast<int>(GetSlowActionTuning().ComboChainSeconds * 60.0f) + 2);
 			SlowClock::Reset();
 			Player()->SetPosition(playerPosition);
 			Player()->SetYaw(playerYaw);
@@ -202,12 +204,37 @@ bool RunSlowActionRenderTest()
 	h.Enemy()->SetPosition(farAway);
 	h.Settle(openSpot, 0.0f);
 	h.Input.MoveZ = 1.0f;
-	h.Step(30);
+	auto hipsOffset = [&h]()
+	{
+		Vector3 hips;
+		if (!h.Player()->GetHipsWorldPosition(hips)) return -1.0f;
+		const Vector3 offset = hips - h.Player()->GetPosition();
+		return sqrtf(offset.x * offset.x + offset.z * offset.z);
+	};
+	float walkFarthest = 0.0f;
+	for (int frame = 0; frame < 30; ++frame)
+	{
+		h.Step(1);
+		walkFarthest = (std::max)(walkFarthest, hipsOffset());
+	}
+	h.Check("walk clip stays in place", walkFarthest >= 0.0f && walkFarthest < 0.4f, walkFarthest);
 	h.Check("walk speed", fabsf(h.Player()->GetSpeed() - tuning.WalkSpeed) < 0.1f, h.Player()->GetSpeed());
+	h.Check("walk plays run clip", h.Player()->GetAnimationName() == "Run");
 	h.Input.Dash = true;
 	h.Step(1);
 	h.Check("dash starts at full speed", h.Player()->GetState() == State::Dash
 		&& fabsf(h.Player()->GetSpeed() - tuning.DashSpeed) < 0.1f, h.Player()->GetSpeed());
+	h.Check("dash plays dash clip", h.Player()->GetAnimationName() == "Dash");
+	{
+		// ダッシュのクリップは腰が前へ進むので、その場に固定できていないと体がカプセルから離れていきます。
+		float farthest = 0.0f;
+		for (int frame = 0; frame < 30; ++frame)
+		{
+			h.Step(1);
+			farthest = (std::max)(farthest, hipsOffset());
+		}
+		h.Check("dash clip stays in place", farthest < 0.4f, farthest);
+	}
 	// 真横へ切り返した直後は、まだ前向きの速度が残っています(慣性)。
 	h.Input.MoveZ = 0.0f;
 	h.Input.MoveX = 1.0f;
@@ -250,18 +277,91 @@ bool RunSlowActionRenderTest()
 	h.Check("new shift press cancels attack into dash", h.Player()->GetState() == State::Dash);
 
 	// ---- 先行入力 ----
+	// 攻撃の終わりAttackBufferSeconds以内に短押しを離して予約し、今の攻撃が終わるまで進めます。
+	auto bufferNextAttack = [&]()
+	{
+		const float duration = h.Player()->GetAttackDuration();
+		const int before = (std::max)(0, static_cast<int>(ceilf((duration - tuning.AttackBufferSeconds) * 60.0f)) - 1);
+		h.Step(before);
+		h.Input.Attack = true;
+		h.Step(2);
+		h.Input.Attack = false;
+		h.Step();
+		const bool buffered = h.Player()->GetBufferedAttack() == SlowPlayer::AttackType::Normal;
+		// 当たるとヒットストップで時間が遅くなるので、フレーム数ではなく次の段に入るまで進めます。
+		const int step = h.Player()->GetComboStep();
+		for (int i = 0; i < 120 && h.Player()->GetComboStep() == step; ++i) h.Step();
+		return buffered;
+	};
 	h.Settle(openSpot, 0.0f);
 	h.TapAttack();
-	h.Step(4);
-	h.Input.Attack = true;
-	h.Step(2);
-	h.Input.Attack = false;
-	h.Step();
-	h.Check("attack buffered near the end", h.Player()->GetState() == State::Attack
-		&& h.Player()->GetBufferedAttack() == SlowPlayer::AttackType::Normal);
-	h.Step(static_cast<int>(tuning.NormalDuration * 60.0f) - 4);
-	h.Check("buffered attack follows", h.Player()->GetState() == State::Attack
-		&& h.Player()->GetBufferedAttack() == SlowPlayer::AttackType::None);
+	h.Check("first normal attack is combo step 1", h.Player()->GetComboStep() == 1,
+		static_cast<float>(h.Player()->GetComboStep()));
+	h.Check("attack timing comes from the clip", h.Player()->GetAttackDuration() > 0.1f
+		&& h.Player()->GetAttackHitDelay() > 0.0f && h.Player()->GetAttackHitDelay() < h.Player()->GetAttackDuration(),
+		h.Player()->GetAttackDuration());
+	h.Check("attack buffered near the end", bufferNextAttack());
+	h.Check("buffered attack follows as step 2", h.Player()->GetState() == State::Attack
+		&& h.Player()->GetBufferedAttack() == SlowPlayer::AttackType::None && h.Player()->GetComboStep() == 2,
+		static_cast<float>(h.Player()->GetComboStep()));
+
+	// ---- 通常攻撃の3段コンボ: 3段目だけが小さく吹き飛ばす ----
+	h.Settle(openSpot, yawPlusX);
+	h.Enemy()->SetPosition(openSpot + Vector3(1.5f, 0.0f, 0.0f));
+	h.TapAttack();
+	bufferNextAttack();
+	h.Check("first hit does not launch", !h.Enemy()->IsLaunched() && h.Player()->GetComboStep() == 2,
+		static_cast<float>(h.Player()->GetComboStep()));
+	bufferNextAttack();
+	h.Check("third step reached", h.Player()->GetComboStep() == 3, static_cast<float>(h.Player()->GetComboStep()));
+	// 剣は右手の指の骨から向きを作ります。骨が見つからないと剣が消えるので、攻撃中も付いていることを確かめます。
+	h.Check("sword stays in the right hand", h.Player()->IsSwordAttached());
+	h.Check("second hit does not launch", !h.Enemy()->IsLaunched());
+	h.Step(static_cast<int>(h.Player()->GetAttackHitDelay() * 60.0f) - 2);
+	h.Draw();
+	h.Check("capture combo", Capture(L"slow-render-combo.png"));
+	for (int i = 0; i < 60 && !h.Enemy()->IsLaunched(); ++i) h.Step();
+	h.Check("third hit launches", h.Enemy()->IsLaunched());
+	{
+		const Vector3 start = h.Enemy()->GetPosition();
+		float seconds = 0.0f;
+		float peak = 0.0f;
+		for (int i = 0; i < 200 && h.Enemy()->IsLaunched(); ++i)
+		{
+			h.Step();
+			seconds += SlowClock::GetWorldDeltaTime();
+			peak = (std::max)(peak, h.Enemy()->GetPosition().y);
+		}
+		const float travel = SlowUtil::Flatten(h.Enemy()->GetPosition() - start).length();
+		h.Check("finisher launch distance", fabsf(travel - tuning.FinisherLaunchDistance) < 0.4f, travel);
+		h.Check("finisher launch duration", fabsf(seconds - tuning.FinisherLaunchSeconds) < 0.08f, seconds);
+		h.Check("finisher launch is lower than strong", fabsf(peak - tuning.FinisherLaunchHeight) < 0.15f
+			&& peak < tuning.LaunchHeight - 0.3f, peak);
+	}
+	// 敵を離してから、猶予が切れた後の攻撃が1段目に戻ることを確かめます。
+	h.Enemy()->SetPosition(farAway);
+	h.Step(40);
+	h.TapAttack();
+	h.Check("combo restarts after the chain window", h.Player()->GetComboStep() == 1,
+		static_cast<float>(h.Player()->GetComboStep()));
+
+	// ---- 通常攻撃のロック: 少しずれた向きで振っても敵へ向き直り、剣が届くまで踏み込んで当たる ----
+	{
+		// 正面(+Z)から約30度ずれた、剣の届かない距離に敵を置きます。
+		const Vector3 enemyAt = openSpot + Vector3(2.0f, 0.0f, 3.4f);
+		h.Settle(openSpot, 0.0f);
+		h.Enemy()->SetPosition(enemyAt);
+		const float distanceBefore = SlowUtil::Flatten(enemyAt - h.Player()->GetPosition()).length();
+		h.TapAttack();
+		for (int i = 0; i < 120 && h.Player()->GetState() == State::Attack && h.Enemy()->GetState() != SlowEnemy::State::Stagger; ++i) h.Step();
+		const Vector3 toEnemy = SlowUtil::Flatten(h.Enemy()->GetPosition() - h.Player()->GetPosition());
+		const float facingError = fabsf(SlowUtil::WrapAngle(SlowUtil::YawFromDirection(toEnemy) - h.Player()->GetYaw()));
+		h.Check("normal attack turns to the locked enemy", facingError < 0.1f, facingError);
+		h.Check("normal attack steps in toward the enemy", toEnemy.length() < distanceBefore - 1.0f
+			&& toEnemy.length() < tuning.NormalRange, toEnemy.length());
+		h.Check("locked normal attack lands", h.Enemy()->GetState() == SlowEnemy::State::Stagger);
+		h.Enemy()->SetPosition(farAway);
+	}
 
 	// ---- 時間減速: 敵だけ遅くなり、プレイヤーは変わらない ----
 	h.Settle(openSpot, 0.0f);
@@ -403,10 +503,17 @@ bool RunSlowActionRenderTest()
 		h.Settle(openSpot, yawPlusX);
 		h.Enemy()->SetPosition(openSpot + Vector3(1.5f, 0.0f, 0.0f));
 		h.TapAttack();
-		h.Step(6);
+		// 当たる瞬間を過ぎるまで進めます(倒れたらEnemy()がnullになるので、次のSettleより前に当てます)。
+		h.Step(static_cast<int>(h.Player()->GetAttackHitDelay() * 60.0f) + 2);
 		hits++;
 	}
 	h.Check("enemy dies after its hp in hits", h.Enemy() == nullptr && hits == tuning.EnemyHp, static_cast<float>(hits));
+	// 人型の敵は消える代わりに亡骸を残し、倒れるモーションを再生します。
+	SlowCorpse* corpse = h.GetWorld().FindFirst<SlowCorpse>();
+	h.Check("killed humanoid leaves a corpse that falls over", corpse != nullptr && corpse->GetAnimationName() == "Knockdown");
+	h.Step(50);
+	h.Draw();
+	h.Check("capture corpse", Capture(L"slow-render-corpse.png"));
 
 	// ここからは型を指定して1体ずつ生成します。
 	const auto spawnEnemy = [&h](SlowEnemy::Kind kind, const Vector3& position)
@@ -419,6 +526,64 @@ bool RunSlowActionRenderTest()
 	SlowCamera* camera = h.GetWorld().FindFirst<SlowCamera>();
 	// 全滅すると一団が再配置されて検証の邪魔になるので、遠くに1体待機させておきます。
 	SlowEnemy* anchor = spawnEnemy(SlowEnemy::Kind::Melee, { 18.0f, 0.0f, 18.0f });
+	// 亡骸は倒れ終わって少し置いた後、床へ沈んで消えます。
+	for (int i = 0; i < 600 && h.GetWorld().FindFirst<SlowCorpse>() != nullptr; ++i) h.Step();
+	h.Check("corpse sinks away", h.GetWorld().FindFirst<SlowCorpse>() == nullptr);
+
+	// ---- 人型の敵: 歩いて近づき、被弾でのけぞり、また歩き出す ----
+	h.Settle(openSpot, yawPlusX);
+	{
+		SlowEnemy* walker = spawnEnemy(SlowEnemy::Kind::Melee, openSpot + Vector3(7.0f, 0.0f, 0.0f));
+		h.Check("melee enemy uses the humanoid model", walker->HasSkinnedBody());
+		h.Step(20);
+		h.Check("chasing enemy plays walk", walker->GetState() == SlowEnemy::State::Chase
+			&& walker->GetBodyAnimationName() == "Walk");
+		h.Draw();
+		h.Check("capture enemy", Capture(L"slow-render-enemy.png"));
+		// 軽い被弾: 立ったままのけぞり、体は敵の位置から離れません。
+		walker->ApplyHit({ 1.0f, 0.0f, 0.0f }, SlowEnemy::HitStrength::Normal, 0);
+		h.Step(10);
+		h.Check("light hit plays the flinch", walker->GetState() == SlowEnemy::State::Stagger
+			&& walker->GetHitReactionName() == "Flinch");
+		h.Check("flinch keeps the body on the enemy position", walker->GetBodyHipsOffset() < 0.5f, walker->GetBodyHipsOffset());
+		h.Draw();
+		h.Check("capture flinch", Capture(L"slow-render-enemy-flinch.png"));
+		for (int i = 0; i < 120 && walker->GetState() != SlowEnemy::State::Chase; ++i) h.Step();
+		h.Step(30);
+		h.Check("flinch ends and it walks again", !walker->IsHitReactionPlaying()
+			&& walker->GetBodyAnimationName() == "Walk");
+
+		// 吹き飛ばし: 殴られて浮いて倒れるモーションを、着地に合わせて再生します。
+		// このクリップは先頭が原点から3m離れているので、体が敵の位置からずれないことも確かめます。
+		walker->ApplyHit({ 1.0f, 0.0f, 0.0f }, SlowEnemy::HitStrength::Strong, 0);
+		h.Step(2);
+		h.Check("launch plays the knockdown", walker->IsLaunched() && walker->GetHitReactionName() == "Knockdown");
+		h.Check("launched humanoid keeps facing the attacker", fabsf(SlowUtil::WrapAngle(walker->GetRotation().y + XM_PIDIV2)) < 0.01f,
+			walker->GetRotation().y);
+		float farthest = 0.0f;
+		bool captured = false;
+		for (int i = 0; i < 300 && walker->IsLaunched(); ++i)
+		{
+			h.Step();
+			farthest = (std::max)(farthest, walker->GetBodyHipsOffset());
+			if (!captured && walker->GetLaunchRemaining() < tuning.LaunchSeconds * 0.5f)
+			{
+				captured = true;
+				h.Draw();
+				h.Check("capture knockdown", Capture(L"slow-render-enemy-knockdown.png"));
+			}
+		}
+		h.Check("knockdown keeps the body on the enemy position", farthest < 0.6f, farthest);
+		// 着地した時点で、モーションも地面に着く所まで進んでいます。
+		h.Check("body is down when the launch lands", walker->GetState() == SlowEnemy::State::Recover
+			&& walker->GetHitReactionName() == "Knockdown", 0.0f);
+		h.Draw();
+		h.Check("capture down", Capture(L"slow-render-enemy-down.png"));
+		for (int i = 0; i < 120 && walker->GetState() == SlowEnemy::State::Recover; ++i) h.Step();
+		h.Step(10);
+		h.Check("knockdown ends after recovering", !walker->IsHitReactionPlaying());
+		walker->MarkForDestroy();
+	}
 
 	// ---- コンボとスコア: 連続ヒットで数が増え、猶予が過ぎると切れる ----
 	SlowEnemy::SetInvincible(true);
@@ -426,10 +591,17 @@ bool RunSlowActionRenderTest()
 	{
 		SlowEnemy* target = spawnEnemy(SlowEnemy::Kind::Melee, openSpot + Vector3(1.0f, 0.0f, 0.0f));
 		SlowScore::Reset();
+		// 当たるとヒットストップで攻撃が延びるので、攻撃が終わるまで待ちます。ここで確かめたいのはスコアのコンボなので、
+		// 攻撃の段の猶予も切らして毎回1段目にします(3段目の吹き飛ばしで後の強攻撃の確認が変わらないように)。
+		const auto waitAttackEnd = [&h, &tuning]()
+		{
+			for (int i = 0; i < 120 && h.Player()->GetState() == State::Attack; ++i) h.Step();
+			h.Step(static_cast<int>(tuning.ComboChainSeconds * 60.0f) + 2);
+		};
 		for (int i = 0; i < 3; ++i)
 		{
 			h.TapAttack();
-			h.Step(static_cast<int>(tuning.NormalDuration * 60.0f) + 2);
+			waitAttackEnd();
 		}
 		h.Check("three hits make a three combo", SlowScore::GetCombo() == 3, static_cast<float>(SlowScore::GetCombo()));
 		h.Check("hits score at base multiplier", SlowScore::GetScore() == tuning.ScoreNormalHit * 3,
@@ -483,7 +655,7 @@ bool RunSlowActionRenderTest()
 		const int hpBeforeDeflect = h.Player()->GetHp();
 		const int scoreBeforeDeflect = SlowScore::GetScore();
 		h.TapAttack();
-		h.Step(3);
+		h.Step(static_cast<int>(h.Player()->GetAttackHitDelay() * 60.0f) + 2);
 		h.Check("attack deflects the bullet", incoming != nullptr && !h.GetWorld().FindAll<SlowBullet>().empty()
 			&& h.GetWorld().FindAll<SlowBullet>()[0]->IsDeflected() && SlowScore::GetScore() > scoreBeforeDeflect);
 		bool gunnerLaunched = false;
@@ -505,12 +677,12 @@ bool RunSlowActionRenderTest()
 		SlowEnemy* brute = spawnEnemy(SlowEnemy::Kind::Brute, { 12.0f, 0.0f, 16.0f });
 		h.Step();
 		const Vector3 west{ -1.0f, 0.0f, 0.0f };
-		brute->ApplyHit(west, false, 1);
+		brute->ApplyHit(west, SlowEnemy::HitStrength::Normal, 1);
 		h.Check("brute ignores normal hits", brute->GetState() == SlowEnemy::State::Idle && brute->GetArmor() == tuning.BruteArmor);
-		brute->ApplyHit(west, true, 1);
+		brute->ApplyHit(west, SlowEnemy::HitStrength::Strong, 1);
 		h.Check("strong hit chips brute armor", !brute->IsLaunched() && brute->GetArmor() == tuning.BruteArmor - 1,
 			static_cast<float>(brute->GetArmor()));
-		for (int i = 1; i < tuning.BruteArmor; ++i) brute->ApplyHit(west, true, 1);
+		for (int i = 1; i < tuning.BruteArmor; ++i) brute->ApplyHit(west, SlowEnemy::HitStrength::Strong, 1);
 		h.Check("broken armor launches the brute", brute->IsLaunched());
 		const Vector3 bruteStart = brute->GetPosition();
 		for (int i = 0; i < 300 && brute->IsLaunched(); ++i) h.Step();
