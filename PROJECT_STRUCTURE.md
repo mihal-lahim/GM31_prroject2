@@ -82,8 +82,14 @@ time is slowed; the player and camera keep running on real time.
   replaceable from tests) and `SlowClock` (world time scale and the slow gauge).
   Enemies read `SlowClock::GetWorldDeltaTime()`; the player and camera read `GameTime`.
 - `slowPlayer.cpp`: move / dash / attack state machine, attack buffering and dash cancel.
-- `slowEnemy.cpp`: melee AI, launch arc, wall bounce and pursuit. Launch speed and height are
+  The player is drawn with the class character `Akai.fbx` through `AnimationModel` (compiled by
+  the app, like ClassroomWalk). Only Idle and Run are used for now; attack clips come later.
+- `slowEnemy.cpp`: enemy AI for three kinds (melee, gunner, armored brute) selected by the
+  reflected `Kind` value, launch arc, wall bounce and pursuit. Launch speed and height are
   functions of elapsed launch time, so repeated pursuits and bounces cannot accumulate speed.
+- `slowBullet.cpp`: gunner projectile on world time; player attacks deflect it back at the shooter.
+- `slowFeedback.cpp`: `SlowScore` (combo, multiplier, score, popups) and `SlowSound`
+  (pooled sound effects owned by one `SlowSoundBank` object in the scene).
 - `slowCamera.cpp`: third-person follow camera with dash FOV, launch assist and wall pull-in.
 - `slowActionTuning.*`: every gameplay number, overridable from `assets/config/slow-gameplay.cfg`.
 - `slowActionRenderTest.cpp`: scripted checks of the specified numbers and transitions.

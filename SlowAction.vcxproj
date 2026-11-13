@@ -71,6 +71,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="include\slowAction.h" />
+    <ClInclude Include="include\animationModel.h" />
     <ClInclude Include="include\slowActionTuning.h" />
     <ClInclude Include="include\slowActionUtil.h" />
     <ClInclude Include="include\sceneEditor.h" />
@@ -84,7 +85,10 @@
     <ClCompile Include="src\slowActionTuning.cpp" />
     <ClCompile Include="src\slowCamera.cpp" />
     <ClCompile Include="src\slowEnemy.cpp" />
+    <ClCompile Include="src\slowBullet.cpp" />
+    <ClCompile Include="src\slowFeedback.cpp" />
     <ClCompile Include="src\slowPlayer.cpp" />
+    <ClCompile Include="src\animationModel.cpp" />
     <ClCompile Include="src\sceneEditor.cpp" />
     <ClCompile Include="third_party\imgui\imgui.cpp"><PrecompiledHeader>NotUsing</PrecompiledHeader><ForcedIncludeFiles /></ClCompile>
     <ClCompile Include="third_party\imgui\imgui_draw.cpp"><PrecompiledHeader>NotUsing</PrecompiledHeader><ForcedIncludeFiles /></ClCompile>
@@ -128,6 +132,108 @@
     <RuntimeAsset Include="assets\audio\wan.wav">
       <TargetPath>assets\audio\wan.wav</TargetPath>
     </RuntimeAsset>
+    <RuntimeAsset Include="assets\audio\slowHit.wav">
+      <TargetPath>assets\audio\slowHit.wav</TargetPath>
+    </RuntimeAsset>
+    <RuntimeAsset Include="assets\audio\slowStrongHit.wav">
+      <TargetPath>assets\audio\slowStrongHit.wav</TargetPath>
+    </RuntimeAsset>
+    <RuntimeAsset Include="assets\audio\slowBounce.wav">
+      <TargetPath>assets\audio\slowBounce.wav</TargetPath>
+    </RuntimeAsset>
+    <RuntimeAsset Include="assets\audio\slowKill.wav">
+      <TargetPath>assets\audio\slowKill.wav</TargetPath>
+    </RuntimeAsset>
+    <RuntimeAsset Include="assets\audio\slowDamage.wav">
+      <TargetPath>assets\audio\slowDamage.wav</TargetPath>
+    </RuntimeAsset>
+    <RuntimeAsset Include="assets\audio\slowTimeOn.wav">
+      <TargetPath>assets\audio\slowTimeOn.wav</TargetPath>
+    </RuntimeAsset>
+    <RuntimeAsset Include="assets\audio\slowShot.wav">
+      <TargetPath>assets\audio\slowShot.wav</TargetPath>
+    </RuntimeAsset>
+    <RuntimeAsset Include="assets\audio\slowDeflect.wav">
+      <TargetPath>assets\audio\slowDeflect.wav</TargetPath>
+    </RuntimeAsset>
+    <RuntimeAsset Include="assets\model\slowEnemyHit.obj">
+      <TargetPath>assets\model\slowEnemyHit.obj</TargetPath>
+    </RuntimeAsset>
+    <RuntimeAsset Include="assets\model\slowEnemyHit.mtl">
+      <TargetPath>assets\model\slowEnemyHit.mtl</TargetPath>
+    </RuntimeAsset>
+    <RuntimeAsset Include="assets\model\slowGunner.obj">
+      <TargetPath>assets\model\slowGunner.obj</TargetPath>
+    </RuntimeAsset>
+    <RuntimeAsset Include="assets\model\slowGunner.mtl">
+      <TargetPath>assets\model\slowGunner.mtl</TargetPath>
+    </RuntimeAsset>
+    <RuntimeAsset Include="assets\model\slowGunnerWindup.obj">
+      <TargetPath>assets\model\slowGunnerWindup.obj</TargetPath>
+    </RuntimeAsset>
+    <RuntimeAsset Include="assets\model\slowGunnerWindup.mtl">
+      <TargetPath>assets\model\slowGunnerWindup.mtl</TargetPath>
+    </RuntimeAsset>
+    <RuntimeAsset Include="assets\model\slowGunnerLaunched.obj">
+      <TargetPath>assets\model\slowGunnerLaunched.obj</TargetPath>
+    </RuntimeAsset>
+    <RuntimeAsset Include="assets\model\slowGunnerLaunched.mtl">
+      <TargetPath>assets\model\slowGunnerLaunched.mtl</TargetPath>
+    </RuntimeAsset>
+    <RuntimeAsset Include="assets\model\slowGunnerDown.obj">
+      <TargetPath>assets\model\slowGunnerDown.obj</TargetPath>
+    </RuntimeAsset>
+    <RuntimeAsset Include="assets\model\slowGunnerDown.mtl">
+      <TargetPath>assets\model\slowGunnerDown.mtl</TargetPath>
+    </RuntimeAsset>
+    <RuntimeAsset Include="assets\model\slowGunnerHit.obj">
+      <TargetPath>assets\model\slowGunnerHit.obj</TargetPath>
+    </RuntimeAsset>
+    <RuntimeAsset Include="assets\model\slowGunnerHit.mtl">
+      <TargetPath>assets\model\slowGunnerHit.mtl</TargetPath>
+    </RuntimeAsset>
+    <RuntimeAsset Include="assets\model\slowBrute.obj">
+      <TargetPath>assets\model\slowBrute.obj</TargetPath>
+    </RuntimeAsset>
+    <RuntimeAsset Include="assets\model\slowBrute.mtl">
+      <TargetPath>assets\model\slowBrute.mtl</TargetPath>
+    </RuntimeAsset>
+    <RuntimeAsset Include="assets\model\slowBruteWindup.obj">
+      <TargetPath>assets\model\slowBruteWindup.obj</TargetPath>
+    </RuntimeAsset>
+    <RuntimeAsset Include="assets\model\slowBruteWindup.mtl">
+      <TargetPath>assets\model\slowBruteWindup.mtl</TargetPath>
+    </RuntimeAsset>
+    <RuntimeAsset Include="assets\model\slowBruteLaunched.obj">
+      <TargetPath>assets\model\slowBruteLaunched.obj</TargetPath>
+    </RuntimeAsset>
+    <RuntimeAsset Include="assets\model\slowBruteLaunched.mtl">
+      <TargetPath>assets\model\slowBruteLaunched.mtl</TargetPath>
+    </RuntimeAsset>
+    <RuntimeAsset Include="assets\model\slowBruteDown.obj">
+      <TargetPath>assets\model\slowBruteDown.obj</TargetPath>
+    </RuntimeAsset>
+    <RuntimeAsset Include="assets\model\slowBruteDown.mtl">
+      <TargetPath>assets\model\slowBruteDown.mtl</TargetPath>
+    </RuntimeAsset>
+    <RuntimeAsset Include="assets\model\slowBruteHit.obj">
+      <TargetPath>assets\model\slowBruteHit.obj</TargetPath>
+    </RuntimeAsset>
+    <RuntimeAsset Include="assets\model\slowBruteHit.mtl">
+      <TargetPath>assets\model\slowBruteHit.mtl</TargetPath>
+    </RuntimeAsset>
+    <RuntimeAsset Include="assets\model\slowBullet.obj">
+      <TargetPath>assets\model\slowBullet.obj</TargetPath>
+    </RuntimeAsset>
+    <RuntimeAsset Include="assets\model\slowBullet.mtl">
+      <TargetPath>assets\model\slowBullet.mtl</TargetPath>
+    </RuntimeAsset>
+    <RuntimeAsset Include="assets\model\slowBulletDeflected.obj">
+      <TargetPath>assets\model\slowBulletDeflected.obj</TargetPath>
+    </RuntimeAsset>
+    <RuntimeAsset Include="assets\model\slowBulletDeflected.mtl">
+      <TargetPath>assets\model\slowBulletDeflected.mtl</TargetPath>
+    </RuntimeAsset>
     <RuntimeAsset Include="assets\scene\slow-stage.scene">
       <TargetPath>assets\scene\slow-stage.scene</TargetPath>
     </RuntimeAsset>
@@ -137,11 +243,14 @@
     <RuntimeAsset Include="assets\config\slow-gameplay.cfg">
       <TargetPath>assets\config\slow-gameplay.cfg</TargetPath>
     </RuntimeAsset>
-    <RuntimeAsset Include="assets\model\slowPlayer.obj">
-      <TargetPath>assets\model\slowPlayer.obj</TargetPath>
+    <RuntimeAsset Include="assets\model\Akai.fbx">
+      <TargetPath>assets\model\Akai.fbx</TargetPath>
     </RuntimeAsset>
-    <RuntimeAsset Include="assets\model\slowPlayer.mtl">
-      <TargetPath>assets\model\slowPlayer.mtl</TargetPath>
+    <RuntimeAsset Include="assets\model\Akai_Idle.fbx">
+      <TargetPath>assets\model\Akai_Idle.fbx</TargetPath>
+    </RuntimeAsset>
+    <RuntimeAsset Include="assets\model\Akai_Run.fbx">
+      <TargetPath>assets\model\Akai_Run.fbx</TargetPath>
     </RuntimeAsset>
     <RuntimeAsset Include="assets\model\slowEnemy.obj">
       <TargetPath>assets\model\slowEnemy.obj</TargetPath>

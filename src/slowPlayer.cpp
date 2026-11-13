@@ -3,7 +3,7 @@
 #include "slowActionTuning.h"
 #include "slowActionUtil.h"
 #include "collider.h"
-#include "modelRenderer.h"
+#include "animationModel.h"
 #include "gameTime.h"
 #include "sceneEditor.h"
 #include "world.h"
@@ -32,12 +32,23 @@ void SlowPlayer::Init()
 {
 	const SlowActionTuning& tuning = GetSlowActionTuning();
 	m_Layer = Layer::World;
-	ModelRenderer* model = AddComponent<ModelRenderer>()->SetUseOwnerTransform();
-	model->Load("assets\\model\\slowPlayer.obj");
-	if (model->SetShaderDefinition("realistic"))
+	// 授業用のキャラクター(Akai)です。剣と攻撃モーションは後から足すので、今は待機と走りだけです。
+	m_Model = AddComponent<AnimationModel>();
+	m_Model->Load("assets/model/Akai.fbx");
+	m_Model->LoadAnimation("assets/model/Akai_Idle.fbx", "Idle");
+	m_Model->LoadAnimation("assets/model/Akai_Run.fbx", "Run");
+	m_Model->SetModelScale(0.01f);
+	// Akaiのモデルの正面は-Zなので、移動の向きの基準(+Z)へ回します。
+	m_Model->SetModelYawOffset(XM_PI);
+	if (m_Model->SetShaderDefinition("realistic"))
 	{
-		model->SetShaderFloat("roughness", 0.5f);
+		m_Model->SetShaderFloat("roughness", 0.62f);
+		m_Model->SetShaderFloat("metallic", 0.0f);
+		m_Model->SetShaderFloat("bump", 0.0f);
+		m_Model->SetShaderFloat("rim", 0.45f);
 	}
+	m_Model->PlayAnimation("Idle", 0.0f);
+	m_Model->TickAnimation(0.0f);
 	m_Collider = AddComponent<Collider>()
 		->SetCapsule(tuning.PlayerRadius, tuning.PlayerHeight)
 		->SetOffset({ 0.0f, kCapsuleLift + tuning.PlayerHeight * 0.5f, 0.0f })
@@ -136,6 +147,20 @@ void SlowPlayer::Update()
 		UpdateMovement(input, deltaTime);
 	}
 	m_Rotation.y = m_Yaw;
+	UpdateAnimation(deltaTime);
+}
+
+void SlowPlayer::UpdateAnimation(float deltaTime)
+{
+	const SlowActionTuning& tuning = GetSlowActionTuning();
+	// 攻撃中は動かないので待機にしておきます(攻撃モーションが入ったらここで切り替えます)。
+	const float speed = m_State == State::Attack ? 0.0f : m_Velocity.length();
+	const bool running = speed > 0.5f;
+	// 走りは速さに合わせて再生を速め、ダッシュで足が滑って見えないようにします。
+	m_Model->SetPlayback(running ? std::clamp(speed / tuning.WalkSpeed, 0.8f, 2.2f) : 1.0f);
+	m_Model->PlayAnimation(running ? "Run" : "Idle", m_State == State::Attack ? 0.08f : 0.15f);
+	// ヒットストップ中はGameTimeが遅くなるので、体の動きも一緒に止まります。
+	m_Model->TickAnimation(deltaTime);
 }
 
 void SlowPlayer::StartAttack(AttackType type, bool dashHeld)
@@ -194,24 +219,29 @@ void SlowPlayer::PerformAttackHit()
 		strong ? 17 : 9, strong ? 0.5f : 0.35f, strong ? 14 : 10, slashColor);
 
 	const float cosLimit = cosf(halfAngle);
+	// 攻撃の扇形に入っているか。体が重なるほど近いものは、角度に関係なく当てます。
+	const auto inReach = [&](const Vector3& position, float radius)
+	{
+		const Vector3 offset = position - m_Position;
+		if (fabsf(offset.y) > tuning.AttackVerticalReach)
+		{
+			return false;
+		}
+		const Vector3 flat = Flatten(offset);
+		const float distance = flat.length();
+		if (distance > range + radius)
+		{
+			return false;
+		}
+		return distance <= tuning.PlayerRadius + radius || Vector3::dot(flat / distance, m_AttackDirection) >= cosLimit;
+	};
+
 	bool hitAny = false;
+	bool pursuitAny = false;
 	SlowEnemy* launchedEnemy = nullptr;
 	for (SlowEnemy* enemy : GetWorld().FindAll<SlowEnemy>())
 	{
-		const Vector3 offset = enemy->GetPosition() - m_Position;
-		if (fabsf(offset.y) > tuning.AttackVerticalReach)
-		{
-			continue;
-		}
-		Vector3 flat = Flatten(offset);
-		const float distance = flat.length();
-		if (distance > range + tuning.EnemyRadius)
-		{
-			continue;
-		}
-		// 体が重なるほど近い敵は、角度に関係なく当てます。
-		if (distance > tuning.PlayerRadius + tuning.EnemyRadius
-			&& Vector3::dot(flat / distance, m_AttackDirection) < cosLimit)
+		if (!inReach(enemy->GetPosition(), enemy->GetRadius()))
 		{
 			continue;
 		}
@@ -220,12 +250,15 @@ void SlowPlayer::PerformAttackHit()
 		hitAny = true;
 		if (result.Pursuit)
 		{
+			pursuitAny = true;
 			m_PursuitCount++;
 			SlowClock::AddGauge(tuning.GaugeGainPursuit);
+			SlowScore::Add(SlowScore::Event::Pursuit);
 		}
 		else
 		{
 			SlowClock::AddGauge(strong ? tuning.GaugeGainStrongHit : tuning.GaugeGainNormalHit);
+			SlowScore::Add(strong ? SlowScore::Event::StrongHit : SlowScore::Event::NormalHit);
 		}
 		if (result.Launched && !result.Killed && launchedEnemy == nullptr)
 		{
@@ -233,9 +266,40 @@ void SlowPlayer::PerformAttackHit()
 		}
 	}
 
-	if (strong && hitAny)
+	// 飛んでくる弾も、攻撃の範囲に入っていれば打ち返します。
+	bool deflected = false;
+	for (SlowBullet* bullet : GetWorld().FindAll<SlowBullet>())
 	{
-		GameTime::StartHitStop(tuning.StrongHitStopFrames, tuning.HitStopScale);
+		if (bullet->IsDeflected() || bullet->IsPendingDestroy() || !inReach(bullet->GetPosition(), tuning.BulletRadius))
+		{
+			continue;
+		}
+		bullet->Deflect(m_AttackDirection);
+		deflected = true;
+		SlowClock::AddGauge(tuning.GaugeGainStrongHit);
+		SlowScore::Add(SlowScore::Event::Deflect);
+	}
+
+	// 当たりの重さに合わせて、止め・揺れ・音を段階的に強くします。
+	if (pursuitAny || deflected)
+	{
+		GameTime::StartHitStop(tuning.PursuitHitStopFrames, tuning.HitStopScale);
+	}
+	else if (hitAny)
+	{
+		GameTime::StartHitStop(strong ? tuning.StrongHitStopFrames : tuning.NormalHitStopFrames, tuning.HitStopScale);
+	}
+	if (deflected)
+	{
+		SlowSound::Play(SlowSound::Id::Deflect);
+	}
+	if (hitAny)
+	{
+		SlowSound::Play(strong || pursuitAny ? SlowSound::Id::StrongHit : SlowSound::Id::Hit);
+		if (strong || pursuitAny)
+		{
+			SlowCamera::Shake(GetWorld(), tuning.ShakeStrongHit);
+		}
 	}
 	if (strong && launchedEnemy != nullptr)
 	{
@@ -318,6 +382,10 @@ bool SlowPlayer::TryMove(const Vector3& offset)
 
 void SlowPlayer::TakeDamage(int damage)
 {
+	const SlowActionTuning& tuning = GetSlowActionTuning();
 	m_Hp = (std::max)(0, m_Hp - damage);
 	EmitBurst(m_Position + Vector3(0.0f, 1.0f, 0.0f), 14, 5.0f, 0.3f, 22, { 1.0f, 0.25f, 0.25f, 1.0f });
+	SlowScore::BreakCombo();
+	SlowSound::Play(SlowSound::Id::Damage);
+	SlowCamera::Shake(GetWorld(), tuning.ShakePlayerDamage);
 }

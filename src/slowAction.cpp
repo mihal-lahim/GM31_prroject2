@@ -64,6 +64,16 @@ namespace
 		}
 	}
 
+	const wchar_t* EnemyKindName(SlowEnemy::Kind kind)
+	{
+		switch (kind)
+		{
+		case SlowEnemy::Kind::Gunner: return L"射撃";
+		case SlowEnemy::Kind::Brute: return L"重量";
+		default: return L"近接";
+		}
+	}
+
 	const wchar_t* EnemyStateName(SlowEnemy::State state)
 	{
 		switch (state)
@@ -221,6 +231,7 @@ void SlowActionScene::Init()
 	Collider::SetDebugDrawEnabled(false);
 	SlowEnemy::SetInvincible(false);
 	SlowClock::Reset();
+	SlowScore::Reset();
 	World& world = GetWorld();
 	// シーンファイルに書ける型です。ここへ登録した型だけが保存され、エディタから追加できます。
 	Engine::ObjectTypeRegistry::Register<SlowFloor>("SlowFloor");
@@ -242,6 +253,7 @@ void SlowActionScene::Init()
 	SlowCamera* camera = world.Spawn<SlowCamera>();
 	world.Spawn<Sky>()->SetRadius(90.0f);
 	world.Spawn<ParticleSystem>();
+	world.Spawn<SlowSoundBank>();
 	if (const SlowPlayer* player = world.FindFirst<SlowPlayer>())
 	{
 		camera->SetYaw(player->GetYaw());
@@ -264,7 +276,19 @@ void SlowActionScene::Init()
 	m_Help->SetColor({ 1.0f, 1.0f, 1.0f, 0.8f });
 	m_Help->SetPosition({ 16.0f, SCREEN_HEIGHT - 36.0f, 0.0f });
 	m_Help->SetText(kPlayHelp);
+	// スコアとコンボは右上に、目立つ出来事はその下へ流します。
+	m_ScoreText = world.Spawn<DynamicText>();
+	m_ScoreText->SetFontSize(22);
+	m_ScoreText->SetPosition({ SCREEN_WIDTH - 330.0f, 12.0f, 0.0f });
+	m_ComboText = world.Spawn<DynamicText>();
+	m_ComboText->SetFontSize(40);
+	m_ComboText->SetPosition({ SCREEN_WIDTH - 330.0f, 70.0f, 0.0f });
+	m_PopupText = world.Spawn<DynamicText>();
+	m_PopupText->SetFontSize(20);
+	m_PopupText->SetPosition({ SCREEN_WIDTH - 330.0f, 170.0f, 0.0f });
 	m_RespawnTimer = 0.0f;
+	m_WasSlow = false;
+	m_ClearAwarded = false;
 	UpdateHud();
 }
 
@@ -294,9 +318,16 @@ void SlowActionScene::ToggleEditMode()
 		g_StageText = Engine::SceneSerializer::Write(world);
 	}
 	Engine::SceneSerializer::DestroyAll(world);
+	// 弾はステージの記述に含まれないので、別に片付けます。
+	for (SlowBullet* bullet : world.FindAll<SlowBullet>())
+	{
+		bullet->MarkForDestroy();
+	}
 	Engine::SceneSerializer::Read(world, g_StageText);
 	SlowClock::Reset();
+	SlowScore::Reset();
 	m_RespawnTimer = 0.0f;
+	m_ClearAwarded = false;
 
 	SlowCamera* camera = world.FindFirst<SlowCamera>();
 	if (enterEdit && camera != nullptr)
@@ -336,6 +367,9 @@ void SlowActionScene::Update()
 		m_Status->SetColor({ 1.0f, 0.9f, 0.4f, 1.0f });
 		m_Status->SetText(L"");
 		m_EnemyInfo->SetText(L"");
+		m_ScoreText->SetText(L"");
+		m_ComboText->SetText(L"");
+		m_PopupText->SetText(L"");
 		m_Help->SetText(L"編集モード  F3:再生に戻る  右ドラッグ:見回す  WASD/QE:移動(Shiftで加速)  ホイール:前後  "
 			L"左クリック:選択  F1:当たり判定表示");
 		return;
@@ -356,6 +390,12 @@ void SlowActionScene::Update()
 	const float realDeltaTime = GameTime::GetDeltaTime();
 	SlowInput::Poll();
 	SlowClock::Update(realDeltaTime, SlowInput::Get().Slow);
+	SlowScore::Update(realDeltaTime, SlowClock::GetWorldDeltaTime());
+	if (SlowClock::IsSlowActive() && !m_WasSlow)
+	{
+		SlowSound::Play(SlowSound::Id::TimeOn);
+	}
+	m_WasSlow = SlowClock::IsSlowActive();
 
 	World& world = GetWorld();
 	const SlowPlayer* player = world.FindFirst<SlowPlayer>();
@@ -369,10 +409,16 @@ void SlowActionScene::Update()
 	// 全滅したら少し待って同じ配置で出し直します。検証を続けるための再配置で、ウェーブではありません。
 	if (world.FindAll<SlowEnemy>().empty())
 	{
+		if (!m_ClearAwarded)
+		{
+			m_ClearAwarded = true;
+			SlowScore::Add(SlowScore::Event::Clear);
+		}
 		m_RespawnTimer += realDeltaTime;
 		if (m_RespawnTimer >= GetSlowActionTuning().EnemyRespawnSeconds)
 		{
 			m_RespawnTimer = 0.0f;
+			m_ClearAwarded = false;
 			RespawnEnemies();
 		}
 	}
@@ -440,7 +486,12 @@ void SlowActionScene::UpdateHud()
 	int index = 1;
 	for (const SlowEnemy* enemy : world.FindAll<SlowEnemy>())
 	{
-		enemies += Format(L"敵%d  HP %d  %s", index++, enemy->GetHp(), EnemyStateName(enemy->GetState()));
+		enemies += Format(L"敵%d %s  HP %d  %s", index++, EnemyKindName(enemy->GetKind()), enemy->GetHp(),
+			EnemyStateName(enemy->GetState()));
+		if (enemy->GetKind() == SlowEnemy::Kind::Brute)
+		{
+			enemies += Format(L"  装甲 %d", enemy->GetArmor());
+		}
 		if (enemy->IsLaunched())
 		{
 			enemies += Format(L"  残り %.1f秒  壁反射 %d回%s", enemy->GetLaunchRemaining(),
@@ -453,4 +504,34 @@ void SlowActionScene::UpdateHud()
 		enemies = L"敵なし(まもなく再配置)";
 	}
 	m_EnemyInfo->SetText(enemies);
+
+	m_ScoreText->SetText(Format(L"SCORE %d\nBEST %d   最大コンボ %d",
+		SlowScore::GetScore(), SlowScore::GetBestScore(), SlowScore::GetBestCombo()));
+	const int combo = SlowScore::GetCombo();
+	std::wstring popups;
+	if (combo > 0)
+	{
+		m_ComboText->SetText(Format(L"%d COMBO %s\nx%.1f", combo, SlowScore::GetRank(), SlowScore::GetMultiplier()));
+		// 評価が上がるほど色を熱くします。
+		const float heat = (std::min)(static_cast<float>(combo) / 25.0f, 1.0f);
+		m_ComboText->SetColor({ 1.0f, 1.0f - heat * 0.55f, 1.0f - heat * 0.9f, 1.0f });
+		// 残り時間を小さな文字のバーで見せ、切れそうなことが分かるようにします。
+		constexpr int kBarCells = 14;
+		const int remaining = static_cast<int>(ceilf(SlowScore::GetComboRemaining() * kBarCells));
+		for (int i = 0; i < kBarCells; ++i)
+		{
+			popups += i < remaining ? L'■' : L'□';
+		}
+		popups += L"\n";
+	}
+	else
+	{
+		m_ComboText->SetText(L"");
+	}
+	for (const SlowScore::Popup& popup : SlowScore::GetPopups())
+	{
+		popups += popup.Text + L"\n";
+	}
+	m_PopupText->SetText(popups);
+	m_PopupText->SetColor({ 1.0f, 0.95f, 0.6f, 1.0f });
 }

@@ -46,14 +46,32 @@ make_model() {
 	}' > "$out/$name.obj"
 }
 
-make_model slowPlayer "Body 0.20 0.45 0.95" "Visor 0.85 1.00 1.00" "Blade 0.95 0.95 0.80" -- \
-	"Body 0 0.85 0 0.32 0.85 0.22" "Visor 0 1.45 0.24 0.22 0.10 0.06" "Blade 0.42 0.90 0.40 0.04 0.04 0.60"
-
 enemy_boxes=("Body 0 0.80 0 0.40 0.80 0.30" "Eye 0 1.30 0.31 0.25 0.08 0.04")
 make_model slowEnemy         "Body 0.85 0.20 0.18" "Eye 0.05 0.05 0.05" -- "${enemy_boxes[@]}"
 make_model slowEnemyWindup   "Body 1.00 0.85 0.10" "Eye 0.05 0.05 0.05" -- "${enemy_boxes[@]}"
 make_model slowEnemyLaunched "Body 1.00 0.55 0.15" "Eye 1.00 1.00 1.00" -- "${enemy_boxes[@]}"
 make_model slowEnemyDown     "Body 0.45 0.25 0.30" "Eye 0.05 0.05 0.05" -- "${enemy_boxes[@]}"
+make_model slowEnemyHit      "Body 1.00 1.00 1.00" "Eye 0.90 0.90 0.90" -- "${enemy_boxes[@]}"
+
+# 射撃型: 細身で、右手に銃身を持ちます。
+gunner_boxes=("Body 0 0.75 0 0.30 0.75 0.24" "Eye 0 1.25 0.25 0.22 0.06 0.03" "Barrel 0.30 1.05 0.45 0.07 0.07 0.40")
+make_model slowGunner         "Body 0.55 0.25 0.80" "Eye 0.20 1.00 0.60" "Barrel 0.15 0.15 0.18" -- "${gunner_boxes[@]}"
+make_model slowGunnerWindup   "Body 1.00 0.85 0.10" "Eye 1.00 0.20 0.20" "Barrel 0.15 0.15 0.18" -- "${gunner_boxes[@]}"
+make_model slowGunnerLaunched "Body 1.00 0.55 0.15" "Eye 1.00 1.00 1.00" "Barrel 0.15 0.15 0.18" -- "${gunner_boxes[@]}"
+make_model slowGunnerDown     "Body 0.35 0.22 0.42" "Eye 0.10 0.30 0.20" "Barrel 0.15 0.15 0.18" -- "${gunner_boxes[@]}"
+make_model slowGunnerHit      "Body 1.00 1.00 1.00" "Eye 0.90 0.90 0.90" "Barrel 0.90 0.90 0.90" -- "${gunner_boxes[@]}"
+
+# 重量型: 大きく、肩の装甲が残っている間は打ち上がりません。
+brute_boxes=("Body 0 1.05 0 0.62 1.05 0.48" "Armor -0.78 1.65 0 0.22 0.30 0.40" "Armor 0.78 1.65 0 0.22 0.30 0.40" "Eye 0 1.70 0.49 0.35 0.08 0.04")
+make_model slowBrute         "Body 0.45 0.40 0.32" "Armor 0.75 0.72 0.65" "Eye 1.00 0.45 0.10" -- "${brute_boxes[@]}"
+make_model slowBruteWindup   "Body 1.00 0.80 0.10" "Armor 0.75 0.72 0.65" "Eye 1.00 0.10 0.10" -- "${brute_boxes[@]}"
+make_model slowBruteLaunched "Body 1.00 0.55 0.15" "Armor 0.75 0.72 0.65" "Eye 1.00 1.00 1.00" -- "${brute_boxes[@]}"
+make_model slowBruteDown     "Body 0.30 0.26 0.24" "Armor 0.35 0.30 0.28" "Eye 0.30 0.15 0.05" -- "${brute_boxes[@]}"
+make_model slowBruteHit      "Body 1.00 1.00 1.00" "Armor 1.00 1.00 1.00" "Eye 0.90 0.90 0.90" -- "${brute_boxes[@]}"
+
+# 敵の弾です。中心が原点です。
+make_model slowBullet        "Core 1.00 0.35 0.85" -- "Core 0 0 0 0.18 0.18 0.18"
+make_model slowBulletDeflected "Core 0.40 1.00 1.00" -- "Core 0 0 0 0.18 0.18 0.18"
 
 # -1〜1の立方体です。scaleがそのまま半サイズになります。
 make_model slowWall     "Wall 0.36 0.42 0.52" -- "Wall 0 0 0 1 1 1"

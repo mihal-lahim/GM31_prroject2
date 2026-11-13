@@ -140,3 +140,33 @@ rotation 0 0 0
 scale 1 1 1
 int HpOverride 0
 end
+
+object SlowEnemy
+name 射撃 左
+id 38
+position -14 0 4
+rotation 0 3.14159274 0
+scale 1 1 1
+int Kind 1
+int HpOverride 0
+end
+
+object SlowEnemy
+name 射撃 右
+id 39
+position 14 0 4
+rotation 0 3.14159274 0
+scale 1 1 1
+int Kind 1
+int HpOverride 0
+end
+
+object SlowEnemy
+name 重量 奥
+id 40
+position 9 0 15
+rotation 0 3.14159274 0
+scale 1 1 1
+int Kind 2
+int HpOverride 0
+end

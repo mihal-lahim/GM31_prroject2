@@ -86,6 +86,70 @@ struct SlowActionTuning
 	// 全滅してから次の一団が出るまでの実時間です(テスト用の再配置で、ウェーブではありません)。
 	float EnemyRespawnSeconds = 2.5f;
 
+	// ---- 射撃型の敵 ----
+	int GunnerHp = 2;
+	float GunnerRadius = 0.4f;
+	float GunnerMoveSpeed = 3.0f;
+	// この距離の間に収まるよう、近づいたり離れたりします。
+	float GunnerMinRange = 6.0f;
+	float GunnerMaxRange = 12.0f;
+	// 狙いを付けてから撃つまでの時間です。この間、照準線が見えます。
+	float GunnerWindupSeconds = 0.75f;
+	float GunnerCooldownSeconds = 1.8f;
+	float BulletSpeed = 9.0f;
+	float BulletRadius = 0.3f;
+	float BulletLifeSeconds = 4.0f;
+	int BulletDamage = 12;
+	// 打ち返した弾の速さの倍率と、当たった敵へのダメージです。打ち返した弾は敵を吹き飛ばします。
+	float DeflectSpeedScale = 1.8f;
+	int DeflectDamage = 2;
+
+	// ---- 重量型の敵 ----
+	int BruteHp = 8;
+	float BruteRadius = 0.7f;
+	float BruteMoveSpeed = 2.4f;
+	float BruteAttackRange = 2.6f;
+	float BruteAttackHitRange = 3.4f;
+	float BruteAttackHalfAngleDegrees = 85.0f;
+	float BruteWindupSeconds = 0.95f;
+	float BruteAttackCooldownSeconds = 1.6f;
+	int BruteAttackDamage = 25;
+	// 強攻撃をこの回数当てると装甲が割れて打ち上がります。予兆中に当てると一撃で割れます。
+	int BruteArmor = 2;
+	float BruteStaggerSeconds = 0.18f;
+	// 吹き飛ぶ距離の倍率です。重いので短く飛びます。
+	float BruteLaunchScale = 0.6f;
+
+	// ---- 手触り ----
+	int NormalHitStopFrames = 2;
+	int PursuitHitStopFrames = 4;
+	int KillHitStopFrames = 6;
+	// 画面揺れの強さ(m)と、揺れが収まる速さ(1/秒)です。
+	float ShakeStrongHit = 0.12f;
+	float ShakeWallBounce = 0.18f;
+	float ShakeKill = 0.22f;
+	float ShakePlayerDamage = 0.3f;
+	float ShakeDecay = 7.0f;
+	// 被弾した敵を白く光らせる時間(実時間)です。
+	float HitFlashSeconds = 0.07f;
+
+	// ---- スコアとコンボ ----
+	// 最後に当ててからこの時間(ワールド時間)が過ぎるとコンボが切れます。減速中は切れにくくなります。
+	float ComboWindowSeconds = 2.5f;
+	// コンボがこの数増えるごとに、倍率がComboMultiplierStepずつ上がります。
+	int ComboMultiplierEvery = 5;
+	float ComboMultiplierStep = 0.5f;
+	float ComboMultiplierMax = 4.0f;
+	int ScoreNormalHit = 10;
+	int ScoreStrongHit = 20;
+	int ScorePursuit = 40;
+	int ScoreWallBounce = 30;
+	int ScoreDeflect = 50;
+	int ScoreKillMelee = 100;
+	int ScoreKillGunner = 150;
+	int ScoreKillBrute = 300;
+	int ScoreClearBonus = 500;
+
 	// ---- カメラ ----
 	float CameraDistance = 7.5f;
 	float CameraMinDistance = 1.2f;

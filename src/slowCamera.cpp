@@ -139,9 +139,23 @@ void SlowCamera::LateUpdate()
 	}
 
 	m_Eye = m_Focus + backward * m_Distance;
+	Vector3 focus = m_Focus;
+	// 揺れは注視点とカメラを同じだけずらします。向きが変わらないので酔いにくく、照準も狂いません。
+	if (m_Shake > 0.0f)
+	{
+		m_ShakeTime += deltaTime;
+		const Vector3 offset{ sinf(m_ShakeTime * 47.0f), sinf(m_ShakeTime * 59.0f + 1.3f), sinf(m_ShakeTime * 41.0f + 2.1f) };
+		m_Eye += offset * m_Shake;
+		focus += offset * m_Shake;
+		m_Shake *= expf(-tuning.ShakeDecay * deltaTime);
+		if (m_Shake < 0.002f)
+		{
+			m_Shake = 0.0f;
+		}
+	}
 	m_View = XMMatrixLookAtLH(
 		XMVectorSet(m_Eye.x, m_Eye.y, m_Eye.z, 1.0f),
-		XMVectorSet(m_Focus.x, m_Focus.y, m_Focus.z, 1.0f),
+		XMVectorSet(focus.x, focus.y, focus.z, 1.0f),
 		XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f));
 }
 
@@ -167,4 +181,12 @@ void SlowCamera::Draw()
 		static_cast<float>(SCREEN_WIDTH) / SCREEN_HEIGHT, 0.1f, 200.0f));
 	Renderer::SetViewMatrix(m_View);
 	Renderer::SetCameraPosition(XMFLOAT3(m_Eye.x, m_Eye.y, m_Eye.z));
+}
+
+void SlowCamera::Shake(World& world, float strength)
+{
+	if (SlowCamera* camera = world.FindFirst<SlowCamera>())
+	{
+		camera->AddShake(strength);
+	}
 }

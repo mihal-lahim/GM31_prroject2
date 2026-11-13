@@ -2,21 +2,21 @@
 
 newmtl Body
 Ka 1.0 1.0 1.0
-Kd 0.20 0.45 0.95
+Kd 1.00 1.00 1.00
 Ks 0.1 0.1 0.1
 Ns 10
 d 1.0
 
-newmtl Visor
+newmtl Armor
 Ka 1.0 1.0 1.0
-Kd 0.85 1.00 1.00
+Kd 1.00 1.00 1.00
 Ks 0.1 0.1 0.1
 Ns 10
 d 1.0
 
-newmtl Blade
+newmtl Eye
 Ka 1.0 1.0 1.0
-Kd 0.95 0.95 0.80
+Kd 0.90 0.90 0.90
 Ks 0.1 0.1 0.1
 Ns 10
 d 1.0

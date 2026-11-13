@@ -127,7 +127,13 @@ bool RunSlowActionRenderTest()
 	h.Step(30);
 	h.Draw();
 	h.Check("capture start", Capture(L"slow-render.png"));
-	h.Check("five enemies spawned", h.GetWorld().FindAll<SlowEnemy>().size() == 5);
+	// 敵の数はステージファイル次第なので、ファイルに書かれた数と比べます。
+	std::size_t stageEnemies = 0;
+	{
+		const std::string stage = Engine::SceneSerializer::ReadFileText("assets/scene/slow-stage.scene");
+		for (std::size_t at = stage.find("object SlowEnemy"); at != std::string::npos; at = stage.find("object SlowEnemy", at + 1)) stageEnemies++;
+	}
+	h.Check("stage enemies spawned", stageEnemies > 0 && h.GetWorld().FindAll<SlowEnemy>().size() == stageEnemies, static_cast<float>(stageEnemies));
 
 	// ---- 編集モード: ゲームが止まり、配置の変更が再生へ引き継がれる ----
 	{
@@ -141,7 +147,7 @@ bool RunSlowActionRenderTest()
 		h.Scene.ToggleEditMode();
 		h.Step(2);
 		h.Check("edit mode active", SceneEditor::IsActive());
-		h.Check("edit mode restores the stage layout", world.FindAll<SlowEnemy>().size() == 5
+		h.Check("edit mode restores the stage layout", world.FindAll<SlowEnemy>().size() == stageEnemies
 			&& world.FindById(enemyId) != nullptr && world.FindById(playerId) == h.Player());
 		const Vector3 playerStart = h.Player()->GetPosition();
 		const Vector3 enemyStart = world.FindById(enemyId)->GetPosition();
@@ -174,7 +180,7 @@ bool RunSlowActionRenderTest()
 		h.Step(2);
 		GameObject* resumed = world.FindById(enemyId);
 		h.Check("edits carry into play", !SceneEditor::IsActive() && resumed != nullptr && resumed != edited
-			&& resumed->GetName() == "moved enemy" && world.FindAll<SlowEnemy>().size() == 5
+			&& resumed->GetName() == "moved enemy" && world.FindAll<SlowEnemy>().size() == stageEnemies
 			&& fabsf(resumed->GetPosition().x - 6.0f) < 0.2f);
 		h.Step(10);
 		h.Check("game resumes after editing", dynamic_cast<SlowEnemy*>(resumed) != nullptr
@@ -185,6 +191,7 @@ bool RunSlowActionRenderTest()
 	{
 		const auto enemies = h.GetWorld().FindAll<SlowEnemy>();
 		for (std::size_t i = 1; i < enemies.size(); ++i) enemies[i]->MarkForDestroy();
+		for (SlowBullet* bullet : h.GetWorld().FindAll<SlowBullet>()) bullet->MarkForDestroy();
 	}
 	SlowEnemy::SetInvincible(true);
 	const Vector3 farAway{ 18.0f, 0.0f, 18.0f };
@@ -400,6 +407,128 @@ bool RunSlowActionRenderTest()
 		hits++;
 	}
 	h.Check("enemy dies after its hp in hits", h.Enemy() == nullptr && hits == tuning.EnemyHp, static_cast<float>(hits));
+
+	// ここからは型を指定して1体ずつ生成します。
+	const auto spawnEnemy = [&h](SlowEnemy::Kind kind, const Vector3& position)
+	{
+		SlowEnemy* enemy = h.GetWorld().Spawn<SlowEnemy>();
+		enemy->SetKind(kind);
+		enemy->SetPosition(position);
+		return enemy;
+	};
+	SlowCamera* camera = h.GetWorld().FindFirst<SlowCamera>();
+	// 全滅すると一団が再配置されて検証の邪魔になるので、遠くに1体待機させておきます。
+	SlowEnemy* anchor = spawnEnemy(SlowEnemy::Kind::Melee, { 18.0f, 0.0f, 18.0f });
+
+	// ---- コンボとスコア: 連続ヒットで数が増え、猶予が過ぎると切れる ----
+	SlowEnemy::SetInvincible(true);
+	h.Settle(openSpot, yawPlusX);
+	{
+		SlowEnemy* target = spawnEnemy(SlowEnemy::Kind::Melee, openSpot + Vector3(1.0f, 0.0f, 0.0f));
+		SlowScore::Reset();
+		for (int i = 0; i < 3; ++i)
+		{
+			h.TapAttack();
+			h.Step(static_cast<int>(tuning.NormalDuration * 60.0f) + 2);
+		}
+		h.Check("three hits make a three combo", SlowScore::GetCombo() == 3, static_cast<float>(SlowScore::GetCombo()));
+		h.Check("hits score at base multiplier", SlowScore::GetScore() == tuning.ScoreNormalHit * 3,
+			static_cast<float>(SlowScore::GetScore()));
+		h.HoldAttack();
+		for (int i = 0; i < 20 && !target->IsLaunched(); ++i) h.Step();
+		h.Check("strong hit shakes the camera", target->IsLaunched() && camera != nullptr && camera->GetShake() > 0.0f,
+			camera != nullptr ? camera->GetShake() : 0.0f);
+		h.Check("strong hit continues the combo", SlowScore::GetCombo() == 4, static_cast<float>(SlowScore::GetCombo()));
+		target->MarkForDestroy();
+		h.Step(static_cast<int>(tuning.ComboWindowSeconds * 60.0f) + 10);
+		h.Check("combo expires after the window", SlowScore::GetCombo() == 0 && SlowScore::GetScore() > 0,
+			static_cast<float>(SlowScore::GetCombo()));
+		SlowScore::Add(SlowScore::Event::NormalHit);
+		h.Player()->TakeDamage(0);
+		h.Check("taking damage breaks the combo", SlowScore::GetCombo() == 0);
+	}
+
+	// ---- 射撃型: 距離を取って撃ち、弾はプレイヤーに当たる。打ち返すと撃った本人を吹き飛ばす ----
+	h.Settle(openSpot, yawPlusX);
+	{
+		SlowEnemy* gunner = spawnEnemy(SlowEnemy::Kind::Gunner, openSpot + Vector3(9.0f, 0.0f, 0.0f));
+		h.Step();
+		const int hpBeforeShot = h.Player()->GetHp();
+		bool sawBullet = false;
+		for (int i = 0; i < 300 && h.Player()->GetHp() == hpBeforeShot; ++i)
+		{
+			h.Step();
+			sawBullet |= !h.GetWorld().FindAll<SlowBullet>().empty();
+		}
+		h.Check("gunner shoots the player", sawBullet && h.Player()->GetHp() == hpBeforeShot - tuning.BulletDamage,
+			static_cast<float>(h.Player()->GetHp()));
+		h.Check("gunner keeps its distance", SlowUtil::Flatten(gunner->GetPosition() - h.Player()->GetPosition()).length()
+			>= tuning.GunnerMinRange * 0.7f);
+
+		// 次の弾が近づいたところで攻撃します。
+		h.Player()->SetPosition(openSpot);
+		h.Player()->SetYaw(yawPlusX);
+		SlowBullet* incoming = nullptr;
+		for (int i = 0; i < 300 && incoming == nullptr; ++i)
+		{
+			h.Step();
+			for (SlowBullet* bullet : h.GetWorld().FindAll<SlowBullet>())
+			{
+				if (SlowUtil::Flatten(bullet->GetPosition() - h.Player()->GetPosition()).length() < 3.6f)
+				{
+					incoming = bullet;
+				}
+			}
+		}
+		const int hpBeforeDeflect = h.Player()->GetHp();
+		const int scoreBeforeDeflect = SlowScore::GetScore();
+		h.TapAttack();
+		h.Step(3);
+		h.Check("attack deflects the bullet", incoming != nullptr && !h.GetWorld().FindAll<SlowBullet>().empty()
+			&& h.GetWorld().FindAll<SlowBullet>()[0]->IsDeflected() && SlowScore::GetScore() > scoreBeforeDeflect);
+		bool gunnerLaunched = false;
+		for (int i = 0; i < 120 && !gunnerLaunched; ++i)
+		{
+			h.Step();
+			gunnerLaunched = gunner->IsLaunched();
+		}
+		h.Check("deflected bullet launches the shooter", gunnerLaunched && h.Player()->GetHp() == hpBeforeDeflect);
+		h.Draw();
+		h.Check("capture gunner", Capture(L"slow-render-gunner.png"));
+		gunner->MarkForDestroy();
+		for (SlowBullet* bullet : h.GetWorld().FindAll<SlowBullet>()) bullet->MarkForDestroy();
+	}
+
+	// ---- 重量型: 通常攻撃ではひるまず、強攻撃で装甲が割れてから短く飛ぶ。予兆中の強攻撃は一撃で割る ----
+	h.Settle(openSpot, yawPlusX);
+	{
+		SlowEnemy* brute = spawnEnemy(SlowEnemy::Kind::Brute, { 12.0f, 0.0f, 16.0f });
+		h.Step();
+		const Vector3 west{ -1.0f, 0.0f, 0.0f };
+		brute->ApplyHit(west, false, 1);
+		h.Check("brute ignores normal hits", brute->GetState() == SlowEnemy::State::Idle && brute->GetArmor() == tuning.BruteArmor);
+		brute->ApplyHit(west, true, 1);
+		h.Check("strong hit chips brute armor", !brute->IsLaunched() && brute->GetArmor() == tuning.BruteArmor - 1,
+			static_cast<float>(brute->GetArmor()));
+		for (int i = 1; i < tuning.BruteArmor; ++i) brute->ApplyHit(west, true, 1);
+		h.Check("broken armor launches the brute", brute->IsLaunched());
+		const Vector3 bruteStart = brute->GetPosition();
+		for (int i = 0; i < 300 && brute->IsLaunched(); ++i) h.Step();
+		const float bruteTravel = SlowUtil::Flatten(brute->GetPosition() - bruteStart).length();
+		h.Check("brute flies a shorter distance", fabsf(bruteTravel - tuning.LaunchDistance * tuning.BruteLaunchScale) < 0.4f,
+			bruteTravel);
+
+		h.Settle(openSpot, yawPlusX);
+		brute->SetPosition(openSpot + Vector3(2.2f, 0.0f, 0.0f));
+		for (int i = 0; i < 120 && brute->GetState() != SlowEnemy::State::Windup; ++i) h.Step();
+		h.Check("brute armor restored after recovering", brute->GetArmor() == tuning.BruteArmor);
+		h.HoldAttack();
+		for (int i = 0; i < 20 && !brute->IsLaunched(); ++i) h.Step();
+		h.Check("strong hit during windup breaks armor at once", brute->IsLaunched());
+		brute->MarkForDestroy();
+	}
+	h.Check("anchor stayed idle", anchor->GetState() == SlowEnemy::State::Idle);
+	SlowEnemy::SetInvincible(false);
 
 	SlowInput::SetOverride(nullptr);
 	h.Scene.Uninit();
