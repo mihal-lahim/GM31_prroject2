@@ -102,6 +102,9 @@
     <ClCompile Include="src\animationModel.cpp">
       <Filter>Code\Player</Filter>
     </ClCompile>
+    <ClCompile Include="src\animator.cpp">
+      <Filter>Code\Player</Filter>
+    </ClCompile>
     <ClCompile Include="src\wirePlayer.cpp">
       <Filter>Code\Player</Filter>
     </ClCompile>
@@ -210,6 +213,9 @@
       <Filter>Code\Game</Filter>
     </ClInclude>
     <ClInclude Include="include\animationModel.h">
+      <Filter>Code\Player</Filter>
+    </ClInclude>
+    <ClInclude Include="include\animator.h">
       <Filter>Code\Player</Filter>
     </ClInclude>
     <ClInclude Include="include\wirePlayer.h">

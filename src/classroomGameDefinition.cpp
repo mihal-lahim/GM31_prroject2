@@ -2,6 +2,7 @@
 #include "classroomWalk.h"
 
 bool RunClassroomRenderTest();
+bool RunAnimatorSelfTests();
 
 namespace
 {
@@ -18,7 +19,7 @@ const GameDefinition& GetGameDefinition()
 		"assets/config/classroom.cfg",
 		nullptr,
 		CreateInitialScene,
-		nullptr,
+		RunAnimatorSelfTests,
 		RunClassroomRenderTest
 	};
 	return definition;
