@@ -86,84 +86,6 @@ namespace
 		}
 		return -1;
 	}
-
-	// keys[index].mTime <= animationTime < keys[index + 1].mTime となるindexを返します。
-	// assimpのキーは時刻昇順なので二分探索できます。末尾を越えた場合はkeyCount - 1です。
-	template<typename Key>
-	unsigned int FindKeyIndex(double animationTime, unsigned int keyCount, const Key* keys)
-	{
-		if (keyCount < 2 || keys == nullptr)
-		{
-			return 0;
-		}
-
-		const Key* next = std::upper_bound(keys + 1, keys + keyCount, animationTime,
-			[](double time, const Key& key) { return time < key.mTime; });
-		return static_cast<unsigned int>(next - keys) - 1;
-	}
-
-	aiVector3D SampleVectorKeys(
-		double animationTime,
-		unsigned int keyCount,
-		const aiVectorKey* keys,
-		const aiVector3D& fallback)
-	{
-		if (keyCount == 0 || keys == nullptr)
-		{
-			return fallback;
-		}
-		if (keyCount == 1)
-		{
-			return keys[0].mValue;
-		}
-
-		const unsigned int currentIndex = FindKeyIndex(animationTime, keyCount, keys);
-		if (currentIndex + 1 >= keyCount)
-		{
-			return keys[currentIndex].mValue;
-		}
-
-		const aiVectorKey& current = keys[currentIndex];
-		const aiVectorKey& next = keys[currentIndex + 1];
-		const double keyDuration = next.mTime - current.mTime;
-		const float factor = keyDuration > 0.0
-			? std::clamp(static_cast<float>((animationTime - current.mTime) / keyDuration), 0.0f, 1.0f)
-			: 0.0f;
-		return current.mValue + (next.mValue - current.mValue) * factor;
-	}
-
-	aiQuaternion SampleQuaternionKeys(
-		double animationTime,
-		unsigned int keyCount,
-		const aiQuatKey* keys,
-		const aiQuaternion& fallback)
-	{
-		if (keyCount == 0 || keys == nullptr)
-		{
-			return fallback;
-		}
-		if (keyCount == 1)
-		{
-			return keys[0].mValue;
-		}
-
-		const unsigned int currentIndex = FindKeyIndex(animationTime, keyCount, keys);
-		if (currentIndex + 1 >= keyCount)
-		{
-			return keys[currentIndex].mValue;
-		}
-
-		const aiQuatKey& current = keys[currentIndex];
-		const aiQuatKey& next = keys[currentIndex + 1];
-		const double keyDuration = next.mTime - current.mTime;
-		const float factor = keyDuration > 0.0
-			? std::clamp(static_cast<float>((animationTime - current.mTime) / keyDuration), 0.0f, 1.0f)
-			: 0.0f;
-
-		aiQuaternion result;
-		aiQuaternion::Interpolate(result, current.mValue, next.mValue, factor);
-		return result.Normalize();
-	}
 }
 
 void AnimationModel::Draw()
@@ -324,6 +246,14 @@ void AnimationModel::Load(const char* FileName)
 
 	//再帰的にボーン生成
 	CreateBone(m_AiScene->mRootNode);
+	m_Animator.SetSkeleton(m_AiScene->mRootNode);
+	const Anim::Skeleton& skeleton = m_Animator.GetSkeleton();
+	m_PoseBones.assign(static_cast<size_t>(skeleton.Size()), nullptr);
+	for (int bone = 0; bone < skeleton.Size(); ++bone)
+	{
+		const auto found = m_Bone.find(skeleton.Name(bone));
+		if (found != m_Bone.end()) m_PoseBones[static_cast<size_t>(bone)] = &found->second;
+	}
 
 
 
@@ -493,8 +423,14 @@ void AnimationModel::Load(const char* FileName)
 void AnimationModel::LoadAnimation(const char* FileName, const char* Name)
 {
 
-	m_Animation[Name] = AcquireAnimationScene(FileName, aiProcess_ConvertToLeftHanded);
-	assert(m_Animation[Name]);
+	AnimationScenePtr scene = AcquireAnimationScene(FileName, aiProcess_ConvertToLeftHanded);
+	assert(scene);
+	if (scene != nullptr && scene->mNumAnimations > 0 && scene->mAnimations[0] != nullptr)
+	{
+		// aiSceneはm_Animationが保持するので、Animatorへは生ポインタを渡します。
+		m_Animator.AddClip(Name, scene->mAnimations[0]);
+	}
+	m_Animation[Name] = std::move(scene);
 
 }
 
@@ -526,13 +462,10 @@ void AnimationModel::Uninit()
 
 	// 共有ハンドルなので、最後の参照が消えた時点でaiReleaseImportされます。
 	m_AiScene.reset();
+	m_Animator = Anim::Animator{};
+	m_PoseBones.clear();
 	m_Animation.clear();
-	m_CurrentAnimation.clear();
-	m_BlendSourcePose.clear();
 	m_AnimatedPose.clear();
-	m_AnimationSeconds = 0.0f;
-	m_BlendSeconds = 0.0f;
-	m_BlendDuration = 0.0f;
 	m_GroundHeight = nullptr;
 	m_FootLocalVertices[0].clear();
 	m_FootLocalVertices[1].clear();
@@ -551,70 +484,14 @@ void AnimationModel::Uninit()
 
 void AnimationModel::PlayAnimation(const char* name, float blendSeconds)
 {
-	if (name == nullptr || m_CurrentAnimation == name)
-	{
-		return;
-	}
-	const auto foundScene = m_Animation.find(name);
-	if (foundScene == m_Animation.end() || foundScene->second == nullptr
-		|| foundScene->second->mNumAnimations == 0 || foundScene->second->mAnimations[0] == nullptr)
-	{
-		return;
-	}
-	const bool hasCurrentPose = !m_CurrentAnimation.empty();
-	m_BlendSourcePose.clear();
-	if (hasCurrentPose && blendSeconds > 0.0f)
-	{
-		m_BlendSourcePose = m_AnimatedPose;
-	}
-	m_CurrentAnimation = name;
-	m_AnimationSeconds = 0.0f;
-	m_BlendSeconds = 0.0f;
-	m_BlendDuration = hasCurrentPose ? (std::max)(blendSeconds, 0.0f) : 0.0f;
+	if (name == nullptr) return;
+	m_Animator.Play(name, blendSeconds);
 }
 
 void AnimationModel::TickAnimation(float deltaSeconds, bool uploadMesh)
 {
-	if (m_CurrentAnimation.empty()) return;
-	const auto foundScene = m_Animation.find(m_CurrentAnimation);
-	if (foundScene == m_Animation.end() || foundScene->second == nullptr
-		|| foundScene->second->mNumAnimations == 0 || foundScene->second->mAnimations[0] == nullptr)
-	{
-		return;
-	}
-	const aiAnimation* animation = foundScene->second->mAnimations[0];
-	const float step = (std::max)(deltaSeconds, 0.0f);
-	const float previousSeconds = m_AnimationSeconds;
-	m_AnimationSeconds += step;
-	m_BlendSeconds += step;
-	const double ticksPerSecond = animation->mTicksPerSecond > 0.0
-		? animation->mTicksPerSecond : 25.0;
-	const double duration = animation->mDuration > 0.0 ? animation->mDuration : 1.0;
-	const double playbackStart = duration * m_PlaybackStart;
-	const double playbackDuration = duration * (m_PlaybackEnd - m_PlaybackStart);
-	const double elapsedTicks = m_AnimationSeconds * ticksPerSecond * m_PlaybackSpeed;
-	const double previousTicks = previousSeconds * ticksPerSecond * m_PlaybackSpeed;
-	if (m_PlaybackLoop && step > 0.0f && !m_AnimatedPose.empty()
-		&& std::floor(elapsedTicks / playbackDuration) > std::floor(previousTicks / playbackDuration)
-		&& m_BlendSeconds >= m_BlendDuration)
-	{
-		m_BlendSourcePose = m_AnimatedPose;
-		m_BlendSeconds = 0.0f;
-		m_BlendDuration = (std::min)(m_LoopBlendSeconds,
-			static_cast<float>(playbackDuration / ticksPerSecond / m_PlaybackSpeed) * 0.25f);
-	}
-	const double animationTime = m_PlaybackLoop
-		? playbackStart + std::fmod(elapsedTicks, playbackDuration)
-		: playbackStart + (std::min)(elapsedTicks, playbackDuration - 0.001);
-	const float blendWeight = m_BlendDuration > 0.0f
-		? std::clamp(m_BlendSeconds / m_BlendDuration, 0.0f, 1.0f) : 1.0f;
-	// Smooth the start and end of the blend as well as the poses themselves.
-	ApplyAnimation(animation, animationTime, blendWeight * blendWeight * (3.0f - 2.0f * blendWeight), uploadMesh);
-	if (blendWeight >= 1.0f)
-	{
-		m_BlendSourcePose.clear();
-		m_BlendDuration = 0.0f;
-	}
+	if (!m_Animator.Advance(deltaSeconds)) return;
+	ApplyPose(m_Animator.GetPose(), uploadMesh);
 }
 
 void AnimationModel::Update(const char* animationName, int frame)
@@ -630,7 +507,29 @@ void AnimationModel::Update(const char* animationName, int frame)
 	const aiAnimation* animation = foundScene->second->mAnimations[0];
 	const double duration = animation->mDuration > 0.0 ? animation->mDuration : 1.0;
 	const double animationTime = std::fmod(static_cast<double>((std::max)(frame, 0)), duration);
-	ApplyAnimation(animation, animationTime, 1.0f, true);
+	Anim::Pose pose;
+	if (m_Animator.SampleSingle(animationName, animationTime, pose)) ApplyPose(pose, true);
+}
+
+void AnimationModel::AddBlendSpace1D(const char* name, const char* parameter,
+	std::vector<Anim::BlendClip> clips, float parameterSmoothing)
+{
+	if (name == nullptr || parameter == nullptr) return;
+	Anim::BlendSpace1D space;
+	space.Parameter = parameter;
+	space.Clips = std::move(clips);
+	space.ParameterSmoothing = parameterSmoothing;
+	m_Animator.AddBlendSpace1D(name, std::move(space));
+}
+
+void AnimationModel::DefineBoneMask(const char* name, const std::vector<std::pair<std::string, float>>& bones)
+{
+	if (name != nullptr) m_Animator.DefineMask(name, bones);
+}
+
+bool AnimationModel::PlayAction(const char* clip, const Anim::ActionOptions& options)
+{
+	return clip != nullptr && m_Animator.PlayAction(clip, options);
 }
 
 bool AnimationModel::GetRequiredGroundOffset(float (*heightAt)(float, float), float& offset) const
@@ -935,78 +834,25 @@ void AnimationModel::SampleFootVertices()
 	}
 }
 
-void AnimationModel::ApplyAnimation(const aiAnimation* animation, double animationTime,
-	float blendWeight, bool uploadMesh)
+void AnimationModel::ApplyPose(const Anim::Pose& pose, bool uploadMesh)
 {
-	if (animation == nullptr || m_AiScene == nullptr || m_AiScene->mRootNode == nullptr
-		|| m_DeformVertex.empty() || m_VertexBuffer.empty())
+	if (m_AiScene == nullptr || m_AiScene->mRootNode == nullptr
+		|| m_DeformVertex.empty() || m_VertexBuffer.empty() || pose.size() != m_PoseBones.size())
 	{
 		return;
 	}
 	m_FootLocalVertices[0].clear();
 	m_FootLocalVertices[1].clear();
 
-	// 前のアニメーションで上書きしたローカル行列を、モデル本来の姿勢へ戻す。
-	auto resetLocalMatrices = [this](auto&& self, aiNode* node) -> void
+	// Animatorが合成した各ボーンのローカル変換を、そのままボーン行列へ書き込みます。
+	// どのクリップも動かさないボーンは、分解・再合成の丸め誤差を避けて元の行列を使います。
+	const Anim::Skeleton& skeleton = m_Animator.GetSkeleton();
+	for (size_t bone = 0; bone < pose.size(); ++bone)
 	{
-		const auto foundBone = m_Bone.find(node->mName.C_Str());
-		if (foundBone != m_Bone.end())
-		{
-			foundBone->second.AnimationMatrix = node->mTransformation;
-		}
-		for (unsigned int childIndex = 0; childIndex < node->mNumChildren; ++childIndex)
-		{
-			self(self, node->mChildren[childIndex]);
-		}
-	};
-	resetLocalMatrices(resetLocalMatrices, m_AiScene->mRootNode);
-
-	// チャンネルごとに位置・回転・拡縮を補間し、対応するボーンのローカル行列を作る。
-	for (unsigned int channelIndex = 0; channelIndex < animation->mNumChannels; ++channelIndex)
-	{
-		const aiNodeAnim* channel = animation->mChannels[channelIndex];
-		if (channel == nullptr)
-		{
-			continue;
-		}
-
-		const auto foundBone = m_Bone.find(channel->mNodeName.C_Str());
-		if (foundBone == m_Bone.end())
-		{
-			continue;
-		}
-
-		aiVector3D bindScale;
-		aiQuaternion bindRotation;
-		aiVector3D bindPosition;
-		foundBone->second.AnimationMatrix.Decompose(bindScale, bindRotation, bindPosition);
-
-		const aiVector3D position = SampleVectorKeys(
-			animationTime, channel->mNumPositionKeys, channel->mPositionKeys, bindPosition);
-		const aiQuaternion rotation = SampleQuaternionKeys(
-			animationTime, channel->mNumRotationKeys, channel->mRotationKeys, bindRotation);
-		const aiVector3D scale = SampleVectorKeys(
-			animationTime, channel->mNumScalingKeys, channel->mScalingKeys, bindScale);
-
-		foundBone->second.AnimationMatrix = aiMatrix4x4(scale, rotation, position);
-	}
-	if (blendWeight < 1.0f)
-	{
-		for (auto& [boneName, bone] : m_Bone)
-		{
-			const auto source = m_BlendSourcePose.find(boneName);
-			if (source == m_BlendSourcePose.end()) continue;
-			aiVector3D sourceScale, targetScale, sourcePosition, targetPosition;
-			aiQuaternion sourceRotation, targetRotation;
-			source->second.Decompose(sourceScale, sourceRotation, sourcePosition);
-			bone.AnimationMatrix.Decompose(targetScale, targetRotation, targetPosition);
-			aiQuaternion rotation;
-			aiQuaternion::Interpolate(rotation, sourceRotation, targetRotation, blendWeight);
-			bone.AnimationMatrix = aiMatrix4x4(
-				sourceScale + (targetScale - sourceScale) * blendWeight,
-				rotation.Normalize(),
-				sourcePosition + (targetPosition - sourcePosition) * blendWeight);
-		}
+		if (m_PoseBones[bone] == nullptr) continue;
+		const int index = static_cast<int>(bone);
+		m_PoseBones[bone]->AnimationMatrix = pose[bone] == skeleton.BindPose()[bone]
+			? skeleton.BindLocalMatrix(index) : pose[bone].ToMatrix();
 	}
 
 	// ボーン構成は読み込み後に変わらないため、毎フレームclearして作り直さず上書きします。

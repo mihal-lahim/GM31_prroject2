@@ -73,6 +73,11 @@ spawns a field, follow camera, and the previously unused `Akai.fbx` player.
 `Akai_Idle.fbx` plays while still and `Akai_Run.fbx` while moving. WASD or arrow
 keys walk on the field. The application packages only its own runtime assets.
 
+`AnimationModel` (skinning, foot IK) delegates clip selection to `Anim::Animator`
+(`animator.*`): crossfades, 1D blend trees with phase-synchronized clips, and masked
+action layers for attacks. `Animator` has no rendering dependency and is covered by
+`animatorSelfTests.cpp` (`ClassroomWalk.exe --self-test`). See `ANIMATION.md`.
+
 ### SlowAction (`SlowAction.vcxproj`)
 
 `SlowAction` is a prototype for a time-slow melee action game. Only world-side

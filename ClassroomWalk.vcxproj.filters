@@ -42,6 +42,12 @@
     <ClCompile Include="src\animationModel.cpp">
       <Filter>Code\Character</Filter>
     </ClCompile>
+    <ClCompile Include="src\animator.cpp">
+      <Filter>Code\Character</Filter>
+    </ClCompile>
+    <ClCompile Include="src\animatorSelfTests.cpp">
+      <Filter>Code\Character</Filter>
+    </ClCompile>
     <ClCompile Include="src\sky.cpp">
       <Filter>Code\Environment</Filter>
     </ClCompile>
@@ -66,6 +72,9 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="include\animationModel.h">
+      <Filter>Code\Character</Filter>
+    </ClInclude>
+    <ClInclude Include="include\animator.h">
       <Filter>Code\Character</Filter>
     </ClInclude>
     <ClInclude Include="include\sky.h">

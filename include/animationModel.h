@@ -13,6 +13,7 @@
 #include "assimp/matrix4x4.h"
 #pragma comment (lib, "assimp-vc143-mt.lib")
 
+#include "animator.h"
 #include "component.h"
 #include "engineCommon.h"
 #include "surfaceMaterial.h"
@@ -74,23 +75,16 @@ private:
 	float m_FootIKWeight[2]{};
 	std::vector<Vector3> m_FootLocalVertices[2];
 	std::vector<std::pair<unsigned int, unsigned int>> m_FootVertexRefs[2];
-	std::string m_CurrentAnimation;
-	std::unordered_map<std::string, aiMatrix4x4> m_BlendSourcePose;
+	// クリップの選択・ブレンドツリー・アクション層の合成はAnimatorが行います(描画に依存しない部分)。
+	Anim::Animator m_Animator;
+	// Animatorのボーン番号 → m_Boneの要素。毎フレームの名前検索を避けます。
+	std::vector<BONE*> m_PoseBones;
 	// Pose before terrain IK, so a transition never applies the old IK twice.
 	std::unordered_map<std::string, aiMatrix4x4> m_AnimatedPose;
-	float m_LoopBlendSeconds = 0.12f;
-	float m_AnimationSeconds = 0.0f;
-	float m_PlaybackSpeed = 1.0f;
-	float m_PlaybackStart = 0.0f;
-	float m_PlaybackEnd = 1.0f;
-	bool m_PlaybackLoop = true;
-	float m_BlendSeconds = 0.0f;
-	float m_BlendDuration = 0.0f;
 
 	void CreateBone(aiNode* Node);
 	void UpdateBoneMatrix(aiNode* Node, aiMatrix4x4 Matrix);
-	void ApplyAnimation(const aiAnimation* animation, double animationTime, float blendWeight,
-		bool uploadMesh);
+	void ApplyPose(const Anim::Pose& pose, bool uploadMesh);
 	void SampleFootVertices();
 	void BuildSkinTransforms();
 	XMMATRIX GetWorldMatrix() const;
@@ -125,19 +119,38 @@ public:
 	bool IsVisible() const { return m_Visible; }
 	void Uninit() override;
 	// 切り替え時の現在姿勢から、指定秒数で新しいクリップへ移行する。
+	// nameにはクリップ名か、AddBlendSpace1Dで登録したブレンドツリー名を指定できます。
 	void PlayAnimation(const char* name, float blendSeconds = 0.2f);
 	// Clip-specific playback range as normalized fractions of the source clip.
+	// 単体クリップ用です。ブレンドツリーのクリップは各BlendClip::Playbackを使います。
 	void SetPlayback(float speed, float startFraction = 0.0f, float endFraction = 1.0f,
 		bool loop = true)
 	{
-		m_PlaybackSpeed = (std::max)(speed, 0.01f);
-		m_PlaybackStart = std::clamp(startFraction, 0.0f, 0.99f);
-		m_PlaybackEnd = std::clamp(endFraction, m_PlaybackStart + 0.01f, 1.0f);
-		m_PlaybackLoop = loop;
+		m_Animator.SetPlayback({ speed, startFraction, endFraction, loop });
 	}
 	void TickAnimation(float deltaSeconds, bool uploadMesh = true);
 	const auto& GetAnimationPose() const { return m_AnimatedPose; }
-	const std::string& GetAnimationName() const { return m_CurrentAnimation; }
+	const std::string& GetAnimationName() const { return m_Animator.GetCurrentName(); }
+
+	// ブレンドツリー・アクション層 (仕様は ANIMATION.md) ------------------------------
+	// parameterの値でclipsを混ぜる1Dブレンドツリーを登録します。PlayAnimation(name)で再生します。
+	void AddBlendSpace1D(const char* name, const char* parameter,
+		std::vector<Anim::BlendClip> clips, float parameterSmoothing = 0.1f);
+	void SetParameter(const char* name, float value) { if (name != nullptr) m_Animator.SetParameter(name, value); }
+	// 例: {{"mixamorig:Spine", 0.4f}, {"mixamorig:Spine1", 0.75f}, {"mixamorig:Spine2", 1.0f}}
+	void DefineBoneMask(const char* name, const std::vector<std::pair<std::string, float>>& bones);
+	// 攻撃などの単発モーションを、ベース層(移動など)の上に重ねて再生します。
+	bool PlayAction(const char* clip, const Anim::ActionOptions& options = {});
+	void StopAction(int layer = 0, float fadeOutSeconds = -1.0f) { m_Animator.StopAction(layer, fadeOutSeconds); }
+	bool IsActionActive(int layer = 0) const { return m_Animator.IsActionActive(layer); }
+	float GetActionTime(int layer = 0) const { return m_Animator.GetActionTime(layer); }
+	bool ActionPassed(float time, int layer = 0) const { return m_Animator.ActionPassed(time, layer); }
+	void SetActionMaskStrength(float strength, int layer = 0, float smoothingSeconds = 0.15f)
+	{
+		m_Animator.SetActionMaskStrength(strength, layer, smoothingSeconds);
+	}
+	Anim::Animator& GetAnimator() { return m_Animator; }
+	const Anim::Animator& GetAnimator() const { return m_Animator; }
 	// 直近の足メッシュ全頂点と地面を比較し、埋まらないために必要な高さを返す。
 	bool GetRequiredGroundOffset(float (*heightAt)(float, float), float& offset) const;
 	// 各足で地面に最も近いメッシュ頂点の高さ。正なら足が浮いている。
