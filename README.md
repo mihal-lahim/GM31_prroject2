@@ -13,6 +13,7 @@ Visual Studio / C++20 / DirectX 11 で開発している、共通ゲームエン
 各アプリは `Engine.lib` を参照し、固有のゲーム処理と実行時アセットをそれぞれのプロジェクトで管理します。
 構成と開発上のルールは [PROJECT_STRUCTURE.md](PROJECT_STRUCTURE.md)、
 授業用アプリの詳細は [CLASSROOM_WALK.md](CLASSROOM_WALK.md) と [SHADER_GALLERY.md](SHADER_GALLERY.md) を参照してください。
+キャラクターアニメーションのブレンドツリー・攻撃モーションの重ね方は [ANIMATION.md](ANIMATION.md) にまとめています。
 
 ## TOY WIRE / SKY RACE
 

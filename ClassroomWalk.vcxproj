@@ -71,6 +71,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="include\animationModel.h" />
+    <ClInclude Include="include\animator.h" />
     <ClInclude Include="include\meshField.h" />
     <ClInclude Include="include\classroomWalk.h" />
     <ClInclude Include="include\sky.h" />
@@ -79,6 +80,8 @@
   <ItemGroup>
     <ClCompile Include="src\main.cpp" />
     <ClCompile Include="src\animationModel.cpp" />
+    <ClCompile Include="src\animator.cpp" />
+    <ClCompile Include="src\animatorSelfTests.cpp" />
     <ClCompile Include="src\meshField.cpp" />
     <ClCompile Include="src\classroomWalk.cpp" />
     <ClCompile Include="src\sky.cpp" />
