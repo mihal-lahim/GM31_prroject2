@@ -532,6 +532,16 @@ bool AnimationModel::PlayAction(const char* clip, const Anim::ActionOptions& opt
 	return clip != nullptr && m_Animator.PlayAction(clip, options);
 }
 
+Vector3 AnimationModel::GetRootMotionDelta() const
+{
+	// Animatorの値はモデル空間(ルートノードの逆行列を掛けた空間)なので、拡縮と向きだけを掛けます。
+	const aiVector3D& local = m_Animator.GetRootMotion();
+	XMFLOAT3 world{};
+	XMStoreFloat3(&world, XMVector3TransformNormal(
+		XMVectorSet(local.x, local.y, local.z, 0.0f), GetWorldMatrix()));
+	return { world.x, 0.0f, world.z };
+}
+
 bool AnimationModel::GetRequiredGroundOffset(float (*heightAt)(float, float), float& offset) const
 {
 	if (heightAt == nullptr || m_GameObject == nullptr)

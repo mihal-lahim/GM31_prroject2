@@ -116,6 +116,12 @@ namespace
 				{ kArm, 0.0f, 1.5f, {}, {}, false },
 				{ kHips, 0.0f, 0.0f, standing, aiVector3D(0.0f, 90.0f, 50.0f), true } });
 			Add("Attack2", 30.0, { { kArm, 1.0f, 1.0f, {}, {}, false } });
+			// 0.5秒で腰が前へ30進む回避。ループさせて周回時の移動量も確かめます。
+			Add("Dodge", 15.0, { { kHips, 0.0f, 0.0f, standing, aiVector3D(0.0f, 100.0f, 30.0f), true } });
+			// 加算用の被弾リアクション。腕0.2→1.0rad、脚0→0.3rad。
+			Add("Flinch", 30.0, {
+				{ kArm, 0.2f, 1.0f, {}, {}, false },
+				{ kLeg, 0.0f, 0.3f, {}, {}, false } });
 		}
 
 		void Add(const char* name, double ticks, const std::vector<ChannelSpec>& specs)
@@ -222,7 +228,7 @@ namespace
 		ActionOptions options;
 		options.FadeIn = 0.1f;
 		options.FadeOut = 0.2f;
-		options.LockRootMotion = false;
+		options.RootMotionMode = RootMotion::Keep;
 		fixture.Graph.PlayAction("Attack", options);
 		fixture.Graph.Advance(0.0f);
 		const bool startsAtBase = Near(AngleZ(fixture.Bone(kArmIndex)), 0.0f);
@@ -293,7 +299,7 @@ namespace
 		const aiVector3D locked = fixture.Bone(kHipsIndex).Position;
 		Fixture unlocked;
 		unlocked.Graph.Play("Idle", 0.0f);
-		options.LockRootMotion = false;
+		options.RootMotionMode = RootMotion::Keep;
 		unlocked.Graph.PlayAction("Attack", options);
 		unlocked.Graph.Advance(0.5f);
 		const aiVector3D moved = unlocked.Bone(kHipsIndex).Position;
@@ -354,6 +360,123 @@ namespace
 			&& Near(AngleZ(fixture.Bone(kArmIndex)), 0.75f)
 			&& Near(AngleZ(fixture.Bone(kLegIndex)), 0.24f);
 	}
+
+	bool TestRootMotionExtract()
+	{
+		Fixture fixture;
+		fixture.Graph.Play("Idle", 0.0f);
+		ActionOptions options;
+		options.FadeIn = 0.0f;
+		options.RootMotionMode = RootMotion::Extract;
+		fixture.Graph.PlayAction("Attack", options);
+		float travelled = 0.0f;
+		for (int frame = 0; frame < 10; ++frame)
+		{
+			fixture.Graph.Advance(0.05f);
+			fixture.Graph.Advance(0.0f); // 時間0の再評価で移動量が変わらないこと
+			travelled += fixture.Graph.GetRootMotion().z;
+		}
+		// 半分まで再生 → 前へ25。姿勢の腰は動かさず、上下(95)だけ残ります。
+		const bool half = Near(travelled, 25.0f) && Near(fixture.Bone(kHipsIndex).Position.z, 0.0f)
+			&& Near(fixture.Bone(kHipsIndex).Position.y, 95.0f)
+			&& Near(fixture.Graph.GetRootMotion().x, 0.0f) && Near(fixture.Graph.GetRootMotion().y, 0.0f);
+		for (int frame = 0; frame < 20; ++frame)
+		{
+			fixture.Graph.Advance(0.05f);
+			travelled += fixture.Graph.GetRootMotion().z;
+		}
+		// 最後の0.2秒はフェードアウトの重み(smoothstep 0.84, 0.5, 0.16, 0)ぶん減るので 50 - 6.25。
+		return half && !fixture.Graph.IsActionActive() && Near(travelled, 43.75f)
+			&& fixture.Graph.GetRootMotion().z == 0.0f;
+	}
+
+	bool TestRootMotionAcrossLoop()
+	{
+		Fixture fixture;
+		fixture.Graph.Play("Idle", 0.0f);
+		ActionOptions options;
+		options.FadeIn = 0.0f;
+		options.RootMotionMode = RootMotion::Extract;
+		options.Playback.Loop = true;
+		fixture.Graph.PlayAction("Dodge", options);
+		fixture.Graph.Advance(0.3f);
+		float travelled = fixture.Graph.GetRootMotion().z;
+		fixture.Graph.Advance(0.3f); // 1周(0.5秒・30)を越える
+		travelled += fixture.Graph.GetRootMotion().z;
+		return Near(travelled, 36.0f);
+	}
+
+	bool TestRootMotionIgnoresMaskedRoot()
+	{
+		Fixture fixture;
+		fixture.Graph.DefineMask("UpperBody", { { kSpine, 1.0f } });
+		fixture.Graph.Play("Idle", 0.0f);
+		ActionOptions options;
+		options.FadeIn = 0.0f;
+		options.Mask = "UpperBody";
+		options.RootMotionMode = RootMotion::Extract;
+		fixture.Graph.PlayAction("Attack", options);
+		fixture.Graph.Advance(0.2f);
+		// 腰がマスクの外なら、腰の移動も使いません(上半身だけの攻撃で滑らない)。
+		return Near(fixture.Graph.GetRootMotion().z, 0.0f);
+	}
+
+	bool TestAdditiveAddsDifference()
+	{
+		Fixture fixture;
+		fixture.Graph.Play("Walk", 0.0f);
+		ActionOptions options;
+		options.FadeIn = 0.0f;
+		options.Blend = LayerBlend::Additive;
+		options.Layer = 1;
+		fixture.Graph.PlayAction("Flinch", options);
+		fixture.Graph.Advance(0.5f);
+		// 基準(先頭)からの差分: 腕+0.4、脚+0.15。歩きの脚0.4に足されて0.55。
+		const bool full = Near(AngleZ(fixture.Bone(kArmIndex)), 0.4f)
+			&& Near(AngleZ(fixture.Bone(kLegIndex)), 0.55f);
+		fixture.Graph.SetLayerWeight(0.5f, 1);
+		fixture.Graph.Advance(0.0f);
+		const bool half = Near(AngleZ(fixture.Bone(kArmIndex)), 0.2f)
+			&& Near(AngleZ(fixture.Bone(kLegIndex)), 0.475f)
+			&& Near(fixture.Graph.GetActionWeight(1), 0.5f);
+		return full && half;
+	}
+
+	bool TestAdditiveOverAttack()
+	{
+		Fixture fixture;
+		fixture.Graph.Play("Idle", 0.0f);
+		ActionOptions attack;
+		attack.FadeIn = 0.0f;
+		fixture.Graph.PlayAction("Attack", attack);
+		ActionOptions flinch;
+		flinch.FadeIn = 0.0f;
+		flinch.Blend = LayerBlend::Additive;
+		flinch.AdditiveReference = 1.0f; // 最後のフレームを基準にする
+		flinch.Layer = 1;
+		fixture.Graph.PlayAction("Flinch", flinch);
+		fixture.Graph.Advance(0.5f);
+		// 攻撃の腕0.75 + (0.6 - 1.0) = 0.35。攻撃を止めずに被弾の揺れだけ足せること。
+		return Near(AngleZ(fixture.Bone(kArmIndex)), 0.35f)
+			&& fixture.Graph.IsActionActive(0) && fixture.Graph.IsActionActive(1);
+	}
+
+	// 傾いた姿勢だけのクリップ(Attack2: 腕1.0rad固定)を、Idleを基準に重ねる。
+	bool TestAdditiveReferenceClip()
+	{
+		Fixture fixture;
+		fixture.Graph.Play("Walk", 0.0f);
+		ActionOptions lean;
+		lean.FadeIn = 0.0f;
+		lean.Blend = LayerBlend::Additive;
+		lean.AdditiveReferenceClip = "Idle";
+		lean.Playback.Loop = true;
+		lean.Layer = 2;
+		fixture.Graph.PlayAction("Attack2", lean);
+		fixture.Graph.SetLayerWeight(0.25f, 2);
+		fixture.Graph.Advance(0.5f);
+		return Near(AngleZ(fixture.Bone(kArmIndex)), 0.25f) && Near(AngleZ(fixture.Bone(kLegIndex)), 0.4f);
+	}
 }
 
 bool RunAnimatorSelfTests()
@@ -377,6 +500,12 @@ bool RunAnimatorSelfTests()
 		{ "combo is continuous", TestComboIsContinuous },
 		{ "stop action fades out", TestStopActionFadesOut },
 		{ "action keeps running over base transition", TestActionKeepsRunningOverBaseTransition },
+		{ "root motion extract", TestRootMotionExtract },
+		{ "root motion across loop", TestRootMotionAcrossLoop },
+		{ "root motion ignores masked root", TestRootMotionIgnoresMaskedRoot },
+		{ "additive adds difference", TestAdditiveAddsDifference },
+		{ "additive over attack", TestAdditiveOverAttack },
+		{ "additive reference clip", TestAdditiveReferenceClip },
 	};
 	std::ofstream log("self-test-animator.log");
 	bool passed = true;

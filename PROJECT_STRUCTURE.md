@@ -74,8 +74,8 @@ spawns a field, follow camera, and the previously unused `Akai.fbx` player.
 keys walk on the field. The application packages only its own runtime assets.
 
 `AnimationModel` (skinning, foot IK) delegates clip selection to `Anim::Animator`
-(`animator.*`): crossfades, 1D blend trees with phase-synchronized clips, and masked
-action layers for attacks. `Animator` has no rendering dependency and is covered by
+(`animator.*`): crossfades, 1D blend trees with phase-synchronized clips, masked
+override/additive action layers for attacks and hit reactions, and root motion extraction. `Animator` has no rendering dependency and is covered by
 `animatorSelfTests.cpp` (`ClassroomWalk.exe --self-test`). See `ANIMATION.md`.
 
 ### SlowAction (`SlowAction.vcxproj`)

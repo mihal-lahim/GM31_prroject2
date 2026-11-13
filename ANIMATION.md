@@ -10,7 +10,8 @@
    ▼
 アクション層0  攻撃などの単発クリップ。ボーンマスク・フェードイン/アウト・コンボ
    ▼
-アクション層1… (番号が大きい層ほど後から上書き。最大8層)
+アクション層1… (番号が大きい層ほど後から重ねる。最大8層)
+               上書き(攻撃)か加算(被弾の揺れ・傾き)を層ごとに選ぶ
    ▼
 足IK → スキニング (AnimationModel)
 ```
@@ -88,7 +89,10 @@ m_Model->TickAnimation(deltaTime);
 | `FadeIn` | 0.12秒 | ベース層から攻撃へ移る時間 |
 | `FadeOut` | 0.2秒 | 終端の何秒前から戻り始めるか。終端でちょうど重み0になります |
 | `Playback` | 等速・全範囲・ループなし | 速度と使う範囲。ループにすると `StopAction` まで続きます(構えなど) |
-| `LockRootMotion` | true | 腰(`mixamorig:Hips`)の水平移動を打ち消し、その場で再生。上下動は残します |
+| `RootMotionMode` | `Lock` | 腰(`mixamorig:Hips`)の水平移動の扱い。`Keep`/`Lock`/`Extract`(下記) |
+| `Blend` | `Override` | `Override`で下の層を置き換え、`Additive`で差分を足す(下記) |
+| `AdditiveReference` | -1 | 加算の基準フレーム(元クリップに対する割合)。負なら再生範囲の最初 |
+| `AdditiveReferenceClip` | 空 | 基準を別のクリップから取る(傾いた姿勢だけのクリップにIdleを基準にする、など) |
 | `Layer` | 0 | 層の番号(0〜7) |
 
 ### 動作
@@ -112,11 +116,73 @@ m_Model->TickAnimation(deltaTime);
 `IsActionActive` (フェードアウトが終わるまで true)、`GetActionTime` (0〜1、再生していなければ -1)、
 `GetAnimator().GetActionWeight()` (現在の重み)、`GetAnimator().GetActionName()`。
 
+## ルートモーション
+
+踏み込み斬りや回避のように、モーション自体が前へ進むクリップの移動量を、キャラクターの移動に使います。
+足運びと実際の移動が一致するので、足が地面を滑って見えません。
+
+```cpp
+Anim::ActionOptions dodge;
+dodge.RootMotionMode = Anim::RootMotion::Extract;
+dodge.FadeIn = 0.05f;
+dodge.FadeOut = 0.1f;
+m_Model->PlayAction("Dodge", dodge);
+
+// 毎フレーム、TickAnimationの後
+m_Model->TickAnimation(deltaTime);
+SetPosition(GetPosition() + m_Model->GetRootMotionDelta());
+```
+
+| モード | 姿勢の腰 | 移動量 |
+|---|---|---|
+| `Keep` | クリップのまま前へ出る(モデルの原点から離れていく) | 使わない |
+| `Lock` (既定) | 水平移動を打ち消してその場 | 使わない |
+| `Extract` | 水平移動を打ち消してその場 | `GetRootMotionDelta()` で渡す |
+
+- 対象は水平の移動だけです。上下の動き(しゃがみ・ジャンプの沈み込み)は姿勢に残します。
+- `GetRootMotionDelta()` はワールド座標です。モデルの拡縮(`SetModelScale`)と向き(キャラクターの回転と
+  `SetModelYawOffset`)を反映済みなので、そのまま位置へ足せます。
+- 層の重みを掛けた値です。フェードイン・フェードアウトの間は姿勢と同じ割合で移動量も減ります。
+  クリップどおりの距離を移動させたい場合は `FadeOut` を短くしてください。
+- ボーンマスクで腰が外れている場合(上半身だけの攻撃)は移動しません。マスク強度0(全身)なら移動します。
+- ループ再生で1周を越えたフレームも、終端までと先頭からの2区間に分けて正しく足します。
+- 移動量は直前に時間を進めた `TickAnimation` の分です。時間0の `TickAnimation(0)` では変わりません。
+- 壁や段差との衝突はゲーム側の移動処理で判定してください(移動量を渡すだけです)。
+
+## 加算ブレンド
+
+クリップの「基準フレームからの差分」だけを下の層へ足します。下の層の動きを消さずに重ねられます。
+
+```cpp
+// 被弾: 攻撃中・走行中でも、のけぞりだけを足す(攻撃は層0、被弾は層1)
+Anim::ActionOptions hit;
+hit.Blend = Anim::LayerBlend::Additive;
+hit.Layer = 1;
+hit.FadeIn = 0.05f;
+m_Model->PlayAction("HitReaction", hit);
+
+// 傾き: 体を傾けた姿勢のクリップを、Idleとの差分として重ねる。旋回量で効き具合を決める
+Anim::ActionOptions lean;
+lean.Blend = Anim::LayerBlend::Additive;
+lean.AdditiveReferenceClip = "Idle";
+lean.Layer = 2;
+lean.Playback.Loop = true;
+m_Model->PlayAction("LeanRight", lean);
+m_Model->SetLayerWeight(std::clamp(turnRate * 0.5f, 0.0f, 1.0f), 2);
+```
+
+- 差分は 回転: 基準の逆回転 × 現在、位置: 現在 − 基準、拡縮: 現在 ÷ 基準 です。
+  足すときは 回転: 下の層 × (単位回転から差分への球面補間)、位置: 下の層 + 差分 × 重み です。
+- 基準は既定で再生範囲の最初のフレームです。Mixamoの被弾モーションは立ち姿勢から始まるので、
+  そのまま「立ち姿勢からの揺れ」だけが足されます。`AdditiveReference` で別のフレームを、`AdditiveReferenceClip` で別のクリップを基準にできます。
+  傾きのように「姿勢だけ」のクリップは、自分自身を基準にすると差分が0になるので、Idleなどを基準にします。
+- マスク・フェード・`SetLayerWeight` は上書きの層と同じように効きます。
+- コンボのつなぎ(再生中の層へ次の `PlayAction`)は、上書き同士・加算同士のときだけ行います。
+
 ## 素材について
 
-- Mixamo からは「In Place」で書き出せるものはそうしてください。攻撃など In Place が無いものは
-  `LockRootMotion` で前への踏み込みを消します。キャラクター自体を前へ動かしたい場合は、
-  ゲーム側で `GetActionTime` に合わせて移動させてください(ルートモーションの抽出は未対応)。
+- 移動系(歩き・走り)は Mixamo の「In Place」で書き出し、ゲーム側で移動させてください。
+- 攻撃・回避は In Place にせず書き出し、踏み込みを使うなら `Extract`、その場で振るなら `Lock` にします。
 - 骨格名が同じ(`mixamorig:`)クリップなら、同じモデルに何本でも追加できます。
 
 ## テスト
@@ -131,8 +197,11 @@ m_Model->TickAnimation(deltaTime);
 - アクションのフェードイン/アウト、`ActionPassed` が1回だけ発火すること
 - 上半身マスクとマスク強度、ルートモーション固定、コンボの連続性、`StopAction`
 - ベース層の切り替え中もアクションが進み続けること
+- ルートモーション: 移動量の抽出と姿勢の固定、フェードアウトでの減少、ループ周回時の移動量、
+  マスクで腰が外れているときは移動しないこと
+- 加算ブレンド: 差分の足し込み、層の重み、上書きの攻撃の上への加算、基準フレーム・基準クリップの指定
 
 ## 未対応
 
-2Dブレンドツリー(前後左右の移動)、加算ブレンド、ルートモーションの抽出、
+2Dブレンドツリー(前後左右の移動)、ルートモーションの回転(向きの変化)、
 クリップに埋め込んだイベント、状態遷移を定義するステートマシン。

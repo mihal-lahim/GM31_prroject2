@@ -159,6 +159,17 @@ namespace Anim
 		return length > 1e-6f ? up / length : fallback;
 	}
 
+	aiVector3D Skeleton::ParentDirectionToModel(int bone, const aiVector3D& direction) const
+	{
+		if (bone < 0 || bone >= Size() || m_BindGlobal.empty()) return direction;
+		aiMatrix4x4 rootInverse = m_BindGlobal[0];
+		rootInverse.Inverse();
+		const int parent = Parent(bone);
+		const aiMatrix4x4 parentToModel = parent >= 0
+			? rootInverse * m_BindGlobal[static_cast<size_t>(parent)] : rootInverse;
+		return aiMatrix3x3(parentToModel) * direction;
+	}
+
 	ClipBinding BindClip(const Skeleton& skeleton, const aiAnimation* animation)
 	{
 		ClipBinding clip;
@@ -220,6 +231,66 @@ namespace Anim
 			out[bone] = boneWeight <= 0.0f ? base[bone]
 				: boneWeight >= 1.0f ? layer[bone]
 				: Lerp(base[bone], layer[bone], boneWeight);
+		}
+	}
+
+	void MakeAdditiveDelta(const Pose& pose, const Pose& reference, Pose& delta)
+	{
+		if (pose.size() != reference.size())
+		{
+			delta.assign(pose.size(), BoneTransform{});
+			return;
+		}
+		delta.resize(pose.size());
+		for (size_t bone = 0; bone < pose.size(); ++bone)
+		{
+			const BoneTransform& current = pose[bone];
+			const BoneTransform& base = reference[bone];
+			BoneTransform result;
+			aiQuaternion inverse = base.Rotation;
+			inverse.Conjugate();
+			result.Rotation = (inverse * current.Rotation).Normalize();
+			result.Position = current.Position - base.Position;
+			auto ratio = [](float value, float denominator)
+			{
+				return std::fabs(denominator) > 1e-6f ? value / denominator : 1.0f;
+			};
+			result.Scale = aiVector3D(ratio(current.Scale.x, base.Scale.x),
+				ratio(current.Scale.y, base.Scale.y), ratio(current.Scale.z, base.Scale.z));
+			delta[bone] = result;
+		}
+	}
+
+	void ApplyAdditive(const Pose& base, const Pose& delta, float weight,
+		const std::vector<float>& boneWeights, Pose& out)
+	{
+		if (base.size() != delta.size())
+		{
+			if (&out != &base) out = base;
+			return;
+		}
+		const bool masked = boneWeights.size() == base.size();
+		out.resize(base.size());
+		const aiQuaternion identity;
+		for (size_t bone = 0; bone < base.size(); ++bone)
+		{
+			const float boneWeight = (std::max)(0.0f, weight * (masked ? boneWeights[bone] : 1.0f));
+			const BoneTransform source = base[bone];
+			if (boneWeight <= 0.0f)
+			{
+				out[bone] = source;
+				continue;
+			}
+			const BoneTransform& difference = delta[bone];
+			aiQuaternion rotation;
+			aiQuaternion::Interpolate(rotation, identity, difference.Rotation, (std::min)(boneWeight, 1.0f));
+			BoneTransform result;
+			result.Rotation = (source.Rotation * rotation).Normalize();
+			result.Position = source.Position + difference.Position * boneWeight;
+			const aiVector3D one(1.0f, 1.0f, 1.0f);
+			const aiVector3D scale = one + (difference.Scale - one) * boneWeight;
+			result.Scale = aiVector3D(source.Scale.x * scale.x, source.Scale.y * scale.y, source.Scale.z * scale.z);
+			out[bone] = result;
 		}
 	}
 
@@ -565,7 +636,9 @@ namespace Anim
 		const ClipEntry* clip = FindClip(clipName);
 		if (clip == nullptr) return false;
 		ActionLayer& layer = LayerAt(options.Layer);
-		const bool continuing = layer.Active && layer.HasLastPose && layer.FadeLinear > 0.0f;
+		// 加算と上書きでは層の姿勢の意味(差分か姿勢そのものか)が違うので、同じ方式のときだけつなぎます。
+		const bool continuing = layer.Active && layer.HasLastPose && layer.FadeLinear > 0.0f
+			&& layer.Options.Blend == options.Blend;
 		layer.Clip = clipName;
 		layer.Entry = clip;
 		layer.Options = options;
@@ -594,11 +667,24 @@ namespace Anim
 			layer.FadeLinear = layer.Options.FadeIn > 0.0f ? 0.0f : 1.0f;
 			layer.MaskStrength = layer.MaskTarget;
 		}
-		layer.RootStart = {};
-		if (m_RootBone >= 0)
+		layer.RootStart = SampleRoot(layer, PhaseToTicks(clip->Binding, layer.Options.Playback, 0.0));
+		layer.PreviousRoot = layer.RootStart;
+		layer.Reference.clear();
+		if (layer.Options.Blend == LayerBlend::Additive)
 		{
-			SampleClip(clip->Binding, m_Skeleton, PhaseToTicks(clip->Binding, layer.Options.Playback, 0.0), m_Scratch);
-			layer.RootStart = m_Scratch[static_cast<size_t>(m_RootBone)].Position;
+			const ClipEntry* referenceClip = options.AdditiveReferenceClip.empty()
+				? clip : FindClip(options.AdditiveReferenceClip);
+			if (referenceClip == nullptr) referenceClip = clip;
+			const float fraction = options.AdditiveReference >= 0.0f ? (std::min)(options.AdditiveReference, 1.0f)
+				: referenceClip == clip ? layer.Options.Playback.Start : 0.0f;
+			const ClipBinding& reference = referenceClip->Binding;
+			const double ticks = (std::min)(reference.DurationTicks * fraction, reference.DurationTicks - 0.001);
+			SampleClip(reference, m_Skeleton, (std::max)(ticks, 0.0), layer.Reference);
+			if (layer.Options.RootMotionMode != RootMotion::Keep && m_RootBone >= 0)
+			{
+				BoneTransform& root = layer.Reference[static_cast<size_t>(m_RootBone)];
+				root.Position -= Horizontal(root.Position - layer.RootStart);
+			}
 		}
 		return true;
 	}
@@ -639,7 +725,7 @@ namespace Anim
 	float Animator::GetActionWeight(int layer) const
 	{
 		const ActionLayer* found = FindLayer(layer);
-		return found != nullptr && found->Active ? SmoothStep(found->FadeLinear) : 0.0f;
+		return found != nullptr && found->Active ? SmoothStep(found->FadeLinear) * found->LayerWeight : 0.0f;
 	}
 
 	bool Animator::ActionPassed(float time, int layer) const
@@ -650,6 +736,35 @@ namespace Anim
 		const double current = found->Phase;
 		if (current >= previous) return previous < time && time <= current;
 		return time > previous || time <= current; // ループで1周した
+	}
+
+	aiVector3D Animator::SampleRoot(const ActionLayer& layer, double ticks)
+	{
+		if (m_RootBone < 0 || layer.Entry == nullptr) return {};
+		const aiVector3D fallback = m_Skeleton.BindPose()[static_cast<size_t>(m_RootBone)].Position;
+		for (const auto& [bone, channel] : layer.Entry->Binding.Channels)
+		{
+			if (bone == m_RootBone)
+				return SampleVectorKeys(ticks, channel->mNumPositionKeys, channel->mPositionKeys, fallback);
+		}
+		return fallback;
+	}
+
+	aiVector3D Animator::Horizontal(const aiVector3D& value) const
+	{
+		const aiVector3D up = m_Skeleton.UpInParentSpace(m_RootBone);
+		return value - up * (value * up);
+	}
+
+	void Animator::SetLayerWeight(float weight, int layerIndex)
+	{
+		LayerAt(layerIndex).LayerWeight = std::clamp(weight, 0.0f, 1.0f);
+	}
+
+	float Animator::GetLayerWeight(int layerIndex) const
+	{
+		const ActionLayer* found = FindLayer(layerIndex);
+		return found != nullptr ? found->LayerWeight : 1.0f;
 	}
 
 	void Animator::SetActionMaskStrength(float strength, int layerIndex, float smoothingSeconds)
@@ -702,16 +817,30 @@ namespace Anim
 			}
 		}
 
+		const bool wrapped = step > 0.0f && range.Loop && layer.Phase < layer.PreviousPhase;
 		Pose& pose = m_Scratch;
 		SampleClip(layer.Entry->Binding, m_Skeleton,
 			PhaseToTicks(layer.Entry->Binding, range, layer.Phase), pose);
-		if (layer.Options.LockRootMotion && m_RootBone >= 0)
+		aiVector3D rootTravel{};
+		if (m_RootBone >= 0)
 		{
 			BoneTransform& root = pose[static_cast<size_t>(m_RootBone)];
-			const aiVector3D up = m_Skeleton.UpInParentSpace(m_RootBone);
-			const aiVector3D delta = root.Position - layer.RootStart;
-			root.Position -= delta - up * (delta * up);
+			const aiVector3D raw = root.Position;
+			if (step > 0.0f)
+			{
+				// ループで1周したときは「終端まで」と「先頭から」の2区間に分けて足します。
+				const ClipBinding& binding = layer.Entry->Binding;
+				rootTravel = wrapped
+					? (SampleRoot(layer, binding.DurationTicks * range.End) - layer.PreviousRoot)
+						+ (raw - SampleRoot(layer, binding.DurationTicks * range.Start))
+					: raw - layer.PreviousRoot;
+				layer.PreviousRoot = raw;
+			}
+			if (layer.Options.RootMotionMode != RootMotion::Keep)
+				root.Position -= Horizontal(raw - layer.RootStart);
 		}
+		const bool additive = layer.Options.Blend == LayerBlend::Additive;
+		if (additive) MakeAdditiveDelta(pose, layer.Reference, pose);
 		if (layer.SwitchDuration > 0.0f)
 		{
 			const float linear = std::clamp(layer.SwitchSeconds / layer.SwitchDuration, 0.0f, 1.0f);
@@ -725,16 +854,22 @@ namespace Anim
 		layer.LastPose = pose;
 		layer.HasLastPose = true;
 
-		const float weight = SmoothStep(layer.FadeLinear);
-		if (layer.Mask.empty())
+		const float weight = SmoothStep(layer.FadeLinear) * layer.LayerWeight;
+		std::vector<float> effective;
+		if (!layer.Mask.empty())
 		{
-			BlendPose(out, pose, weight, out);
-			return true;
+			effective.resize(layer.Mask.size());
+			for (size_t bone = 0; bone < effective.size(); ++bone)
+				effective[bone] = 1.0f + (layer.Mask[bone] - 1.0f) * layer.MaskStrength;
 		}
-		std::vector<float> effective(layer.Mask.size());
-		for (size_t bone = 0; bone < effective.size(); ++bone)
-			effective[bone] = 1.0f + (layer.Mask[bone] - 1.0f) * layer.MaskStrength;
-		BlendPoseMasked(out, pose, weight, effective, out);
+		if (layer.Options.RootMotionMode == RootMotion::Extract && m_RootBone >= 0)
+		{
+			const float rootWeight = weight * (effective.empty() ? 1.0f : effective[static_cast<size_t>(m_RootBone)]);
+			m_RootMotion += m_Skeleton.ParentDirectionToModel(m_RootBone, Horizontal(rootTravel)) * rootWeight;
+		}
+		if (additive) ApplyAdditive(out, pose, weight, effective, out);
+		else if (effective.empty()) BlendPose(out, pose, weight, out);
+		else BlendPoseMasked(out, pose, weight, effective, out);
 		return true;
 	}
 
@@ -742,6 +877,7 @@ namespace Anim
 	{
 		if (m_BaseName.empty() || m_Skeleton.Size() == 0) return false;
 		const float step = (std::max)(deltaSeconds, 0.0f);
+		if (step > 0.0f) m_RootMotion = {};
 		EvaluateBase(step, m_Pose);
 		m_LastBasePose = m_Pose;
 		m_HasBasePose = true;

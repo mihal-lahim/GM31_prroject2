@@ -149,6 +149,11 @@ public:
 	{
 		m_Animator.SetActionMaskStrength(strength, layer, smoothingSeconds);
 	}
+	// 層全体の重み(0〜1)。加算の傾き・呼吸などの効き具合をゲーム側で決めるときに使います。
+	void SetLayerWeight(float weight, int layer = 0) { m_Animator.SetLayerWeight(weight, layer); }
+	// RootMotion::Extract のアクションが直前のTickAnimationで動かした量(ワールド座標・水平のみ)。
+	// キャラクターの位置へ足すと、踏み込み・回避の移動がモーションの足運びと一致します。
+	Vector3 GetRootMotionDelta() const;
 	Anim::Animator& GetAnimator() { return m_Animator; }
 	const Anim::Animator& GetAnimator() const { return m_Animator; }
 	// 直近の足メッシュ全頂点と地面を比較し、埋まらないために必要な高さを返す。

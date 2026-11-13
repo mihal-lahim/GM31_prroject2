@@ -59,6 +59,8 @@ namespace Anim
 		const aiMatrix4x4& BindLocalMatrix(int bone) const { return m_BindLocal[static_cast<size_t>(bone)]; }
 		// モデル空間の上方向(+Y)を、指定ボーンの親空間で表した単位ベクトルです(バインド姿勢基準)。
 		aiVector3D UpInParentSpace(int bone) const;
+		// 指定ボーンの親空間の方向ベクトルを、モデル空間へ変換します(バインド姿勢基準)。
+		aiVector3D ParentDirectionToModel(int bone, const aiVector3D& direction) const;
 
 	private:
 		std::vector<std::string> m_Names;
@@ -112,6 +114,12 @@ namespace Anim
 	};
 	Weights1D ComputeWeights1D(const std::vector<float>& thresholds, float parameter);
 
+	// 加算ブレンド用の差分です。delta = reference^-1 * pose (回転)、pose - reference (位置)、pose / reference (拡縮)。
+	void MakeAdditiveDelta(const Pose& pose, const Pose& reference, Pose& delta);
+	// base に delta を weight * boneWeights[b] の割合で足し込みます。boneWeightsが空なら全ボーン同じ重みです。
+	void ApplyAdditive(const Pose& base, const Pose& delta, float weight,
+		const std::vector<float>& boneWeights, Pose& out);
+
 	// 指定ボーンとその子孫に重みを付けたマスクです。子孫は最も近い指定済みの祖先の値を継ぎ、
 	// どの指定ボーンの子孫でもないボーンは0になります。
 	std::vector<float> BuildBoneMask(const Skeleton& skeleton,
@@ -136,6 +144,20 @@ namespace Anim
 		float ParameterSmoothing = 0.1f;
 	};
 
+	// アクションのルートボーン(腰)の水平移動の扱いです。上下の動きはどれでも姿勢に残します。
+	enum class RootMotion
+	{
+		Keep,    // クリップのまま動かす(モデルの中で腰が前へ出ていく)
+		Lock,    // 打ち消してその場で再生する
+		Extract, // 姿勢からは打ち消し、移動量をGetRootMotionで渡す(ゲーム側でキャラを動かす)
+	};
+
+	enum class LayerBlend
+	{
+		Override, // 下の層の姿勢を置き換える(攻撃など)
+		Additive, // 基準姿勢からの差分を下の層へ足す(被弾リアクション・傾きなど)
+	};
+
 	struct ActionOptions
 	{
 		// DefineMaskで登録したマスク名です。空なら全身に適用します。
@@ -143,8 +165,14 @@ namespace Anim
 		float FadeIn = 0.12f;
 		float FadeOut = 0.2f;
 		PlaybackRange Playback{ 1.0f, 0.0f, 1.0f, false };
-		// ルートボーンの水平移動を打ち消し、その場で再生します(Mixamoの攻撃は前へ踏み込む物が多いため)。
-		bool LockRootMotion = true;
+		// 既定はLock。Mixamoの攻撃は前へ踏み込む物が多く、そのままだと足が滑って見えるためです。
+		RootMotion RootMotionMode = RootMotion::Lock;
+		LayerBlend Blend = LayerBlend::Override;
+		// 加算ブレンドの基準にするフレーム(元クリップに対する割合)。負ならPlayback.Start(再生範囲の最初)です。
+		float AdditiveReference = -1.0f;
+		// 基準を別のクリップから取る場合のクリップ名です(体を傾けた1フレームのクリップに対してIdleを基準にする、など)。
+		// 空なら再生するクリップ自身です。この場合AdditiveReferenceが負なら0(先頭)を使います。
+		std::string AdditiveReferenceClip;
 		int Layer = 0;
 	};
 
@@ -199,6 +227,12 @@ namespace Anim
 		float GetActionWeight(int layer = 0) const;
 		// 1でマスクどおり、0で全身に適用します。移動中は上半身だけ、停止中は全身、のように切り替えます。
 		void SetActionMaskStrength(float strength, int layer = 0, float smoothingSeconds = 0.15f);
+		// 層全体にかける重み(0〜1、既定1)。旋回量に応じた傾きなど、重みをゲーム側で決めるときに使います。
+		void SetLayerWeight(float weight, int layer = 0);
+		float GetLayerWeight(int layer = 0) const;
+		// 直前の時間を進めたAdvanceで、RootMotion::Extractの層が動かした量(モデル空間・水平のみ)。
+		// 層の重みとマスクのかかり具合を掛けた値です。時間0のAdvanceでは変わりません。
+		const aiVector3D& GetRootMotion() const { return m_RootMotion; }
 
 		// 時間を進めて姿勢を作ります。deltaSeconds = 0 は時間を進めずに作り直すだけです。
 		bool Advance(float deltaSeconds);
@@ -236,6 +270,11 @@ namespace Anim
 			Pose LastPose;
 			bool HasLastPose = false;
 			aiVector3D RootStart{};
+			// 直前に評価したときの、打ち消す前の腰の位置(親空間)。移動量の差分を取るのに使います。
+			aiVector3D PreviousRoot{};
+			// 加算ブレンドの基準姿勢です。
+			Pose Reference;
+			float LayerWeight = 1.0f;
 			bool Active = false;
 		};
 
@@ -246,6 +285,8 @@ namespace Anim
 		ActionLayer& LayerAt(int layer);
 		const ActionLayer* FindLayer(int layer) const;
 		void BeginLoopSeamBlend(double cycleSeconds);
+		aiVector3D SampleRoot(const ActionLayer& layer, double ticks);
+		aiVector3D Horizontal(const aiVector3D& value) const;
 
 		Skeleton m_Skeleton;
 		std::unordered_map<std::string, ClipEntry> m_Clips;
@@ -273,6 +314,7 @@ namespace Anim
 
 		std::vector<ActionLayer> m_Layers;
 		Pose m_Pose;
+		aiVector3D m_RootMotion{};
 		Pose m_Scratch;
 		Pose m_Scratch2;
 		bool m_HasPose = false;
