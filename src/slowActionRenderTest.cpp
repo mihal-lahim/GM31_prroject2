@@ -335,8 +335,8 @@ bool RunSlowActionRenderTest()
 		const float travel = SlowUtil::Flatten(h.Enemy()->GetPosition() - start).length();
 		h.Check("finisher launch distance", fabsf(travel - tuning.FinisherLaunchDistance) < 0.4f, travel);
 		h.Check("finisher launch duration", fabsf(seconds - tuning.FinisherLaunchSeconds) < 0.08f, seconds);
-		h.Check("finisher launch is lower than strong", fabsf(peak - tuning.FinisherLaunchHeight) < 0.15f
-			&& peak < tuning.LaunchHeight - 0.3f, peak);
+		h.Check("finisher launches upward, higher than strong", fabsf(peak - tuning.FinisherLaunchHeight) < 0.15f
+			&& peak > tuning.LaunchHeight + 0.3f, peak);
 	}
 	// 敵を離してから、猶予が切れた後の攻撃が1段目に戻ることを確かめます。
 	h.Enemy()->SetPosition(farAway);

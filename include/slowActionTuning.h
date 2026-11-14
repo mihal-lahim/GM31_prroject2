@@ -86,10 +86,11 @@ struct SlowActionTuning
 	float LaunchMaxHeight = 2.4f;
 	// 吹き飛びの終わりに初速の何割を失うか(0〜1)。大きいほど出だしが速く、終わりが遅くなります。
 	float LaunchSpeedFalloff = 0.8f;
-	// 通常攻撃3段目の小さな吹き飛ばしです。強攻撃より近く・低く・短く飛びます。
-	float FinisherLaunchDistance = 2.5f;
-	float FinisherLaunchHeight = 0.9f;
-	float FinisherLaunchSeconds = 0.6f;
+	// 通常攻撃3段目の打ち上げです。前へはほとんど飛ばさず、真上へ高く打ち上げます。
+	// 頂点はLaunchMaxHeightの制限を受けません(AttackVerticalReach以下にすると地上から追撃できます)。
+	float FinisherLaunchDistance = 0.5f;
+	float FinisherLaunchHeight = 3.0f;
+	float FinisherLaunchSeconds = 1.1f;
 	int MaxWallBounces = 1;
 	// 壁で反射した直後に空中へ留まる時間(ワールド時間)です。
 	float WallBounceHangSeconds = 0.3f;

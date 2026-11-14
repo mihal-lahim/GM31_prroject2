@@ -305,7 +305,7 @@ public:
 	void Reflect(Engine::PropertyVisitor& visitor) override;
 	void OnPropertiesChanged() override;
 
-	// 攻撃の重さです。Finisherは通常攻撃3段目で、小さく吹き飛ばします(重量型の装甲は削りません)。
+	// 攻撃の重さです。Finisherは通常攻撃3段目で、真上へ打ち上げます(重量型の装甲は削りません)。
 	enum class HitStrength
 	{
 		Normal,

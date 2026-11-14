@@ -1,7 +1,6 @@
 <Solution>
   <Configurations>
     <Platform Name="x64" />
-    <Platform Name="x86" />
   </Configurations>
   <Project Path="Engine.vcxproj" Id="4f1c6718-071a-4b3e-aed7-938c39c32f02" />
   <Project Path="WireAction.vcxproj" Id="5b30e919-9494-44c5-bb6a-baf79f6d5284" />

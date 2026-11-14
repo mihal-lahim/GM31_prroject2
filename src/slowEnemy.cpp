@@ -675,7 +675,7 @@ SlowEnemy::HitResult SlowEnemy::ApplyHit(const Vector3& direction, HitStrength s
 	}
 	else if (strength == HitStrength::Finisher)
 	{
-		// 通常攻撃3段目は、少しだけ浮かせて飛ばします。吹き飛び中なので追撃もできます。
+		// 通常攻撃3段目は、真上へ打ち上げます。吹き飛び中なので追撃もできます。
 		result.Launched = true;
 		Launch(direction, true);
 	}
@@ -692,7 +692,7 @@ SlowEnemy::HitResult SlowEnemy::ApplyHit(const Vector3& direction, HitStrength s
 // 吹き飛びの設計です。速さも高さも「経過時間」から決まるので、何度追撃・反射しても暴走しません。
 //   水平: 速さ = 初速 × (1 - Falloff × 経過/全体)。全体時間でちょうどLaunchDistance進みます。
 //   垂直: 今の高さから始めて、全体時間でちょうど着地する放物線です。
-// lightは通常攻撃3段目の小さな吹き飛ばしで、Finisher*の距離・高さ・時間を使います。
+// lightは通常攻撃3段目の打ち上げで、Finisher*の距離・高さ・時間を使います。
 void SlowEnemy::Launch(const Vector3& direction, bool light)
 {
 	const SlowActionTuning& tuning = GetSlowActionTuning();
@@ -713,8 +713,10 @@ void SlowEnemy::Launch(const Vector3& direction, bool light)
 	m_LaunchDistance = light ? tuning.FinisherLaunchDistance : tuning.LaunchDistance;
 	m_LaunchSeconds = light ? tuning.FinisherLaunchSeconds : tuning.LaunchSeconds;
 	const float launchHeight = light ? tuning.FinisherLaunchHeight : tuning.LaunchHeight;
+	// 3段目の打ち上げは、自分の高さまで上がれるように上限を広げます。
+	const float maxHeight = light ? (std::max)(tuning.LaunchMaxHeight, launchHeight) : tuning.LaunchMaxHeight;
 	const float height = (std::max)(m_Position.y, 0.0f);
-	const float apex = (std::max)((std::min)((std::max)(launchHeight, height + 0.15f), tuning.LaunchMaxHeight), height);
+	const float apex = (std::max)((std::min)((std::max)(launchHeight, height + 0.15f), maxHeight), height);
 	const float rise = sqrtf(2.0f * (apex - height));
 	const float fall = sqrtf(2.0f * apex);
 	m_LaunchGravity = (rise + fall) * (rise + fall) / (m_LaunchSeconds * m_LaunchSeconds);

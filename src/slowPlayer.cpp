@@ -445,7 +445,7 @@ void SlowPlayer::PerformAttackHit()
 {
 	const SlowActionTuning& tuning = GetSlowActionTuning();
 	const bool strong = m_AttackType == AttackType::Strong;
-	// 通常攻撃の3段目は締めの一撃です。範囲は通常のまま、当たった敵を小さく吹き飛ばします。
+	// 通常攻撃の3段目は締めの一撃です。範囲は通常のまま、当たった敵を真上へ打ち上げます。
 	const bool finisher = !strong && m_ComboStep == 3;
 	const SlowEnemy::HitStrength strength = strong ? SlowEnemy::HitStrength::Strong
 		: finisher ? SlowEnemy::HitStrength::Finisher : SlowEnemy::HitStrength::Normal;
