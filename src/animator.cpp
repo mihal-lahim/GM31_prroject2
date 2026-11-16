@@ -193,8 +193,18 @@ namespace Anim
 		for (const auto& [bone, channel] : clip.Channels)
 		{
 			BoneTransform& target = out[static_cast<size_t>(bone)];
-			target.Position = SampleVectorKeys(ticks, channel->mNumPositionKeys, channel->mPositionKeys, target.Position);
 			target.Rotation = SampleQuaternionKeys(ticks, channel->mNumRotationKeys, channel->mRotationKeys, target.Rotation);
+			if (clip.KeepProportions)
+			{
+				// 骨の長さと拡縮はバインド姿勢のままにし、腰の位置だけを体格の比に合わせて使います。
+				if (bone == clip.RootBone)
+				{
+					target.Position = SampleVectorKeys(ticks, channel->mNumPositionKeys, channel->mPositionKeys, target.Position)
+						* clip.RootPositionScale;
+				}
+				continue;
+			}
+			target.Position = SampleVectorKeys(ticks, channel->mNumPositionKeys, channel->mPositionKeys, target.Position);
 			target.Scale = SampleVectorKeys(ticks, channel->mNumScalingKeys, channel->mScalingKeys, target.Scale);
 		}
 	}
@@ -382,10 +392,39 @@ namespace Anim
 	void Animator::SetSkeleton(const Skeleton& skeleton)
 	{
 		m_Skeleton = skeleton;
-		for (auto& [name, entry] : m_Clips)
-			entry.Binding = BindClip(m_Skeleton, entry.Animation);
 		m_RootBone = m_Skeleton.Find(m_RootBoneName);
+		for (auto& [name, entry] : m_Clips)
+		{
+			entry.Binding = BindClip(m_Skeleton, entry.Animation);
+			ApplyKeepProportions(entry);
+		}
 		Reset();
+	}
+
+	// クリップの最初の腰の高さと、このスケルトンのバインド姿勢の腰の高さの比を、腰の位置に掛ける倍率にします。
+	// どちらも立ち姿勢に近いので、体格の違う相手のクリップでも足が床に付きます。
+	void Animator::ApplyKeepProportions(ClipEntry& entry) const
+	{
+		ClipBinding& binding = entry.Binding;
+		binding.KeepProportions = entry.KeepProportions;
+		binding.RootBone = m_RootBone;
+		binding.RootPositionScale = 1.0f;
+		if (!entry.KeepProportions || m_RootBone < 0) return;
+		const float bindHeight = m_Skeleton.BindPose()[static_cast<size_t>(m_RootBone)].Position.y;
+		for (const auto& [bone, channel] : binding.Channels)
+		{
+			if (bone != m_RootBone || channel->mNumPositionKeys == 0) continue;
+			const float clipHeight = channel->mPositionKeys[0].mValue.y;
+			if (bindHeight > 1e-3f && clipHeight > 1e-3f) binding.RootPositionScale = bindHeight / clipHeight;
+		}
+	}
+
+	void Animator::SetClipKeepProportions(const std::string& name, bool keep)
+	{
+		const auto found = m_Clips.find(name);
+		if (found == m_Clips.end()) return;
+		found->second.KeepProportions = keep;
+		ApplyKeepProportions(found->second);
 	}
 
 	void Animator::AddClip(const std::string& name, const aiAnimation* animation)
@@ -394,6 +433,7 @@ namespace Anim
 		ClipEntry& entry = m_Clips[name];
 		entry.Animation = animation;
 		entry.Binding = BindClip(m_Skeleton, animation);
+		ApplyKeepProportions(entry);
 	}
 
 	void Animator::SetClipInPlace(const std::string& name, bool inPlace)
@@ -767,7 +807,8 @@ namespace Anim
 		for (const auto& [bone, channel] : clip.Binding.Channels)
 		{
 			if (bone == m_RootBone)
-				return SampleVectorKeys(ticks, channel->mNumPositionKeys, channel->mPositionKeys, fallback);
+				return SampleVectorKeys(ticks, channel->mNumPositionKeys, channel->mPositionKeys, fallback)
+					* (clip.Binding.KeepProportions ? clip.Binding.RootPositionScale : 1.0f);
 		}
 		return fallback;
 	}

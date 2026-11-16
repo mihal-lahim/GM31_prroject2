@@ -52,6 +52,19 @@ void SlowBullet::Deflect(const Vector3& direction)
 	EmitBurst(m_Position, 14, 6.0f, 0.25f, 14, { 0.4f, 1.0f, 1.0f, 1.0f });
 }
 
+bool SlowBullet::TryJustSlow(const Vector3& playerPosition, float range)
+{
+	const Vector3 toPlayer = Flatten(playerPosition - m_Position);
+	// 通り過ぎた弾は対象にしません。
+	if (m_Deflected || m_JustSlowUsed || IsPendingDestroy() || toPlayer.length() > range
+		|| Vector3::dot(toPlayer, m_Velocity) <= 0.0f)
+	{
+		return false;
+	}
+	m_JustSlowUsed = true;
+	return true;
+}
+
 void SlowBullet::Update()
 {
 	if (SceneEditor::IsActive())

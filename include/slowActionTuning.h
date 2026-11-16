@@ -47,8 +47,18 @@ struct SlowActionTuning
 	float NormalRange = 2.8f;
 	float NormalHalfAngleDegrees = 40.0f;
 	int NormalDamage = 1;
-	float StrongDuration = 0.42f;
-	float StrongHitDelay = 0.08f;
+	// 強攻撃は範囲と吹き飛ばしが強い代わりに、出が遅く後の隙が長い技です。
+	// 回転斬りのクリップ(Akai_Strong.fbx)のStart〜Endを再生し、Hitの位置で当たります(元クリップに対する割合、0〜1)。
+	// 攻撃の長さと当たる瞬間は、この区間と再生倍率から決まります。
+	float StrongClipStart = 0.745f;
+	float StrongClipHit = 0.915f;
+	float StrongClipEnd = 1.0f;
+	float StrongPlaybackSpeed = 3.4f;
+	// クリップが読めなかったときだけ使う、強攻撃の長さと当たるまでの秒数です。
+	float StrongDuration = 0.7f;
+	float StrongHitDelay = 0.22f;
+	// 強攻撃を出してからこの秒数が過ぎるまで、ダッシュでキャンセルできません。
+	float StrongCancelSeconds = 0.35f;
 	float StrongRange = 4.2f;
 	float StrongHalfAngleDegrees = 75.0f;
 	int StrongDamage = 1;
@@ -76,6 +86,12 @@ struct SlowActionTuning
 	float GaugeGainNormalHit = 5.0f;
 	float GaugeGainStrongHit = 8.0f;
 	float GaugeGainPursuit = 18.0f;
+	// ジャスト減速: 敵の攻撃が当たる直前に減速を発動すると、ゲージがその場で回復し得点が入ります。
+	// 近接・重量型は予兆の残りがJustSlowWindowSeconds(ワールド時間)以下のとき、
+	// 弾はプレイヤーからJustSlowBulletRange以内のときです。1回の予兆・1発の弾につき1度だけです。
+	float JustSlowWindowSeconds = 0.3f;
+	float JustSlowBulletRange = 3.0f;
+	float JustSlowGaugeGain = 20.0f;
 
 	// ---- 吹き飛ばし ----
 	float LaunchDistance = 6.0f;
@@ -98,7 +114,9 @@ struct SlowActionTuning
 	float RecoverSeconds = 0.45f;
 
 	// ---- 敵 ----
-	int EnemyHp = 3;
+	int EnemyHp = 6;
+	// 吹き飛び中の敵へ当てた追撃に上乗せするダメージです。地上で殴り続けるより、浮かせて追撃する方が早く倒せます。
+	int PursuitDamageBonus = 1;
 	float EnemyRadius = 0.45f;
 	float EnemyMoveSpeed = 3.5f;
 	float EnemyDetectRange = 16.0f;
@@ -177,6 +195,7 @@ struct SlowActionTuning
 	int ScorePursuit = 40;
 	int ScoreWallBounce = 30;
 	int ScoreDeflect = 50;
+	int ScoreJustSlow = 60;
 	int ScoreKillMelee = 100;
 	int ScoreKillGunner = 150;
 	int ScoreKillBrute = 300;

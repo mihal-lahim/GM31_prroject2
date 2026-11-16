@@ -78,6 +78,12 @@ namespace Anim
 		std::vector<std::pair<int, const aiNodeAnim*>> Channels;
 		double TicksPerSecond = 25.0;
 		double DurationTicks = 1.0;
+		// 別の体格のキャラクター用に作られたクリップを使うときの設定です(Animator::SetClipKeepProportions)。
+		// trueなら回転だけをクリップから取り、骨の長さ(位置)と拡縮はこのスケルトンのバインド姿勢のままにします。
+		// ルート骨だけは位置も使い、体格の比(RootPositionScale)を掛けて腰の高さを合わせます。
+		bool KeepProportions = false;
+		int RootBone = -1;
+		float RootPositionScale = 1.0f;
 	};
 
 	// 再生範囲です。Start/Endは元クリップに対する割合(0〜1)、Speedは再生倍率です。
@@ -202,6 +208,9 @@ namespace Anim
 		// Mixamoで「In Place」にせず書き出した走りなど、前へ進んでしまうクリップに使います。
 		// アクション層でLock再生するときも、再生を始めた位置ではなく原点の真上に腰を固定します。
 		void SetClipInPlace(const std::string& name, bool inPlace);
+		// 別の体格のキャラクター用のクリップを、このスケルトンの骨の長さのまま再生します。
+		// 指定しないと、クリップに入っている骨の位置で手足が伸び縮みします。
+		void SetClipKeepProportions(const std::string& name, bool keep);
 
 		void SetParameter(const std::string& name, float value) { m_Parameters[name] = value; }
 		float GetParameter(const std::string& name) const;
@@ -254,6 +263,7 @@ namespace Anim
 			const aiAnimation* Animation = nullptr;
 			ClipBinding Binding;
 			bool InPlace = false;
+			bool KeepProportions = false;
 		};
 		struct ActionLayer
 		{
@@ -296,6 +306,8 @@ namespace Anim
 		void BeginLoopSeamBlend(double cycleSeconds);
 		aiVector3D SampleRoot(const ActionLayer& layer, double ticks);
 		aiVector3D SampleRoot(const ClipEntry& clip, double ticks) const;
+		// entry.KeepProportionsをBindingへ反映し、腰の位置に掛ける倍率を決め直します。
+		void ApplyKeepProportions(ClipEntry& entry) const;
 		// ベース層用のサンプリングです。InPlaceのクリップは腰の水平位置をバインドポーズに固定します。
 		void SampleBaseClip(const ClipEntry& clip, double ticks, Pose& out) const;
 		aiVector3D Horizontal(const aiVector3D& value) const;

@@ -95,6 +95,7 @@ void SlowScore::Add(Event event)
 	case Event::Pursuit: base = tuning.ScorePursuit; label = L"追撃"; break;
 	case Event::WallBounce: base = tuning.ScoreWallBounce; label = L"壁反射"; break;
 	case Event::Deflect: base = tuning.ScoreDeflect; label = L"打ち返し"; break;
+	case Event::JustSlow: base = tuning.ScoreJustSlow; label = L"ジャスト減速"; break;
 	case Event::KillMelee: base = tuning.ScoreKillMelee; label = L"撃破"; break;
 	case Event::KillGunner: base = tuning.ScoreKillGunner; label = L"射撃型 撃破"; break;
 	case Event::KillBrute: base = tuning.ScoreKillBrute; label = L"重量型 撃破"; break;

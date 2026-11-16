@@ -65,6 +65,10 @@ void SlowPlayer::Init()
 	m_Model->SetAnimationInPlace("Dash");
 	// 通常攻撃の3段コンボです。1本のクリップを段ごとの区間に分けて、アクション層で再生します。
 	m_Model->LoadAnimation("assets/model/Akai_Slash.fbx", "Slash");
+	// 強攻撃の回転斬りです。こちらもアクション層で再生します。
+	m_Model->LoadAnimation("assets/model/Akai_Strong.fbx", "Strong");
+	// このクリップは別の体格のキャラクター用なので、そのままだと手足が伸びます。回転だけを使い、骨の長さはAkaiのままにします。
+	m_Model->SetAnimationKeepProportions("Strong");
 	m_Model->SetModelScale(0.01f);
 	// Akaiのモデルの正面は-Zなので、移動の向きの基準(+Z)へ回します。
 	m_Model->SetModelYawOffset(XM_PI);
@@ -103,7 +107,7 @@ void SlowPlayer::Init()
 //   Move/Dash  --左クリックを離す------->  Attack   (ダッシュは即終了。Shiftが押されていればロック)
 //   Attack --終了(予約あり)------------->  Attack   (予約した種類で続けて攻撃)
 //   Attack --終了(予約なし)------------->  Move
-//   Attack --Shiftを新しく押す---------->  Move→Dash (いつでもキャンセル。予約は捨てる)
+//   Attack --Shiftを新しく押す---------->  Move→Dash (キャンセル。予約は捨てる。強攻撃はStrongCancelSeconds以降だけ)
 //
 // 通常攻撃は3段コンボです。予約で続けるか、終わってからComboChainSeconds以内に出すと次の段になり、
 // 3段目は当たった敵を小さく吹き飛ばします。強攻撃・ダッシュ・猶予切れで1段目に戻ります。
@@ -149,9 +153,11 @@ void SlowPlayer::Update()
 	if (wasAttacking)
 	{
 		const float duration = m_AttackDuration;
-		if (dashPressed && !m_DashLocked)
+		// 強攻撃は出してからStrongCancelSecondsまで抜けられません。大きな技に見合う隙です。
+		const bool committed = m_AttackType == AttackType::Strong && m_AttackTime < tuning.StrongCancelSeconds;
+		if (dashPressed && !m_DashLocked && !committed)
 		{
-			// 空振りでも当たった後でも、ダッシュでいつでも抜けられます。コンボも切れます。
+			// 通常攻撃は空振りでも当たった後でも、ダッシュでいつでも抜けられます。コンボも切れます。
 			m_State = State::Move;
 			m_BufferedAttack = AttackType::None;
 			m_ComboStep = 0;
@@ -194,9 +200,18 @@ void SlowPlayer::Update()
 		{
 			StartAttack(released, input);
 		}
+		else if (m_State != State::Charge && input.Attack && m_AttackHoldSeconds >= tuning.StrongHoldSeconds)
+		{
+			// 強攻撃になる長さまで押し続けたら、その場で止まって回転斬りの構えに入ります。離すと斬ります。
+			StartCharge(input);
+		}
 	}
 
-	if (m_State != State::Attack)
+	if (m_State == State::Charge)
+	{
+		UpdateCharge(input, deltaTime);
+	}
+	else if (m_State != State::Attack)
 	{
 		UpdateMovement(input, deltaTime);
 	}
@@ -219,7 +234,8 @@ void SlowPlayer::UpdateAnimation(float deltaTime)
 {
 	const SlowActionTuning& tuning = GetSlowActionTuning();
 	// 攻撃中は動かないのでベース層は待機にし、斬る動きはアクション層(StartAttackのPlayAction)で重ねます。
-	const float speed = m_State == State::Attack ? 0.0f : m_Velocity.length();
+	const bool planted = m_State == State::Attack || m_State == State::Charge;
+	const float speed = planted ? 0.0f : m_Velocity.length();
 	const bool running = speed > 0.5f;
 	const bool dashing = m_State == State::Dash && running;
 	// 走りは速さに合わせて再生を速め、足が滑って見えないようにします。
@@ -235,7 +251,7 @@ void SlowPlayer::UpdateAnimation(float deltaTime)
 	}
 	m_Model->SetPlayback(playback);
 	const char* clip = dashing ? "Dash" : (running ? "Run" : "Idle");
-	m_Model->PlayAnimation(clip, m_State == State::Attack ? 0.08f : 0.15f);
+	m_Model->PlayAnimation(clip, planted ? 0.08f : 0.15f);
 	// ヒットストップ中はGameTimeが遅くなるので、体の動きも一緒に止まります。
 	m_Model->TickAnimation(deltaTime);
 	UpdateSword();
@@ -296,6 +312,43 @@ void SlowPlayer::UpdateSword()
 	m_SwordAttached = true;
 }
 
+// 溜め: 強攻撃の構え(クリップのStrongClipStartの姿勢)で止まります。移動もダッシュもできず、向きだけ変えられます。
+void SlowPlayer::StartCharge(const SlowInputState& input)
+{
+	const SlowActionTuning& tuning = GetSlowActionTuning();
+	m_State = State::Charge;
+	m_Velocity.zero();
+	m_ComboStep = 0;
+	// Shiftを押したまま溜めに入ったら、攻撃と同じく一度離すまでダッシュへ戻しません。
+	if (input.Dash)
+	{
+		m_DashLocked = true;
+	}
+	// 構えの姿勢で止めるため、開始位置のごく短い区間をほぼ停止の速さで繰り返します。
+	// 離したときの強攻撃は同じ姿勢から始まるので、動きがつながります。
+	Anim::ActionOptions options;
+	options.Playback = { 0.01f, tuning.StrongClipStart, tuning.StrongClipStart + 0.01f, true };
+	options.FadeIn = 0.1f;
+	options.FadeOut = 0.12f;
+	options.RootMotionMode = Anim::RootMotion::Lock;
+	m_Model->PlayAction("Strong", options);
+}
+
+void SlowPlayer::UpdateCharge(const SlowInputState& input, float deltaTime)
+{
+	const SlowActionTuning& tuning = GetSlowActionTuning();
+	// 動けない代わりに、入力した方向へ向き直せます。離した瞬間の狙いを付けるためです。
+	const SlowCamera* camera = GetWorld().FindFirst<SlowCamera>();
+	const float cameraYaw = camera != nullptr ? camera->GetYaw() : 0.0f;
+	const Vector3 wish = ForwardFromYaw(cameraYaw) * input.MoveZ + RightFromYaw(cameraYaw) * input.MoveX;
+	if (wish.length() > 0.1f)
+	{
+		const float difference = WrapAngle(YawFromDirection(wish) - m_Yaw);
+		const float step = tuning.TurnSpeed * deltaTime;
+		m_Yaw = WrapAngle(m_Yaw + std::clamp(difference, -step, step));
+	}
+}
+
 void SlowPlayer::StartAttack(AttackType type, const SlowInputState& input)
 {
 	const bool dashHeld = input.Dash;
@@ -331,10 +384,31 @@ void SlowPlayer::StartAttack(AttackType type, const SlowInputState& input)
 	else
 	{
 		m_ComboStep = 0;
-		m_AttackDuration = tuning.StrongDuration;
-		m_AttackHitDelay = tuning.StrongHitDelay;
-		// 強攻撃のモーションはまだ無いので、通常攻撃の途中なら止めて待機に戻します。
-		m_Model->StopAction(0, 0.08f);
+		// 強攻撃は体ごと1回転する横薙ぎ(Akai_Strong.fbx)です。通常攻撃と同じく、長さと当たる瞬間は
+		// クリップ上の区間(StrongClip*)と再生倍率から決めるので、振る動きと当たり判定が一致します。
+		const float clipSeconds = m_Model->GetAnimationSeconds("Strong");
+		if (clipSeconds > 0.0f)
+		{
+			const float secondsPerFraction = clipSeconds / tuning.StrongPlaybackSpeed;
+			const float span = (std::max)(tuning.StrongClipEnd - tuning.StrongClipStart, 0.01f);
+			m_AttackDuration = span * secondsPerFraction;
+			m_AttackHitDelay = std::clamp(tuning.StrongClipHit - tuning.StrongClipStart, 0.0f, span) * secondsPerFraction;
+
+			Anim::ActionOptions options;
+			options.Playback = { tuning.StrongPlaybackSpeed, tuning.StrongClipStart, tuning.StrongClipStart + span, false };
+			// 押した直後に構えが見えるよう、入りは短くします。
+			options.FadeIn = 0.05f;
+			options.FadeOut = 0.15f;
+			options.RootMotionMode = Anim::RootMotion::Lock;
+			m_Model->PlayAction("Strong", options);
+		}
+		else
+		{
+			// クリップが読めなかったときは、動きなしで秒数の調整値だけを使います。
+			m_AttackDuration = tuning.StrongDuration;
+			m_AttackHitDelay = tuning.StrongHitDelay;
+			m_Model->StopAction(0, 0.08f);
+		}
 	}
 	// 攻撃中は動きません。ダッシュの勢いもここで捨てます。
 	m_Velocity.zero();
@@ -618,6 +692,11 @@ bool SlowPlayer::TryMove(const Vector3& offset)
 	}
 	SetPosition(previous);
 	return false;
+}
+
+void SlowPlayer::SetHp(int hp)
+{
+	m_Hp = std::clamp(hp, 0, GetSlowActionTuning().PlayerMaxHp);
 }
 
 void SlowPlayer::TakeDamage(int damage)

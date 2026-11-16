@@ -20,7 +20,7 @@ namespace
 {
 	constexpr const char* kStagePath = "assets/scene/slow-stage.scene";
 	constexpr const wchar_t* kPlayHelp =
-		L"WASD:移動  マウス:視点  Shift:ダッシュ  左クリック:短押し=通常 / 長押し=強攻撃  "
+		L"WASD:移動  マウス:視点  Shift:ダッシュ  左クリック:短押し=通常 / 長押し=溜め(動けない)→離して強攻撃  "
 		L"右クリック:時間減速  R:やり直し  F1:当たり判定  F2:敵無敵  F3:編集モード  Esc:終了";
 	// 現在のステージの記述(シーンファイルと同じ書式)です。最初はファイルから読み、
 	// 編集モードを抜けるたびにその時点の配置で置き換えます。Sceneを作り直しても残るよう、ここで持ちます。
@@ -178,6 +178,11 @@ void SlowClock::AddGauge(float amount)
 	{
 		g_Gauge = (std::min)(GetSlowActionTuning().GaugeMax, g_Gauge + amount);
 	}
+}
+
+void SlowClock::AddGaugeNow(float amount)
+{
+	g_Gauge = (std::min)(GetSlowActionTuning().GaugeMax, g_Gauge + amount);
 }
 
 void SlowBlock::Init()
@@ -398,6 +403,7 @@ void SlowActionScene::Update()
 	if (SlowClock::IsSlowActive() && !m_WasSlow)
 	{
 		SlowSound::Play(SlowSound::Id::TimeOn);
+		CheckJustSlow();
 	}
 	m_WasSlow = SlowClock::IsSlowActive();
 
@@ -433,6 +439,43 @@ void SlowActionScene::Update()
 	UpdateHud();
 }
 
+void SlowActionScene::CheckJustSlow()
+{
+	const SlowActionTuning& tuning = GetSlowActionTuning();
+	World& world = GetWorld();
+	const SlowPlayer* player = world.FindFirst<SlowPlayer>();
+	if (player == nullptr)
+	{
+		return;
+	}
+	// 同時に複数の攻撃が迫っていれば、その数だけ報います。危ないほど見返りが大きくなります。
+	int count = 0;
+	for (SlowEnemy* enemy : world.FindAll<SlowEnemy>())
+	{
+		if (enemy->TryJustSlow(tuning.JustSlowWindowSeconds))
+		{
+			count++;
+		}
+	}
+	for (SlowBullet* bullet : world.FindAll<SlowBullet>())
+	{
+		if (bullet->TryJustSlow(player->GetPosition(), tuning.JustSlowBulletRange))
+		{
+			count++;
+		}
+	}
+	for (int i = 0; i < count; ++i)
+	{
+		SlowClock::AddGaugeNow(tuning.JustSlowGaugeGain);
+		SlowScore::Add(SlowScore::Event::JustSlow);
+	}
+	if (count > 0)
+	{
+		SlowUtil::EmitBurst(player->GetPosition() + Vector3(0.0f, 1.0f, 0.0f), 20, 7.0f, 0.3f, 20, { 0.5f, 0.85f, 1.0f, 1.0f });
+		SlowSound::Play(SlowSound::Id::Deflect);
+	}
+}
+
 void SlowActionScene::UpdateHud()
 {
 	const SlowActionTuning& tuning = GetSlowActionTuning();
@@ -456,6 +499,7 @@ void SlowActionScene::UpdateHud()
 	{
 	case SlowPlayer::State::Move: state = player->GetSpeed() > 0.1f ? L"移動" : L"待機"; break;
 	case SlowPlayer::State::Dash: state = L"ダッシュ"; break;
+	case SlowPlayer::State::Charge: state = L"溜め(動けない)"; break;
 	case SlowPlayer::State::Attack:
 		state = std::wstring(AttackName(player->GetAttackType())) + L"攻撃";
 		if (player->GetComboStep() > 0)

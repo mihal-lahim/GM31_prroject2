@@ -210,7 +210,21 @@ void SlowEnemy::SetState(State state, float seconds)
 {
 	m_State = state;
 	m_StateTime = seconds;
+	if (state == State::Windup)
+	{
+		m_JustSlowUsed = false;
+	}
 	RefreshModel();
+}
+
+bool SlowEnemy::TryJustSlow(float windowSeconds)
+{
+	if (m_State != State::Windup || m_Kind == Kind::Gunner || m_JustSlowUsed || m_StateTime > windowSeconds)
+	{
+		return false;
+	}
+	m_JustSlowUsed = true;
+	return true;
 }
 
 void SlowEnemy::RefreshModel()
@@ -604,7 +618,8 @@ SlowEnemy::HitResult SlowEnemy::ApplyHit(const Vector3& direction, HitStrength s
 	result.Pursuit = wasLaunched;
 	if (!s_Invincible)
 	{
-		m_Hp -= damage;
+		// 追撃はダメージを上乗せします。浮かせて追う方が、地上で殴り続けるより早く倒せます。
+		m_Hp -= damage + (wasLaunched ? tuning.PursuitDamageBonus : 0);
 	}
 
 	const Vector3 center = m_Position + Vector3(0.0f, 0.9f, 0.0f);

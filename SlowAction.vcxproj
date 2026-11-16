@@ -277,6 +277,9 @@
     <RuntimeAsset Include="assets\model\Akai_Slash.fbx">
       <TargetPath>assets\model\Akai_Slash.fbx</TargetPath>
     </RuntimeAsset>
+    <RuntimeAsset Include="assets\model\Akai_Strong.fbx">
+      <TargetPath>assets\model\Akai_Strong.fbx</TargetPath>
+    </RuntimeAsset>
     <RuntimeAsset Include="assets\model\Enemy.fbx">
       <TargetPath>assets\model\Enemy.fbx</TargetPath>
     </RuntimeAsset>

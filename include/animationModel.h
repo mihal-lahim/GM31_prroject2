@@ -103,6 +103,8 @@ public:
 	void LoadAnimation( const char *FileName, const char *Name );
 	// 腰が前へ進んでいくクリップ(In Placeでない走りなど)を、その場で再生するようにします。LoadAnimationの後に呼びます。
 	void SetAnimationInPlace(const char* name, bool inPlace = true) { if (name != nullptr) m_Animator.SetClipInPlace(name, inPlace); }
+	// 別の体格のキャラクター用に作られたクリップを、このモデルの骨の長さのまま再生します(手足が伸びるのを防ぎます)。
+	void SetAnimationKeepProportions(const char* name, bool keep = true) { if (name != nullptr) m_Animator.SetClipKeepProportions(name, keep); }
 	// 読み込んだクリップ全体の長さ(秒、再生倍率1)です。無ければ0です。
 	float GetAnimationSeconds(const char* name) const { return name != nullptr ? m_Animator.GetClipSeconds(name) : 0.0f; }
 	// 変形済みの頂点バッファをそのまま使って、太陽から見た深度を描きます。

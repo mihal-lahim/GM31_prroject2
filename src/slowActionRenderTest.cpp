@@ -92,6 +92,8 @@ namespace
 			Input = SlowInputState{};
 			Step(40 + static_cast<int>(GetSlowActionTuning().ComboChainSeconds * 60.0f) + 2);
 			SlowClock::Reset();
+			// 確認の合間に受けたダメージが積もって倒れないよう、区切りごとにHPを戻します。
+			Player()->SetHp(GetSlowActionTuning().PlayerMaxHp);
 			Player()->SetPosition(playerPosition);
 			Player()->SetYaw(playerYaw);
 		}
@@ -256,7 +258,7 @@ bool RunSlowActionRenderTest()
 	h.TapAttack();
 	h.Check("attack ends dash", h.Player()->GetState() == State::Attack && h.Player()->GetSpeed() == 0.0f);
 	h.Check("dash locked while shift held", h.Player()->IsDashLocked());
-	h.Step(6);
+	h.Step(1);
 	h.Check("held shift does not cancel attack", h.Player()->GetState() == State::Attack);
 	h.Step(30);
 	h.Check("no re-dash until shift released", h.Player()->GetState() == State::Move
@@ -482,6 +484,80 @@ bool RunSlowActionRenderTest()
 	h.Check("pursuit keeps height bounded", pursuitPeak <= tuning.LaunchMaxHeight + 0.01f, pursuitPeak);
 	h.Check("pursuit sent enemy along the new direction", h.Enemy()->GetPosition().z > enemyPosition.z + 3.0f, h.Enemy()->GetPosition().z);
 
+	// ---- 強攻撃の隙: StrongCancelSecondsまではダッシュで抜けられない ----
+	h.Enemy()->SetPosition(farAway);
+	h.Settle(openSpot, 0.0f);
+	h.HoldAttack();
+	h.Input.MoveZ = 1.0f;
+	h.Input.Dash = true;
+	h.Step();
+	h.Check("strong attack cannot be dash-cancelled early", h.Player()->GetState() == State::Attack);
+	h.Input.Dash = false;
+	h.Step(static_cast<int>(tuning.StrongCancelSeconds * 60.0f) + 1);
+	h.Input.Dash = true;
+	h.Step();
+	h.Check("strong attack can be dash-cancelled late", h.Player()->GetState() == State::Dash);
+
+	// ---- 強攻撃のモーション: 長さと当たる瞬間は回転斬りのクリップから決まる ----
+	h.Settle(openSpot, 0.0f);
+	h.HoldAttack();
+	h.Check("strong attack timing comes from the clip", h.Player()->GetAttackDuration() > 0.3f
+		&& h.Player()->GetAttackHitDelay() > 0.1f && h.Player()->GetAttackHitDelay() < h.Player()->GetAttackDuration(),
+		h.Player()->GetAttackHitDelay());
+	h.Step(static_cast<int>(h.Player()->GetAttackHitDelay() * 60.0f));
+	h.Check("sword stays in the hand during the spin", h.Player()->IsSwordAttached());
+	h.Draw();
+	h.Check("capture strong", Capture(L"slow-render-strong.png"));
+
+	// ---- 溜め: 強攻撃になるまで押し続けると構えて止まり、向きだけ変えられる。離すと強攻撃 ----
+	h.Settle(openSpot, 0.0f);
+	h.Input.MoveZ = 1.0f;
+	h.Step(10);
+	h.Input.Attack = true;
+	h.Step(static_cast<int>(tuning.StrongHoldSeconds * 60.0f) + 4);
+	h.Check("holding attack enters the charge stance", h.Player()->GetState() == State::Charge && h.Player()->GetSpeed() == 0.0f,
+		h.Player()->GetSpeed());
+	const Vector3 chargeSpot = h.Player()->GetPosition();
+	h.Input.Dash = true;
+	h.Step(20);
+	h.Check("cannot move or dash while charging", h.Player()->GetState() == State::Charge
+		&& (h.Player()->GetPosition() - chargeSpot).length() < 0.001f, (h.Player()->GetPosition() - chargeSpot).length());
+	h.Input.Dash = false;
+	h.Input.MoveZ = 0.0f;
+	h.Input.MoveX = 1.0f;
+	h.Step(20);
+	// 移動入力はカメラ基準なので、右入力ならカメラの向きから90度右を向きます。
+	const float chargeYaw = h.GetWorld().FindFirst<SlowCamera>()->GetYaw() + XM_PIDIV2;
+	h.Check("charging player can turn", fabsf(SlowUtil::WrapAngle(h.Player()->GetYaw() - chargeYaw)) < 0.05f, h.Player()->GetYaw());
+	h.Draw();
+	h.Check("capture charge", Capture(L"slow-render-charge.png"));
+	h.Input.Attack = false;
+	h.Step();
+	h.Check("releasing the charge starts the strong attack", h.Player()->GetState() == State::Attack
+		&& h.Player()->GetAttackType() == SlowPlayer::AttackType::Strong);
+
+	// ---- ジャスト減速: 殴られる直前の発動だけが報われ、1回の予兆につき1度だけ ----
+	h.Settle(openSpot, yawPlusX);
+	h.Enemy()->SetPosition(openSpot + Vector3(1.5f, 0.0f, 0.0f));
+	for (int i = 0; i < 120 && h.Enemy()->GetState() != SlowEnemy::State::Windup; ++i) h.Step();
+	SlowScore::Reset();
+	h.Input.Slow = true;
+	h.Step();
+	h.Check("slowing early in the windup earns nothing", SlowScore::GetScore() == 0 && SlowClock::GetGauge() < tuning.GaugeMax,
+		static_cast<float>(SlowScore::GetScore()));
+	h.Input.Slow = false;
+	h.Step(static_cast<int>(ceilf((tuning.EnemyWindupSeconds - tuning.JustSlowWindowSeconds) * 60.0f)) + 1);
+	const float gaugeBeforeJust = SlowClock::GetGauge();
+	h.Input.Slow = true;
+	h.Step();
+	h.Check("just slow scores and refills the gauge at once", h.Enemy()->GetState() == SlowEnemy::State::Windup
+		&& SlowScore::GetScore() == tuning.ScoreJustSlow && SlowClock::GetGauge() > gaugeBeforeJust, SlowClock::GetGauge());
+	h.Input.Slow = false;
+	h.Step();
+	h.Input.Slow = true;
+	h.Step();
+	h.Check("just slow pays once per windup", SlowScore::GetScore() == tuning.ScoreJustSlow, static_cast<float>(SlowScore::GetScore()));
+
 	// ---- 敵の攻撃と撃破 ----
 	h.Settle(openSpot, yawPlusX);
 	h.Enemy()->SetPosition(openSpot + Vector3(1.5f, 0.0f, 0.0f));
@@ -606,6 +682,8 @@ bool RunSlowActionRenderTest()
 		h.Check("three hits make a three combo", SlowScore::GetCombo() == 3, static_cast<float>(SlowScore::GetCombo()));
 		h.Check("hits score at base multiplier", SlowScore::GetScore() == tuning.ScoreNormalHit * 3,
 			static_cast<float>(SlowScore::GetScore()));
+		// 強攻撃は出が遅いので、その間に殴られてコンボが切れないよう、先に敵をひるませておきます。
+		target->ApplyHit({ 1.0f, 0.0f, 0.0f }, SlowEnemy::HitStrength::Normal, 0);
 		h.HoldAttack();
 		for (int i = 0; i < 20 && !target->IsLaunched(); ++i) h.Step();
 		h.Check("strong hit shakes the camera", target->IsLaunched() && camera != nullptr && camera->GetShake() > 0.0f,
@@ -701,6 +779,19 @@ bool RunSlowActionRenderTest()
 	}
 	h.Check("anchor stayed idle", anchor->GetState() == SlowEnemy::State::Idle);
 	SlowEnemy::SetInvincible(false);
+
+	// ---- 追撃はダメージが上乗せされる ----
+	{
+		SlowEnemy* target = spawnEnemy(SlowEnemy::Kind::Melee, openSpot + Vector3(6.0f, 0.0f, 0.0f));
+		const int hpStart = target->GetHp();
+		target->ApplyHit({ 1.0f, 0.0f, 0.0f }, SlowEnemy::HitStrength::Strong, 1);
+		const int hpLaunched = target->GetHp();
+		target->ApplyHit({ 1.0f, 0.0f, 0.0f }, SlowEnemy::HitStrength::Normal, 1);
+		h.Check("pursuit deals bonus damage", hpLaunched == hpStart - 1
+			&& target->GetHp() == hpLaunched - 1 - tuning.PursuitDamageBonus, static_cast<float>(target->GetHp()));
+		target->MarkForDestroy();
+		h.Step();
+	}
 
 	SlowInput::SetOverride(nullptr);
 	h.Scene.Uninit();

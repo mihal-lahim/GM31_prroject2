@@ -61,8 +61,13 @@ const SlowActionTuning& GetSlowActionTuning()
 		SLOW_TUNING(NormalRange);
 		SLOW_TUNING(NormalHalfAngleDegrees);
 		SLOW_TUNING(NormalDamage);
+		SLOW_TUNING(StrongClipStart);
+		SLOW_TUNING(StrongClipHit);
+		SLOW_TUNING(StrongClipEnd);
+		SLOW_TUNING(StrongPlaybackSpeed);
 		SLOW_TUNING(StrongDuration);
 		SLOW_TUNING(StrongHitDelay);
+		SLOW_TUNING(StrongCancelSeconds);
 		SLOW_TUNING(StrongRange);
 		SLOW_TUNING(StrongHalfAngleDegrees);
 		SLOW_TUNING(StrongDamage);
@@ -81,6 +86,9 @@ const SlowActionTuning& GetSlowActionTuning()
 		SLOW_TUNING(GaugeGainNormalHit);
 		SLOW_TUNING(GaugeGainStrongHit);
 		SLOW_TUNING(GaugeGainPursuit);
+		SLOW_TUNING(JustSlowWindowSeconds);
+		SLOW_TUNING(JustSlowBulletRange);
+		SLOW_TUNING(JustSlowGaugeGain);
 		SLOW_TUNING(LaunchDistance);
 		SLOW_TUNING(LaunchSeconds);
 		SLOW_TUNING(LaunchHeight);
@@ -93,6 +101,7 @@ const SlowActionTuning& GetSlowActionTuning()
 		SLOW_TUNING(WallBounceHangSeconds);
 		SLOW_TUNING(RecoverSeconds);
 		SLOW_TUNING(EnemyHp);
+		SLOW_TUNING(PursuitDamageBonus);
 		SLOW_TUNING(EnemyRadius);
 		SLOW_TUNING(EnemyMoveSpeed);
 		SLOW_TUNING(EnemyDetectRange);
@@ -149,6 +158,7 @@ const SlowActionTuning& GetSlowActionTuning()
 		SLOW_TUNING(ScorePursuit);
 		SLOW_TUNING(ScoreWallBounce);
 		SLOW_TUNING(ScoreDeflect);
+		SLOW_TUNING(ScoreJustSlow);
 		SLOW_TUNING(ScoreKillMelee);
 		SLOW_TUNING(ScoreKillGunner);
 		SLOW_TUNING(ScoreKillBrute);
@@ -176,6 +186,8 @@ const SlowActionTuning& GetSlowActionTuning()
 		value.FinisherLaunchSeconds = (std::max)(value.FinisherLaunchSeconds, 0.1f);
 		value.FinisherLaunchHeight = (std::max)(value.FinisherLaunchHeight, 0.1f);
 		value.ComboPlaybackSpeed = (std::max)(value.ComboPlaybackSpeed, 0.1f);
+		value.StrongPlaybackSpeed = (std::max)(value.StrongPlaybackSpeed, 0.1f);
+		value.StrongClipEnd = (std::min)(value.StrongClipEnd, 1.0f);
 		value.SlowTimeScale = std::clamp(value.SlowTimeScale, 0.05f, 1.0f);
 		value.SlowBlendSeconds = (std::max)(value.SlowBlendSeconds, 0.001f);
 		value.GaugeMax = (std::max)(value.GaugeMax, 1.0f);

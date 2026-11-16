@@ -59,6 +59,8 @@ public:
 	static float GetPendingGain();
 	// 減速中なら蓄積し、減速していなければその場で反映します。
 	static void AddGauge(float amount);
+	// 減速中でもその場でゲージへ反映します(ジャスト減速の回復用)。
+	static void AddGaugeNow(float amount);
 };
 
 class SlowCamera final : public GameObject, public ICameraView
@@ -110,7 +112,9 @@ public:
 	{
 		Move,
 		Dash,
-		Attack
+		Attack,
+		// 左クリックを押し続けて強攻撃を溜めている間です。構えたまま動けません。
+		Charge
 	};
 
 	enum class AttackType
@@ -134,6 +138,8 @@ public:
 	// 左クリックを押し続けている秒数です。押していなければ0です。
 	float GetAttackHoldSeconds() const { return m_AttackHoldSeconds; }
 	int GetHp() const { return m_Hp; }
+	// HPを指定した値にします(0〜PlayerMaxHpに収めます)。回復とテスト用です。
+	void SetHp(int hp);
 	float GetYaw() const { return m_Yaw; }
 	void SetYaw(float yaw) { m_Yaw = yaw; m_Rotation.y = yaw; }
 	float GetSpeed() const { return m_Velocity.length(); }
@@ -181,6 +187,8 @@ private:
 	float m_LungeRemaining = 0.0f;
 	float m_LungeSpeed = 0.0f;
 
+	void StartCharge(const SlowInputState& input);
+	void UpdateCharge(const SlowInputState& input, float deltaTime);
 	void StartAttack(AttackType type, const SlowInputState& input);
 	// 通常攻撃のロック先へ向きを追わせ、踏み込みます。当たる瞬間までだけ動きます。
 	void UpdateAttackLunge(float deltaTime);
@@ -236,6 +244,7 @@ public:
 		Pursuit,
 		WallBounce,
 		Deflect,
+		JustSlow,
 		KillMelee,
 		KillGunner,
 		KillBrute,
@@ -328,6 +337,8 @@ public:
 	float GetLaunchRemaining() const;
 	int GetWallBounceCount() const { return m_WallBounces; }
 	bool IsHanging() const { return m_State == State::Launched && m_HangTime > 0.0f; }
+	// 殴りかかる予兆の残りがwindowSeconds以下なら、ジャスト減速の対象として1度だけtrueを返します(射撃型は弾で判定します)。
+	bool TryJustSlow(float windowSeconds);
 
 	// trueの間、敵のHPが減りません(吹き飛ばしと追撃の練習用)。
 	static void SetInvincible(bool enabled) { s_Invincible = enabled; }
@@ -376,6 +387,8 @@ private:
 	float m_VerticalSpeed = 0.0f;
 	float m_HangTime = 0.0f;
 	int m_WallBounces = 0;
+	// 今の予兆でジャスト減速を取られたか。予兆に入るたびに戻します。
+	bool m_JustSlowUsed = false;
 	Vector3 m_StaggerVelocity{ 0.0f, 0.0f, 0.0f };
 	// 射撃型が予兆に入った時点で決めた狙いの向きです。撃つまで変えないので、横へ動けば避けられます。
 	Vector3 m_AimDirection{ 0.0f, 0.0f, 1.0f };
@@ -433,6 +446,8 @@ public:
 	// 打ち返します。撃った敵が残っていればそちらへ、いなければdirectionへ飛ばします。
 	void Deflect(const Vector3& direction);
 	bool IsDeflected() const { return m_Deflected; }
+	// プレイヤーへ向かう弾がrange以内なら、ジャスト減速の対象として1度だけtrueを返します。
+	bool TryJustSlow(const Vector3& playerPosition, float range);
 	const Vector3& GetVelocity() const { return m_Velocity; }
 
 private:
@@ -442,6 +457,7 @@ private:
 	std::uint64_t m_ShooterId = 0;
 	float m_Life = 0.0f;
 	bool m_Deflected = false;
+	bool m_JustSlowUsed = false;
 };
 
 // 壁と障害物です。scaleがそのまま半サイズになります。
@@ -494,4 +510,6 @@ private:
 
 	void UpdateHud();
 	void RespawnEnemies();
+	// 減速を発動した瞬間に、当たる直前の攻撃があればジャスト減速として報います。
+	void CheckJustSlow();
 };
