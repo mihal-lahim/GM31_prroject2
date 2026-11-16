@@ -116,7 +116,7 @@ Vector3 MeshField::GetNormal(float x, float z)
 
 void MeshField::Init()
 {
-	std::vector<VERTEX_3D> vertices;
+	std::vector<Engine::VERTEX_3D> vertices;
 	std::vector<unsigned int> indices;
 	vertices.reserve(kTerrainSide * kTerrainSide);
 	indices.reserve((kTerrainSide - 1) * (kTerrainSide - 1) * 6);
@@ -132,7 +132,7 @@ void MeshField::Init()
 			Vector3 normal{ -slopeX, 1.0f, -slopeZ };
 			normal.normalize();
 			const float shade = std::clamp(0.86f + y * 0.035f + normal.y * 0.1f, 0.75f, 1.0f);
-			VERTEX_3D vertex{};
+			Engine::VERTEX_3D vertex{};
 			vertex.Position = { x, y, z };
 			vertex.Normal = { normal.x, normal.y, normal.z };
 			vertex.Diffuse = { shade, shade, shade, 1.0f };
@@ -153,7 +153,7 @@ void MeshField::Init()
 	}
 	D3D11_BUFFER_DESC description{};
 	description.Usage = D3D11_USAGE_DEFAULT;
-	description.ByteWidth = static_cast<UINT>(vertices.size() * sizeof(VERTEX_3D));
+	description.ByteWidth = static_cast<UINT>(vertices.size() * sizeof(Engine::VERTEX_3D));
 	description.BindFlags = D3D11_BIND_VERTEX_BUFFER;
 	D3D11_SUBRESOURCE_DATA data{};
 	data.pSysMem = vertices.data();
@@ -165,7 +165,7 @@ void MeshField::Init()
 	m_RenderingAvailable = Engine::GraphicsResourceFactory::CreateBuffer(
 		m_IndexBuffer, description, &data, "MeshFieldIndices") && m_RenderingAvailable;
 	m_IndexCount = static_cast<UINT>(indices.size());
-	m_Texture = ResourceManager::LoadTexture(L"assets/model/grass.jpg");
+	m_Texture = Engine::ResourceManager::LoadTexture(L"assets/model/grass.jpg");
 	m_RenderingAvailable = m_Texture != nullptr && m_RenderingAvailable;
 	m_RenderingAvailable = UseRealisticShader() && m_RenderingAvailable;
 }
@@ -184,10 +184,10 @@ bool MeshField::UseRealisticShader()
 void MeshField::Draw()
 {
 	if (!m_RenderingAvailable) return;
-	auto* context = Renderer::GetDeviceContext();
-	Renderer::SetWorldMatrix(XMMatrixIdentity());
+	auto* context = Engine::Renderer::GetDeviceContext();
+	Engine::Renderer::SetWorldMatrix(XMMatrixIdentity());
 	m_Surface.Bind();
-	UINT stride = sizeof(VERTEX_3D), offset = 0;
+	UINT stride = sizeof(Engine::VERTEX_3D), offset = 0;
 	context->IASetVertexBuffers(0, 1, m_VertexBuffer.GetAddressOf(), &stride, &offset);
 	context->IASetIndexBuffer(m_IndexBuffer.Get(), DXGI_FORMAT_R32_UINT, 0);
 	context->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
@@ -199,9 +199,9 @@ bool MeshField::SetShaderMode(Engine::SurfaceShader shader)
 	if (shader == Engine::SurfaceShader::Water) return false;
 	const bool loaded = m_Surface.Load(shader, m_Texture);
 	m_Surface.DetailTexture = shader == Engine::SurfaceShader::Bump
-		? ResourceManager::LoadTexture(L"assets/texture/Normal.png")
+		? Engine::ResourceManager::LoadTexture(L"assets/texture/Normal.png")
 		: shader == Engine::SurfaceShader::ToonRamp
-		? ResourceManager::LoadTexture(L"assets/texture/Toon2.png") : TextureHandle{};
+		? Engine::ResourceManager::LoadTexture(L"assets/texture/Toon2.png") : Engine::TextureHandle{};
 	if (shader == Engine::SurfaceShader::Toon) m_Surface.Parameter.x = 3.0f;
 	if (shader == Engine::SurfaceShader::Bump) m_Surface.Parameter.x = 2.5f;
 	if (shader == Engine::SurfaceShader::CookTorrance) m_Surface.Parameter.x = 0.45f;
@@ -221,10 +221,10 @@ bool MeshField::SetShaderDefinition(std::string_view id)
 
 void MeshField::DrawShadow()
 {
-	auto* context = Renderer::GetDeviceContext();
+	auto* context = Engine::Renderer::GetDeviceContext();
 	Engine::ShadowMap::BindCaster(false);
-	Renderer::SetWorldMatrix(XMMatrixIdentity());
-	UINT stride = sizeof(VERTEX_3D), offset = 0;
+	Engine::Renderer::SetWorldMatrix(XMMatrixIdentity());
+	UINT stride = sizeof(Engine::VERTEX_3D), offset = 0;
 	context->IASetVertexBuffers(0, 1, m_VertexBuffer.GetAddressOf(), &stride, &offset);
 	context->IASetIndexBuffer(m_IndexBuffer.Get(), DXGI_FORMAT_R32_UINT, 0);
 	context->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);

@@ -62,7 +62,7 @@ namespace
 
 void WireGame::Init()
 {
-    GameTime::SetPaused(false);
+    Engine::GameTime::SetPaused(false);
     WireDebugTools::ResetForNewGame();
     World& world = GetWorld();
     auto* factory = world.Spawn<WireFactory>();
@@ -115,7 +115,7 @@ void WireGame::Init()
 }
 void WireGame::Uninit()
 {
-    GameTime::SetPaused(false);
+    Engine::GameTime::SetPaused(false);
     m_Hud = nullptr;
     m_Pause = nullptr;
     m_Debug = nullptr;
@@ -140,26 +140,26 @@ void WireGame::Update()
     if (request == WireDebugTools::SceneRequest::ResultCleared || request == WireDebugTools::SceneRequest::ResultGameOver)
     { ChangeScene<WireResultScene>(m_Run.Seconds, m_BestTime, false); return; }
     if (Engine::InputActions::IsTriggered("pause") && !m_Run.Finished)
-        GameTime::SetPaused(!GameTime::IsPaused());
-    m_Pause->SetVisible(GameTime::IsPaused());
+        Engine::GameTime::SetPaused(!Engine::GameTime::IsPaused());
+    m_Pause->SetVisible(Engine::GameTime::IsPaused());
     auto* player = GetWorld().FindFirst<WirePlayer>();
     if (!player) return;
     if (player->IsDead() && !m_Run.Finished)
     {
-        m_ResultDelay += GameTime::GetDeltaTime();
+        m_ResultDelay += Engine::GameTime::GetDeltaTime();
         if (m_ResultDelay > 1.0f)
             ChangeScene<WireResultScene>(player->GetPosition().y, m_BestTime, false, true);
         return;
     }
-        if (!GameTime::IsPaused() && !m_Started && (Engine::InputActions::IsDown("move_forward") || Engine::InputActions::IsDown("move_left")
+        if (!Engine::GameTime::IsPaused() && !m_Started && (Engine::InputActions::IsDown("move_forward") || Engine::InputActions::IsDown("move_left")
         || Engine::InputActions::IsDown("move_back") || Engine::InputActions::IsDown("move_right")
         || Engine::InputActions::IsDown("jump") || player->IsWireActive()))
     {
         m_Started = true;
         m_Hud->ShowNotice(L"GO! 最上部のチェッカーゲートへ");
     }
-    m_Run.Tick(m_Started ? GameTime::GetDeltaTime() : 0.0f, GameTime::IsPaused(),
-        WireDebugTools::GetTimeScale() != 1.0f || WireDebugTools::IsInvincibleEnabled() || GameTime::IsSteppingFrame());
+    m_Run.Tick(m_Started ? Engine::GameTime::GetDeltaTime() : 0.0f, Engine::GameTime::IsPaused(),
+        WireDebugTools::GetTimeScale() != 1.0f || WireDebugTools::IsInvincibleEnabled() || Engine::GameTime::IsSteppingFrame());
     m_Debug->SetVisible(WireDebugTools::IsOverlayVisible());
     if (WireDebugTools::IsOverlayVisible())
         m_Debug->SetText(L"F2 当たり判定 / F5 時間倍率 / F8 再開\n速度 " + std::to_wstring(static_cast<int>(player->GetSpeed()))
@@ -167,10 +167,10 @@ void WireGame::Update()
             + L"  折れ点 " + std::to_wstring(player->GetWireBendCount())
             + L"  残り長 " + std::to_wstring(static_cast<int>(player->GetWireFreeLength()))
             + (m_Run.RecordEligible ? L"" : L"  記録対象外"));
-    if (GameTime::IsPaused()) return;
+    if (Engine::GameTime::IsPaused()) return;
     if (m_Run.Finished)
     {
-        m_ResultDelay += GameTime::GetDeltaTime();
+        m_ResultDelay += Engine::GameTime::GetDeltaTime();
         if (m_ResultDelay > 0.65f) ChangeScene<WireResultScene>(m_Run.Seconds, m_BestTime, m_Run.RecordEligible);
         return;
     }

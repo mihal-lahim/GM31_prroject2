@@ -36,7 +36,7 @@ void Player::Uninit()
 void Player::Update()
 {
 	Vector3 oldPosition = GetPosition();
-	float dt = GameTime::GetDeltaTime();
+	float dt = Engine::GameTime::GetDeltaTime();
 
 	UpdateMovement(dt);
 	UpdateCombat(dt);
@@ -49,12 +49,12 @@ void Player::Draw()
 {
 	// ワールド行列を作成する。
 	XMMATRIX world, scale, rot, trans;
-	scale = XMMatrixScaling(m_Scale.x, m_Scale.y, m_Scale.z);
-	rot = XMMatrixRotationRollPitchYaw(m_Rotation.x, m_Rotation.y + XM_PI, m_Rotation.z);
+	scale = XMMatrixScaling(GetScale().x, GetScale().y, GetScale().z);
+	rot = XMMatrixRotationRollPitchYaw(GetRotation().x, GetRotation().y + XM_PI, GetRotation().z);
 	trans = XMMatrixTranslation(GetPosition().x, GetPosition().y, GetPosition().z);
 	world = scale * rot * trans;
 
-	Renderer::SetWorldMatrix(world);
+	Engine::Renderer::SetWorldMatrix(world);
 
 	GameObject::Draw();
 }

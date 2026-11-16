@@ -22,8 +22,8 @@ void WirePlayer::Init()
 	// 実際の開始位置はステージ側がSetPositionで与えます。
 	// ここはステージ未生成でも安全に初期化できるようにするための仮位置です。
 	SetPosition({ 0.0f, 0.0f, 0.0f });
-	m_Rotation = { 0.0f, 0.0f, 0.0f };
-	m_Scale = { 1.0f, 1.0f, 1.0f };
+	SetRotation({ 0.0f, 0.0f, 0.0f });
+	SetScale({ 1.0f, 1.0f, 1.0f });
 	m_Health = GetWireGameplayTuning().Health.MaxHealth;
 	m_InvincibleTime = 0.0f;
 	m_WireReleasePoseTime = 0.0f;
@@ -41,7 +41,7 @@ void WirePlayer::Uninit()
 
 void WirePlayer::Update()
 {
-	const float dt = GameTime::GetDeltaTime();
+	const float dt = Engine::GameTime::GetDeltaTime();
 	WireTpsCamera* camera = GetWorld().FindFirst<WireTpsCamera>();
 	const WirePlayerInputState input = WirePlayerInput::Capture();
 
@@ -92,11 +92,10 @@ void WirePlayer::Respawn(const Vector3& position)
 {
 	// 落下前の速度やワイヤー状態を残すと、復帰直後に再び投げ出されるため完全に初期化します。
 	m_Grapple.Cancel(*this, false);
-	m_Sword.Cancel();
 	m_Movement.ResetForRespawn();
 	SetPosition(position);
 	m_Velocity = { 0.0f, 0.0f, 0.0f };
-	m_Scale = { 1.0f, 1.0f, 1.0f };
+	SetScale({ 1.0f, 1.0f, 1.0f });
 	m_Movement.SetOnGround(true);
 	m_InvincibleTime = 0.0f;
 
@@ -208,8 +207,7 @@ void WirePlayer::TakeDamage(int amount, const Vector3& knockbackDirection)
 
 	// ワイヤーで牽引されたまま被弾すると押し出しが打ち消されるため、接続を切ります。
 	m_Grapple.Cancel(*this, false);
-	m_Sword.Cancel();
-	GameTime::StartHitStop(health.HitStopFrames, health.HitStopScale);
+	Engine::GameTime::StartHitStop(health.HitStopFrames, health.HitStopScale);
 
 	// 被弾は最も強く揺らします。押し出された向きへカメラも振られます。
 	if (WireTpsCamera* camera = GetWorld().FindFirst<WireTpsCamera>())

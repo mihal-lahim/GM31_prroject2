@@ -24,7 +24,7 @@ namespace
 			from.w + (to.w - from.w) * t);
 	}
 
-	void FillParticleQuad(VERTEX_3D* vertices, const XMFLOAT2& center, float size, const XMFLOAT4& color)
+	void FillParticleQuad(Engine::VERTEX_3D* vertices, const XMFLOAT2& center, float size, const XMFLOAT4& color)
 	{
 		const float half = size * 0.5f;
 		const XMFLOAT3 topLeft(center.x - half, center.y - half, 0.0f);
@@ -48,7 +48,7 @@ void WireReticle::Init()
 {
 	m_Layer = Layer::UI;
 
-	VERTEX_3D vertex[8]{};
+	Engine::VERTEX_3D vertex[8]{};
 	D3D11_BUFFER_DESC bufferDesc{};
 	bufferDesc.Usage = D3D11_USAGE_DEFAULT;
 	bufferDesc.ByteWidth = sizeof(vertex);
@@ -59,7 +59,7 @@ void WireReticle::Init()
 	const bool reticleBufferCreated = Engine::GraphicsResourceFactory::CreateBuffer(
 		m_VertexBuffer, bufferDesc, &initData, "WireReticle");
 
-	VERTEX_3D timerParticles[kTimerParticleCount * kTimerParticleVerticesPerParticle]{};
+	Engine::VERTEX_3D timerParticles[kTimerParticleCount * kTimerParticleVerticesPerParticle]{};
 	bufferDesc.ByteWidth = sizeof(timerParticles);
 	initData.pSysMem = timerParticles;
 	const bool timerBufferCreated = Engine::GraphicsResourceFactory::CreateBuffer(
@@ -98,7 +98,7 @@ void WireReticle::Draw()
 		: XMFLOAT4(0.85f, 0.92f, 1.0f, 0.9f);
 	const XMFLOAT4 color = readyColor;
 
-	VERTEX_3D timerParticles[kTimerParticleCount * kTimerParticleVerticesPerParticle]{};
+	Engine::VERTEX_3D timerParticles[kTimerParticleCount * kTimerParticleVerticesPerParticle]{};
 	const int activeParticleCount = static_cast<int>(ceilf(aimRatio * kTimerParticleCount));
 	for (int i = 0; i < kTimerParticleCount; i++)
 	{
@@ -120,9 +120,9 @@ void WireReticle::Draw()
 			particleSize,
 			particleColor);
 	}
-	Renderer::GetDeviceContext()->UpdateSubresource(m_TimerParticleBuffer.Get(), 0, nullptr, timerParticles, 0, 0);
+	Engine::Renderer::GetDeviceContext()->UpdateSubresource(m_TimerParticleBuffer.Get(), 0, nullptr, timerParticles, 0, 0);
 
-	VERTEX_3D vertex[8]{};
+	Engine::VERTEX_3D vertex[8]{};
 	vertex[0].Position = XMFLOAT3(cx - length, cy, 0.0f);
 	vertex[1].Position = XMFLOAT3(cx - gap, cy, 0.0f);
 	vertex[2].Position = XMFLOAT3(cx + gap, cy, 0.0f);
@@ -137,28 +137,28 @@ void WireReticle::Draw()
 		v.Diffuse = color;
 		v.TexCoord = XMFLOAT2(0.0f, 0.0f);
 	}
-	Renderer::GetDeviceContext()->UpdateSubresource(m_VertexBuffer.Get(), 0, nullptr, vertex, 0, 0);
+	Engine::Renderer::GetDeviceContext()->UpdateSubresource(m_VertexBuffer.Get(), 0, nullptr, vertex, 0, 0);
 
-	Renderer::GetDeviceContext()->IASetInputLayout(m_VertexLayout.Get());
-	Renderer::GetDeviceContext()->VSSetShader(m_VertexShader.Get(), nullptr, 0);
-	Renderer::GetDeviceContext()->PSSetShader(m_PixelShader.Get(), nullptr, 0);
-	Renderer::SetWorldViewProjection2D();
+	Engine::Renderer::GetDeviceContext()->IASetInputLayout(m_VertexLayout.Get());
+	Engine::Renderer::GetDeviceContext()->VSSetShader(m_VertexShader.Get(), nullptr, 0);
+	Engine::Renderer::GetDeviceContext()->PSSetShader(m_PixelShader.Get(), nullptr, 0);
+	Engine::Renderer::SetWorldViewProjection2D();
 
-	MATERIAL material{};
+	Engine::MATERIAL material{};
 	material.Diffuse = XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f);
 	material.Ambient = material.Diffuse;
 	material.TextureEnable = FALSE;
-	Renderer::SetMaterial(material);
+	Engine::Renderer::SetMaterial(material);
 
-	UINT stride = sizeof(VERTEX_3D);
+	UINT stride = sizeof(Engine::VERTEX_3D);
 	UINT offset = 0;
-	Renderer::SetAddBlendEnable(true);
-	Renderer::GetDeviceContext()->IASetVertexBuffers(0, 1, m_TimerParticleBuffer.GetAddressOf(), &stride, &offset);
-	Renderer::GetDeviceContext()->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-	Renderer::GetDeviceContext()->Draw(kTimerParticleCount * kTimerParticleVerticesPerParticle, 0);
-	Renderer::SetAddBlendEnable(false);
+	Engine::Renderer::SetAddBlendEnable(true);
+	Engine::Renderer::GetDeviceContext()->IASetVertexBuffers(0, 1, m_TimerParticleBuffer.GetAddressOf(), &stride, &offset);
+	Engine::Renderer::GetDeviceContext()->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+	Engine::Renderer::GetDeviceContext()->Draw(kTimerParticleCount * kTimerParticleVerticesPerParticle, 0);
+	Engine::Renderer::SetAddBlendEnable(false);
 
-	Renderer::GetDeviceContext()->IASetVertexBuffers(0, 1, m_VertexBuffer.GetAddressOf(), &stride, &offset);
-	Renderer::GetDeviceContext()->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_LINELIST);
-	Renderer::GetDeviceContext()->Draw(8, 0);
+	Engine::Renderer::GetDeviceContext()->IASetVertexBuffers(0, 1, m_VertexBuffer.GetAddressOf(), &stride, &offset);
+	Engine::Renderer::GetDeviceContext()->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_LINELIST);
+	Engine::Renderer::GetDeviceContext()->Draw(8, 0);
 }

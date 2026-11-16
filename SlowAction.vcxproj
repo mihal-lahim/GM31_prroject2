@@ -63,19 +63,19 @@
   <Import Project="SurfaceShaders.props" />
   <ItemDefinitionGroup>
     <ClCompile>
-      <AdditionalIncludeDirectories>$(ProjectDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir);$(ProjectDir)include\games\slow;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <AdditionalLibraryDirectories>$(ProjectDir);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClInclude Include="include\slowAction.h" />
-    <ClInclude Include="include\slowActionTuning.h" />
-    <None Include="include\slowActionTuning.def" />
-    <ClInclude Include="include\slowActionUtil.h" />
-    <ClInclude Include="include\sceneEditor.h" />
-    <ClInclude Include="include\sky.h" />
+    <ClInclude Include="include\games\slow\slowAction.h" />
+    <ClInclude Include="include\games\slow\slowActionTuning.h" />
+    <None Include="include\games\slow\slowActionTuning.def" />
+    <ClInclude Include="include\games\slow\slowActionUtil.h" />
+    <ClInclude Include="include\games\slow\sceneEditor.h" />
+    <ClInclude Include="include\shared\sky.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\engine\main.cpp" />

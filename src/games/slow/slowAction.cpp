@@ -137,7 +137,7 @@ void SlowClock::Reset()
 {
 	g_WorldScale = 1.0f;
 	g_WorldDeltaTime = 0.0f;
-	GameTime::SetChannelScale(SlowClock::kWorldTimeChannel, 1.0f);
+	Engine::GameTime::SetChannelScale(SlowClock::kWorldTimeChannel, 1.0f);
 	g_Gauge = GetSlowActionTuning().GaugeMax;
 	g_PendingGain = 0.0f;
 	g_SlowActive = false;
@@ -176,7 +176,7 @@ void SlowClock::Update(float realDeltaTime, bool slowHeld)
 	const float maxStep = (1.0f - tuning.SlowTimeScale) / tuning.SlowBlendSeconds * realDeltaTime;
 	g_WorldScale += std::clamp(target - g_WorldScale, -maxStep, maxStep);
 	// 敵側の時間はEngineの時間チャンネルに載せます。ヒットストップやポーズも同じく効きます。
-	GameTime::SetChannelScale(SlowClock::kWorldTimeChannel, g_WorldScale);
+	Engine::GameTime::SetChannelScale(SlowClock::kWorldTimeChannel, g_WorldScale);
 	g_WorldDeltaTime = realDeltaTime * g_WorldScale;
 }
 
@@ -420,7 +420,7 @@ void SlowActionScene::Update()
 	}
 
 	// 入力と時計はオブジェクトより先に確定させ、同じステップの全員が同じ値を見るようにします。
-	const float realDeltaTime = GameTime::GetDeltaTime();
+	const float realDeltaTime = Engine::GameTime::GetDeltaTime();
 	SlowInput::Poll();
 	SlowClock::Update(realDeltaTime, SlowInput::Get().Slow);
 	SlowScore::Update(realDeltaTime, SlowClock::GetWorldDeltaTime());

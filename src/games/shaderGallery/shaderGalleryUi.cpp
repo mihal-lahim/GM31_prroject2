@@ -14,7 +14,7 @@ namespace
 {
 GalleryUiState state;
 bool initialized = false;
-TextureHandle rampTexture;
+Engine::TextureHandle rampTexture;
 constexpr const char* names[] = {
 	"照明なし", "頂点平行光", "ピクセル平行光", "ブリン・フォン", "半球ライト",
 	"点光源", "リムライト", "スポットライト", "クック・トランス", "Disney PBR",
@@ -72,8 +72,8 @@ bool InitializeGalleryUi()
 	}
 	io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
 	initialized = ImGui_ImplWin32_Init(GetWindow())
-		&& ImGui_ImplDX11_Init(Renderer::GetDevice(), Renderer::GetDeviceContext());
-	if (initialized) rampTexture = ResourceManager::LoadTexture(L"assets/texture/Toon2.png");
+		&& ImGui_ImplDX11_Init(Engine::Renderer::GetDevice(), Engine::Renderer::GetDeviceContext());
+	if (initialized) rampTexture = Engine::ResourceManager::LoadTexture(L"assets/texture/Toon2.png");
 	if (initialized) Mouse_SetAutoCapture(false);
 	if (!initialized) ShutdownGalleryUi();
 	return initialized;
@@ -202,10 +202,10 @@ void BeginGalleryUiFrame()
 		ImGui::SliderFloat("強さ2（中）", &state.BloomBlend[1], 0.0f, 4.0f);
 		ImGui::SliderFloat("強さ3（広）", &state.BloomBlend[2], 0.0f, 4.0f);
 	}
-	if (state.Post != 0 && Renderer::GetPostSource() != nullptr)
+	if (state.Post != 0 && Engine::Renderer::GetPostSource() != nullptr)
 	{
 		ImGui::TextUnformatted("描画テクスチャ");
-		ImGui::Image(reinterpret_cast<ImTextureID>(Renderer::GetPostSource()), { 270, 152 });
+		ImGui::Image(reinterpret_cast<ImTextureID>(Engine::Renderer::GetPostSource()), { 270, 152 });
 	}
 	ImGui::End();
 

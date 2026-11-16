@@ -32,7 +32,7 @@ void WirePlayerPresentation::Init()
 	const bool shadersCreated = Engine::GraphicsResourceFactory::CreateUnlitShaderPair(
 		m_LineVertexShader, m_LineVertexLayout, m_LinePixelShader, "WirePlayerPresentation");
 
-	VERTEX_3D wireVertex[kMaxRopeVertices]{};
+	Engine::VERTEX_3D wireVertex[kMaxRopeVertices]{};
 	D3D11_BUFFER_DESC bufferDesc{};
 	bufferDesc.Usage = D3D11_USAGE_DEFAULT;
 	bufferDesc.ByteWidth = sizeof(wireVertex);
@@ -198,7 +198,7 @@ void WirePlayerPresentation::Draw(const WirePlayer& player)
 		}
 	}
 
-	VERTEX_3D vertex[kMaxRopeVertices]{};
+	Engine::VERTEX_3D vertex[kMaxRopeVertices]{};
 	for (int i = 0; i < count; ++i)
 	{
 		const float t = count > 1 ? static_cast<float>(i) / static_cast<float>(count - 1) : 0.0f;
@@ -211,22 +211,22 @@ void WirePlayerPresentation::Draw(const WirePlayer& player)
 			1.0f);
 		vertex[i].TexCoord = XMFLOAT2(t, 0.0f);
 	}
-	Renderer::GetDeviceContext()->UpdateSubresource(m_WireVertexBuffer.Get(), 0, nullptr, vertex, 0, 0);
+	Engine::Renderer::GetDeviceContext()->UpdateSubresource(m_WireVertexBuffer.Get(), 0, nullptr, vertex, 0, 0);
 
-	Renderer::GetDeviceContext()->IASetInputLayout(m_LineVertexLayout.Get());
-	Renderer::GetDeviceContext()->VSSetShader(m_LineVertexShader.Get(), nullptr, 0);
-	Renderer::GetDeviceContext()->PSSetShader(m_LinePixelShader.Get(), nullptr, 0);
-	Renderer::SetWorldMatrix(XMMatrixIdentity());
+	Engine::Renderer::GetDeviceContext()->IASetInputLayout(m_LineVertexLayout.Get());
+	Engine::Renderer::GetDeviceContext()->VSSetShader(m_LineVertexShader.Get(), nullptr, 0);
+	Engine::Renderer::GetDeviceContext()->PSSetShader(m_LinePixelShader.Get(), nullptr, 0);
+	Engine::Renderer::SetWorldMatrix(XMMatrixIdentity());
 
-	MATERIAL material{};
+	Engine::MATERIAL material{};
 	material.Diffuse = XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f);
 	material.Ambient = material.Diffuse;
 	material.TextureEnable = FALSE;
-	Renderer::SetMaterial(material);
+	Engine::Renderer::SetMaterial(material);
 
-	UINT stride = sizeof(VERTEX_3D);
+	UINT stride = sizeof(Engine::VERTEX_3D);
 	UINT offset = 0;
-	Renderer::GetDeviceContext()->IASetVertexBuffers(0, 1, m_WireVertexBuffer.GetAddressOf(), &stride, &offset);
-	Renderer::GetDeviceContext()->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_LINESTRIP);
-	Renderer::GetDeviceContext()->Draw(static_cast<UINT>(count), 0);
+	Engine::Renderer::GetDeviceContext()->IASetVertexBuffers(0, 1, m_WireVertexBuffer.GetAddressOf(), &stride, &offset);
+	Engine::Renderer::GetDeviceContext()->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_LINESTRIP);
+	Engine::Renderer::GetDeviceContext()->Draw(static_cast<UINT>(count), 0);
 }

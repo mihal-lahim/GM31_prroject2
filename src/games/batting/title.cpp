@@ -1,3 +1,4 @@
+#include "inputActions.h"
 #include "main.h"
 #include "renderer.h"
 #include "title.h"
@@ -14,7 +15,7 @@ void Title::Uninit()
 
 void Title::Update()
 {
-	if (Keyboard_IsKeyDownTrigger(KK_ENTER))
+	if (Engine::InputActions::IsTriggered("confirm"))
 	{
 		ChangeScene<Game>();
 	}

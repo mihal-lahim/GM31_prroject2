@@ -1,3 +1,4 @@
+#include "inputActions.h"
 #include "main.h"
 #include "keyboard_utf8.h"
 #include "player.h"
@@ -47,22 +48,8 @@ void Player::UpdateMovement(float dt)
 	}
 
 	Vector3 moveDirection{ 0.0f, 0.0f, 0.0f };
-	if (Keyboard_IsKeyDown(KK_W))
-	{
-		moveDirection += cameraForward;
-	}
-	if (Keyboard_IsKeyDown(KK_S))
-	{
-		moveDirection -= cameraForward;
-	}
-	if (Keyboard_IsKeyDown(KK_A))
-	{
-		moveDirection -= cameraRight;
-	}
-	if (Keyboard_IsKeyDown(KK_D))
-	{
-		moveDirection += cameraRight;
-	}
+	moveDirection += cameraForward * Engine::InputActions::GetAxis("move_back", "move_forward");
+	moveDirection += cameraRight * Engine::InputActions::GetAxis("move_left", "move_right");
 
 	float moveLength = moveDirection.length();
 	if (moveLength > 0.0f)
@@ -71,16 +58,16 @@ void Player::UpdateMovement(float dt)
 		moveDirection /= moveLength;
 
 		float targetYaw = atan2f(moveDirection.x, moveDirection.z);
-		m_Rotation.y = LerpAngle(m_Rotation.y, targetYaw, kTurnLerp);
+		{ Vector3 value = GetRotation(); value.y = LerpAngle(GetRotation().y, targetYaw, kTurnLerp); SetRotation(value); }
 		m_Velocity += moveDirection * 50.0f * dt;
 	}
 
-	if (Keyboard_IsKeyDownTrigger(KK_SPACE) && GetOnGround())
+	if (Engine::InputActions::IsTriggered("jump") && GetOnGround())
 	{
 		m_Velocity.y += 20.0f;
-		m_Scale.y = 2.0f;
-		m_Scale.x = 0.5f;
-		m_Scale.z = 0.5f;
+		{ Vector3 value = GetScale(); value.y = 2.0f; SetScale(value); }
+		{ Vector3 value = GetScale(); value.x = 0.5f; SetScale(value); }
+		{ Vector3 value = GetScale(); value.z = 0.5f; SetScale(value); }
 		m_JumpSE->Play();
 
 		Vector3 effectPosition = GetPosition();
@@ -90,9 +77,9 @@ void Player::UpdateMovement(float dt)
 		jumpEffect->EmitSparkles();
 	}
 
-	m_Scale.x += (1.0f - m_Scale.x) * 0.07f;
-	m_Scale.y += (1.0f - m_Scale.y) * 0.07f;
-	m_Scale.z += (1.0f - m_Scale.z) * 0.07f;
+	{ Vector3 value = GetScale(); value.x += (1.0f - GetScale().x) * 0.07f; SetScale(value); }
+	{ Vector3 value = GetScale(); value.y += (1.0f - GetScale().y) * 0.07f; SetScale(value); }
+	{ Vector3 value = GetScale(); value.z += (1.0f - GetScale().z) * 0.07f; SetScale(value); }
 
 	m_Velocity.y += -50.0f * dt;
 	m_Velocity.x += -m_Velocity.x * 5.0f * dt;
@@ -113,14 +100,14 @@ void Player::UpdateMovement(float dt)
 
 	if (!oldOnGround && GetOnGround())
 	{
-		m_Scale.y = 0.8f;
-		m_Scale.x = 1.5f;
-		m_Scale.z = 1.5f;
+		{ Vector3 value = GetScale(); value.y = 0.8f; SetScale(value); }
+		{ Vector3 value = GetScale(); value.x = 1.5f; SetScale(value); }
+		{ Vector3 value = GetScale(); value.z = 1.5f; SetScale(value); }
 	}
 
 	if (GetOnGround())
 	{
 		m_MoveAnimation += m_Velocity.length() * dt;
-		m_Scale.y = 1.0f + sinf(m_MoveAnimation * 3.0f) * 0.03f;
+		{ Vector3 value = GetScale(); value.y = 1.0f + sinf(m_MoveAnimation * 3.0f) * 0.03f; SetScale(value); }
 	}
 }

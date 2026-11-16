@@ -1,3 +1,4 @@
+#include "inputActions.h"
 #include "game.h"
 
 #include "gameSetup.h"
@@ -20,9 +21,9 @@ void Game::Uninit()
 
 void Game::Update()
 {
-	if (Keyboard_IsKeyDownTrigger(KK_TAB))
+	if (Engine::InputActions::IsTriggered("pause"))
 	{
-		GameTime::SetPaused(!GameTime::IsPaused());
+		Engine::GameTime::SetPaused(!Engine::GameTime::IsPaused());
 	}
 }
 

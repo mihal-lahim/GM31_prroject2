@@ -37,7 +37,6 @@ const WireGameplayTuning& GetWireGameplayTuning()
 		auto& movement = value.Movement;
 		auto& grapple = value.Grapple;
 		auto& animation = value.Animation;
-		auto& sword = value.Sword;
 		auto& camera = value.Camera;
 		auto& stage = value.Stage;
 		auto& enemy = value.Enemy;
@@ -111,23 +110,6 @@ const WireGameplayTuning& GetWireGameplayTuning()
 		animation.StumbleDuration = std::clamp(animation.StumbleDuration, 0.02f, 0.8f);
 		animation.HighSpeedStart = (std::max)(animation.HighSpeedStart, 1.0f);
 
-		sword.MaxChargeTime = (std::max)(sword.MaxChargeTime, 0.01f);
-		sword.SwingDuration = (std::max)(sword.SwingDuration, 0.01f);
-		sword.BaseDamage = (std::max)(sword.BaseDamage, 0.0f);
-		sword.ChargeDamage = (std::max)(sword.ChargeDamage, 0.0f);
-		sword.HeightDamageScale = (std::max)(sword.HeightDamageScale, 0.0f);
-		sword.MaxHeightDamage = (std::max)(sword.MaxHeightDamage, 0.0f);
-		sword.BaseRange = (std::max)(sword.BaseRange, 0.01f);
-		sword.RangeBonus = (std::max)(sword.RangeBonus, 0.0f);
-		sword.HitRadius = (std::max)(sword.HitRadius, 0.01f);
-		sword.HitStopScale = std::clamp(sword.HitStopScale, 0.0f, 1.0f);
-		sword.ChargeScaleLerp = std::clamp(sword.ChargeScaleLerp, 0.0f, 1.0f);
-		sword.DashDuration = (std::max)(sword.DashDuration, 0.0f);
-		sword.DashBaseSpeed = (std::max)(sword.DashBaseSpeed, 0.0f);
-		// 上限が基礎速度を下回ると、斬り抜けが逆に減速してしまいます。
-		sword.DashMaxSpeed = (std::max)(sword.DashMaxSpeed, sword.DashBaseSpeed);
-		sword.DashCarryRatio = (std::max)(sword.DashCarryRatio, 0.0f);
-
 		camera.BaseFov = std::clamp(camera.BaseFov, 0.1f, 3.0f);
 		camera.MaxWireFov = std::clamp(camera.MaxWireFov, camera.BaseFov, 3.0f);
 		camera.AimFov = std::clamp(camera.AimFov, 0.1f, 3.0f);
@@ -167,7 +149,6 @@ const WireGameplayTuning& GetWireGameplayTuning()
 		stage.GoalParticleCount = std::clamp(stage.GoalParticleCount, 0, 1000);
 
 		// HPが0だと生成直後に死ぬため、最低1を保証します。
-		enemy.Health = (std::max)(enemy.Health, 1);
 		enemy.CountPerRooftop = std::clamp(enemy.CountPerRooftop, 0, 16);
 		enemy.PatrolSpeed = (std::max)(enemy.PatrolSpeed, 0.0f);
 		enemy.ChaseSpeed = (std::max)(enemy.ChaseSpeed, 0.0f);
@@ -182,7 +163,6 @@ const WireGameplayTuning& GetWireGameplayTuning()
 		enemy.AttackRadius = std::clamp(enemy.AttackRadius, 0.1f, enemy.DetectRadius);
 		enemy.AttackInterval = (std::max)(enemy.AttackInterval, 0.05f);
 		enemy.EdgeMargin = (std::max)(enemy.EdgeMargin, 0.0f);
-		enemy.DeathParticleCount = std::clamp(enemy.DeathParticleCount, 0, 1000);
 
 		wallKick.ContactMemoryTime = (std::max)(wallKick.ContactMemoryTime, 0.0f);
 		wallKick.Cooldown = (std::max)(wallKick.Cooldown, 0.0f);

@@ -2,7 +2,7 @@
 
 ## DirectXTex
 
-This repository contains DirectXTex headers in `include/DirectXTex*` and prebuilt
+This repository contains DirectXTex headers in `include/engine/DirectXTex*` and prebuilt
 libraries in `lib/DirectXTex_*.lib`. DirectXTex is copyright Microsoft
 Corporation and is distributed under the MIT License, as stated in the bundled
 headers. The license text is retained at `licenses/DirectXTex-LICENSE.txt`.

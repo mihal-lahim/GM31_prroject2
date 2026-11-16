@@ -15,7 +15,7 @@ void BaseballBall::Init()
 {
 	m_Layer = Layer::World;
 	const auto& tuning = GetBattingGameplayTuning();
-	m_Scale = { tuning.BallScale, tuning.BallScale, tuning.BallScale };
+	SetScale({ tuning.BallScale, tuning.BallScale, tuning.BallScale });
 	m_Lifetime = tuning.BallLifetime;
 
 	AddComponent<ModelRenderer>()
@@ -54,7 +54,7 @@ void BaseballBall::Explode()
 
 void BaseballBall::Update()
 {
-	const float dt = GameTime::GetDeltaTime();
+	const float dt = Engine::GameTime::GetDeltaTime();
 	const auto& tuning = GetBattingGameplayTuning();
 
 	m_Lifetime -= dt;
@@ -78,8 +78,8 @@ void BaseballBall::Update()
 	m_PreviousPosition = GetPosition();
 	m_HasPreviousPosition = true;
 	SetPosition(GetPosition() + (m_Velocity * dt));
-	m_Rotation.x += m_Velocity.z * dt * 2.0f;
-	m_Rotation.z -= m_Velocity.x * dt * 2.0f;
+	{ Vector3 value = GetRotation(); value.x += m_Velocity.z * dt * 2.0f; SetRotation(value); }
+	{ Vector3 value = GetRotation(); value.z -= m_Velocity.x * dt * 2.0f; SetRotation(value); }
 
 	if (m_HitBack && m_ExplosionDelay < 0.0f)
 	{

@@ -26,8 +26,7 @@
 HPが0になるとゲームオーバーになり、結果画面に死亡時の高度を表示します。
 ゲームオーバーの走行は自己ベストに保存しません。
 
-左クリックはワイヤー操作に使い、プレイヤーの剣攻撃は実行しません。
-剣や旧ミッションに関連するコード・設定はリポジトリに残っていますが、現在のレースのクリア条件は頂上への到達です。
+左クリックはワイヤー操作に使います。敵は倒せないので、避けながら登ります。
 
 ## ワイヤーの巻き付き
 
@@ -92,7 +91,7 @@ Rでリトライすると最下部から新しい走行を開始し、タイム�
 
 ## 調整と記録
 
-移動・ワイヤー・敵・HPの調整は `assets/config/wire-gameplay.cfg`(項目の一覧は `include/wireGameplayTuning.def`)、音量・マウス感度は `assets/config/wire.cfg` です。
+移動・ワイヤー・敵・HPの調整は `assets/config/wire-gameplay.cfg`(項目の一覧は `include/games/wire/wireGameplayTuning.def`)、音量・マウス感度は `assets/config/wire.cfg` です。
 
 `wireRace.h` は描画と入力から独立したレース状態、`wireSwingPhysics.h` は数値検証可能なワイヤー物理です。
 

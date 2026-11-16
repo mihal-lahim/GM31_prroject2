@@ -508,7 +508,7 @@ Cloth::Cloth(const ClothSettings& settings)
 
 XMMATRIX Cloth::GetPinMatrix() const
 {
-	return XMMatrixRotationRollPitchYaw(m_Rotation.x, m_Rotation.y, m_Rotation.z)
+	return XMMatrixRotationRollPitchYaw(GetRotation().x, GetRotation().y, GetRotation().z)
 		* XMMatrixTranslation(GetPosition().x, GetPosition().y, GetPosition().z);
 }
 

@@ -1,3 +1,4 @@
+#include "inputActions.h"
 #include "classroomWalk.h"
 
 #include "animationModel.h"
@@ -55,10 +56,8 @@ void ClassroomPlayer::Init()
 void ClassroomPlayer::Update()
 {
 	Vector3 input{};
-	if (Keyboard_IsKeyDown(KK_A) || Keyboard_IsKeyDown(KK_LEFT)) input.x -= 1.0f;
-	if (Keyboard_IsKeyDown(KK_D) || Keyboard_IsKeyDown(KK_RIGHT)) input.x += 1.0f;
-	if (Keyboard_IsKeyDown(KK_W) || Keyboard_IsKeyDown(KK_UP)) input.z += 1.0f;
-	if (Keyboard_IsKeyDown(KK_S) || Keyboard_IsKeyDown(KK_DOWN)) input.z -= 1.0f;
+	input.x = Engine::InputActions::GetAxis("move_left", "move_right");
+	input.z = Engine::InputActions::GetAxis("move_back", "move_forward");
 
 	const bool moving = input.x != 0.0f || input.z != 0.0f;
 	auto inDeepWater = [](const Vector3& p)
@@ -72,11 +71,11 @@ void ClassroomPlayer::Update()
 	Vector3 position = GetPosition();
 	const float groundBeforeMove = MeshField::GetHeight(position.x, position.z);
 	const bool submergedBeforeMove = inDeepWater(position);
-	if (Keyboard_IsKeyDownTrigger(KK_R) && !submergedBeforeMove
+	if (Engine::InputActions::IsTriggered("dance") && !submergedBeforeMove
 		&& position.y <= groundBeforeMove + 0.05f)
 		m_Dancing = !m_Dancing;
 	if (submergedBeforeMove || position.y > groundBeforeMove + 0.05f) m_Dancing = false;
-	if (!submergedBeforeMove && !m_Dancing && Keyboard_IsKeyDownTrigger(KK_SPACE)
+	if (!submergedBeforeMove && !m_Dancing && Engine::InputActions::IsTriggered("jump")
 		&& position.y <= groundBeforeMove + 0.05f)
 		m_VerticalSpeed = 0.18f;
 	if (moving && !m_Dancing)
@@ -105,7 +104,7 @@ void ClassroomPlayer::Update()
 		m_Dancing = false;
 		// Damp vertical motion and restore the character to a stable floating depth.
 		const float floatingHeight = ClassroomWater::GetSurfaceHeight(position.x, position.z,
-			GameTime::GetElapsedTime()) - kFloatingOriginDepth;
+			Engine::GameTime::GetElapsedTime()) - kFloatingOriginDepth;
 		m_VerticalSpeed += (floatingHeight - position.y) * 0.025f;
 		m_VerticalSpeed *= 0.90f;
 		position.y = std::clamp(position.y + m_VerticalSpeed, ground, ClassroomLake::WaterLevel);
@@ -157,7 +156,7 @@ void ClassroomPlayer::Update()
 		Vector3 chest;
 		if (GetSwimAnchor(chest))
 		{
-			const float time = GameTime::GetElapsedTime();
+			const float time = Engine::GameTime::GetElapsedTime();
 			const float rootSurface = ClassroomWater::GetSurfaceHeight(position.x, position.z, time);
 			const float chestSurface = ClassroomWater::GetSurfaceHeight(chest.x, chest.z, time);
 			const float bodyHeight = position.y + kFloatingOriginDepth;
@@ -269,6 +268,11 @@ void ClassroomCamera::PreUpdate()
 		m_Pitch = std::clamp(m_Pitch - mouseY * sensitivity,
 			-XMConvertToRadians(65.0f), XMConvertToRadians(60.0f));
 	}
+	float stickYaw = 0.0f;
+	float stickPitch = 0.0f;
+	Engine::InputActions::GetLookDelta(Engine::GameTime::GetDeltaTime(), stickYaw, stickPitch);
+	m_Yaw += stickYaw;
+	m_Pitch = std::clamp(m_Pitch + stickPitch, -XMConvertToRadians(65.0f), XMConvertToRadians(60.0f));
 	GameObject::PreUpdate();
 }
 
@@ -301,7 +305,7 @@ Vector3 ClassroomCamera::GetCameraForward() const
 
 void ClassroomCamera::Draw()
 {
-	LIGHT light{};
+	Engine::LIGHT light{};
 	light.Enable = TRUE;
 	light.Direction = { -0.45f, -0.78f, 0.43f, 0.0f };
 	light.Diffuse = { 0.92f, 0.90f, 0.80f, 1.0f };
@@ -312,11 +316,11 @@ void ClassroomCamera::Draw()
 	light.GroundColor = { 0.16f, 0.12f, 0.09f, 1.0f };
 	light.GroundNormal = { 0.0f, 1.0f, 0.0f, 0.0f };
 	light.Angle = { XM_PIDIV4, 0.0f, 0.0f, 0.0f };
-	Renderer::SetLight(light);
-	Renderer::SetProjectionMatrix(XMMatrixPerspectiveFovLH(1.0f,
+	Engine::Renderer::SetLight(light);
+	Engine::Renderer::SetProjectionMatrix(XMMatrixPerspectiveFovLH(1.0f,
 		static_cast<float>(SCREEN_WIDTH) / SCREEN_HEIGHT, 0.1f, 200.0f));
-	Renderer::SetViewMatrix(m_View);
-	Renderer::SetCameraPosition(XMFLOAT3(GetPosition().x, GetPosition().y, GetPosition().z));
+	Engine::Renderer::SetViewMatrix(m_View);
+	Engine::Renderer::SetCameraPosition(XMFLOAT3(GetPosition().x, GetPosition().y, GetPosition().z));
 }
 
 namespace
@@ -327,9 +331,9 @@ namespace
 	{
 		const auto* definition = Engine::FindShaderDefinition("realistic-foliage");
 		if (definition == nullptr || definition->Passes.empty()) return false;
-		const VertexShaderHandle vertex = ResourceManager::LoadVertexShader(
+		const Engine::VertexShaderHandle vertex = Engine::ResourceManager::LoadVertexShader(
 			std::string(definition->Passes[0].VertexFile));
-		const PixelShaderHandle pixel = ResourceManager::LoadPixelShader(
+		const Engine::PixelShaderHandle pixel = Engine::ResourceManager::LoadPixelShader(
 			std::string(definition->Passes[0].PixelFile));
 		if (!vertex || !pixel) return false;
 		vertexShader = vertex->Shader;
@@ -343,7 +347,7 @@ void ClassroomTree::Init()
 {
 	m_Layer = Layer::Effect;
 	SetRenderCategory(RenderCategory::Opaque);
-	VERTEX_3D vertices[4]{};
+	Engine::VERTEX_3D vertices[4]{};
 	const XMFLOAT3 positions[] = {
 		{ -1.7f, 4.8f, 0.0f }, { 1.7f, 4.8f, 0.0f },
 		{ -1.7f, 0.0f, 0.0f }, { 1.7f, 0.0f, 0.0f }
@@ -366,7 +370,7 @@ void ClassroomTree::Init()
 		m_VertexBuffer, description, &data, "ClassroomTree");
 	m_RenderingAvailable = LoadFoliageShaders(m_VertexShader, m_Layout, m_PixelShader)
 		&& m_RenderingAvailable;
-	m_Texture = ResourceManager::LoadTexture(L"assets/texture/tree.png");
+	m_Texture = Engine::ResourceManager::LoadTexture(L"assets/texture/tree.png");
 	m_RenderingAvailable = m_Texture != nullptr && m_RenderingAvailable;
 }
 
@@ -375,25 +379,25 @@ void ClassroomTree::Draw()
 	if (!m_RenderingAvailable) return;
 	const ICameraView* camera = GetWorld().FindFirst<ICameraView>();
 	if (camera == nullptr) return;
-	auto* context = Renderer::GetDeviceContext();
+	auto* context = Engine::Renderer::GetDeviceContext();
 	context->IASetInputLayout(m_Layout.Get());
 	context->VSSetShader(m_VertexShader.Get(), nullptr, 0);
 	context->PSSetShader(m_PixelShader.Get(), nullptr, 0);
 	XMMATRIX facing = XMMatrixInverse(nullptr, camera->GetViewMatrix());
 	facing.r[3] = XMVectorSet(0.0f, 0.0f, 0.0f, 1.0f);
-	Renderer::SetWorldMatrix(XMMatrixScaling(m_Scale.x, m_Scale.y, m_Scale.z)
+	Engine::Renderer::SetWorldMatrix(XMMatrixScaling(GetScale().x, GetScale().y, GetScale().z)
 		* facing * XMMatrixTranslation(GetPosition().x, GetPosition().y, GetPosition().z));
-	MATERIAL material{};
+	Engine::MATERIAL material{};
 	material.Diffuse = { 1.0f, 1.0f, 1.0f, 1.0f };
 	material.Ambient = material.Diffuse;
 	material.TextureEnable = true;
-	Renderer::SetMaterial(material);
+	Engine::Renderer::SetMaterial(material);
 	ID3D11ShaderResourceView* texture = m_Texture->Get();
 	context->PSSetShaderResources(0, 1, &texture);
-	UINT stride = sizeof(VERTEX_3D), offset = 0;
+	UINT stride = sizeof(Engine::VERTEX_3D), offset = 0;
 	context->IASetVertexBuffers(0, 1, m_VertexBuffer.GetAddressOf(), &stride, &offset);
 	context->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
-	Renderer::SetDepthMode(RenderDepthMode::Enabled);
+	Engine::Renderer::SetDepthMode(Engine::RenderDepthMode::Enabled);
 	context->Draw(4, 0);
 }
 
@@ -403,13 +407,13 @@ void ClassroomTree::DrawShadow()
 	// 太陽が高いほど影は短く、低いほど長く伸びます。
 	const Vector3 light = Engine::ShadowMap::GetLightDirection();
 	const float yaw = atan2f(light.x, light.z);
-	auto* context = Renderer::GetDeviceContext();
+	auto* context = Engine::Renderer::GetDeviceContext();
 	Engine::ShadowMap::BindCaster(true);
-	Renderer::SetWorldMatrix(XMMatrixScaling(m_Scale.x, m_Scale.y, m_Scale.z)
+	Engine::Renderer::SetWorldMatrix(XMMatrixScaling(GetScale().x, GetScale().y, GetScale().z)
 		* XMMatrixRotationY(yaw) * XMMatrixTranslation(GetPosition().x, GetPosition().y, GetPosition().z));
 	ID3D11ShaderResourceView* texture = m_Texture->Get();
 	context->PSSetShaderResources(0, 1, &texture);
-	UINT stride = sizeof(VERTEX_3D), offset = 0;
+	UINT stride = sizeof(Engine::VERTEX_3D), offset = 0;
 	context->IASetVertexBuffers(0, 1, m_VertexBuffer.GetAddressOf(), &stride, &offset);
 	context->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
 	context->Draw(4, 0);
@@ -419,7 +423,7 @@ void ClassroomGrass::Init()
 {
 	m_Layer = Layer::Effect;
 	SetRenderCategory(RenderCategory::Opaque);
-	VERTEX_3D vertices[4]{};
+	Engine::VERTEX_3D vertices[4]{};
 	const XMFLOAT3 positions[] = {
 		{ -0.65f, 1.15f, 0.0f }, { 0.65f, 1.15f, 0.0f },
 		{ -0.65f, 0.0f, 0.0f }, { 0.65f, 0.0f, 0.0f }
@@ -442,7 +446,7 @@ void ClassroomGrass::Init()
 		m_VertexBuffer, description, &data, "ClassroomGrass");
 	m_RenderingAvailable = LoadFoliageShaders(m_VertexShader, m_Layout, m_PixelShader)
 		&& m_RenderingAvailable;
-	m_Texture = ResourceManager::LoadTexture(L"assets/texture/grass.png");
+	m_Texture = Engine::ResourceManager::LoadTexture(L"assets/texture/grass.png");
 	m_RenderingAvailable = m_Texture != nullptr && m_RenderingAvailable;
 }
 
@@ -451,14 +455,14 @@ void ClassroomGrass::Draw()
 	if (!m_RenderingAvailable) return;
 	const ICameraView* camera = GetWorld().FindFirst<ICameraView>();
 	if (camera == nullptr) return;
-	auto* context = Renderer::GetDeviceContext();
+	auto* context = Engine::Renderer::GetDeviceContext();
 	context->IASetInputLayout(m_Layout.Get());
 	context->VSSetShader(m_VertexShader.Get(), nullptr, 0);
 	context->PSSetShader(m_PixelShader.Get(), nullptr, 0);
 	XMMATRIX facing = XMMatrixInverse(nullptr, camera->GetViewMatrix());
 	facing.r[3] = XMVectorSet(0.0f, 0.0f, 0.0f, 1.0f);
 	const float phase = GetPosition().x * 0.71f + GetPosition().z * 1.37f;
-	const float time = GameTime::GetElapsedTime();
+	const float time = Engine::GameTime::GetElapsedTime();
 	const float sway = 0.18f * sinf(time * 2.4f + phase)
 		+ 0.07f * sinf(time * 0.85f + phase * 0.43f);
 	// 行ベクトルのせん断。y=0の根元は動かず、先端ほど風で横に移動する。
@@ -467,19 +471,19 @@ void ClassroomGrass::Draw()
 		sway, 1.0f, 0.0f, 0.0f,
 		0.0f, 0.0f, 1.0f, 0.0f,
 		0.0f, 0.0f, 0.0f, 1.0f);
-	Renderer::SetWorldMatrix(bend * XMMatrixScaling(m_Scale.x, m_Scale.y, m_Scale.z)
+	Engine::Renderer::SetWorldMatrix(bend * XMMatrixScaling(GetScale().x, GetScale().y, GetScale().z)
 		* facing * XMMatrixTranslation(GetPosition().x, GetPosition().y, GetPosition().z));
-	MATERIAL material{};
+	Engine::MATERIAL material{};
 	material.Diffuse = { 1.0f, 1.0f, 1.0f, 1.0f };
 	material.Ambient = material.Diffuse;
 	material.TextureEnable = true;
-	Renderer::SetMaterial(material);
+	Engine::Renderer::SetMaterial(material);
 	ID3D11ShaderResourceView* texture = m_Texture->Get();
 	context->PSSetShaderResources(0, 1, &texture);
-	UINT stride = sizeof(VERTEX_3D), offset = 0;
+	UINT stride = sizeof(Engine::VERTEX_3D), offset = 0;
 	context->IASetVertexBuffers(0, 1, m_VertexBuffer.GetAddressOf(), &stride, &offset);
 	context->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
-	Renderer::SetDepthMode(RenderDepthMode::Enabled);
+	Engine::Renderer::SetDepthMode(Engine::RenderDepthMode::Enabled);
 	context->Draw(4, 0);
 }
 
@@ -526,7 +530,7 @@ namespace
 	}
 
 	// 外側から見て時計回り(表面)になる箱を追加します。
-	void AppendBox(std::vector<VERTEX_3D>& vertices, std::vector<unsigned int>& indices,
+	void AppendBox(std::vector<Engine::VERTEX_3D>& vertices, std::vector<unsigned int>& indices,
 		const Vector3& center, const Vector3& half, const XMFLOAT4& color)
 	{
 		struct Face { Vector3 Normal, U, V; };
@@ -552,7 +556,7 @@ namespace
 			const Vector3 corners[] = { middle - u - v, middle - u + v, middle + u + v, middle + u - v };
 			for (const Vector3& corner : corners)
 			{
-				VERTEX_3D vertex{};
+				Engine::VERTEX_3D vertex{};
 				vertex.Position = { corner.x, corner.y, corner.z };
 				vertex.Normal = { face.Normal.x, face.Normal.y, face.Normal.z };
 				vertex.Diffuse = color;
@@ -571,7 +575,7 @@ void ClassroomNoren::Init()
 	CreateClothTexture();
 
 	// 幅1.2m・丈1.0mを3枚に分けた、店先によくある半のれんです。
-	ClothSettings settings;
+	Engine::ClothSettings settings;
 	settings.PanelCount = 3;
 	settings.ColumnsPerPanel = 6;
 	settings.Rows = 14;
@@ -597,7 +601,7 @@ void ClassroomNoren::Init()
 
 void ClassroomNoren::BuildFrame(float groundHeight)
 {
-	std::vector<VERTEX_3D> vertices;
+	std::vector<Engine::VERTEX_3D> vertices;
 	std::vector<unsigned int> indices;
 	const XMFLOAT4 wood{ 0.36f, 0.23f, 0.13f, 1.0f };
 	const XMFLOAT4 darkWood{ 0.22f, 0.14f, 0.08f, 1.0f };
@@ -613,7 +617,7 @@ void ClassroomNoren::BuildFrame(float groundHeight)
 
 	D3D11_BUFFER_DESC description{};
 	description.Usage = D3D11_USAGE_IMMUTABLE;
-	description.ByteWidth = static_cast<UINT>(vertices.size() * sizeof(VERTEX_3D));
+	description.ByteWidth = static_cast<UINT>(vertices.size() * sizeof(Engine::VERTEX_3D));
 	description.BindFlags = D3D11_BIND_VERTEX_BUFFER;
 	D3D11_SUBRESOURCE_DATA data{};
 	data.pSysMem = vertices.data();
@@ -665,7 +669,7 @@ void ClassroomNoren::CreateClothTexture()
 	if (Engine::GraphicsResourceFactory::CreateTextureFromPixels(
 		view, kSize, kSize, pixels.data(), "ClassroomNorenTexture"))
 	{
-		auto texture = std::make_shared<TextureResource>();
+		auto texture = std::make_shared<Engine::TextureResource>();
 		texture->View = view;
 		m_ClothTexture = texture;
 	}
@@ -673,10 +677,10 @@ void ClassroomNoren::CreateClothTexture()
 
 void ClassroomNoren::DrawShadow()
 {
-	auto* context = Renderer::GetDeviceContext();
+	auto* context = Engine::Renderer::GetDeviceContext();
 	Engine::ShadowMap::BindCaster(false);
-	Renderer::SetWorldMatrix(XMMatrixIdentity());
-	UINT stride = sizeof(VERTEX_3D), offset = 0;
+	Engine::Renderer::SetWorldMatrix(XMMatrixIdentity());
+	UINT stride = sizeof(Engine::VERTEX_3D), offset = 0;
 	context->IASetVertexBuffers(0, 1, m_VertexBuffer.GetAddressOf(), &stride, &offset);
 	context->IASetIndexBuffer(m_IndexBuffer.Get(), DXGI_FORMAT_R32_UINT, 0);
 	context->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
@@ -685,10 +689,10 @@ void ClassroomNoren::DrawShadow()
 
 void ClassroomNoren::Draw()
 {
-	auto* context = Renderer::GetDeviceContext();
-	Renderer::SetWorldMatrix(XMMatrixIdentity());
+	auto* context = Engine::Renderer::GetDeviceContext();
+	Engine::Renderer::SetWorldMatrix(XMMatrixIdentity());
 	m_Surface.Bind();
-	UINT stride = sizeof(VERTEX_3D), offset = 0;
+	UINT stride = sizeof(Engine::VERTEX_3D), offset = 0;
 	context->IASetVertexBuffers(0, 1, m_VertexBuffer.GetAddressOf(), &stride, &offset);
 	context->IASetIndexBuffer(m_IndexBuffer.Get(), DXGI_FORMAT_R32_UINT, 0);
 	context->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);

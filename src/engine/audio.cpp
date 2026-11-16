@@ -83,7 +83,7 @@ void Audio::Load(const char* FileName)
 		return;
 	}
 
-	m_Wave = ResourceManager::LoadWave(FileName);
+	m_Wave = Engine::ResourceManager::LoadWave(FileName);
 	if (m_Wave == nullptr || m_Wave->GetFormat() == nullptr)
 	{
 		DebugLog("Audio::Load: shared wave resource load failed.\n");

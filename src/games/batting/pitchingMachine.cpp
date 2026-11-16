@@ -41,7 +41,7 @@ void PitchingMachine::FireBall()
 
 void PitchingMachine::Update()
 {
-	m_FireTimer -= GameTime::GetDeltaTime();
+	m_FireTimer -= Engine::GameTime::GetDeltaTime();
 	if (m_FireTimer <= 0.0f)
 	{
 		FireBall();

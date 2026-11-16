@@ -22,7 +22,7 @@ void DynamicText::Init()
 
 	D3D11_BUFFER_DESC desc{};
 	desc.Usage = D3D11_USAGE_DYNAMIC;
-	desc.ByteWidth = sizeof(VERTEX_3D) * 4;
+	desc.ByteWidth = sizeof(Engine::VERTEX_3D) * 4;
 	desc.BindFlags = D3D11_BIND_VERTEX_BUFFER;
 	desc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
 	m_RenderingAvailable = Engine::GraphicsResourceFactory::CreateBuffer(
@@ -132,11 +132,11 @@ bool DynamicText::RebuildTexture()
 	initialData.SysMemPitch = width * 4;
 
 	ComPtr<ID3D11Texture2D> texture;
-	if (FAILED(Renderer::GetDevice()->CreateTexture2D(&textureDesc, &initialData, texture.GetAddressOf())))
+	if (FAILED(Engine::Renderer::GetDevice()->CreateTexture2D(&textureDesc, &initialData, texture.GetAddressOf())))
 	{
 		return false;
 	}
-	if (FAILED(Renderer::GetDevice()->CreateShaderResourceView(texture.Get(), nullptr, m_TextureView.GetAddressOf())))
+	if (FAILED(Engine::Renderer::GetDevice()->CreateShaderResourceView(texture.Get(), nullptr, m_TextureView.GetAddressOf())))
 	{
 		return false;
 	}
@@ -166,7 +166,7 @@ void DynamicText::Draw()
 	const float left = m_Align == Align::Center ? GetPosition().x - width * 0.5f : GetPosition().x;
 	const float top = GetPosition().y;
 
-	VERTEX_3D vertex[4]{};
+	Engine::VERTEX_3D vertex[4]{};
 	const XMFLOAT4 white{ 1.0f, 1.0f, 1.0f, 1.0f };
 	vertex[0] = { { left, top, 0.0f }, { 0.0f, 0.0f, -1.0f }, white, { 0.0f, 0.0f } };
 	vertex[1] = { { left + width, top, 0.0f }, { 0.0f, 0.0f, -1.0f }, white, { 1.0f, 0.0f } };
@@ -179,27 +179,27 @@ void DynamicText::Draw()
 		return;
 	}
 	memcpy(mapped.pData, vertex, sizeof(vertex));
-	Renderer::GetDeviceContext()->Unmap(m_VertexBuffer.Get(), 0);
+	Engine::Renderer::GetDeviceContext()->Unmap(m_VertexBuffer.Get(), 0);
 
-	Renderer::GetDeviceContext()->IASetInputLayout(m_VertexLayout.Get());
-	Renderer::GetDeviceContext()->VSSetShader(m_VertexShader.Get(), nullptr, 0);
-	Renderer::GetDeviceContext()->PSSetShader(m_PixelShader.Get(), nullptr, 0);
-	Renderer::SetWorldViewProjection2D();
-	Renderer::SetWorldMatrix(XMMatrixIdentity());
+	Engine::Renderer::GetDeviceContext()->IASetInputLayout(m_VertexLayout.Get());
+	Engine::Renderer::GetDeviceContext()->VSSetShader(m_VertexShader.Get(), nullptr, 0);
+	Engine::Renderer::GetDeviceContext()->PSSetShader(m_PixelShader.Get(), nullptr, 0);
+	Engine::Renderer::SetWorldViewProjection2D();
+	Engine::Renderer::SetWorldMatrix(XMMatrixIdentity());
 
-	MATERIAL material{};
+	Engine::MATERIAL material{};
 	material.Diffuse = m_Color;
 	material.TextureEnable = TRUE;
-	Renderer::SetMaterial(material);
+	Engine::Renderer::SetMaterial(material);
 	ID3D11ShaderResourceView* view = m_TextureView.Get();
-	Renderer::GetDeviceContext()->PSSetShaderResources(0, 1, &view);
+	Engine::Renderer::GetDeviceContext()->PSSetShaderResources(0, 1, &view);
 
 	// 画面座標のUIなので深度は見ません。
-	Renderer::SetDepthMode(RenderDepthMode::Disabled);
-	UINT stride = sizeof(VERTEX_3D);
+	Engine::Renderer::SetDepthMode(Engine::RenderDepthMode::Disabled);
+	UINT stride = sizeof(Engine::VERTEX_3D);
 	UINT offset = 0;
-	Renderer::GetDeviceContext()->IASetVertexBuffers(0, 1, m_VertexBuffer.GetAddressOf(), &stride, &offset);
-	Renderer::GetDeviceContext()->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
-	Renderer::GetDeviceContext()->Draw(4, 0);
-	Renderer::SetDepthMode(RenderDepthMode::Enabled);
+	Engine::Renderer::GetDeviceContext()->IASetVertexBuffers(0, 1, m_VertexBuffer.GetAddressOf(), &stride, &offset);
+	Engine::Renderer::GetDeviceContext()->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
+	Engine::Renderer::GetDeviceContext()->Draw(4, 0);
+	Engine::Renderer::SetDepthMode(Engine::RenderDepthMode::Enabled);
 }

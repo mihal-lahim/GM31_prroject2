@@ -214,7 +214,7 @@ void WireTpsCamera::LateUpdate()
 	m_CloseAimActiveLastFrame = closeAim;
 
 	// 揺れとパンチは追従結果へ後から乗せます。追従計算そのものには混ぜません。
-	const float dt = GameTime::GetDeltaTime();
+	const float dt = Engine::GameTime::GetDeltaTime();
 	UpdateImpactState(dt);
 	ApplyImpactToView(dt);
 	GameObject::LateUpdate();
@@ -327,7 +327,7 @@ void WireTpsCamera::Draw()
 	const float drawFov = std::clamp(m_CurrentFov + m_FovKick, 0.1f, 3.0f);
 	XMMATRIX projection = XMMatrixPerspectiveFovLH(
 		drawFov, static_cast<float>(SCREEN_WIDTH) / SCREEN_HEIGHT, tuning.NearClip, tuning.FarClip);
-	Renderer::SetProjectionMatrix(projection);
+	Engine::Renderer::SetProjectionMatrix(projection);
 
 	// 視線軸まわりに上ベクトルを回してロールさせます。
 	Vector3 rollForward = m_ShakenTarget - m_ShakenPosition;
@@ -344,8 +344,8 @@ void WireTpsCamera::Draw()
 		XMLoadFloat3(&target),
 		XMLoadFloat3(&up));
 
-	Renderer::SetViewMatrix(m_ViewMatrix);
-	Renderer::SetCameraPosition(XMFLOAT3(GetPosition().x, GetPosition().y, GetPosition().z));
+	Engine::Renderer::SetViewMatrix(m_ViewMatrix);
+	Engine::Renderer::SetCameraPosition(XMFLOAT3(GetPosition().x, GetPosition().y, GetPosition().z));
 }
 
 Vector3 WireTpsCamera::GetForward()

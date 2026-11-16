@@ -53,7 +53,7 @@ void GameplayInputController::Init()
 
 void GameplayInputController::Update()
 {
-	if (GameTime::IsPaused())
+	if (Engine::GameTime::IsPaused())
 	{
 		return;
 	}

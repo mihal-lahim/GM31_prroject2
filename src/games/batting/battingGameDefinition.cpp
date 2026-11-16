@@ -1,3 +1,5 @@
+#include "inputActions.h"
+#include "keyboard_utf8.h"
 #include "gameDefinition.h"
 
 #include "battingGameplayTuning.h"
@@ -28,16 +30,39 @@ namespace
 	}
 }
 
+// 操作名と既定のキー・ボタンです。assets/config/batting-input.cfg で差し替えられます。
+static void DefineBattingInputs()
+{
+	using Engine::InputActions;
+	using Engine::InputBinding;
+	namespace Pad = Engine::PadButtons;
+	InputActions::Define("move_forward", { InputBinding::Key(KK_W), InputBinding::PadAxis(Engine::PadLeftY, 1) });
+	InputActions::Define("move_back", { InputBinding::Key(KK_S), InputBinding::PadAxis(Engine::PadLeftY, -1) });
+	InputActions::Define("move_right", { InputBinding::Key(KK_D), InputBinding::PadAxis(Engine::PadLeftX, 1) });
+	InputActions::Define("move_left", { InputBinding::Key(KK_A), InputBinding::PadAxis(Engine::PadLeftX, -1) });
+	InputActions::DefineLookStick();
+	InputActions::Define("jump", { InputBinding::Key(KK_SPACE), InputBinding::PadButton(Pad::A) });
+	InputActions::Define("swing", { InputBinding::MouseLeft(), InputBinding::PadButton(Pad::X) });
+	InputActions::Define("shoot", { InputBinding::MouseRight(), InputBinding::PadButton(Pad::B) });
+	InputActions::Define("pause", { InputBinding::Key(KK_TAB), InputBinding::PadButton(Pad::Start) });
+	InputActions::Define("confirm", { InputBinding::Key(KK_ENTER), InputBinding::PadButton(Pad::A) });
+}
+
 const GameDefinition& GetGameDefinition()
 {
-	static const GameDefinition definition =
+	static const GameDefinition definition = []
 	{
-		"Batting Center",
-		"assets/config/batting.cfg",
-		"assets/config/batting-gameplay.cfg",
-		CreateInitialScene,
-		RunBattingSelfTests
-	};
+		GameDefinition value{
+			"Batting Center",
+			"assets/config/batting.cfg",
+			"assets/config/batting-gameplay.cfg",
+			CreateInitialScene,
+			RunBattingSelfTests
+		};
+		value.DefineInputs = DefineBattingInputs;
+		value.InputBindingsPath = "assets/config/batting-input.cfg";
+		return value;
+	}();
 
 	return definition;
 }

@@ -19,7 +19,7 @@ namespace
 	bool Capture(const wchar_t* path)
 	{
 		ComPtr<ID3D11RenderTargetView> target;
-		Renderer::GetDeviceContext()->OMGetRenderTargets(1, target.GetAddressOf(), nullptr);
+		Engine::Renderer::GetDeviceContext()->OMGetRenderTargets(1, target.GetAddressOf(), nullptr);
 		if (!target)
 		{
 			return false;
@@ -27,8 +27,8 @@ namespace
 		ComPtr<ID3D11Resource> resource;
 		target->GetResource(resource.GetAddressOf());
 		DirectX::ScratchImage image;
-		if (FAILED(DirectX::CaptureTexture(Renderer::GetDevice(),
-			Renderer::GetDeviceContext(), resource.Get(), image)))
+		if (FAILED(DirectX::CaptureTexture(Engine::Renderer::GetDevice(),
+			Engine::Renderer::GetDeviceContext(), resource.Get(), image)))
 		{
 			return false;
 		}
@@ -58,13 +58,13 @@ namespace
 		{
 			for (int i = 0; i < count; ++i)
 			{
-				Manager::StepScene(Scene, 1.0f / 60.0f);
+				Engine::Manager::StepScene(Scene, 1.0f / 60.0f);
 			}
 		}
 
 		void Draw()
 		{
-			Manager::DrawWorld(GetWorld());
+			Engine::Manager::DrawWorld(GetWorld());
 		}
 
 		void Check(const char* name, bool condition, float value = 0.0f)
@@ -113,7 +113,7 @@ bool RunSlowActionRenderTest()
 {
 	using State = SlowPlayer::State;
 	const SlowActionTuning& tuning = GetSlowActionTuning();
-	GameTime::Init();
+	Engine::GameTime::Init();
 	Harness h;
 	SlowInput::SetOverride(&h.Input);
 	h.Scene.Init();

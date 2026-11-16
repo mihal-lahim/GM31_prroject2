@@ -6,12 +6,12 @@
 
 namespace
 {
-    void Rect(std::vector<VERTEX_3D>& out, float x, float y, float w, float h, XMFLOAT4 color)
+    void Rect(std::vector<Engine::VERTEX_3D>& out, float x, float y, float w, float h, XMFLOAT4 color)
     {
-        const VERTEX_3D a{{x,y,0},{0,0,-1},color,{0,0}};
-        const VERTEX_3D b{{x+w,y,0},{0,0,-1},color,{0,0}};
-        const VERTEX_3D c{{x+w,y+h,0},{0,0,-1},color,{0,0}};
-        const VERTEX_3D d{{x,y+h,0},{0,0,-1},color,{0,0}};
+        const Engine::VERTEX_3D a{{x,y,0},{0,0,-1},color,{0,0}};
+        const Engine::VERTEX_3D b{{x+w,y,0},{0,0,-1},color,{0,0}};
+        const Engine::VERTEX_3D c{{x+w,y+h,0},{0,0,-1},color,{0,0}};
+        const Engine::VERTEX_3D d{{x,y+h,0},{0,0,-1},color,{0,0}};
         out.insert(out.end(),{a,b,c,a,c,d});
     }
 }
@@ -21,7 +21,7 @@ void WireMissionHud::Init()
     SetRenderCategory(RenderCategory::Overlay);
     D3D11_BUFFER_DESC desc{};
     desc.Usage = D3D11_USAGE_DYNAMIC;
-    desc.ByteWidth = sizeof(VERTEX_3D)*256;
+    desc.ByteWidth = sizeof(Engine::VERTEX_3D)*256;
     desc.BindFlags = D3D11_BIND_VERTEX_BUFFER;
     desc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
     m_RenderingAvailable = Engine::GraphicsResourceFactory::CreateBuffer(m_VertexBuffer,desc,nullptr,"RaceHUD");
@@ -47,7 +47,7 @@ void WireMissionHud::Uninit()
 }
 void WireMissionHud::Update()
 {
-    m_NoticeTime = std::max(0.0f,m_NoticeTime-GameTime::GetDeltaTime());
+    m_NoticeTime = std::max(0.0f,m_NoticeTime-Engine::GameTime::GetDeltaTime());
 }
 void WireMissionHud::SetBestTime(float seconds)
 {
@@ -69,7 +69,7 @@ void WireMissionHud::ShowNotice(const std::wstring& text)
 void WireMissionHud::Draw()
 {
     if (!m_RenderingAvailable) return;
-    std::vector<VERTEX_3D> vertices;
+    std::vector<Engine::VERTEX_3D> vertices;
     const XMFLOAT4 panel{0.98f,0.95f,0.84f,0.94f};
     Rect(vertices,18,14,350,105,panel);
     Rect(vertices,SCREEN_WIDTH-345.0f,14,326,120,panel);
@@ -79,21 +79,21 @@ void WireMissionHud::Draw()
     if (m_NoticeTime > 0) Rect(vertices,SCREEN_WIDTH*0.5f-365,136,730,52,panel);
     D3D11_MAPPED_SUBRESOURCE mapped{};
     if (!Engine::GraphicsResourceFactory::MapWriteDiscard(m_VertexBuffer.Get(),mapped,"RaceHUD")) return;
-    memcpy(mapped.pData,vertices.data(),vertices.size()*sizeof(VERTEX_3D));
-    Renderer::GetDeviceContext()->Unmap(m_VertexBuffer.Get(),0);
-    Renderer::GetDeviceContext()->IASetInputLayout(m_VertexLayout.Get());
-    Renderer::GetDeviceContext()->VSSetShader(m_VertexShader.Get(),nullptr,0);
-    Renderer::GetDeviceContext()->PSSetShader(m_PixelShader.Get(),nullptr,0);
-    Renderer::SetWorldViewProjection2D();
-    Renderer::SetWorldMatrix(XMMatrixIdentity());
-    Renderer::SetDepthMode(RenderDepthMode::Disabled);
-    MATERIAL material{}; material.Diffuse={1,1,1,1}; material.TextureEnable=FALSE;
-    Renderer::SetMaterial(material);
-    UINT stride=sizeof(VERTEX_3D),offset=0;
-    Renderer::GetDeviceContext()->IASetVertexBuffers(0,1,m_VertexBuffer.GetAddressOf(),&stride,&offset);
-    Renderer::GetDeviceContext()->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-    Renderer::GetDeviceContext()->Draw(static_cast<UINT>(vertices.size()),0);
+    memcpy(mapped.pData,vertices.data(),vertices.size()*sizeof(Engine::VERTEX_3D));
+    Engine::Renderer::GetDeviceContext()->Unmap(m_VertexBuffer.Get(),0);
+    Engine::Renderer::GetDeviceContext()->IASetInputLayout(m_VertexLayout.Get());
+    Engine::Renderer::GetDeviceContext()->VSSetShader(m_VertexShader.Get(),nullptr,0);
+    Engine::Renderer::GetDeviceContext()->PSSetShader(m_PixelShader.Get(),nullptr,0);
+    Engine::Renderer::SetWorldViewProjection2D();
+    Engine::Renderer::SetWorldMatrix(XMMatrixIdentity());
+    Engine::Renderer::SetDepthMode(Engine::RenderDepthMode::Disabled);
+    Engine::MATERIAL material{}; material.Diffuse={1,1,1,1}; material.TextureEnable=FALSE;
+    Engine::Renderer::SetMaterial(material);
+    UINT stride=sizeof(Engine::VERTEX_3D),offset=0;
+    Engine::Renderer::GetDeviceContext()->IASetVertexBuffers(0,1,m_VertexBuffer.GetAddressOf(),&stride,&offset);
+    Engine::Renderer::GetDeviceContext()->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+    Engine::Renderer::GetDeviceContext()->Draw(static_cast<UINT>(vertices.size()),0);
     m_Time.Draw(); m_Best.Draw(); m_Altitude.Draw(); m_Hint.Draw();
     if (m_NoticeTime>0) m_Notice.Draw();
-    Renderer::SetDepthMode(RenderDepthMode::Enabled);
+    Engine::Renderer::SetDepthMode(Engine::RenderDepthMode::Enabled);
 }

@@ -124,7 +124,7 @@ void SlowPlayer::Update()
 		return;
 	}
 	const SlowActionTuning& tuning = GetSlowActionTuning();
-	const float deltaTime = GameTime::GetDeltaTime();
+	const float deltaTime = Engine::GameTime::GetDeltaTime();
 	const SlowInputState& input = SlowInput::Get();
 
 	const bool dashPressed = input.Dash && !m_PreviousDash;
@@ -216,7 +216,7 @@ void SlowPlayer::Update()
 	{
 		UpdateMovement(input, deltaTime);
 	}
-	m_Rotation.y = m_Yaw;
+	{ Vector3 value = GetRotation(); value.y = m_Yaw; SetRotation(value); }
 	UpdateAnimation(deltaTime);
 }
 
@@ -596,11 +596,11 @@ void SlowPlayer::PerformAttackHit()
 	// 当たりの重さに合わせて、止め・揺れ・音を段階的に強くします。
 	if (pursuitAny || deflected)
 	{
-		GameTime::StartHitStop(tuning.PursuitHitStopFrames, tuning.HitStopScale);
+		Engine::GameTime::StartHitStop(tuning.PursuitHitStopFrames, tuning.HitStopScale);
 	}
 	else if (hitAny)
 	{
-		GameTime::StartHitStop(strong ? tuning.StrongHitStopFrames
+		Engine::GameTime::StartHitStop(strong ? tuning.StrongHitStopFrames
 			: finisher ? tuning.FinisherHitStopFrames : tuning.NormalHitStopFrames, tuning.HitStopScale);
 	}
 	if (deflected)

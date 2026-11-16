@@ -11,7 +11,7 @@ void GlyphRenderer2D::InitCommon(const wchar_t* texturePath, int atlasColumns, i
 	m_AtlasColumns = atlasColumns;
 	m_AtlasRows = atlasRows;
 
-	VERTEX_3D vertex[4]{};
+	Engine::VERTEX_3D vertex[4]{};
 	for (auto& v : vertex)
 	{
 		v.Normal = XMFLOAT3(0.0f, 0.0f, 0.0f);
@@ -21,7 +21,7 @@ void GlyphRenderer2D::InitCommon(const wchar_t* texturePath, int atlasColumns, i
 	// 文字描画用の頂点バッファを生成する。UVはDraw()内で毎回書き換える。
 	D3D11_BUFFER_DESC bd{};
 	bd.Usage = D3D11_USAGE_DYNAMIC;
-	bd.ByteWidth = sizeof(VERTEX_3D) * 4;
+	bd.ByteWidth = sizeof(Engine::VERTEX_3D) * 4;
 	bd.BindFlags = D3D11_BIND_VERTEX_BUFFER;
 	bd.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
 
@@ -37,7 +37,7 @@ void GlyphRenderer2D::InitCommon(const wchar_t* texturePath, int atlasColumns, i
 		&& m_RenderingAvailable;
 
 	// 文字テクスチャアトラスを読み込む。
-	m_Texture = ResourceManager::LoadTexture(texturePath);
+	m_Texture = Engine::ResourceManager::LoadTexture(texturePath);
 	m_RenderingAvailable = m_Texture != nullptr && m_RenderingAvailable;
 }
 
@@ -54,41 +54,41 @@ void GlyphRenderer2D::Draw()
 	}
 
 	// 入力レイアウトを設定する。
-	Renderer::GetDeviceContext()->IASetInputLayout(m_VertexLayout.Get());
+	Engine::Renderer::GetDeviceContext()->IASetInputLayout(m_VertexLayout.Get());
 
 	// シェーダーを設定する。
-	Renderer::GetDeviceContext()->VSSetShader(m_VertexShader.Get(), NULL, 0);
-	Renderer::GetDeviceContext()->PSSetShader(m_PixelShader.Get(), NULL, 0);
+	Engine::Renderer::GetDeviceContext()->VSSetShader(m_VertexShader.Get(), NULL, 0);
+	Engine::Renderer::GetDeviceContext()->PSSetShader(m_PixelShader.Get(), NULL, 0);
 
 	// 2D描画用の行列を設定する。
-	Renderer::SetWorldViewProjection2D();
+	Engine::Renderer::SetWorldViewProjection2D();
 
 	// ワールド行列を作成する。
 	XMMATRIX world, scale, rot, trans;
-	scale = XMMatrixScaling(m_Scale.x, m_Scale.y, m_Scale.z);
-	rot = XMMatrixRotationRollPitchYaw(m_Rotation.x, m_Rotation.y, m_Rotation.z);
+	scale = XMMatrixScaling(GetScale().x, GetScale().y, GetScale().z);
+	rot = XMMatrixRotationRollPitchYaw(GetRotation().x, GetRotation().y, GetRotation().z);
 	trans = XMMatrixTranslation(GetPosition().x, GetPosition().y, GetPosition().z);
 	world = scale * rot * trans;
 
-	Renderer::SetWorldMatrix(world);
+	Engine::Renderer::SetWorldMatrix(world);
 
 	// マテリアルを設定する。
-	MATERIAL material{};
+	Engine::MATERIAL material{};
 	material.Diffuse = m_Color;
 	material.TextureEnable = TRUE;
-	Renderer::SetMaterial(material);
+	Engine::Renderer::SetMaterial(material);
 
 	// テクスチャを設定する。
 	ID3D11ShaderResourceView* texture = m_Texture != nullptr ? m_Texture->Get() : nullptr;
-	Renderer::GetDeviceContext()->PSSetShaderResources(0, 1, &texture);
+	Engine::Renderer::GetDeviceContext()->PSSetShaderResources(0, 1, &texture);
 
 	// 頂点バッファを設定する。
-	UINT stride = sizeof(VERTEX_3D);
+	UINT stride = sizeof(Engine::VERTEX_3D);
 	UINT offset = 0;
-	Renderer::GetDeviceContext()->IASetVertexBuffers(0, 1, m_VertexBuffer.GetAddressOf(), &stride, &offset);
+	Engine::Renderer::GetDeviceContext()->IASetVertexBuffers(0, 1, m_VertexBuffer.GetAddressOf(), &stride, &offset);
 
 	// プリミティブトポロジを設定する。
-	Renderer::GetDeviceContext()->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
+	Engine::Renderer::GetDeviceContext()->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
 
 	const float tw = 1.0f / static_cast<float>(m_AtlasColumns);
 	const float th = 1.0f / static_cast<float>(m_AtlasRows);
@@ -113,7 +113,7 @@ void GlyphRenderer2D::Draw()
 			return;
 		}
 
-		VERTEX_3D* vertex = (VERTEX_3D*)msr.pData;
+		Engine::VERTEX_3D* vertex = (Engine::VERTEX_3D*)msr.pData;
 		const float glyphSize = m_GlyphSize * layout.Scale;
 		const float x = cursorX + m_GlyphSize * layout.OffsetX;
 		const float y = m_GlyphSize * layout.OffsetY;
@@ -142,10 +142,10 @@ void GlyphRenderer2D::Draw()
 		vertex[3].TexCoord = XMFLOAT2(tx + tw, ty + th);
 
 		// 頂点バッファの更新を確定する。
-		Renderer::GetDeviceContext()->Unmap(m_VertexBuffer.Get(), 0);
+		Engine::Renderer::GetDeviceContext()->Unmap(m_VertexBuffer.Get(), 0);
 
 		// ポリゴンを描画する。
-		Renderer::GetDeviceContext()->Draw(4, 0);
+		Engine::Renderer::GetDeviceContext()->Draw(4, 0);
 		cursorX += m_GlyphAdvance * layout.AdvanceScale;
 	}
 }

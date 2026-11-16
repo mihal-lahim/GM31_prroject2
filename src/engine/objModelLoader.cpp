@@ -16,9 +16,9 @@ namespace
 		OutputDebugStringA((message + "\n").c_str());
 	}
 
-	MATERIAL MakeDefaultMaterialData()
+	Engine::MATERIAL MakeDefaultMaterialData()
 	{
-		MATERIAL material{};
+		Engine::MATERIAL material{};
 		material.Ambient = XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f);
 		material.Diffuse = XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f);
 		material.Specular = XMFLOAT4(0.0f, 0.0f, 0.0f, 1.0f);
@@ -198,7 +198,7 @@ namespace
 			return false;
 		}
 
-		VERTEX_3D vertex{};
+		Engine::VERTEX_3D vertex{};
 		vertex.Position = positions[ref.Position];
 		vertex.Normal = XMFLOAT3(0.0f, 1.0f, 0.0f);
 		vertex.Diffuse = XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f);

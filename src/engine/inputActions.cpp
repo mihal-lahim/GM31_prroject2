@@ -299,3 +299,26 @@ bool InputActions::IsDefined(const std::string& action)
 	return Find(action) != nullptr;
 }
 }
+
+namespace Engine
+{
+namespace
+{
+	// 右スティックを倒し切ったときの回転速度です(ラジアン/秒)。
+	constexpr float kLookStickRadiansPerSecond = 2.6f;
+}
+
+void InputActions::DefineLookStick()
+{
+	Define("look_right", { InputBinding::PadAxis(PadRightX, 1) });
+	Define("look_left", { InputBinding::PadAxis(PadRightX, -1) });
+	Define("look_up", { InputBinding::PadAxis(PadRightY, 1) });
+	Define("look_down", { InputBinding::PadAxis(PadRightY, -1) });
+}
+
+void InputActions::GetLookDelta(float deltaTime, float& yaw, float& pitch)
+{
+	yaw = GetAxis("look_left", "look_right") * kLookStickRadiansPerSecond * deltaTime;
+	pitch = GetAxis("look_down", "look_up") * kLookStickRadiansPerSecond * deltaTime;
+}
+}

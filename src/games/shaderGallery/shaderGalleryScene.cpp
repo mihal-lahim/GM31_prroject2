@@ -119,11 +119,11 @@ public:
 	}
 	void Draw() override
 	{
-		Renderer::SetLight(GetGalleryUiState().Light);
-		Renderer::SetProjectionMatrix(XMMatrixPerspectiveFovLH(GalleryFieldOfView,
+		Engine::Renderer::SetLight(GetGalleryUiState().Light);
+		Engine::Renderer::SetProjectionMatrix(XMMatrixPerspectiveFovLH(GalleryFieldOfView,
 			static_cast<float>(SCREEN_WIDTH) / SCREEN_HEIGHT, GalleryNearClip, GalleryFarClip));
-		Renderer::SetViewMatrix(view);
-		Renderer::SetCameraPosition({ position.x, position.y, position.z });
+		Engine::Renderer::SetViewMatrix(view);
+		Engine::Renderer::SetCameraPosition({ position.x, position.y, position.z });
 	}
 	XMMATRIX GetViewMatrix() const override { return view; }
 	Vector3 GetCameraPosition() const override { return position; }
@@ -173,7 +173,7 @@ public:
 		ApplyPlacement();
 	}
 	// 床が専用ライトに切り替えることがあるため、モデルは毎回ギャラリーのライトで描く。
-	void Draw() override { Renderer::SetLight(GetGalleryUiState().Light); }
+	void Draw() override { Engine::Renderer::SetLight(GetGalleryUiState().Light); }
 };
 
 // SP31 の Field3D(スポットライト)と BumpField3D(法線マップ)と同じ 4x4 の石畳です。
@@ -210,7 +210,7 @@ public:
 	void Draw() override
 	{
 		const auto& state = GetGalleryUiState();
-		Renderer::SetLight(bump ? state.BumpLight : state.Light);
+		Engine::Renderer::SetLight(bump ? state.BumpLight : state.Light);
 	}
 };
 
@@ -238,7 +238,7 @@ void ApplyPresentationLight(GalleryUiState& state, float seconds)
 
 void ShaderGalleryScene::Init()
 {
-	Renderer::SetClearColor(GalleryClearColor);
+	Engine::Renderer::SetClearColor(GalleryClearColor);
 	auto& world = GetWorld();
 	world.Spawn<GalleryCamera>();
 	world.Spawn<GalleryFloor>();
@@ -247,8 +247,8 @@ void ShaderGalleryScene::Init()
 }
 void ShaderGalleryScene::Uninit()
 {
-	Renderer::SetPostEffect(PostEffectMode::None);
-	Renderer::SetClearColor(Renderer::DefaultClearColor);
+	Engine::Renderer::SetPostEffect(Engine::PostEffectMode::None);
+	Engine::Renderer::SetClearColor(Engine::Renderer::DefaultClearColor);
 }
 void ShaderGalleryScene::Update()
 {
@@ -311,20 +311,20 @@ void ShaderGalleryScene::Update()
 		}
 	}
 	else if (state.Animate) state.RotationDegrees += 20.0f / 60.0f;
-	Renderer::SetClearColor(state.Playing ? PresentationClearColor : GalleryClearColor);
+	Engine::Renderer::SetClearColor(state.Playing ? PresentationClearColor : GalleryClearColor);
 	if (state.Post == GalleryBloomPost)
 	{
-		if (Renderer::SetPostEffectDefinition("post-bloom"))
+		if (Engine::Renderer::SetPostEffectDefinition("post-bloom"))
 		{
-			Renderer::SetPostEffectFloat("luminance", state.BloomLuminance);
-			Renderer::SetPostEffectFloat("blendFine", state.BloomBlend[0]);
-			Renderer::SetPostEffectFloat("blendMiddle", state.BloomBlend[1]);
-			Renderer::SetPostEffectFloat("blendWide", state.BloomBlend[2]);
+			Engine::Renderer::SetPostEffectFloat("luminance", state.BloomLuminance);
+			Engine::Renderer::SetPostEffectFloat("blendFine", state.BloomBlend[0]);
+			Engine::Renderer::SetPostEffectFloat("blendMiddle", state.BloomBlend[1]);
+			Engine::Renderer::SetPostEffectFloat("blendWide", state.BloomBlend[2]);
 		}
-		else Renderer::SetPostEffect(PostEffectMode::None);
+		else Engine::Renderer::SetPostEffect(Engine::PostEffectMode::None);
 		return;
 	}
-	Renderer::SetPostEffect(static_cast<PostEffectMode>(state.Post));
+	Engine::Renderer::SetPostEffect(static_cast<Engine::PostEffectMode>(state.Post));
 	XMFLOAT4 options{ state.BlockSize, state.CircleRadius, 0.0f, 0.0f };
 	XMFLOAT4 extra{};
 	switch (state.Post)
@@ -339,6 +339,6 @@ void ShaderGalleryScene::Update()
 		break;
 	default: break;
 	}
-	Renderer::SetPostEffectParameters(options, extra);
+	Engine::Renderer::SetPostEffectParameters(options, extra);
 }
 void ShaderGalleryScene::Draw() {}

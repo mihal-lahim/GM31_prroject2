@@ -1,6 +1,7 @@
 #ifndef NOMINMAX
 #define NOMINMAX
 #endif
+#include "inputActions.h"
 #include "DirectXTex.h"
 #include "classroomWalk.h"
 #include "animationModel.h"
@@ -40,7 +41,7 @@ namespace
 		}
 		void Draw() override
 		{
-			LIGHT light{};
+			Engine::LIGHT light{};
 			light.Enable = TRUE;
 			light.Direction = { -0.45f, -0.78f, 0.43f, 0.0f };
 			light.Diffuse = { 0.92f, 0.90f, 0.80f, 1.0f };
@@ -51,11 +52,11 @@ namespace
 			light.GroundColor = { 0.16f, 0.12f, 0.09f, 1.0f };
 			light.GroundNormal = { 0.0f, 1.0f, 0.0f, 0.0f };
 			light.Angle = { XM_PIDIV4, 0.0f, 0.0f, 0.0f };
-			Renderer::SetLight(light);
-			Renderer::SetProjectionMatrix(XMMatrixPerspectiveFovLH(0.8f,
+			Engine::Renderer::SetLight(light);
+			Engine::Renderer::SetProjectionMatrix(XMMatrixPerspectiveFovLH(0.8f,
 				static_cast<float>(SCREEN_WIDTH) / SCREEN_HEIGHT, 0.1f, 200.0f));
-			Renderer::SetViewMatrix(m_View);
-			Renderer::SetCameraPosition(XMFLOAT3(GetPosition().x, GetPosition().y, GetPosition().z));
+			Engine::Renderer::SetViewMatrix(m_View);
+			Engine::Renderer::SetCameraPosition(XMFLOAT3(GetPosition().x, GetPosition().y, GetPosition().z));
 		}
 		XMMATRIX GetViewMatrix() const override { return m_View; }
 		Vector3 GetCameraPosition() const override { return GetPosition(); }
@@ -102,21 +103,21 @@ bool RunClassroomRenderTest()
 	{
 		for (int i = 0; i < count; ++i)
 		{
-			Manager::Update(1.0f / 60.0f);
+			Engine::Manager::Update(1.0f / 60.0f);
 			keycopy();
-			Manager::Draw();
+			Engine::Manager::Draw();
 		}
 	};
 	auto capture = [](const wchar_t* path)
 	{
 		ComPtr<ID3D11RenderTargetView> target;
-		Renderer::GetDeviceContext()->OMGetRenderTargets(1, target.GetAddressOf(), nullptr);
+		Engine::Renderer::GetDeviceContext()->OMGetRenderTargets(1, target.GetAddressOf(), nullptr);
 		if (!target) return false;
 		ComPtr<ID3D11Resource> resource;
 		target->GetResource(resource.GetAddressOf());
 		DirectX::ScratchImage image;
-		if (FAILED(DirectX::CaptureTexture(Renderer::GetDevice(),
-			Renderer::GetDeviceContext(), resource.Get(), image))) return false;
+		if (FAILED(DirectX::CaptureTexture(Engine::Renderer::GetDevice(),
+			Engine::Renderer::GetDeviceContext(), resource.Get(), image))) return false;
 		return SUCCEEDED(DirectX::SaveToWICFile(*image.GetImage(0, 0, 0),
 			DirectX::WIC_FLAGS_NONE, DirectX::GetWICCodec(DirectX::WIC_CODEC_PNG), path));
 	};
@@ -188,11 +189,11 @@ bool RunClassroomRenderTest()
 				model->TickAnimation(0.1f, false);
 				const auto middle = model->GetAnimationPose();
 				model->TickAnimation(0.0f);
-				Renderer::Begin();
+				Engine::Renderer::Begin();
 				RenderQueue queue;
 				queue.Build(animationWorld, animationCamera);
 				queue.Execute();
-				Renderer::End();
+				Engine::Renderer::End();
 				const std::string imageName = std::string("transition-") + names[from] + "-" + names[to] + ".png";
 				capture(std::wstring(imageName.begin(), imageName.end()).c_str());
 				const float progress = difference(source, middle);
@@ -273,9 +274,10 @@ bool RunClassroomRenderTest()
 	auto placeOnGround = [&](float x, float z)
 	{
 		contactPlayer->SetPosition({ x, MeshField::GetHeight(x, z), z });
-		for (int i = 0; i < 30; ++i) contactPlayer->Update();
+		for (int i = 0; i < 30; ++i) { Engine::InputActions::Update(); contactPlayer->Update(); }
 	};
 	float flatClearance[2]{}, hillClearance[2]{}, sideClearance[2]{};
+	Engine::InputActions::Update();
 	contactPlayer->Update();
 	const bool flatMeasured = contactPlayer->GetFootClearance(flatClearance);
 	// Ground-contact samples must be on dry land now that the lake has buoyancy.
@@ -297,27 +299,27 @@ bool RunClassroomRenderTest()
 	MeshField* comparisonField = contactWorld.FindFirst<MeshField>();
 	ClassroomCamera* slopeCamera = contactWorld.Spawn<ClassroomCamera>();
 	slopeCamera->LateUpdate();
-	Renderer::Begin();
+	Engine::Renderer::Begin();
 	RenderQueue slopeQueue;
 	slopeQueue.Build(contactWorld, slopeCamera);
 	slopeQueue.Execute();
-	Renderer::End();
+	Engine::Renderer::End();
 	const bool idleSlopeCaptured = capture(L"classroom-idle-slope.png");
 	// 同じ地形とカメラを描き直し、描画対象のシェーダー切替が画素に効くことを検証する。
 	auto terrainPixels = [&]()
 	{
-		Renderer::Begin();
+		Engine::Renderer::Begin();
 		slopeQueue.Build(contactWorld, slopeCamera);
 		slopeQueue.Execute();
-		Renderer::End();
+		Engine::Renderer::End();
 		ComPtr<ID3D11RenderTargetView> target;
-		Renderer::GetDeviceContext()->OMGetRenderTargets(1, target.GetAddressOf(), nullptr);
+		Engine::Renderer::GetDeviceContext()->OMGetRenderTargets(1, target.GetAddressOf(), nullptr);
 		if (!target) return std::vector<BYTE>{};
 		ComPtr<ID3D11Resource> resource;
 		target->GetResource(resource.GetAddressOf());
 		DirectX::ScratchImage image;
-		if (FAILED(DirectX::CaptureTexture(Renderer::GetDevice(),
-			Renderer::GetDeviceContext(), resource.Get(), image))) return std::vector<BYTE>{};
+		if (FAILED(DirectX::CaptureTexture(Engine::Renderer::GetDevice(),
+			Engine::Renderer::GetDeviceContext(), resource.Get(), image))) return std::vector<BYTE>{};
 		const DirectX::Image* frame = image.GetImage(0, 0, 0);
 		return std::vector<BYTE>(frame->pixels, frame->pixels + frame->slicePitch);
 	};
@@ -336,26 +338,26 @@ bool RunClassroomRenderTest()
 	const bool animatedRegisteredVisible = animatedDefinitionLoaded && animatedRegisteredCaptured
 		&& animatedChangedBytes > 1000;
 	contactPlayer->UseDefaultShader();
-	const bool postDefinitionLoaded = Renderer::SetPostEffectDefinition("post-invert");
+	const bool postDefinitionLoaded = Engine::Renderer::SetPostEffectDefinition("post-invert");
 	const std::vector<BYTE> postDefinitionPixels = terrainPixels();
 	const bool postDefinitionCaptured = capture(L"classroom-post-invert.png");
-	const bool postParameterChanged = Renderer::SetPostEffectFloat("strength", 0.0f);
+	const bool postParameterChanged = Engine::Renderer::SetPostEffectFloat("strength", 0.0f);
 	const std::vector<BYTE> postParameterPixels = terrainPixels();
 	const std::size_t postDefinitionChangedBytes = difference(defaultPixels, postDefinitionPixels);
 	const bool postDefinitionVisible = postDefinitionLoaded && postDefinitionCaptured
 		&& postParameterChanged && postDefinitionChangedBytes > 50000
 		&& difference(postDefinitionPixels, postParameterPixels) > 50000;
-	Renderer::SetPostEffect(PostEffectMode::None);
+	Engine::Renderer::SetPostEffect(Engine::PostEffectMode::None);
 	int registeredPostCount = 0;
 	int visibleRegisteredPostCount = 0;
 	for (const Engine::ShaderDefinition& definition : Engine::ShaderCatalog)
 	{
 		if (definition.Usage != Engine::ShaderUsage::Post) continue;
 		++registeredPostCount;
-		if (Renderer::SetPostEffectDefinition(definition.Id)
+		if (Engine::Renderer::SetPostEffectDefinition(definition.Id)
 			&& difference(defaultPixels, terrainPixels()) > 50000)
 			++visibleRegisteredPostCount;
-		Renderer::SetPostEffect(PostEffectMode::None);
+		Engine::Renderer::SetPostEffect(Engine::PostEffectMode::None);
 	}
 	const bool allRegisteredPostsVisible = registeredPostCount > 0
 		&& visibleRegisteredPostCount == registeredPostCount;
@@ -366,28 +368,28 @@ bool RunClassroomRenderTest()
 	const bool registeredVisible = registeredLoaded && registeredCaptured
 		&& registeredChangedBytes > 50000;
 	comparisonField->UseRealisticShader();
-	Renderer::SetPostEffect(PostEffectMode::Grayscale);
+	Engine::Renderer::SetPostEffect(Engine::PostEffectMode::Grayscale);
 	const std::vector<BYTE> postPixels = terrainPixels();
 	const bool postCaptured = capture(L"classroom-post-grayscale.png");
-	Renderer::SetPostEffect(PostEffectMode::Mosaic);
+	Engine::Renderer::SetPostEffect(Engine::PostEffectMode::Mosaic);
 	const std::vector<BYTE> mosaicPixels = terrainPixels();
 	const bool mosaicCaptured = capture(L"classroom-post-mosaic.png");
-	Renderer::SetPostEffect(PostEffectMode::MipPreview);
+	Engine::Renderer::SetPostEffect(Engine::PostEffectMode::MipPreview);
 	const std::vector<BYTE> mipPixels = terrainPixels();
 	const bool mipCaptured = capture(L"classroom-post-mip.png");
-	Renderer::SetPostEffect(PostEffectMode::None);
+	Engine::Renderer::SetPostEffect(Engine::PostEffectMode::None);
 	const std::size_t postChangedBytes = difference(defaultPixels, postPixels);
 	const bool postVisible = postCaptured && postChangedBytes > 50000;
 	const std::size_t mosaicChangedBytes = difference(defaultPixels, mosaicPixels);
 	const bool mosaicVisible = mosaicCaptured && mosaicChangedBytes > 50000;
 	const bool mipVisible = mipCaptured && difference(defaultPixels, mipPixels) > 50000;
-	const bool normalMapLoaded = ResourceManager::LoadTexture(L"assets/texture/Normal.png") != nullptr;
+	const bool normalMapLoaded = Engine::ResourceManager::LoadTexture(L"assets/texture/Normal.png") != nullptr;
 	const bool bumpSelected = comparisonField->SetShaderMode(Engine::SurfaceShader::Bump);
 	const std::vector<BYTE> bumpPixels = terrainPixels();
 	const bool bumpCaptured = capture(L"classroom-bump.png");
 	const bool bumpVisible = normalMapLoaded && bumpSelected && bumpCaptured
 		&& difference(defaultPixels, bumpPixels) > 50000;
-	const bool rampLoaded = ResourceManager::LoadTexture(L"assets/texture/Toon2.png") != nullptr;
+	const bool rampLoaded = Engine::ResourceManager::LoadTexture(L"assets/texture/Toon2.png") != nullptr;
 	const bool rampSelected = comparisonField->SetShaderMode(Engine::SurfaceShader::ToonRamp);
 	const std::vector<BYTE> rampPixels = terrainPixels();
 	const bool rampCaptured = capture(L"classroom-toon-ramp.png");
@@ -485,7 +487,7 @@ bool RunClassroomRenderTest()
 	int playerStatesPassed = 0;
 	auto updatePlayer = [&](int count)
 	{
-		for (int i = 0; i < count; ++i) { contactPlayer->Update(); keycopy(); }
+		for (int i = 0; i < count; ++i) { Engine::InputActions::Update(); contactPlayer->Update(); keycopy(); }
 	};
 	auto expectState = [&](std::string_view name)
 	{
@@ -514,14 +516,14 @@ bool RunClassroomRenderTest()
 	contactPlayer->SetPosition({ 0.0f, ClassroomLake::WaterLevel - 1.1f, ClassroomLake::CenterZ - 3.0f });
 	contactWorld.Spawn<ClassroomWater>();
 	comparisonField->UseRealisticShader();
-	Renderer::SetPostEffect(PostEffectMode::None);
+	Engine::Renderer::SetPostEffect(Engine::PostEffectMode::None);
 	auto captureWater = [&](const wchar_t* path)
 	{
 		slopeCamera->LateUpdate();
-		Renderer::Begin();
+		Engine::Renderer::Begin();
 		slopeQueue.Build(contactWorld, slopeCamera);
 		slopeQueue.Execute();
-		Renderer::End();
+		Engine::Renderer::End();
 		return capture(path);
 	};
 	Keyboard_ProcessMessage(WM_KEYDOWN, 'W', 0);
@@ -529,12 +531,12 @@ bool RunClassroomRenderTest()
 	int chestSamples = 0;
 	for (int i = 0; i < 150; ++i)
 	{
-		GameTime::Update(1.0f / 60.0f);
+		Engine::GameTime::Update(1.0f / 60.0f);
 		updatePlayer(1);
 		Vector3 chest;
 		if (i >= 30 && contactPlayer->GetSwimAnchor(chest))
 		{
-			const float depth = chest.y - ClassroomWater::GetSurfaceHeight(chest.x, chest.z, GameTime::GetElapsedTime());
+			const float depth = chest.y - ClassroomWater::GetSurfaceHeight(chest.x, chest.z, Engine::GameTime::GetElapsedTime());
 			minimumChest = (std::min)(minimumChest, depth);
 			maximumChest = (std::max)(maximumChest, depth);
 			++chestSamples;
@@ -547,12 +549,12 @@ bool RunClassroomRenderTest()
 	minimumChest = 1000.0f; maximumChest = -1000.0f; chestSamples = 0;
 	for (int i = 0; i < 150; ++i)
 	{
-		GameTime::Update(1.0f / 60.0f);
+		Engine::GameTime::Update(1.0f / 60.0f);
 		updatePlayer(1);
 		Vector3 chest;
 		if (i >= 30 && contactPlayer->GetSwimAnchor(chest))
 		{
-			const float depth = chest.y - ClassroomWater::GetSurfaceHeight(chest.x, chest.z, GameTime::GetElapsedTime());
+			const float depth = chest.y - ClassroomWater::GetSurfaceHeight(chest.x, chest.z, Engine::GameTime::GetElapsedTime());
 			minimumChest = (std::min)(minimumChest, depth);
 			maximumChest = (std::max)(maximumChest, depth);
 			++chestSamples;
@@ -582,7 +584,7 @@ bool RunClassroomRenderTest()
 		ClassroomPlayer* walker = norenWorld.Spawn<ClassroomPlayer>();
 		// ClassroomCameraは置きません(ビュー行列を上書きし合うため)。プレイヤーの移動はWで+Zです。
 		NorenSideCamera* norenCamera = norenWorld.Spawn<NorenSideCamera>();
-		Cloth* cloth = noren->GetCloth();
+		Engine::Cloth* cloth = noren->GetCloth();
 		const float norenGround = MeshField::GetHeight(ClassroomNoren::PositionX, ClassroomNoren::PositionZ);
 		auto viewFromBehind = [&]()
 		{
@@ -604,18 +606,18 @@ bool RunClassroomRenderTest()
 		{
 			for (int i = 0; i < count; ++i)
 			{
-				GameTime::Update(1.0f / 60.0f);
-				Manager::StepWorld(norenWorld);
+				Engine::GameTime::Update(1.0f / 60.0f);
+				Engine::Manager::StepWorld(norenWorld);
 				keycopy();
 			}
 		};
 		auto draw = [&]()
 		{
-			Renderer::Begin();
+			Engine::Renderer::Begin();
 			RenderQueue norenQueue;
 			norenQueue.Build(norenWorld, norenCamera);
 			norenQueue.Execute();
-			Renderer::End();
+			Engine::Renderer::End();
 		};
 		auto snapshot = [&]()
 		{

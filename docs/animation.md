@@ -1,7 +1,7 @@
 # アニメーション合成 (ブレンドツリー・アクション層)
 
 `AnimationModel` のアニメーションは、描画に依存しない `Anim::Animator`
-(`include/animator.h`、`src/animation/animator.cpp`)が合成します。`AnimationModel` は合成された
+(`include/animation/animator.h`、`src/animation/animator.cpp`)が合成します。`AnimationModel` は合成された
 姿勢を受け取り、足のIKとスキニングだけを行います。
 
 ```

@@ -1,14 +1,18 @@
+#include "inputActions.h"
 #include "main.h"
 #include "world.h"
 #include "renderer.h"
 #include "camera.h"
 #include "player.h"
 #include "gameSettings.h"
+#include "gameTime.h"
+
+#include <algorithm>
 void Camera::Init()
 {
 	m_Layer = Layer::Camera;
 	SetPosition({0.0f, 10.0f, -20.0f});
-	m_Rotation = { -0.4f, 0.0f, 0.0f };
+	SetRotation({ -0.4f, 0.0f, 0.0f });
 	Mouse_Reset();
 }
 
@@ -24,19 +28,18 @@ void Camera::PreUpdate()
 	if (Mouse_ConsumeDelta(&mouseX, &mouseY))
 	{
 		const float sensitivity = GameSettings::GetMouseSensitivity();
-		m_Rotation.y += mouseX * sensitivity;
-		m_Rotation.x -= mouseY * sensitivity;
+		{ Vector3 value = GetRotation(); value.y += mouseX * sensitivity; SetRotation(value); }
+		{ Vector3 value = GetRotation(); value.x -= mouseY * sensitivity; SetRotation(value); }
 
-		const float pitchLimit = XMConvertToRadians(80.0f);
-		if (m_Rotation.x > pitchLimit)
-		{
-			m_Rotation.x = pitchLimit;
-		}
-		if (m_Rotation.x < -pitchLimit)
-		{
-			m_Rotation.x = -pitchLimit;
-		}
 	}
+	float stickYaw = 0.0f;
+	float stickPitch = 0.0f;
+	Engine::InputActions::GetLookDelta(Engine::GameTime::GetDeltaTime(), stickYaw, stickPitch);
+	{ Vector3 value = GetRotation(); value.y += stickYaw; SetRotation(value); }
+	{ Vector3 value = GetRotation(); value.x += stickPitch; SetRotation(value); }
+
+	const float pitchLimit = XMConvertToRadians(80.0f);
+	{ Vector3 value = GetRotation(); value.x = std::clamp(GetRotation().x, -pitchLimit, pitchLimit); SetRotation(value); }
 
 	GameObject::PreUpdate();
 }
@@ -57,12 +60,12 @@ void Camera::LateUpdate()
 	m_Target = player->GetPosition();
 
 	// Build a camera offset from the current yaw/pitch around the player.
-	float cosPitch = cosf(m_Rotation.x);
+	float cosPitch = cosf(GetRotation().x);
 	Vector3 cameraDirection
 	{
-		sinf(m_Rotation.y) * cosPitch,
-		sinf(m_Rotation.x),
-		cosf(m_Rotation.y) * cosPitch
+		sinf(GetRotation().y) * cosPitch,
+		sinf(GetRotation().x),
+		cosf(GetRotation().y) * cosPitch
 	};
 	
 	SetPosition(m_Target - cameraDirection * m_Distance);
@@ -75,7 +78,7 @@ void Camera::Draw()
 	XMMATRIX projection = XMMatrixPerspectiveFovLH(1.0f,
 		(float)SCREEN_WIDTH / SCREEN_HEIGHT, 1.0f, 1000.0f);
 
-	Renderer::SetProjectionMatrix(projection);
+	Engine::Renderer::SetProjectionMatrix(projection);
 
 	// ビュー行列を設定する。
 	XMFLOAT3 up = { 0.0f, 1.0f, 0.0f };
@@ -87,7 +90,7 @@ void Camera::Draw()
 		XMLoadFloat3(&up));
 
 
-	Renderer::SetViewMatrix(m_ViewMatrix);
-	Renderer::SetCameraPosition(XMFLOAT3(GetPosition().x, GetPosition().y, GetPosition().z));
+	Engine::Renderer::SetViewMatrix(m_ViewMatrix);
+	Engine::Renderer::SetCameraPosition(XMFLOAT3(GetPosition().x, GetPosition().y, GetPosition().z));
 }
 

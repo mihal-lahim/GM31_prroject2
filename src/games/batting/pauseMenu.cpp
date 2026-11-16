@@ -41,10 +41,10 @@ void PauseMenu::Init()
 {
 	m_Layer = Layer::UI;
 
-	VERTEX_3D vertex[4]{};
+	Engine::VERTEX_3D vertex[4]{};
 	D3D11_BUFFER_DESC bd{};
 	bd.Usage = D3D11_USAGE_DYNAMIC;
-	bd.ByteWidth = sizeof(VERTEX_3D) * 4;
+	bd.ByteWidth = sizeof(Engine::VERTEX_3D) * 4;
 	bd.BindFlags = D3D11_BIND_VERTEX_BUFFER;
 	bd.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
 
@@ -83,7 +83,7 @@ float PauseMenu::SliderValueFromMouse(float mouseX, float x, float width) const
 
 void PauseMenu::Update()
 {
-	if (!GameTime::IsPaused())
+	if (!Engine::GameTime::IsPaused())
 	{
 		m_DragTarget = DragTarget::None;
 		return;
@@ -135,7 +135,7 @@ void PauseMenu::DrawRect(float x, float y, float width, float height, const XMFL
 		return;
 	}
 
-	VERTEX_3D* vertex = static_cast<VERTEX_3D*>(msr.pData);
+	Engine::VERTEX_3D* vertex = static_cast<Engine::VERTEX_3D*>(msr.pData);
 	vertex[0].Position = XMFLOAT3(x, y, 0.0f);
 	vertex[1].Position = XMFLOAT3(x + width, y, 0.0f);
 	vertex[2].Position = XMFLOAT3(x, y + height, 0.0f);
@@ -148,18 +148,18 @@ void PauseMenu::DrawRect(float x, float y, float width, float height, const XMFL
 		vertex[i].TexCoord = XMFLOAT2((i % 2) ? 1.0f : 0.0f, (i >= 2) ? 1.0f : 0.0f);
 	}
 
-	Renderer::GetDeviceContext()->Unmap(m_VertexBuffer.Get(), 0);
+	Engine::Renderer::GetDeviceContext()->Unmap(m_VertexBuffer.Get(), 0);
 
-	MATERIAL material{};
+	Engine::MATERIAL material{};
 	material.Diffuse = color;
 	material.TextureEnable = FALSE;
-	Renderer::SetMaterial(material);
+	Engine::Renderer::SetMaterial(material);
 
-	UINT stride = sizeof(VERTEX_3D);
+	UINT stride = sizeof(Engine::VERTEX_3D);
 	UINT offset = 0;
-	Renderer::GetDeviceContext()->IASetVertexBuffers(0, 1, m_VertexBuffer.GetAddressOf(), &stride, &offset);
-	Renderer::GetDeviceContext()->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
-	Renderer::GetDeviceContext()->Draw(4, 0);
+	Engine::Renderer::GetDeviceContext()->IASetVertexBuffers(0, 1, m_VertexBuffer.GetAddressOf(), &stride, &offset);
+	Engine::Renderer::GetDeviceContext()->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
+	Engine::Renderer::GetDeviceContext()->Draw(4, 0);
 }
 
 void PauseMenu::DrawSlider(float x, float y, float width, float value, const XMFLOAT4& color)
@@ -187,16 +187,16 @@ void PauseMenu::DrawSensitivityIcon(float x, float y)
 
 void PauseMenu::Draw()
 {
-	if (!GameTime::IsPaused())
+	if (!Engine::GameTime::IsPaused())
 	{
 		return;
 	}
 
-	Renderer::SetWorldViewProjection2D();
-	Renderer::SetDepthEnable(false);
-	Renderer::GetDeviceContext()->IASetInputLayout(m_VertexLayout.Get());
-	Renderer::GetDeviceContext()->VSSetShader(m_VertexShader.Get(), NULL, 0);
-	Renderer::GetDeviceContext()->PSSetShader(m_PixelShader.Get(), NULL, 0);
+	Engine::Renderer::SetWorldViewProjection2D();
+	Engine::Renderer::SetDepthEnable(false);
+	Engine::Renderer::GetDeviceContext()->IASetInputLayout(m_VertexLayout.Get());
+	Engine::Renderer::GetDeviceContext()->VSSetShader(m_VertexShader.Get(), NULL, 0);
+	Engine::Renderer::GetDeviceContext()->PSSetShader(m_PixelShader.Get(), NULL, 0);
 
 	DrawRect(0.0f, 0.0f, static_cast<float>(SCREEN_WIDTH), static_cast<float>(SCREEN_HEIGHT), XMFLOAT4(0.02f, 0.02f, 0.025f, 0.62f));
 	DrawRect(kPanelX, kPanelY, kPanelW, kPanelH, XMFLOAT4(0.10f, 0.105f, 0.12f, 0.95f));
@@ -210,5 +210,5 @@ void PauseMenu::Draw()
 	float sensitivityValue = (GameSettings::GetMouseSensitivity() - kSensitivityMin) / (kSensitivityMax - kSensitivityMin);
 	DrawSlider(kSliderX, kSensitivityY, kSliderW, sensitivityValue, XMFLOAT4(0.44f, 0.90f, 0.54f, 1.0f));
 
-	Renderer::SetDepthEnable(true);
+	Engine::Renderer::SetDepthEnable(true);
 }

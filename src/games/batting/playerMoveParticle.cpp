@@ -30,7 +30,7 @@ void PlayerMoveParticle::Uninit()
 
 void PlayerMoveParticle::Update()
 {
-	const float dt = GameTime::GetDeltaTime();
+	const float dt = Engine::GameTime::GetDeltaTime();
 	Player* player = static_cast<Player*>(m_GameObject);
 	if (player == nullptr)
 	{

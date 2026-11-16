@@ -41,13 +41,13 @@ namespace
 
 void WireRobotRenderer::Init()
 {
-	std::vector<VERTEX_3D> vertices;
+	std::vector<Engine::VERTEX_3D> vertices;
 	std::vector<unsigned int> indices;
 	WireBoxMesh::Append(vertices, indices, { 0,0,0 }, { 1,1,1 }, { 1,1,1,1 }, true);
 
 	D3D11_BUFFER_DESC vertexDesc{};
 	vertexDesc.Usage = D3D11_USAGE_DEFAULT;
-	vertexDesc.ByteWidth = static_cast<UINT>(vertices.size() * sizeof(VERTEX_3D));
+	vertexDesc.ByteWidth = static_cast<UINT>(vertices.size() * sizeof(Engine::VERTEX_3D));
 	vertexDesc.BindFlags = D3D11_BIND_VERTEX_BUFFER;
 	D3D11_SUBRESOURCE_DATA vertexData{};
 	vertexData.pSysMem = vertices.data();
@@ -79,7 +79,7 @@ void WireRobotRenderer::Uninit()
 
 void WireRobotRenderer::Update()
 {
-	const float dt = GameTime::GetDeltaTime();
+	const float dt = Engine::GameTime::GetDeltaTime();
 	m_AnimationTime += dt;
 	m_LandTimer = (std::max)(0.0f, m_LandTimer - dt);
 	m_JumpTimer = (std::max)(0.0f, m_JumpTimer - dt);
@@ -195,23 +195,23 @@ void WireRobotRenderer::Draw()
 	const XMMATRIX bodyPose = Rotation(bodyPitch, bodyYaw, bodyRoll)
 		* XMMatrixTranslation(0.0f, bob - landSquash * 0.32f - jumpSink, 0.0f);
 
-	Renderer::GetDeviceContext()->IASetInputLayout(m_VertexLayout.Get());
-	Renderer::GetDeviceContext()->VSSetShader(m_VertexShader.Get(), nullptr, 0);
-	Renderer::GetDeviceContext()->PSSetShader(m_PixelShader.Get(), nullptr, 0);
-	UINT stride = sizeof(VERTEX_3D), offset = 0;
-	Renderer::GetDeviceContext()->IASetVertexBuffers(0, 1, m_VertexBuffer.GetAddressOf(), &stride, &offset);
-	Renderer::GetDeviceContext()->IASetIndexBuffer(m_IndexBuffer.Get(), DXGI_FORMAT_R32_UINT, 0);
-	Renderer::GetDeviceContext()->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+	Engine::Renderer::GetDeviceContext()->IASetInputLayout(m_VertexLayout.Get());
+	Engine::Renderer::GetDeviceContext()->VSSetShader(m_VertexShader.Get(), nullptr, 0);
+	Engine::Renderer::GetDeviceContext()->PSSetShader(m_PixelShader.Get(), nullptr, 0);
+	UINT stride = sizeof(Engine::VERTEX_3D), offset = 0;
+	Engine::Renderer::GetDeviceContext()->IASetVertexBuffers(0, 1, m_VertexBuffer.GetAddressOf(), &stride, &offset);
+	Engine::Renderer::GetDeviceContext()->IASetIndexBuffer(m_IndexBuffer.Get(), DXGI_FORMAT_R32_UINT, 0);
+	Engine::Renderer::GetDeviceContext()->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 
 	auto drawBox = [&](const Vector3& half, const XMFLOAT4& color, const XMMATRIX& local)
 	{
-		Renderer::SetWorldMatrix(XMMatrixScaling(half.x, half.y, half.z) * local * bodyPose * actor);
-		MATERIAL material{};
+		Engine::Renderer::SetWorldMatrix(XMMatrixScaling(half.x, half.y, half.z) * local * bodyPose * actor);
+		Engine::MATERIAL material{};
 		material.Diffuse = color;
 		material.Ambient = color;
 		material.TextureEnable = FALSE;
-		Renderer::SetMaterial(material);
-		Renderer::GetDeviceContext()->DrawIndexed(m_IndexCount, 0, 0);
+		Engine::Renderer::SetMaterial(material);
+		Engine::Renderer::GetDeviceContext()->DrawIndexed(m_IndexCount, 0, 0);
 	};
 	auto jointPart = [&](const Vector3& center, const Vector3& pivot, const Vector3& half,
 		const XMFLOAT4& color, float pitch, float yaw = 0.0f, float roll = 0.0f)

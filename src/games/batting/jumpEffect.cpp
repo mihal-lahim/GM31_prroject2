@@ -72,7 +72,7 @@ void JumpEffect::Init()
 	{
 		D3D11_BUFFER_DESC bd{};
 		bd.Usage = D3D11_USAGE_DYNAMIC;
-		bd.ByteWidth = sizeof(VERTEX_3D) * MAX_JUMP_EFFECT_VERTICES;
+		bd.ByteWidth = sizeof(Engine::VERTEX_3D) * MAX_JUMP_EFFECT_VERTICES;
 		bd.BindFlags = D3D11_BIND_VERTEX_BUFFER;
 		bd.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
 		m_RenderingAvailable = Engine::GraphicsResourceFactory::CreateBuffer(
@@ -116,7 +116,7 @@ void JumpEffect::Uninit()
 
 void JumpEffect::Update()
 {
-	m_Timer += GameTime::GetDeltaTime();
+	m_Timer += Engine::GameTime::GetDeltaTime();
 
 	float endTime = 0.0f;
 	for (const auto& ring : m_Rings)
@@ -166,7 +166,7 @@ void JumpEffect::EmitSparkles()
 
 void JumpEffect::Draw()
 {
-	std::vector<VERTEX_3D> vertices;
+	std::vector<Engine::VERTEX_3D> vertices;
 	vertices.reserve(m_Rings.size() * RING_SEGMENTS * 6);
 
 	for (size_t ringIndex = 0; ringIndex < m_Rings.size(); ringIndex++)
@@ -223,29 +223,29 @@ void JumpEffect::Draw()
 		m_RenderingAvailable = false;
 		return;
 	}
-	memcpy(mapped.pData, vertices.data(), sizeof(VERTEX_3D) * vertices.size());
-	Renderer::GetDeviceContext()->Unmap(s_VertexBuffer.Get(), 0);
+	memcpy(mapped.pData, vertices.data(), sizeof(Engine::VERTEX_3D) * vertices.size());
+	Engine::Renderer::GetDeviceContext()->Unmap(s_VertexBuffer.Get(), 0);
 
-	Renderer::GetDeviceContext()->IASetInputLayout(s_VertexLayout.Get());
-	Renderer::GetDeviceContext()->VSSetShader(s_VertexShader.Get(), NULL, 0);
-	Renderer::GetDeviceContext()->PSSetShader(s_PixelShader.Get(), NULL, 0);
+	Engine::Renderer::GetDeviceContext()->IASetInputLayout(s_VertexLayout.Get());
+	Engine::Renderer::GetDeviceContext()->VSSetShader(s_VertexShader.Get(), NULL, 0);
+	Engine::Renderer::GetDeviceContext()->PSSetShader(s_PixelShader.Get(), NULL, 0);
 
-	UINT stride = sizeof(VERTEX_3D);
+	UINT stride = sizeof(Engine::VERTEX_3D);
 	UINT offset = 0;
-	Renderer::GetDeviceContext()->IASetVertexBuffers(0, 1, s_VertexBuffer.GetAddressOf(), &stride, &offset);
-	Renderer::GetDeviceContext()->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+	Engine::Renderer::GetDeviceContext()->IASetVertexBuffers(0, 1, s_VertexBuffer.GetAddressOf(), &stride, &offset);
+	Engine::Renderer::GetDeviceContext()->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 
-	Renderer::SetAddBlendEnable(true);
-	Renderer::SetDepthEnable(false);
+	Engine::Renderer::SetAddBlendEnable(true);
+	Engine::Renderer::SetDepthEnable(false);
 
-	MATERIAL material{};
+	Engine::MATERIAL material{};
 	material.Diffuse = XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f);
 	material.TextureEnable = FALSE;
-	Renderer::SetMaterial(material);
-	Renderer::SetWorldMatrix(XMMatrixIdentity());
+	Engine::Renderer::SetMaterial(material);
+	Engine::Renderer::SetWorldMatrix(XMMatrixIdentity());
 
-	Renderer::GetDeviceContext()->Draw(static_cast<UINT>(vertices.size()), 0);
+	Engine::Renderer::GetDeviceContext()->Draw(static_cast<UINT>(vertices.size()), 0);
 
-	Renderer::SetDepthEnable(true);
-	Renderer::SetAddBlendEnable(false);
+	Engine::Renderer::SetDepthEnable(true);
+	Engine::Renderer::SetAddBlendEnable(false);
 }

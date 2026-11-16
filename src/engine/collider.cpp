@@ -60,14 +60,14 @@ bool Collider::EnsureDebugResources()
 	{
 		return true;
 	}
-	if (Renderer::GetDevice() == nullptr)
+	if (Engine::Renderer::GetDevice() == nullptr)
 	{
 		return false;
 	}
 
 	D3D11_BUFFER_DESC bd{};
 	bd.Usage = D3D11_USAGE_DYNAMIC;
-	bd.ByteWidth = sizeof(VERTEX_3D) * MAX_COLLIDER_VERTICES;
+	bd.ByteWidth = sizeof(Engine::VERTEX_3D) * MAX_COLLIDER_VERTICES;
 	bd.BindFlags = D3D11_BIND_VERTEX_BUFFER;
 	bd.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
 	return Engine::GraphicsResourceFactory::CreateBuffer(

@@ -27,7 +27,7 @@ GM31 では `SurfaceShader` enum や `spSurfacePS.hlsl` のモード分岐を増
    includeします。SPのギャラリーに名前とVS/PSを登録し、SPプロジェクトでコンパイルします。
 2. 確定したVS/PSと必要な `.hlsli` をGM31の `shaders/surfaces/` へ移します。
    通常は同一ソースのまま使えます。ポスト効果のPSは `shaders/post/` へ置きます。
-3. `include/shaderCatalog.h` にID、表示名、用途、描画パスの配列、
+3. `include/engine/shaderCatalog.h` にID、表示名、用途、描画パスの配列、
    最大4つの名前付き値と初期値を登録します。複数パスは順にVS/PSとカリング方向を指定します。
    既存の `SurfaceShader` enum や巨大な `spSurfacePS.hlsl` 分岐は編集不要です。
 4. `ModelRenderer` / `AnimationModel` に `SetShaderDefinition("sample-stripes")` を呼び、

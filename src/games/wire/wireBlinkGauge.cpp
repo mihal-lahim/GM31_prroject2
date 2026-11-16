@@ -21,7 +21,7 @@ namespace
 	constexpr int kVerticesPerQuad = 6;
 	constexpr int kMaxVertices = (2 + kMaxAirBlinkCharges) * kVerticesPerQuad;
 
-	void FillQuad(VERTEX_3D* vertices, float left, float top, float width, float height, const XMFLOAT4& color)
+	void FillQuad(Engine::VERTEX_3D* vertices, float left, float top, float width, float height, const XMFLOAT4& color)
 	{
 		const XMFLOAT3 normal(0.0f, 0.0f, 1.0f);
 		const XMFLOAT2 texCoord(0.0f, 0.0f);
@@ -43,7 +43,7 @@ void WireBlinkGauge::Init()
 {
 	m_Layer = Layer::UI;
 
-	VERTEX_3D vertices[kMaxVertices]{};
+	Engine::VERTEX_3D vertices[kMaxVertices]{};
 	D3D11_BUFFER_DESC bufferDesc{};
 	bufferDesc.Usage = D3D11_USAGE_DEFAULT;
 	bufferDesc.ByteWidth = sizeof(vertices);
@@ -93,7 +93,7 @@ void WireBlinkGauge::Draw()
 
 	const float barTop = SCREEN_HEIGHT - kBarBottomMargin - kBarHeight;
 
-	VERTEX_3D vertices[kMaxVertices]{};
+	Engine::VERTEX_3D vertices[kMaxVertices]{};
 	int quadCount = 0;
 
 	FillQuad(
@@ -131,22 +131,22 @@ void WireBlinkGauge::Draw()
 		quadCount++;
 	}
 
-	Renderer::GetDeviceContext()->UpdateSubresource(m_VertexBuffer.Get(), 0, nullptr, vertices, 0, 0);
+	Engine::Renderer::GetDeviceContext()->UpdateSubresource(m_VertexBuffer.Get(), 0, nullptr, vertices, 0, 0);
 
-	Renderer::GetDeviceContext()->IASetInputLayout(m_VertexLayout.Get());
-	Renderer::GetDeviceContext()->VSSetShader(m_VertexShader.Get(), nullptr, 0);
-	Renderer::GetDeviceContext()->PSSetShader(m_PixelShader.Get(), nullptr, 0);
-	Renderer::SetWorldViewProjection2D();
+	Engine::Renderer::GetDeviceContext()->IASetInputLayout(m_VertexLayout.Get());
+	Engine::Renderer::GetDeviceContext()->VSSetShader(m_VertexShader.Get(), nullptr, 0);
+	Engine::Renderer::GetDeviceContext()->PSSetShader(m_PixelShader.Get(), nullptr, 0);
+	Engine::Renderer::SetWorldViewProjection2D();
 
-	MATERIAL material{};
+	Engine::MATERIAL material{};
 	material.Diffuse = XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f);
 	material.Ambient = material.Diffuse;
 	material.TextureEnable = FALSE;
-	Renderer::SetMaterial(material);
+	Engine::Renderer::SetMaterial(material);
 
-	UINT stride = sizeof(VERTEX_3D);
+	UINT stride = sizeof(Engine::VERTEX_3D);
 	UINT offset = 0;
-	Renderer::GetDeviceContext()->IASetVertexBuffers(0, 1, m_VertexBuffer.GetAddressOf(), &stride, &offset);
-	Renderer::GetDeviceContext()->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-	Renderer::GetDeviceContext()->Draw(static_cast<UINT>(quadCount * kVerticesPerQuad), 0);
+	Engine::Renderer::GetDeviceContext()->IASetVertexBuffers(0, 1, m_VertexBuffer.GetAddressOf(), &stride, &offset);
+	Engine::Renderer::GetDeviceContext()->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+	Engine::Renderer::GetDeviceContext()->Draw(static_cast<UINT>(quadCount * kVerticesPerQuad), 0);
 }

@@ -1,0 +1,273 @@
+// Wire Action の調整値の一覧です。調整値を足す・消すときは、このファイルだけを編集します。
+//
+//   WIRE_TUNING_GROUP(構造体名, WireGameplayTuning のメンバー名) 〜 WIRE_TUNING_GROUP_END()   まとまり1つ分
+//   WIRE_TUNING_FLOAT(名前, "設定ファイルのキー", 既定値)                     範囲は -10倍〜+10倍
+//   WIRE_TUNING_FLOAT_RANGE(名前, "設定ファイルのキー", 既定値, 最小, 最大)   範囲を自分で決める
+//   WIRE_TUNING_INT(名前, "設定ファイルのキー", 既定値)                       範囲は 0〜10倍(最低100)
+//   WIRE_TUNING_INT_RANGE(名前, "設定ファイルのキー", 既定値, 最小, 最大)
+//
+// ここに1行書くと、構造体のメンバー(GetWireGameplayTuning().まとまり.名前)、
+// assets/config/wire-gameplay.cfg からの上書き、設定ファイルの書き間違い検出(FindUnknownWireTuningKeys)がそろいます。
+// 新しいまとまりを足すときだけ、wireGameplayTuning.h の WireGameplayTuning にメンバーを1行足してください。
+// 値同士の関係の検証(下限や上下関係)は wireGameplayTuning.cpp に残っています。
+// このファイルは wireGameplayTuning.h と wireGameplayTuning.cpp から、マクロの定義を変えて読み込まれます。
+
+WIRE_TUNING_GROUP(WireMovementTuning, Movement)
+WIRE_TUNING_FLOAT(WorldBoundsX, "wire.movement.world_bounds_x", 80.0f)
+WIRE_TUNING_FLOAT(WorldBoundsZ, "wire.movement.world_bounds_z", 80.0f)
+WIRE_TUNING_FLOAT(PlayerModelYawOffset, "wire.movement.player_model_yaw_offset", 3.14159265f)
+WIRE_TUNING_FLOAT(Gravity, "wire.movement.gravity", -42.0f)
+WIRE_TUNING_FLOAT(GroundAcceleration, "wire.movement.ground_acceleration", 66.0f)
+WIRE_TUNING_FLOAT(AirAcceleration, "wire.movement.air_acceleration", 24.0f)
+WIRE_TUNING_FLOAT(GroundDamping, "wire.movement.ground_damping", 6.4f)
+WIRE_TUNING_FLOAT(AirDamping, "wire.movement.air_damping", 0.08f)
+WIRE_TUNING_FLOAT(JumpVelocity, "wire.movement.jump_velocity", 14.5f)
+WIRE_TUNING_FLOAT(AimMoveScale, "wire.movement.aim_move_scale", 0.34f)
+WIRE_TUNING_FLOAT(AimHorizontalDamping, "wire.movement.aim_horizontal_damping", 24.0f)
+WIRE_TUNING_FLOAT(AimGravityScale, "wire.movement.aim_gravity_scale", 0.42f)
+WIRE_TUNING_FLOAT_RANGE(AimFallSpeedLimit, "wire.movement.aim_fall_speed_limit", 0.0f, -100.0f, 0.0f) // 構え中の最低下降速度。0なら落下せず空中で静止する
+WIRE_TUNING_FLOAT(BlinkStepDistance, "wire.movement.blink_step_distance", 0.0f)
+WIRE_TUNING_FLOAT(BlinkSpeed, "wire.movement.blink_speed", 38.0f)
+// ブリンクは現在速度を新しい方向へ引き継ぎます(勢い保存)。これはその上限です。
+WIRE_TUNING_FLOAT(BlinkCarryMaxSpeed, "wire.movement.blink_carry_max_speed", 55.0f)
+// 空中で連続使用できる回数。着地またはワイヤー接続で回復します。
+// UIゲージのピップ表示と一致させるため、上限をkMaxAirBlinkChargesで制限します。
+WIRE_TUNING_INT_RANGE(AirBlinkCharges, "wire.movement.air_blink_charges", 1, 0, kMaxAirBlinkCharges)
+WIRE_TUNING_FLOAT(BlinkDuration, "wire.movement.blink_duration", 0.14f)
+WIRE_TUNING_FLOAT(BlinkCooldown, "wire.movement.blink_cooldown", 0.34f)
+WIRE_TUNING_FLOAT(BlinkTurnLerp, "wire.movement.blink_turn_lerp", 0.88f)
+WIRE_TUNING_FLOAT(BlinkScaleXZ, "wire.movement.blink_scale_xz", 1.35f)
+WIRE_TUNING_FLOAT(BlinkScaleY, "wire.movement.blink_scale_y", 0.72f)
+WIRE_TUNING_FLOAT(BlinkParticleHeight, "wire.movement.blink_particle_height", 0.95f)
+WIRE_TUNING_INT(BlinkStartParticleCount, "wire.movement.blink_start_particles", 58)
+WIRE_TUNING_INT(BlinkEndParticleCount, "wire.movement.blink_end_particles", 78)
+WIRE_TUNING_INT(BlinkTrailParticleCount, "wire.movement.blink_trail_particles", 12)
+WIRE_TUNING_INT(BlinkShockParticleCount, "wire.movement.blink_shock_particles", 30)
+WIRE_TUNING_FLOAT(MoveTurnLerp, "wire.movement.turn_lerp", 0.22f)
+WIRE_TUNING_FLOAT(ScaleRecoverLerp, "wire.movement.scale_recover_lerp", 0.08f)
+WIRE_TUNING_FLOAT(GroundBobFrequency, "wire.movement.ground_bob_frequency", 4.0f)
+WIRE_TUNING_FLOAT(GroundBobAmount, "wire.movement.ground_bob_amount", 0.015f)
+WIRE_TUNING_FLOAT(JumpSquashXZ, "wire.movement.jump_squash_xz", 0.75f)
+WIRE_TUNING_FLOAT(JumpStretchY, "wire.movement.jump_stretch_y", 1.35f)
+WIRE_TUNING_FLOAT(PlayerFootMargin, "wire.movement.player_foot_margin", 0.45f)
+WIRE_TUNING_FLOAT(PlatformLandingGrace, "wire.movement.platform_landing_grace", 0.15f)
+WIRE_TUNING_GROUP_END()
+
+// 壁蹴り。勢いを落とさず次の移動へ繋ぐことが目的で、単独の登坂手段にはしません。
+WIRE_TUNING_GROUP(WireWallKickTuning, WallKick)
+// 壁に触れてからこの時間内なら蹴れます。フレーム単位の精度を要求しないための猶予です。
+WIRE_TUNING_FLOAT(ContactMemoryTime, "wire.wallkick.contact_memory_time", 0.22f)
+WIRE_TUNING_FLOAT(Cooldown, "wire.wallkick.cooldown", 0.18f)
+// 直前に蹴った壁との法線内積がこの値以上なら「同じ壁」とみなして拒否します。
+WIRE_TUNING_FLOAT_RANGE(SameWallRejectDot, "wire.wallkick.same_wall_reject_dot", 0.75f, -1.0f, 1.0f)
+WIRE_TUNING_FLOAT(NormalWeight, "wire.wallkick.normal_weight", 1.0f)
+WIRE_TUNING_FLOAT(InputWeight, "wire.wallkick.input_weight", 1.25f)
+// 入ってきた水平速度をどれだけ引き継ぐか。1に近いほど高速侵入が報われます。
+WIRE_TUNING_FLOAT(SpeedCarryRatio, "wire.wallkick.speed_carry_ratio", 1.05f)
+WIRE_TUNING_FLOAT(MinKickSpeed, "wire.wallkick.min_kick_speed", 17.0f)
+WIRE_TUNING_FLOAT(MaxKickSpeed, "wire.wallkick.max_kick_speed", 46.0f)
+WIRE_TUNING_FLOAT(UpSpeed, "wire.wallkick.up_speed", 11.5f)
+WIRE_TUNING_FLOAT(SquashXZ, "wire.wallkick.squash_xz", 0.82f)
+WIRE_TUNING_FLOAT(StretchY, "wire.wallkick.stretch_y", 1.24f)
+WIRE_TUNING_INT(ParticleCount, "wire.wallkick.particle_count", 26)
+WIRE_TUNING_GROUP_END()
+
+// 止まらず動き続けることを報いるための連鎖状態です。
+// ワイヤー・壁蹴り・空中ダッシュを続けるほど段階が上がります。
+WIRE_TUNING_GROUP(WireMomentumTuning, Momentum)
+// このアクション数ごとに段階が1つ上がります。
+WIRE_TUNING_INT(ActionsPerRank, "wire.momentum.actions_per_rank", 3)
+WIRE_TUNING_INT(MaxRank, "wire.momentum.max_rank", 4)
+// 最後のアクションからこの時間何もしないと段階が落ちます。
+WIRE_TUNING_FLOAT(DecayTime, "wire.momentum.decay_time", 3.2f)
+// 段階ごとに増える移動速度と攻撃力の倍率です。
+WIRE_TUNING_FLOAT(SpeedBonusPerRank, "wire.momentum.speed_bonus_per_rank", 0.09f)
+WIRE_TUNING_FLOAT(DamageBonusPerRank, "wire.momentum.damage_bonus_per_rank", 0.16f)
+// 地上で止まっている間は段階が早く落ちます。棒立ちを最適解にしないためです。
+WIRE_TUNING_FLOAT(GroundedDecayScale, "wire.momentum.grounded_decay_scale", 2.4f)
+WIRE_TUNING_GROUP_END()
+
+WIRE_TUNING_GROUP(WireGrappleTuning, Grapple)
+WIRE_TUNING_FLOAT(AimMaxTime, "wire.grapple.aim_max_time", 2.0f)
+WIRE_TUNING_FLOAT(HookSpeed, "wire.grapple.hook_speed", 82.0f)
+WIRE_TUNING_FLOAT(PullAcceleration, "wire.grapple.pull_acceleration", 8.0f)
+WIRE_TUNING_FLOAT(MaxSpeed, "wire.grapple.max_speed", 42.0f)
+WIRE_TUNING_FLOAT(ReleaseBoost, "wire.grapple.release_boost", 8.5f)
+WIRE_TUNING_FLOAT(ReleaseUpBoost, "wire.grapple.release_up_boost", 8.0f)
+WIRE_TUNING_FLOAT(ReleaseMaxSpeed, "wire.grapple.release_max_speed", 68.0f)
+WIRE_TUNING_FLOAT(StopDistance, "wire.grapple.stop_distance", 1.6f) // 接続を切る距離ではなく、近距離で牽引を止める範囲
+WIRE_TUNING_FLOAT(MaxDistance, "wire.grapple.max_distance", 60.0f)
+WIRE_TUNING_FLOAT(AimConeDot, "wire.grapple.aim_cone_dot", 0.82f)
+WIRE_TUNING_FLOAT(OriginHeight, "wire.grapple.origin_height", 1.0f)
+WIRE_TUNING_FLOAT(AnchorMinDistance, "wire.grapple.anchor_min_distance", 0.1f)
+WIRE_TUNING_FLOAT(AnchorDistancePenalty, "wire.grapple.anchor_distance_penalty", 0.012f)
+WIRE_TUNING_FLOAT(AnchorRadiusBonus, "wire.grapple.anchor_radius_bonus", 0.05f)
+WIRE_TUNING_FLOAT(NoAnchorCooldown, "wire.grapple.no_anchor_cooldown", 0.10f)
+WIRE_TUNING_FLOAT(StartCooldown, "wire.grapple.start_cooldown", 0.04f)
+WIRE_TUNING_FLOAT(LaunchImpulse, "wire.grapple.launch_impulse", 9.0f)
+WIRE_TUNING_FLOAT(TurnLerp, "wire.grapple.turn_lerp", 0.30f)
+WIRE_TUNING_FLOAT(ReleaseSquashXZ, "wire.grapple.release_squash_xz", 0.78f)
+WIRE_TUNING_FLOAT(ReleaseStretchY, "wire.grapple.release_stretch_y", 1.28f)
+WIRE_TUNING_FLOAT(AnchorAimScoreWeight, "wire.grapple.anchor_aim_score_weight", 2.0f)
+// アーケード寄りの振り子制御。接続時は半径方向だけを整理し、接線速度を残します。
+WIRE_TUNING_FLOAT(RopeLengthScale, "wire.grapple.rope_length_scale", 1.0f)
+WIRE_TUNING_FLOAT(MinRopeLength, "wire.grapple.min_rope_length", 3.0f)
+WIRE_TUNING_FLOAT(RadialDamping, "wire.grapple.radial_damping", 4.0f)
+WIRE_TUNING_FLOAT(ConstraintStrength, "wire.grapple.constraint_strength", 34.0f)
+WIRE_TUNING_FLOAT(SwingInputAcceleration, "wire.grapple.swing_input_acceleration", 38.0f)
+WIRE_TUNING_FLOAT(AttachVelocityKeep, "wire.grapple.attach_velocity_keep", 0.98f)
+WIRE_TUNING_FLOAT(AttachMinSpeed, "wire.grapple.attach_min_speed", 8.0f)
+WIRE_TUNING_FLOAT(RewireBonus, "wire.grapple.rewire_bonus", 2.0f)
+WIRE_TUNING_FLOAT(RewireBonusWindow, "wire.grapple.rewire_bonus_window", 1.15f)
+WIRE_TUNING_FLOAT(RewireMaxSpeed, "wire.grapple.rewire_max_speed", 58.0f)
+WIRE_TUNING_FLOAT(ReleasePoseDuration, "wire.grapple.release_pose_duration", 0.28f)
+WIRE_TUNING_FLOAT(ReleasePoseRoll, "wire.grapple.release_pose_roll", 0.62f)
+WIRE_TUNING_FLOAT(ReleasePoseTwist, "wire.grapple.release_pose_twist", 0.32f)
+WIRE_TUNING_FLOAT(ReleaseLimbLag, "wire.grapple.release_limb_lag", 0.48f)
+// 足場の角でワイヤーを折ります。0にすると従来どおり足場を貫通する直線です。
+WIRE_TUNING_INT(WrapEnabled, "wire.grapple.wrap_enabled", 1)
+// 1にすると伸びないロープとして扱い、たるんでいる間は引きません(実験用)。
+// 0は牽引とバネで引き寄せる、操作感を優先した従来の挙動です。
+WIRE_TUNING_INT(RigidRope, "wire.grapple.rigid_rope", 0)
+// RigidRopeのとき、目標の長さまでワイヤーを巻き取る速さ(m/s)。
+WIRE_TUNING_FLOAT(ReelSpeed, "wire.grapple.reel_speed", 30.0f)
+WIRE_TUNING_GROUP_END()
+
+WIRE_TUNING_GROUP(WireAnimationTuning, Animation)
+WIRE_TUNING_FLOAT(RunCycleSpeed, "wire.animation.run_cycle_speed", 4.8f)
+WIRE_TUNING_FLOAT(WalkSwing, "wire.animation.walk_swing", 0.30f)
+WIRE_TUNING_FLOAT(RunSwing, "wire.animation.run_swing", 0.56f)
+WIRE_TUNING_FLOAT(JumpStretch, "wire.animation.jump_stretch", 0.22f)
+WIRE_TUNING_FLOAT(JumpPoseDuration, "wire.animation.jump_pose_duration", 0.34f)
+WIRE_TUNING_FLOAT(JumpArmRaise, "wire.animation.jump_arm_raise", 2.35f)
+WIRE_TUNING_FLOAT(JumpArmSpread, "wire.animation.jump_arm_spread", 0.42f)
+WIRE_TUNING_FLOAT(JumpAnticipation, "wire.animation.jump_anticipation", 0.12f)
+WIRE_TUNING_FLOAT(FallTilt, "wire.animation.fall_tilt", 0.30f)
+WIRE_TUNING_FLOAT(HighSpeedLean, "wire.animation.high_speed_lean", 0.48f)
+WIRE_TUNING_FLOAT(WireSwingRoll, "wire.animation.wire_swing_roll", 0.52f)
+WIRE_TUNING_FLOAT(LimbLag, "wire.animation.limb_lag", 0.42f)
+WIRE_TUNING_FLOAT(LandDuration, "wire.animation.land_duration", 0.22f)
+WIRE_TUNING_FLOAT(LandSquash, "wire.animation.land_squash", 0.30f)
+WIRE_TUNING_FLOAT(ShootDuration, "wire.animation.shoot_duration", 0.16f)
+WIRE_TUNING_FLOAT(StumbleDuration, "wire.animation.stumble_duration", 0.20f)
+WIRE_TUNING_FLOAT(HighSpeedStart, "wire.animation.high_speed_start", 24.0f)
+WIRE_TUNING_GROUP_END()
+
+WIRE_TUNING_GROUP(WireCameraTuning, Camera)
+WIRE_TUNING_FLOAT(BaseFov, "wire.camera.base_fov", 1.0f)
+// 速度に応じて広がる視野の上限です。差が小さいと速度が画面に出ません。
+WIRE_TUNING_FLOAT(MaxWireFov, "wire.camera.max_wire_fov", 1.30f)
+WIRE_TUNING_FLOAT(FovBoostStartSpeed, "wire.camera.fov_boost_start_speed", 16.0f)
+WIRE_TUNING_FLOAT(FovBoostFullSpeed, "wire.camera.fov_boost_full_speed", 42.0f)
+WIRE_TUNING_FLOAT(FovWireActiveBias, "wire.camera.fov_wire_active_bias", 0.035f)
+WIRE_TUNING_FLOAT(FovFollowLerp, "wire.camera.fov_follow_lerp", 0.12f)
+WIRE_TUNING_FLOAT(AimFov, "wire.camera.aim_fov", 0.82f)
+WIRE_TUNING_FLOAT(NearClip, "wire.camera.near_clip", 0.1f)
+WIRE_TUNING_FLOAT(FarClip, "wire.camera.far_clip", 1000.0f)
+WIRE_TUNING_FLOAT(InitialHeight, "wire.camera.initial_height", 6.0f)
+WIRE_TUNING_FLOAT(InitialDistance, "wire.camera.initial_distance", -9.2f)
+WIRE_TUNING_FLOAT(InitialPitch, "wire.camera.initial_pitch", 0.38f)   // 開始時は水平寄り。見下ろすと工場の全体像が見えないため
+WIRE_TUNING_FLOAT(NormalMinPitchDegrees, "wire.camera.normal_min_pitch_degrees", -88.0f)
+WIRE_TUNING_FLOAT(NormalMaxPitchDegrees, "wire.camera.normal_max_pitch_degrees", 88.0f)
+WIRE_TUNING_FLOAT(AimMinPitchDegrees, "wire.camera.aim_min_pitch_degrees", -88.0f)
+WIRE_TUNING_FLOAT(AimMaxPitchDegrees, "wire.camera.aim_max_pitch_degrees", 88.0f)
+WIRE_TUNING_FLOAT(NormalPitchMouseScale, "wire.camera.normal_pitch_mouse_scale", 0.62f)
+WIRE_TUNING_FLOAT(AimPitchMouseScale, "wire.camera.aim_pitch_mouse_scale", 0.85f)
+// 平常時は近めに寄せてキャラを大きく見せ、速度が乗ったぶんだけ引きます(SpeedDistanceBoost)。
+WIRE_TUNING_FLOAT(NormalCameraDistance, "wire.camera.normal_distance", 9.4f)
+WIRE_TUNING_FLOAT(DistanceFollowLerp, "wire.camera.distance_follow_lerp", 0.12f)
+WIRE_TUNING_FLOAT(NormalFollowLerp, "wire.camera.normal_follow_lerp", 0.22f)
+WIRE_TUNING_FLOAT(WireFollowLerp, "wire.camera.wire_follow_lerp", 0.52f)
+WIRE_TUNING_FLOAT(AimFollowLerp, "wire.camera.aim_follow_lerp", 0.34f)
+WIRE_TUNING_FLOAT(NormalTargetHeight, "wire.camera.normal_target_height", 1.45f)
+WIRE_TUNING_FLOAT(NormalMinCameraHeight, "wire.camera.normal_min_camera_height", 0.85f)
+WIRE_TUNING_FLOAT(NormalLookAhead, "wire.camera.normal_look_ahead", 1.8f)
+WIRE_TUNING_FLOAT(AimCameraHeight, "wire.camera.aim_height", 1.65f)
+WIRE_TUNING_FLOAT(AimBackDistance, "wire.camera.aim_back_distance", 0.85f)
+WIRE_TUNING_FLOAT(AimShoulderOffset, "wire.camera.aim_shoulder_offset", 1.18f)
+WIRE_TUNING_FLOAT(AimFocusDistance, "wire.camera.aim_focus_distance", 24.0f)
+
+// --- 疾走感まわり ---
+// 速度が上がるほどカメラを後ろへ引き、視野を広げ、追従を締めます。
+// 引く量と広げる量が揃って初めて「速い」と感じられるため、3つは同じspeedRatioで駆動します。
+WIRE_TUNING_FLOAT(SpeedDistanceBoost, "wire.camera.speed_distance_boost", 4.6f)
+WIRE_TUNING_FLOAT(SpeedFollowLerpBoost, "wire.camera.speed_follow_lerp_boost", 0.20f)
+// 横方向の速度でカメラを傾けます。ワイヤーで振られるときの体感差が大きい要素です。
+WIRE_TUNING_FLOAT(RollPerLateralSpeed, "wire.camera.roll_per_lateral_speed", 0.0075f)
+WIRE_TUNING_FLOAT(MaxRoll, "wire.camera.max_roll", 0.20f)
+WIRE_TUNING_FLOAT(RollLerp, "wire.camera.roll_lerp", 0.10f)
+
+// --- 衝撃演出 ---
+// トラウマ値(0-1)を二乗して揺れ幅にします。小さい衝撃が過剰に暴れないようにするためです。
+WIRE_TUNING_FLOAT(ShakeDecay, "wire.camera.shake_decay", 2.8f)
+WIRE_TUNING_FLOAT(ShakeMaxOffset, "wire.camera.shake_max_offset", 0.80f)
+WIRE_TUNING_FLOAT(ShakeMaxAngle, "wire.camera.shake_max_angle", 0.05f)
+WIRE_TUNING_FLOAT(ShakeFrequency, "wire.camera.shake_frequency", 24.0f)
+// 攻撃時にカメラを一瞬押し戻すバネです。減衰と戻る強さで手応えが決まります。
+WIRE_TUNING_FLOAT(PunchSpring, "wire.camera.punch_spring", 150.0f)
+WIRE_TUNING_FLOAT(PunchDamping, "wire.camera.punch_damping", 15.0f)
+WIRE_TUNING_FLOAT(FovKickDecay, "wire.camera.fov_kick_decay", 6.0f)
+WIRE_TUNING_FLOAT(FovKickMax, "wire.camera.fov_kick_max", 0.22f)
+
+// 各アクションが与える衝撃量です。0にすればその演出だけを切れます。
+WIRE_TUNING_FLOAT(LandingShake, "wire.camera.landing_shake", 0.26f)
+WIRE_TUNING_FLOAT(LandingSpeedForFullShake, "wire.camera.landing_speed_for_full_shake", 34.0f)
+WIRE_TUNING_FLOAT(BlinkShake, "wire.camera.blink_shake", 0.16f)
+WIRE_TUNING_FLOAT(BlinkFovKick, "wire.camera.blink_fov_kick", 0.10f)
+WIRE_TUNING_FLOAT(WireAttachShake, "wire.camera.wire_attach_shake", 0.18f)
+WIRE_TUNING_FLOAT(WireAttachFovKick, "wire.camera.wire_attach_fov_kick", 0.06f)
+WIRE_TUNING_FLOAT(WallKickShake, "wire.camera.wall_kick_shake", 0.20f)
+WIRE_TUNING_FLOAT(WallKickFovKick, "wire.camera.wall_kick_fov_kick", 0.09f)
+WIRE_TUNING_FLOAT(DamageShake, "wire.camera.damage_shake", 0.55f)
+
+// --- 速度線 ---
+// カメラの脇を後方へ流れる線を出し、速度そのものを画面で読めるようにします。
+WIRE_TUNING_FLOAT(SpeedLineStartSpeed, "wire.camera.speed_line_start_speed", 20.0f)
+WIRE_TUNING_FLOAT(SpeedLineFullSpeed, "wire.camera.speed_line_full_speed", 46.0f)
+WIRE_TUNING_INT(SpeedLineMaxPerFrame, "wire.camera.speed_line_max_per_frame", 4)
+WIRE_TUNING_FLOAT(SpeedLineSpread, "wire.camera.speed_line_spread", 3.4f)
+WIRE_TUNING_FLOAT(SpeedLineForwardOffset, "wire.camera.speed_line_forward_offset", 7.0f)
+WIRE_TUNING_FLOAT(SpeedLineSpeed, "wire.camera.speed_line_speed", 34.0f)
+WIRE_TUNING_GROUP_END()
+
+// 屋上を巡回する敵と、被弾するプレイヤー側の値です。
+WIRE_TUNING_GROUP(WireEnemyTuning, Enemy)
+WIRE_TUNING_INT(CountPerRooftop, "wire.enemy.count_per_rooftop", 2)
+WIRE_TUNING_FLOAT(PatrolSpeed, "wire.enemy.patrol_speed", 3.2f)
+WIRE_TUNING_FLOAT(ChaseSpeed, "wire.enemy.chase_speed", 7.4f)
+WIRE_TUNING_FLOAT(Acceleration, "wire.enemy.acceleration", 22.0f)
+WIRE_TUNING_FLOAT(TurnLerp, "wire.enemy.turn_lerp", 0.16f)
+WIRE_TUNING_FLOAT(PatrolRadius, "wire.enemy.patrol_radius", 6.5f)     // ホーム地点から離れられる距離
+WIRE_TUNING_FLOAT(PatrolTurnInterval, "wire.enemy.patrol_turn_interval", 2.4f)
+WIRE_TUNING_FLOAT(DetectRadius, "wire.enemy.detect_radius", 14.0f)
+// 探知半径との差がヒステリシスになり、境界での状態往復を防ぎます。
+WIRE_TUNING_FLOAT(LoseRadius, "wire.enemy.lose_radius", 20.0f)
+WIRE_TUNING_FLOAT(DetectHeightRange, "wire.enemy.detect_height_range", 6.0f) // 高さがこれ以上離れていれば見失う(別の屋上の敵が反応しない)
+WIRE_TUNING_FLOAT(AttackRadius, "wire.enemy.attack_radius", 2.2f)
+WIRE_TUNING_FLOAT(AttackInterval, "wire.enemy.attack_interval", 1.2f)
+WIRE_TUNING_INT(ContactDamage, "wire.enemy.contact_damage", 1)
+WIRE_TUNING_FLOAT(KnockbackSpeed, "wire.enemy.knockback_speed", 13.0f)
+WIRE_TUNING_FLOAT(KnockbackUpSpeed, "wire.enemy.knockback_up_speed", 5.5f)
+WIRE_TUNING_FLOAT(EdgeMargin, "wire.enemy.edge_margin", 1.2f)
+WIRE_TUNING_FLOAT(HoverHeight, "wire.enemy.hover_height", 6.0f)
+WIRE_TUNING_FLOAT(HoverAmplitude, "wire.enemy.hover_amplitude", 1.5f)
+WIRE_TUNING_FLOAT(HoverSpeed, "wire.enemy.hover_speed", 2.0f)
+WIRE_TUNING_GROUP_END()
+
+WIRE_TUNING_GROUP(WirePlayerHealthTuning, Health)
+WIRE_TUNING_INT(MaxHealth, "wire.health.max_health", 5)
+WIRE_TUNING_FLOAT(InvincibleTime, "wire.health.invincible_time", 1.1f)
+WIRE_TUNING_FLOAT(HitBlinkInterval, "wire.health.hit_blink_interval", 0.09f)
+WIRE_TUNING_INT(HitStopFrames, "wire.health.hit_stop_frames", 6)
+WIRE_TUNING_FLOAT(HitStopScale, "wire.health.hit_stop_scale", 0.14f)
+WIRE_TUNING_GROUP_END()
+
+// ステージ進行のルールです。
+// 直線コース時代の到達距離やチェックポイント許容量は、工場ステージでは
+// 使わなくなったため削除しました。落下復帰の閾値だけが残ります。
+WIRE_TUNING_GROUP(WireStageTuning, Stage)
+// この高さより下へ落ちたら、直近の安全地点へ戻します。
+WIRE_TUNING_FLOAT_RANGE(FallResetY, "wire.stage.fall_reset_y", -20.0f, -500.0f, 0.0f)
+WIRE_TUNING_INT(GoalParticleCount, "wire.stage.goal_particle_count", 120)
+WIRE_TUNING_GROUP_END()
+

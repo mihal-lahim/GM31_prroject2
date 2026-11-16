@@ -24,7 +24,7 @@ bool Engine::GraphicsResourceFactory::CreateBuffer(
 	const char* ownerName)
 {
 	buffer.Reset();
-	ID3D11Device* device = Renderer::GetDevice();
+	ID3D11Device* device = Engine::Renderer::GetDevice();
 	if (device == nullptr)
 	{
 		LogGpuCreationFailure(ownerName, "vertex/index/constant buffer", E_POINTER);
@@ -47,8 +47,8 @@ bool Engine::GraphicsResourceFactory::CreateUnlitShaderPair(
 	ComPtr<ID3D11PixelShader>& pixelShader,
 	const char* ownerName)
 {
-	if (Renderer::CreateVertexShader(vertexShader, inputLayout, "unlitTextureVS.cso")
-		&& Renderer::CreatePixelShader(pixelShader, "unlitTexturePS.cso"))
+	if (Engine::Renderer::CreateVertexShader(vertexShader, inputLayout, "unlitTextureVS.cso")
+		&& Engine::Renderer::CreatePixelShader(pixelShader, "unlitTexturePS.cso"))
 	{
 		return true;
 	}
@@ -66,7 +66,7 @@ bool Engine::GraphicsResourceFactory::IsDrawable(
 	ID3D11VertexShader* vertexShader,
 	ID3D11PixelShader* pixelShader) noexcept
 {
-	return Renderer::GetDeviceContext() != nullptr
+	return Engine::Renderer::GetDeviceContext() != nullptr
 		&& vertexBuffer != nullptr
 		&& inputLayout != nullptr
 		&& vertexShader != nullptr
@@ -81,7 +81,7 @@ bool Engine::GraphicsResourceFactory::CreateTextureFromPixels(
 	const char* ownerName)
 {
 	view.Reset();
-	ID3D11Device* device = Renderer::GetDevice();
+	ID3D11Device* device = Engine::Renderer::GetDevice();
 	if (device == nullptr || pixels == nullptr || width == 0 || height == 0)
 	{
 		LogGpuCreationFailure(ownerName, "pixel texture", E_POINTER);
@@ -125,7 +125,7 @@ bool Engine::GraphicsResourceFactory::MapWriteDiscard(
 	const char* ownerName)
 {
 	mappedResource = {};
-	ID3D11DeviceContext* context = Renderer::GetDeviceContext();
+	ID3D11DeviceContext* context = Engine::Renderer::GetDeviceContext();
 	if (context == nullptr || buffer == nullptr)
 	{
 		LogGpuCreationFailure(ownerName, "dynamic buffer map", E_POINTER);

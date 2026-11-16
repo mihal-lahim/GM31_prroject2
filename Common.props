@@ -26,7 +26,7 @@
       <PrecompiledHeaderFile>enginePch.h</PrecompiledHeaderFile>
       <ForcedIncludeFiles>enginePch.h;%(ForcedIncludeFiles)</ForcedIncludeFiles>
       <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
-      <AdditionalIncludeDirectories>$(MSBuildThisFileDirectory)include;$(MSBuildThisFileDirectory)third_party\assimp\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(MSBuildThisFileDirectory)include\engine;$(MSBuildThisFileDirectory)include\animation;$(MSBuildThisFileDirectory)include\shared;$(MSBuildThisFileDirectory)third_party\assimp\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>

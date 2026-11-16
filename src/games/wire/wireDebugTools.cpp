@@ -33,7 +33,7 @@ namespace WireDebugTools
 		if (Keyboard_IsKeyDownTrigger(KK_F3))
 		{
 			// ポーズ中のみ有効です。GameTime側で無視されます。
-			GameTime::RequestStepFrame();
+			Engine::GameTime::RequestStepFrame();
 		}
 		if (Keyboard_IsKeyDownTrigger(KK_F4))
 		{
@@ -42,7 +42,7 @@ namespace WireDebugTools
 		if (Keyboard_IsKeyDownTrigger(KK_F5))
 		{
 			s_TimeScaleIndex = (s_TimeScaleIndex + 1) % kTimeScaleCount;
-			GameTime::SetTimeScale(kTimeScales[s_TimeScaleIndex]);
+			Engine::GameTime::SetTimeScale(kTimeScales[s_TimeScaleIndex]);
 		}
 
 		if (Keyboard_IsKeyDownTrigger(KK_F7)) return SceneRequest::Title;
@@ -61,7 +61,7 @@ namespace WireDebugTools
 		// 表示のON/OFFは操作した人の意図なので残し、ゲームプレイを変える設定だけ戻します。
 		s_Invincible = false;
 		s_TimeScaleIndex = 1;
-		GameTime::SetTimeScale(kTimeScales[s_TimeScaleIndex]);
+		Engine::GameTime::SetTimeScale(kTimeScales[s_TimeScaleIndex]);
 		Collider::SetDebugDrawEnabled(false);
 	}
 

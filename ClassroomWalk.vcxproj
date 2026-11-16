@@ -63,17 +63,17 @@
   <Import Project="SurfaceShaders.props" />
   <ItemDefinitionGroup>
     <ClCompile>
-      <AdditionalIncludeDirectories>$(ProjectDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir);$(ProjectDir)include\games\classroom;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <AdditionalLibraryDirectories>$(ProjectDir);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClInclude Include="include\meshField.h" />
-    <ClInclude Include="include\classroomWalk.h" />
-    <ClInclude Include="include\sky.h" />
-    <ClInclude Include="include\wave.h" />
+    <ClInclude Include="include\games\classroom\meshField.h" />
+    <ClInclude Include="include\games\classroom\classroomWalk.h" />
+    <ClInclude Include="include\shared\sky.h" />
+    <ClInclude Include="include\games\classroom\wave.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\engine\main.cpp" />
@@ -128,6 +128,9 @@
     </RuntimeAsset>
     <RuntimeAsset Include="third_party\assimp\bin\assimp-vc143-mt.dll">
       <TargetPath>assimp-vc143-mt.dll</TargetPath>
+    </RuntimeAsset>
+    <RuntimeAsset Include="assets\config\classroom-input.cfg">
+      <TargetPath>assets\config\classroom-input.cfg</TargetPath>
     </RuntimeAsset>
     <RuntimeAsset Include="assets\config\classroom.cfg">
       <TargetPath>assets\config\classroom.cfg</TargetPath>

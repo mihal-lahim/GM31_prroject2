@@ -18,12 +18,12 @@ namespace
 
 	// 画面座標(yは下向き)で時計回りに並べます。このレンダラは裏面をカリングするため、
 	// 反時計回りだと矩形が丸ごと消えます(旧HUDから複製した並びは裏向きでした)。
-	void Rect(std::vector<VERTEX_3D>& out, float x, float y, float w, float h, const XMFLOAT4& color)
+	void Rect(std::vector<Engine::VERTEX_3D>& out, float x, float y, float w, float h, const XMFLOAT4& color)
 	{
-		const VERTEX_3D a{ {x,y,0}, {0,0,-1}, color, {0,0} };          // 左上
-		const VERTEX_3D b{ {x + w,y,0}, {0,0,-1}, color, {0,0} };      // 右上
-		const VERTEX_3D c{ {x + w,y + h,0}, {0,0,-1}, color, {0,0} };  // 右下
-		const VERTEX_3D d{ {x,y + h,0}, {0,0,-1}, color, {0,0} };      // 左下
+		const Engine::VERTEX_3D a{ {x,y,0}, {0,0,-1}, color, {0,0} };          // 左上
+		const Engine::VERTEX_3D b{ {x + w,y,0}, {0,0,-1}, color, {0,0} };      // 右上
+		const Engine::VERTEX_3D c{ {x + w,y + h,0}, {0,0,-1}, color, {0,0} };  // 右下
+		const Engine::VERTEX_3D d{ {x,y + h,0}, {0,0,-1}, color, {0,0} };      // 左下
 		out.insert(out.end(), { a,b,c, a,c,d });
 	}
 }
@@ -35,7 +35,7 @@ void WireChatBox::Init()
 
 	D3D11_BUFFER_DESC desc{};
 	desc.Usage = D3D11_USAGE_DYNAMIC;
-	desc.ByteWidth = sizeof(VERTEX_3D) * 64;
+	desc.ByteWidth = sizeof(Engine::VERTEX_3D) * 64;
 	desc.BindFlags = D3D11_BIND_VERTEX_BUFFER;
 	desc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
 	m_RenderingAvailable = Engine::GraphicsResourceFactory::CreateBuffer(
@@ -70,7 +70,7 @@ void WireChatBox::Uninit()
 
 void WireChatBox::Update()
 {
-	m_Flash = (std::max)(0.0f, m_Flash - GameTime::GetDeltaTime() * 2.5f);
+	m_Flash = (std::max)(0.0f, m_Flash - Engine::GameTime::GetDeltaTime() * 2.5f);
 }
 
 void WireChatBox::SetSpeaker(const std::wstring& name) { m_Speaker.SetText(name); }
@@ -90,7 +90,7 @@ void WireChatBox::Draw()
 		return;
 	}
 
-	std::vector<VERTEX_3D> vertices;
+	std::vector<Engine::VERTEX_3D> vertices;
 	// 本体は半透明の暗い板、左端に話し手を示す帯を付けます。
 	Rect(vertices, kBoxX, kBoxY, kBoxWidth, kBoxHeight, { 0.02f, 0.05f, 0.08f, 0.86f });
 	Rect(vertices, kBoxX, kBoxY, 8.0f, kBoxHeight, { 1.0f, 0.72f + m_Flash * 0.2f, 0.18f, 0.95f });
@@ -100,23 +100,23 @@ void WireChatBox::Draw()
 	{
 		return;
 	}
-	memcpy(mapped.pData, vertices.data(), vertices.size() * sizeof(VERTEX_3D));
-	Renderer::GetDeviceContext()->Unmap(m_VertexBuffer.Get(), 0);
+	memcpy(mapped.pData, vertices.data(), vertices.size() * sizeof(Engine::VERTEX_3D));
+	Engine::Renderer::GetDeviceContext()->Unmap(m_VertexBuffer.Get(), 0);
 
-	Renderer::GetDeviceContext()->IASetInputLayout(m_VertexLayout.Get());
-	Renderer::GetDeviceContext()->VSSetShader(m_VertexShader.Get(), nullptr, 0);
-	Renderer::GetDeviceContext()->PSSetShader(m_PixelShader.Get(), nullptr, 0);
-	Renderer::SetWorldViewProjection2D();
-	Renderer::SetWorldMatrix(XMMatrixIdentity());
-	MATERIAL material{};
+	Engine::Renderer::GetDeviceContext()->IASetInputLayout(m_VertexLayout.Get());
+	Engine::Renderer::GetDeviceContext()->VSSetShader(m_VertexShader.Get(), nullptr, 0);
+	Engine::Renderer::GetDeviceContext()->PSSetShader(m_PixelShader.Get(), nullptr, 0);
+	Engine::Renderer::SetWorldViewProjection2D();
+	Engine::Renderer::SetWorldMatrix(XMMatrixIdentity());
+	Engine::MATERIAL material{};
 	material.Diffuse = { 1, 1, 1, 1 };
 	material.TextureEnable = FALSE;
-	Renderer::SetMaterial(material);
+	Engine::Renderer::SetMaterial(material);
 	// 2DのUIは他のHUDと同じ既定の深度状態で描きます(正射影のzは0で常に手前)。
-	Renderer::GetDeviceContext()->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-	UINT stride = sizeof(VERTEX_3D), offset = 0;
-	Renderer::GetDeviceContext()->IASetVertexBuffers(0, 1, m_VertexBuffer.GetAddressOf(), &stride, &offset);
-	Renderer::GetDeviceContext()->Draw(static_cast<UINT>(vertices.size()), 0);
+	Engine::Renderer::GetDeviceContext()->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+	UINT stride = sizeof(Engine::VERTEX_3D), offset = 0;
+	Engine::Renderer::GetDeviceContext()->IASetVertexBuffers(0, 1, m_VertexBuffer.GetAddressOf(), &stride, &offset);
+	Engine::Renderer::GetDeviceContext()->Draw(static_cast<UINT>(vertices.size()), 0);
 
 	m_Speaker.Draw();
 	m_Message.Draw();

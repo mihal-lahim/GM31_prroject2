@@ -38,15 +38,15 @@ void WirePlatform::Update()
 
 float WirePlatform::GetTopY() const
 {
-	return GetPosition().y + m_Scale.y * 2.0f;
+	return GetPosition().y + GetScale().y * 2.0f;
 }
 
 bool WirePlatform::ContainsXZ(const Vector3& position, float margin) const
 {
-	const float minX = GetPosition().x - m_Scale.x - margin;
-	const float maxX = GetPosition().x + m_Scale.x + margin;
-	const float minZ = GetPosition().z - m_Scale.z - margin;
-	const float maxZ = GetPosition().z + m_Scale.z + margin;
+	const float minX = GetPosition().x - GetScale().x - margin;
+	const float maxX = GetPosition().x + GetScale().x + margin;
+	const float minZ = GetPosition().z - GetScale().z - margin;
+	const float maxZ = GetPosition().z + GetScale().z + margin;
 
 	return position.x >= minX && position.x <= maxX && position.z >= minZ && position.z <= maxZ;
 }

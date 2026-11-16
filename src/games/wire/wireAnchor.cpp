@@ -41,20 +41,20 @@ namespace
 		const XMFLOAT4& color,
 		const XMMATRIX& invView)
 	{
-		MATERIAL material{};
+		Engine::MATERIAL material{};
 		material.Diffuse = color;
 		material.TextureEnable = TRUE;
-		Renderer::SetMaterial(material);
+		Engine::Renderer::SetMaterial(material);
 
 		XMMATRIX scale = XMMatrixScaling(size, size, size);
 		XMMATRIX trans = XMMatrixTranslation(position.x, position.y, position.z);
-		Renderer::SetWorldMatrix(scale * invView * trans);
+		Engine::Renderer::SetWorldMatrix(scale * invView * trans);
 
-		UINT stride = sizeof(VERTEX_3D);
+		UINT stride = sizeof(Engine::VERTEX_3D);
 		UINT offset = 0;
-		Renderer::GetDeviceContext()->IASetVertexBuffers(0, 1, &vertexBuffer, &stride, &offset);
-		Renderer::GetDeviceContext()->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
-		Renderer::GetDeviceContext()->Draw(4, 0);
+		Engine::Renderer::GetDeviceContext()->IASetVertexBuffers(0, 1, &vertexBuffer, &stride, &offset);
+		Engine::Renderer::GetDeviceContext()->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
+		Engine::Renderer::GetDeviceContext()->Draw(4, 0);
 	}
 }
 
@@ -62,7 +62,7 @@ ComPtr<ID3D11Buffer> WireAnchor::s_VertexBuffer = nullptr;
 ComPtr<ID3D11InputLayout> WireAnchor::s_VertexLayout = nullptr;
 ComPtr<ID3D11VertexShader> WireAnchor::s_VertexShader = nullptr;
 ComPtr<ID3D11PixelShader> WireAnchor::s_PixelShader = nullptr;
-TextureHandle WireAnchor::s_Texture;
+Engine::TextureHandle WireAnchor::s_Texture;
 int WireAnchor::s_RefCount = 0;
 
 void WireAnchor::Init()
@@ -72,7 +72,7 @@ void WireAnchor::Init()
 
 	if (s_RefCount == 0)
 	{
-		VERTEX_3D vertex[4]{};
+		Engine::VERTEX_3D vertex[4]{};
 		vertex[0].Position = XMFLOAT3(-0.5f, 0.5f, 0.0f);
 		vertex[0].Normal = XMFLOAT3(0.0f, 0.0f, -1.0f);
 		vertex[0].Diffuse = XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f);
@@ -106,7 +106,7 @@ void WireAnchor::Init()
 			s_VertexShader, s_VertexLayout, s_PixelShader, "WireAnchor")
 			&& m_RenderingAvailable;
 
-		s_Texture = ResourceManager::LoadTexture(L"assets/texture/particle.png");
+		s_Texture = Engine::ResourceManager::LoadTexture(L"assets/texture/particle.png");
 	}
 	m_RenderingAvailable = Engine::GraphicsResourceFactory::IsDrawable(
 		s_VertexBuffer.Get(), s_VertexLayout.Get(), s_VertexShader.Get(), s_PixelShader.Get())
@@ -138,10 +138,10 @@ void WireAnchor::Uninit()
 
 void WireAnchor::Update()
 {
-	m_Pulse += GameTime::GetDeltaTime() * kPulseSpeed;
+	m_Pulse += Engine::GameTime::GetDeltaTime() * kPulseSpeed;
 	// 狙われている間だけ立ち上がり、外れると滑らかに戻る強調値です。
 	// 狙い側は毎フレームSetHighlightedを呼ぶだけでよくなります。
-	m_Highlight = (std::max)(0.0f, m_Highlight - GameTime::GetDeltaTime() * 6.0f);
+	m_Highlight = (std::max)(0.0f, m_Highlight - Engine::GameTime::GetDeltaTime() * 6.0f);
 	GameObject::Update();
 }
 
@@ -163,13 +163,13 @@ void WireAnchor::Draw()
 	invView.r[3].m128_f32[1] = 0.0f;
 	invView.r[3].m128_f32[2] = 0.0f;
 
-	Renderer::GetDeviceContext()->IASetInputLayout(s_VertexLayout.Get());
-	Renderer::GetDeviceContext()->VSSetShader(s_VertexShader.Get(), nullptr, 0);
-	Renderer::GetDeviceContext()->PSSetShader(s_PixelShader.Get(), nullptr, 0);
+	Engine::Renderer::GetDeviceContext()->IASetInputLayout(s_VertexLayout.Get());
+	Engine::Renderer::GetDeviceContext()->VSSetShader(s_VertexShader.Get(), nullptr, 0);
+	Engine::Renderer::GetDeviceContext()->PSSetShader(s_PixelShader.Get(), nullptr, 0);
 	ID3D11ShaderResourceView* texture = s_Texture->Get();
-	Renderer::GetDeviceContext()->PSSetShaderResources(0, 1, &texture);
+	Engine::Renderer::GetDeviceContext()->PSSetShaderResources(0, 1, &texture);
 
-	const float anchorScale = std::max(1.0f, LargestScaleComponent(m_Scale));
+	const float anchorScale = std::max(1.0f, LargestScaleComponent(GetScale()));
 	const float pulse = 0.5f + 0.5f * sinf(m_Pulse);
 	// 狙われている地点は一回り大きく明るく出し、掛けられる場所を即座に判別させます。
 	const float highlightScale = 1.0f + m_Highlight * 0.55f;
@@ -184,8 +184,8 @@ void WireAnchor::Draw()
 	// 掛けられない状態の設備は暗く沈め、狙っても無駄だと分かるようにします。
 	const float activeFade = m_Active ? 1.0f : 0.22f;
 
-	Renderer::SetAddBlendEnable(true);
-	Renderer::SetDepthMode(RenderDepthMode::TestOnly);
+	Engine::Renderer::SetAddBlendEnable(true);
+	Engine::Renderer::SetDepthMode(Engine::RenderDepthMode::TestOnly);
 
 	DrawBillboardLayer(
 		s_VertexBuffer.Get(),
@@ -200,6 +200,6 @@ void WireAnchor::Draw()
 		XMFLOAT4{ innerColor.x, innerColor.y, innerColor.z, innerColor.w * activeFade },
 		invView);
 
-	Renderer::SetDepthMode(RenderDepthMode::Enabled);
-	Renderer::SetAddBlendEnable(false);
+	Engine::Renderer::SetDepthMode(Engine::RenderDepthMode::Enabled);
+	Engine::Renderer::SetAddBlendEnable(false);
 }

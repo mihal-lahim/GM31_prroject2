@@ -137,127 +137,127 @@
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="include\audio.h">
+    <ClInclude Include="include\engine\audio.h">
       <Filter>Code\Audio</Filter>
     </ClInclude>
-    <ClInclude Include="include\collider.h">
+    <ClInclude Include="include\engine\collider.h">
       <Filter>Code\Collision</Filter>
     </ClInclude>
-    <ClInclude Include="include\collisionWorld.h">
+    <ClInclude Include="include\engine\collisionWorld.h">
       <Filter>Code\Collision</Filter>
     </ClInclude>
-    <ClInclude Include="include\gameSettings.h">
+    <ClInclude Include="include\engine\gameSettings.h">
       <Filter>Code\Configuration</Filter>
     </ClInclude>
-    <ClInclude Include="include\runtimeConfig.h">
+    <ClInclude Include="include\engine\runtimeConfig.h">
       <Filter>Code\Configuration</Filter>
     </ClInclude>
-    <ClInclude Include="include\sceneSerializer.h">
+    <ClInclude Include="include\engine\sceneSerializer.h">
       <Filter>Code\Core</Filter>
     </ClInclude>
-    <ClInclude Include="include\propertyVisitor.h">
+    <ClInclude Include="include\engine\propertyVisitor.h">
       <Filter>Code\Core</Filter>
     </ClInclude>
-    <ClInclude Include="include\component.h">
+    <ClInclude Include="include\engine\component.h">
       <Filter>Code\Core</Filter>
     </ClInclude>
-    <ClInclude Include="include\engineApi.h">
+    <ClInclude Include="include\engine\engineApi.h">
       <Filter>Code\Core</Filter>
     </ClInclude>
-    <ClInclude Include="include\engineCommon.h">
+    <ClInclude Include="include\engine\engineCommon.h">
       <Filter>Code\Core</Filter>
     </ClInclude>
-    <ClInclude Include="include\gameDefinition.h">
+    <ClInclude Include="include\engine\gameDefinition.h">
       <Filter>Code\Core</Filter>
     </ClInclude>
-    <ClInclude Include="include\gameObject.h">
+    <ClInclude Include="include\engine\gameObject.h">
       <Filter>Code\Core</Filter>
     </ClInclude>
-    <ClInclude Include="include\gameTime.h">
+    <ClInclude Include="include\engine\gameTime.h">
       <Filter>Code\Core</Filter>
     </ClInclude>
-    <ClInclude Include="include\inputActions.h">
+    <ClInclude Include="include\engine\inputActions.h">
       <Filter>Code\Core</Filter>
     </ClInclude>
-    <ClInclude Include="include\main.h">
+    <ClInclude Include="include\engine\main.h">
       <Filter>Code\Core</Filter>
     </ClInclude>
-    <ClInclude Include="include\manager.h">
+    <ClInclude Include="include\engine\manager.h">
       <Filter>Code\Core</Filter>
     </ClInclude>
-    <ClInclude Include="include\Vector3.h">
+    <ClInclude Include="include\engine\Vector3.h">
       <Filter>Code\Core</Filter>
     </ClInclude>
-    <ClInclude Include="include\world.h">
+    <ClInclude Include="include\engine\world.h">
       <Filter>Code\Core</Filter>
     </ClInclude>
-    <ClInclude Include="include\crashReporter.h">
+    <ClInclude Include="include\engine\crashReporter.h">
       <Filter>Code\Diagnostics</Filter>
     </ClInclude>
-    <ClInclude Include="include\engineSelfTests.h">
+    <ClInclude Include="include\engine\engineSelfTests.h">
       <Filter>Code\Diagnostics</Filter>
     </ClInclude>
-    <ClInclude Include="include\keyboard_utf8.h">
+    <ClInclude Include="include\engine\keyboard_utf8.h">
       <Filter>Code\Input</Filter>
     </ClInclude>
-    <ClInclude Include="include\mouseInput.h">
+    <ClInclude Include="include\engine\mouseInput.h">
       <Filter>Code\Input</Filter>
     </ClInclude>
-    <ClInclude Include="include\cameraView.h">
+    <ClInclude Include="include\engine\cameraView.h">
       <Filter>Code\Rendering</Filter>
     </ClInclude>
-    <ClInclude Include="include\modelRenderer.h">
+    <ClInclude Include="include\engine\modelRenderer.h">
       <Filter>Code\Rendering</Filter>
     </ClInclude>
-    <ClInclude Include="include\polygon2D.h">
+    <ClInclude Include="include\engine\polygon2D.h">
       <Filter>Code\Rendering</Filter>
     </ClInclude>
-    <ClInclude Include="include\renderer.h">
+    <ClInclude Include="include\engine\renderer.h">
       <Filter>Code\Rendering</Filter>
     </ClInclude>
-    <ClInclude Include="include\renderQueue.h">
+    <ClInclude Include="include\engine\renderQueue.h">
       <Filter>Code\Rendering</Filter>
     </ClInclude>
-    <ClInclude Include="include\particleSystem.h">
+    <ClInclude Include="include\engine\particleSystem.h">
       <Filter>Code\Rendering\Effects</Filter>
     </ClInclude>
-    <ClInclude Include="include\sceneFade.h">
+    <ClInclude Include="include\engine\sceneFade.h">
       <Filter>Code\Rendering\Effects</Filter>
     </ClInclude>
-    <ClInclude Include="include\alphabetText.h">
+    <ClInclude Include="include\engine\alphabetText.h">
       <Filter>Code\Rendering\Text</Filter>
     </ClInclude>
-    <ClInclude Include="include\dynamicText.h">
+    <ClInclude Include="include\engine\dynamicText.h">
       <Filter>Code\Rendering\Text</Filter>
     </ClInclude>
-    <ClInclude Include="include\glyphRenderer2D.h">
+    <ClInclude Include="include\engine\glyphRenderer2D.h">
       <Filter>Code\Rendering\Text</Filter>
     </ClInclude>
-    <ClInclude Include="include\kanaText.h">
+    <ClInclude Include="include\engine\kanaText.h">
       <Filter>Code\Rendering\Text</Filter>
     </ClInclude>
-    <ClInclude Include="include\kanjiText.h">
+    <ClInclude Include="include\engine\kanjiText.h">
       <Filter>Code\Rendering\Text</Filter>
     </ClInclude>
-    <ClInclude Include="include\score.h">
+    <ClInclude Include="include\engine\score.h">
       <Filter>Code\Rendering\Text</Filter>
     </ClInclude>
-    <ClInclude Include="include\graphicsResourceFactory.h">
+    <ClInclude Include="include\engine\graphicsResourceFactory.h">
       <Filter>Code\Resources</Filter>
     </ClInclude>
-    <ClInclude Include="include\objModelLoader.h">
+    <ClInclude Include="include\engine\objModelLoader.h">
       <Filter>Code\Resources</Filter>
     </ClInclude>
-    <ClInclude Include="include\resourceManager.h">
+    <ClInclude Include="include\engine\resourceManager.h">
       <Filter>Code\Resources</Filter>
     </ClInclude>
-    <ClInclude Include="include\scene.h">
+    <ClInclude Include="include\engine\scene.h">
       <Filter>Code\Scenes</Filter>
     </ClInclude>
-    <ClInclude Include="include\DirectXTex.h">
+    <ClInclude Include="include\engine\DirectXTex.h">
       <Filter>Code\Third Party</Filter>
     </ClInclude>
-    <ClInclude Include="include\DirectXTex.inl">
+    <ClInclude Include="include\engine\DirectXTex.inl">
       <Filter>Code\Third Party</Filter>
     </ClInclude>
   </ItemGroup>

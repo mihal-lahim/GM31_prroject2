@@ -17,13 +17,7 @@
 
 namespace
 {
-	constexpr float kHitReactionDuration = 0.28f;
-	constexpr float kHitLeanRecovery = 8.0f;
-	constexpr float kHitSquashAmount = 0.22f;
-	constexpr float kHitSquashHeightLoss = 0.35f;
 	constexpr float kHitCenterHeightScale = 1.25f;
-	constexpr float kHitLeanScale = 0.32f;
-	constexpr float kMaxHitLean = 0.35f;
 	// 巡回範囲を探す際、足場の天面と敵の足元をどこまで同じ高さとみなすかです。
 	constexpr float kAreaHeightTolerance = 2.5f;
 
@@ -36,8 +30,7 @@ namespace
 void WireEnemy::Init()
 {
 	m_Layer = Layer::World;
-	m_Scale = m_BaseScale;
-	m_Health = GetWireGameplayTuning().Enemy.Health;
+	SetScale(m_BaseScale);
 	m_PatrolTurnTimer = GetWireGameplayTuning().Enemy.PatrolTurnInterval;
 
 	AddComponent<WireRobotRenderer>(WireRobotRenderer::Style::Drone);
@@ -131,10 +124,10 @@ void WireEnemy::ApplyMovement(const Vector3& desiredDirection, float speed, floa
 	if (desiredDirection.length() > 0.0f)
 	{
 		const float targetYaw = atan2f(desiredDirection.x, desiredDirection.z);
-		float delta = targetYaw - m_Rotation.y;
+		float delta = targetYaw - GetRotation().y;
 		while (delta > XM_PI) delta -= XM_2PI;
 		while (delta < -XM_PI) delta += XM_2PI;
-		m_Rotation.y += delta * tuning.TurnLerp;
+		{ Vector3 value = GetRotation(); value.y += delta * tuning.TurnLerp; SetRotation(value); }
 	}
 }
 
@@ -211,7 +204,7 @@ void WireEnemy::UpdateThinking(WirePlayer* player, float dt)
 
 void WireEnemy::Update()
 {
-	const float dt = GameTime::GetDeltaTime();
+	const float dt = Engine::GameTime::GetDeltaTime();
 	const WireEnemyTuning& tuning = GetWireGameplayTuning().Enemy;
 	UpdateThinking(GetWorld().FindFirst<WirePlayer>(), dt);
 
@@ -227,17 +220,9 @@ void WireEnemy::Update()
 		{ Vector3 position = GetPosition(); position.y += homeReturn + sinf(m_HoverTime * tuning.HoverSpeed) * tuning.HoverAmplitude * dt; SetPosition(position); }
 	}
 
-	m_HitReactionTime = std::max(0.0f, m_HitReactionTime - dt);
-	m_HitLean += -m_HitLean * kHitLeanRecovery * dt;
-
-	const float reaction = m_HitReactionTime > 0.0f ? m_HitReactionTime / kHitReactionDuration : 0.0f;
-	const float squash = reaction * kHitSquashAmount;
-	m_Scale = {
-		m_BaseScale.x + squash,
-		m_BaseScale.y - squash * kHitSquashHeightLoss,
-		m_BaseScale.z + squash
-	};
-	m_Rotation.z = m_HitLean;
+	// 揺れや潰れはなく、配置時の大きさのまま浮遊します。
+	SetScale(m_BaseScale);
+	{ Vector3 value = GetRotation(); value.z = 0.0f; SetRotation(value); }
 
 	GameObject::Update();
 }
@@ -257,45 +242,3 @@ const char* WireEnemy::GetStateName() const
 	}
 }
 
-void WireEnemy::EmitDeathEffect() const
-{
-	const int count = GetWireGameplayTuning().Enemy.DeathParticleCount;
-	const Vector3 center = GetHitCenter();
-	for (int i = 0; i < count; ++i)
-	{
-		const float angle = XM_2PI * static_cast<float>(i) / static_cast<float>((std::max)(count, 1));
-		const float speed = 4.5f + static_cast<float>(i % 5) * 0.9f;
-		const Vector3 velocity{ cosf(angle) * speed, 4.0f + static_cast<float>(i % 4), sinf(angle) * speed };
-		const XMFLOAT4 color = (i % 3 == 0)
-			? XMFLOAT4(1.0f, 0.36f, 0.22f, 1.0f)
-			: XMFLOAT4(1.0f, 0.82f, 0.30f, 0.95f);
-		ParticleSystem::Emit(center, velocity, 0.20f, 44, color, -9.0f, 0.972f);
-	}
-}
-
-void WireEnemy::OnSwordHit(int damage, const Vector3& hitDirection)
-{
-	ApplyBreakDamage(damage, hitDirection);
-}
-
-bool WireEnemy::ApplyBreakDamage(int damage, const Vector3& hitDirection)
-{
-	if (!IsBreakableAlive())
-	{
-		return false;
-	}
-
-	m_TotalDamage += damage;
-	m_HitReactionTime = kHitReactionDuration;
-	m_HitLean = std::clamp(-hitDirection.x * kHitLeanScale, -kMaxHitLean, kMaxHitLean);
-
-	m_Health -= damage;
-	if (m_Health > 0)
-	{
-		return false;
-	}
-
-	EmitDeathEffect();
-	MarkForDestroy();
-	return true;
-}

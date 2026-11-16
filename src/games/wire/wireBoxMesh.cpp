@@ -25,7 +25,7 @@ namespace
 
 namespace WireBoxMesh
 {
-	void Append(std::vector<VERTEX_3D>& vertices, std::vector<unsigned int>& indices,
+	void Append(std::vector<Engine::VERTEX_3D>& vertices, std::vector<unsigned int>& indices,
 		const Vector3& center, const Vector3& halfSize, const XMFLOAT4& color, bool shadeOnly)
 	{
 		for (const Face& face : kFaces)
@@ -52,7 +52,7 @@ namespace WireBoxMesh
 			const XMFLOAT2 uvs[4] = { {0,1}, {1,1}, {1,0}, {0,0} };
 			for (int i = 0; i < 4; ++i)
 			{
-				VERTEX_3D vertex{};
+				Engine::VERTEX_3D vertex{};
 				vertex.Position = { corners[i].x, corners[i].y, corners[i].z };
 				vertex.Normal = { face.Normal.x, face.Normal.y, face.Normal.z };
 				vertex.Diffuse = shaded;

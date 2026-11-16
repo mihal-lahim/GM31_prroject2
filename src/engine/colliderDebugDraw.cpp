@@ -8,9 +8,9 @@ namespace
 	constexpr int kCircleSegments = 32;
 	constexpr int kMaxColliderVertices = 1024;
 
-	VERTEX_3D MakeLineVertex(const Vector3& position, const XMFLOAT4& color)
+	Engine::VERTEX_3D MakeLineVertex(const Vector3& position, const XMFLOAT4& color)
 	{
-		VERTEX_3D vertex{};
+		Engine::VERTEX_3D vertex{};
 		vertex.Position = XMFLOAT3(position.x, position.y, position.z);
 		vertex.Normal = XMFLOAT3(0.0f, 1.0f, 0.0f);
 		vertex.Diffuse = color;
@@ -18,7 +18,7 @@ namespace
 		return vertex;
 	}
 
-	void AddLine(std::vector<VERTEX_3D>& vertices, const Vector3& a, const Vector3& b, const XMFLOAT4& color)
+	void AddLine(std::vector<Engine::VERTEX_3D>& vertices, const Vector3& a, const Vector3& b, const XMFLOAT4& color)
 	{
 		if (vertices.size() + 2 > kMaxColliderVertices)
 		{
@@ -30,7 +30,7 @@ namespace
 	}
 }
 
-void Collider::BuildSphereWire(std::vector<VERTEX_3D>& vertices) const
+void Collider::BuildSphereWire(std::vector<Engine::VERTEX_3D>& vertices) const
 {
 	Vector3 center = GetCenter();
 	float radius = GetRadius();
@@ -71,7 +71,7 @@ void Collider::BuildSphereWire(std::vector<VERTEX_3D>& vertices) const
 	}
 }
 
-void Collider::BuildAABBWire(std::vector<VERTEX_3D>& vertices) const
+void Collider::BuildAABBWire(std::vector<Engine::VERTEX_3D>& vertices) const
 {
 	Vector3 c = GetCenter();
 	Vector3 h = GetHalfSize();
@@ -100,7 +100,7 @@ void Collider::BuildAABBWire(std::vector<VERTEX_3D>& vertices) const
 	}
 }
 
-void Collider::BuildCapsuleWire(std::vector<VERTEX_3D>& vertices) const
+void Collider::BuildCapsuleWire(std::vector<Engine::VERTEX_3D>& vertices) const
 {
 	Vector3 start, end;
 	GetCapsuleSegment(start, end);
@@ -148,7 +148,7 @@ void Collider::BuildCapsuleWire(std::vector<VERTEX_3D>& vertices) const
 	}
 }
 
-void Collider::DrawWire(const std::vector<VERTEX_3D>& vertices)
+void Collider::DrawWire(const std::vector<Engine::VERTEX_3D>& vertices)
 {
 	if (vertices.empty())
 	{
@@ -160,28 +160,28 @@ void Collider::DrawWire(const std::vector<VERTEX_3D>& vertices)
 	{
 		return;
 	}
-	memcpy(mapped.pData, vertices.data(), sizeof(VERTEX_3D) * vertices.size());
-	Renderer::GetDeviceContext()->Unmap(s_VertexBuffer.Get(), 0);
+	memcpy(mapped.pData, vertices.data(), sizeof(Engine::VERTEX_3D) * vertices.size());
+	Engine::Renderer::GetDeviceContext()->Unmap(s_VertexBuffer.Get(), 0);
 
-	Renderer::GetDeviceContext()->IASetInputLayout(s_VertexLayout.Get());
-	Renderer::GetDeviceContext()->VSSetShader(s_VertexShader.Get(), NULL, 0);
-	Renderer::GetDeviceContext()->PSSetShader(s_PixelShader.Get(), NULL, 0);
+	Engine::Renderer::GetDeviceContext()->IASetInputLayout(s_VertexLayout.Get());
+	Engine::Renderer::GetDeviceContext()->VSSetShader(s_VertexShader.Get(), NULL, 0);
+	Engine::Renderer::GetDeviceContext()->PSSetShader(s_PixelShader.Get(), NULL, 0);
 
-	UINT stride = sizeof(VERTEX_3D);
+	UINT stride = sizeof(Engine::VERTEX_3D);
 	UINT offset = 0;
-	Renderer::GetDeviceContext()->IASetVertexBuffers(0, 1, s_VertexBuffer.GetAddressOf(), &stride, &offset);
-	Renderer::GetDeviceContext()->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_LINELIST);
+	Engine::Renderer::GetDeviceContext()->IASetVertexBuffers(0, 1, s_VertexBuffer.GetAddressOf(), &stride, &offset);
+	Engine::Renderer::GetDeviceContext()->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_LINELIST);
 
-	MATERIAL material{};
+	Engine::MATERIAL material{};
 	material.Diffuse = XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f);
 	material.TextureEnable = FALSE;
-	Renderer::SetMaterial(material);
-	Renderer::SetWorldMatrix(XMMatrixIdentity());
-	Renderer::SetDepthEnable(false);
+	Engine::Renderer::SetMaterial(material);
+	Engine::Renderer::SetWorldMatrix(XMMatrixIdentity());
+	Engine::Renderer::SetDepthEnable(false);
 
-	Renderer::GetDeviceContext()->Draw(static_cast<UINT>(vertices.size()), 0);
+	Engine::Renderer::GetDeviceContext()->Draw(static_cast<UINT>(vertices.size()), 0);
 
-	Renderer::SetDepthEnable(true);
+	Engine::Renderer::SetDepthEnable(true);
 }
 
 void Collider::Draw()
@@ -191,7 +191,7 @@ void Collider::Draw()
 		return;
 	}
 
-	std::vector<VERTEX_3D> vertices;
+	std::vector<Engine::VERTEX_3D> vertices;
 	vertices.reserve(kMaxColliderVertices);
 
 	if (m_Shape == Shape::Sphere)

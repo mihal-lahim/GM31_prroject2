@@ -23,7 +23,7 @@ void ClassroomWater::Init()
 
 	D3D11_BUFFER_DESC description{};
 	description.Usage = D3D11_USAGE_DEFAULT;
-	description.ByteWidth = static_cast<UINT>(m_Vertices.size() * sizeof(VERTEX_3D));
+	description.ByteWidth = static_cast<UINT>(m_Vertices.size() * sizeof(Engine::VERTEX_3D));
 	description.BindFlags = D3D11_BIND_VERTEX_BUFFER;
 	D3D11_SUBRESOURCE_DATA data{};
 	data.pSysMem = m_Vertices.data();
@@ -36,7 +36,7 @@ void ClassroomWater::Init()
 	m_RenderingAvailable = Engine::GraphicsResourceFactory::CreateBuffer(
 		m_IndexBuffer, description, &data, "ClassroomWaterIndices") && m_RenderingAvailable;
 	m_IndexCount = static_cast<UINT>(m_Indices.size());
-	m_Texture = ResourceManager::LoadTexture(L"assets/texture/water.jpg");
+	m_Texture = Engine::ResourceManager::LoadTexture(L"assets/texture/water.jpg");
 	m_RenderingAvailable = m_Texture != nullptr && m_RenderingAvailable;
 	// 空の映り込み・太陽のきらめき・見下ろしたときの透けを持つ写実的な水面です。
 	m_RenderingAvailable = m_Surface.Load("realistic-water", m_Texture)
@@ -53,7 +53,7 @@ void ClassroomWater::BuildMesh()
 	m_Vertices.reserve(1 + kRingCount * kSegmentCount);
 	m_Indices.reserve(kSegmentCount * (1 + (kRingCount - 1) * 2) * 3);
 
-	VERTEX_3D center{};
+	Engine::VERTEX_3D center{};
 	center.Position = { 0.0f, 0.0f, 0.0f };
 	center.Normal = { 0.0f, 1.0f, 0.0f };
 	center.Diffuse = { 0.68f, 0.86f, 1.0f, 0.78f };
@@ -66,7 +66,7 @@ void ClassroomWater::BuildMesh()
 		for (int segment = 0; segment < kSegmentCount; ++segment)
 		{
 			const float angle = kTwoPi * static_cast<float>(segment) / kSegmentCount;
-			VERTEX_3D vertex{};
+			Engine::VERTEX_3D vertex{};
 			vertex.Position = { cosf(angle) * radius, 0.0f, sinf(angle) * radius };
 			vertex.Normal = { 0.0f, 1.0f, 0.0f };
 			vertex.Diffuse = { 0.68f, 0.86f, 1.0f, 0.78f };
@@ -149,7 +149,7 @@ void ClassroomWater::AnimateMesh(float time)
 	{
 		return WaveHeight(x, z, time);
 	};
-	for (VERTEX_3D& vertex : m_Vertices)
+	for (Engine::VERTEX_3D& vertex : m_Vertices)
 	{
 		const float x = vertex.Position.x;
 		const float z = vertex.Position.z;
@@ -174,19 +174,19 @@ void ClassroomWater::AnimateMesh(float time)
 void ClassroomWater::Draw()
 {
 	if (!m_RenderingAvailable) return;
-	AnimateMesh(GameTime::GetElapsedTime());
-	Renderer::GetDeviceContext()->UpdateSubresource(
+	AnimateMesh(Engine::GameTime::GetElapsedTime());
+	Engine::Renderer::GetDeviceContext()->UpdateSubresource(
 		m_VertexBuffer.Get(), 0, nullptr, m_Vertices.data(), 0, 0);
 
-	auto* context = Renderer::GetDeviceContext();
-	Renderer::SetWorldMatrix(XMMatrixTranslation(GetPosition().x, m_BaseHeight, GetPosition().z));
-	m_Surface.Parameter.x = GameTime::GetElapsedTime();
+	auto* context = Engine::Renderer::GetDeviceContext();
+	Engine::Renderer::SetWorldMatrix(XMMatrixTranslation(GetPosition().x, m_BaseHeight, GetPosition().z));
+	m_Surface.Parameter.x = Engine::GameTime::GetElapsedTime();
 	m_Surface.Bind();
-	UINT stride = sizeof(VERTEX_3D), offset = 0;
+	UINT stride = sizeof(Engine::VERTEX_3D), offset = 0;
 	context->IASetVertexBuffers(0, 1, m_VertexBuffer.GetAddressOf(), &stride, &offset);
 	context->IASetIndexBuffer(m_IndexBuffer.Get(), DXGI_FORMAT_R32_UINT, 0);
 	context->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-	Renderer::SetDepthMode(RenderDepthMode::TestOnly);
-	Renderer::SetBlendMode(RenderBlendMode::Alpha);
+	Engine::Renderer::SetDepthMode(Engine::RenderDepthMode::TestOnly);
+	Engine::Renderer::SetBlendMode(Engine::RenderBlendMode::Alpha);
 	context->DrawIndexed(m_IndexCount, 0, 0);
 }

@@ -11,9 +11,9 @@ namespace
 	constexpr int kMaxSparks = 4096;
 	constexpr int kVerticesPerSpark = 6;
 
-	VERTEX_3D MakeVertex(const Vector3& position, const XMFLOAT4& color, float u, float v)
+	Engine::VERTEX_3D MakeVertex(const Vector3& position, const XMFLOAT4& color, float u, float v)
 	{
-		VERTEX_3D vertex{};
+		Engine::VERTEX_3D vertex{};
 		vertex.Position = XMFLOAT3(position.x, position.y, position.z);
 		vertex.Normal = XMFLOAT3(0.0f, 0.0f, -1.0f);
 		vertex.Diffuse = color;
@@ -38,7 +38,7 @@ ComPtr<ID3D11Buffer> ParticleSystem::s_VertexBuffer = nullptr;
 ComPtr<ID3D11InputLayout> ParticleSystem::s_VertexLayout = nullptr;
 ComPtr<ID3D11VertexShader> ParticleSystem::s_VertexShader = nullptr;
 ComPtr<ID3D11PixelShader> ParticleSystem::s_PixelShader = nullptr;
-TextureHandle ParticleSystem::s_Texture;
+Engine::TextureHandle ParticleSystem::s_Texture;
 
 void ParticleSystem::Init()
 {
@@ -52,7 +52,7 @@ void ParticleSystem::Init()
 	{
 		D3D11_BUFFER_DESC bd{};
 		bd.Usage = D3D11_USAGE_DYNAMIC;
-		bd.ByteWidth = sizeof(VERTEX_3D) * kMaxSparks * kVerticesPerSpark;
+		bd.ByteWidth = sizeof(Engine::VERTEX_3D) * kMaxSparks * kVerticesPerSpark;
 		bd.BindFlags = D3D11_BIND_VERTEX_BUFFER;
 		bd.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
 		m_RenderingAvailable = Engine::GraphicsResourceFactory::CreateBuffer(
@@ -61,7 +61,7 @@ void ParticleSystem::Init()
 			s_VertexShader, s_VertexLayout, s_PixelShader, "ParticleSystem")
 			&& m_RenderingAvailable;
 
-		s_Texture = ResourceManager::LoadTexture(L"assets/texture/particle.png");
+		s_Texture = Engine::ResourceManager::LoadTexture(L"assets/texture/particle.png");
 	}
 	m_RenderingAvailable = Engine::GraphicsResourceFactory::IsDrawable(
 		s_VertexBuffer.Get(), s_VertexLayout.Get(), s_VertexShader.Get(), s_PixelShader.Get())
@@ -146,7 +146,7 @@ void ParticleSystem::AddSpark(const Vector3& position, const Vector3& velocity, 
 
 void ParticleSystem::Update()
 {
-	const float dt = GameTime::GetDeltaTime();
+	const float dt = Engine::GameTime::GetDeltaTime();
 
 	for (int index = 0; index < static_cast<int>(m_Sparks.size()); index++)
 	{
@@ -188,7 +188,7 @@ void ParticleSystem::Draw()
 	Vector3 right{ rightValue.x, rightValue.y, rightValue.z };
 	Vector3 up{ upValue.x, upValue.y, upValue.z };
 
-	std::vector<VERTEX_3D>& vertices = m_VertexScratch;
+	std::vector<Engine::VERTEX_3D>& vertices = m_VertexScratch;
 	vertices.clear();
 
 	for (const Spark& spark : m_Sparks)
@@ -231,29 +231,29 @@ void ParticleSystem::Draw()
 		m_RenderingAvailable = false;
 		return;
 	}
-	memcpy(mapped.pData, vertices.data(), sizeof(VERTEX_3D) * vertices.size());
-	Renderer::GetDeviceContext()->Unmap(s_VertexBuffer.Get(), 0);
+	memcpy(mapped.pData, vertices.data(), sizeof(Engine::VERTEX_3D) * vertices.size());
+	Engine::Renderer::GetDeviceContext()->Unmap(s_VertexBuffer.Get(), 0);
 
-	Renderer::GetDeviceContext()->IASetInputLayout(s_VertexLayout.Get());
-	Renderer::GetDeviceContext()->VSSetShader(s_VertexShader.Get(), nullptr, 0);
-	Renderer::GetDeviceContext()->PSSetShader(s_PixelShader.Get(), nullptr, 0);
+	Engine::Renderer::GetDeviceContext()->IASetInputLayout(s_VertexLayout.Get());
+	Engine::Renderer::GetDeviceContext()->VSSetShader(s_VertexShader.Get(), nullptr, 0);
+	Engine::Renderer::GetDeviceContext()->PSSetShader(s_PixelShader.Get(), nullptr, 0);
 
-	MATERIAL material{};
+	Engine::MATERIAL material{};
 	material.Diffuse = XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f);
 	material.TextureEnable = TRUE;
-	Renderer::SetMaterial(material);
-	Renderer::SetWorldMatrix(XMMatrixIdentity());
-	Renderer::SetAddBlendEnable(true);
-	Renderer::SetDepthMode(RenderDepthMode::TestOnly);
+	Engine::Renderer::SetMaterial(material);
+	Engine::Renderer::SetWorldMatrix(XMMatrixIdentity());
+	Engine::Renderer::SetAddBlendEnable(true);
+	Engine::Renderer::SetDepthMode(Engine::RenderDepthMode::TestOnly);
 	ID3D11ShaderResourceView* texture = s_Texture->Get();
-	Renderer::GetDeviceContext()->PSSetShaderResources(0, 1, &texture);
+	Engine::Renderer::GetDeviceContext()->PSSetShaderResources(0, 1, &texture);
 
-	UINT stride = sizeof(VERTEX_3D);
+	UINT stride = sizeof(Engine::VERTEX_3D);
 	UINT offset = 0;
-	Renderer::GetDeviceContext()->IASetVertexBuffers(0, 1, s_VertexBuffer.GetAddressOf(), &stride, &offset);
-	Renderer::GetDeviceContext()->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-	Renderer::GetDeviceContext()->Draw(static_cast<UINT>(vertices.size()), 0);
+	Engine::Renderer::GetDeviceContext()->IASetVertexBuffers(0, 1, s_VertexBuffer.GetAddressOf(), &stride, &offset);
+	Engine::Renderer::GetDeviceContext()->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+	Engine::Renderer::GetDeviceContext()->Draw(static_cast<UINT>(vertices.size()), 0);
 
-	Renderer::SetDepthMode(RenderDepthMode::Enabled);
-	Renderer::SetAddBlendEnable(false);
+	Engine::Renderer::SetDepthMode(Engine::RenderDepthMode::Enabled);
+	Engine::Renderer::SetAddBlendEnable(false);
 }

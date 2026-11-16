@@ -357,9 +357,9 @@ bool RunWireRaceRenderTests()
     {
         for (int i=0;i<count;++i)
         {
-            Manager::StepScene(*scene,1.0f/60.0f);
+            Engine::Manager::StepScene(*scene,1.0f/60.0f);
             keycopy();
-            Manager::DrawWorld(scene->GetWorld(),scene.get());
+            Engine::Manager::DrawWorld(scene->GetWorld(),scene.get());
             if (nextScene)
             {
                 scene->Uninit();
@@ -372,12 +372,12 @@ bool RunWireRaceRenderTests()
     auto capture = [&](const wchar_t* path)
     {
         ComPtr<ID3D11RenderTargetView> view;
-        Renderer::GetDeviceContext()->OMGetRenderTargets(1,view.GetAddressOf(),nullptr);
+        Engine::Renderer::GetDeviceContext()->OMGetRenderTargets(1,view.GetAddressOf(),nullptr);
         if (!view) return false;
         ComPtr<ID3D11Resource> resource;
         view->GetResource(resource.GetAddressOf());
         DirectX::ScratchImage pixels;
-        if (FAILED(DirectX::CaptureTexture(Renderer::GetDevice(),Renderer::GetDeviceContext(),resource.Get(),pixels))) return false;
+        if (FAILED(DirectX::CaptureTexture(Engine::Renderer::GetDevice(),Engine::Renderer::GetDeviceContext(),resource.Get(),pixels))) return false;
         return SUCCEEDED(DirectX::SaveToWICFile(*pixels.GetImage(0,0,0),DirectX::WIC_FLAGS_NONE,
             DirectX::GetWICCodec(DirectX::WIC_CODEC_PNG),path));
     };

@@ -1,3 +1,4 @@
+#include "inputActions.h"
 #include "soundPool.h"
 #include "characterMover.h"
 #include "fpsGame.h"
@@ -112,20 +113,25 @@ void FpsPlayer::PreUpdate()
 		m_Pitch = std::clamp(m_Pitch - mouseY * sensitivity,
 			-XMConvertToRadians(85.0f), XMConvertToRadians(85.0f));
 	}
+	float stickYaw = 0.0f;
+	float stickPitch = 0.0f;
+	Engine::InputActions::GetLookDelta(Engine::GameTime::GetDeltaTime(), stickYaw, stickPitch);
+	m_Yaw += stickYaw;
+	m_Pitch = std::clamp(m_Pitch + stickPitch, -XMConvertToRadians(85.0f), XMConvertToRadians(85.0f));
 }
 
 void FpsPlayer::Update()
 {
-	const float deltaTime = GameTime::GetDeltaTime();
+	const float deltaTime = Engine::GameTime::GetDeltaTime();
 	m_AimProgress = std::clamp(m_AimProgress
-		+ (Mouse_IsRightButtonDown() ? 1.0f : -1.0f) * deltaTime / kAimSeconds, 0.0f, 1.0f);
+		+ (Engine::InputActions::IsDown("aim") ? 1.0f : -1.0f) * deltaTime / kAimSeconds, 0.0f, 1.0f);
 	const Vector3 previous = GetPosition();
 	Move(deltaTime);
 	const Vector3 moved = GetPosition() - previous;
 	m_MoveSpeed = deltaTime > 0.0f ? Vector3(moved.x, 0.0f, moved.z).length() / deltaTime : 0.0f;
 
 	m_FireCooldown = (std::max)(0.0f, m_FireCooldown - deltaTime);
-	if (Mouse_IsLeftButtonDown() && m_FireCooldown <= 0.0f)
+	if (Engine::InputActions::IsDown("fire") && m_FireCooldown <= 0.0f)
 	{
 		m_FireCooldown = kFireInterval;
 		Shoot();
@@ -137,18 +143,17 @@ void FpsPlayer::Move(float deltaTime)
 	const Vector3 forward{ sinf(m_Yaw), 0.0f, cosf(m_Yaw) };
 	const Vector3 right{ cosf(m_Yaw), 0.0f, -sinf(m_Yaw) };
 	Vector3 input{ 0.0f, 0.0f, 0.0f };
-	if (Keyboard_IsKeyDown(KK_W)) input += forward;
-	if (Keyboard_IsKeyDown(KK_S)) input -= forward;
-	if (Keyboard_IsKeyDown(KK_D)) input += right;
-	if (Keyboard_IsKeyDown(KK_A)) input -= right;
-	input.normalize();
+	input += forward * Engine::InputActions::GetAxis("move_back", "move_forward");
+	input += right * Engine::InputActions::GetAxis("move_left", "move_right");
+	// スティックを浅く倒したときは遅く歩けるよう、長さ1を超えたときだけ縮めます。
+	if (input.length() > 1.0f) input.normalize();
 
-	const float speed = Keyboard_IsKeyDown(KK_LEFTSHIFT) ? kSprintSpeed : kWalkSpeed;
+	const float speed = Engine::InputActions::IsDown("sprint") ? kSprintSpeed : kWalkSpeed;
 	const Vector3 horizontal = input * (speed * deltaTime);
 	// 軸ごとに動かすと、壁に斜めに当たっても壁沿いに滑ります。
 	Engine::CharacterMover::MoveAndSlide(*this, *m_Collider, horizontal, FpsCollisionLayers::World);
 
-	if (m_Grounded && Keyboard_IsKeyDownTrigger(KK_SPACE))
+	if (m_Grounded && Engine::InputActions::IsTriggered("jump"))
 	{
 		m_VerticalSpeed = kJumpSpeed;
 		m_Grounded = false;
@@ -255,7 +260,7 @@ void FpsPlayer::LateUpdate()
 
 void FpsPlayer::Draw()
 {
-	LIGHT light{};
+	Engine::LIGHT light{};
 	light.Enable = TRUE;
 	light.Direction = { -0.45f, -0.78f, 0.43f, 0.0f };
 	light.Diffuse = { 0.92f, 0.90f, 0.80f, 1.0f };
@@ -263,13 +268,13 @@ void FpsPlayer::Draw()
 	light.SkyColor = { 0.50f, 0.66f, 0.82f, 1.0f };
 	light.GroundColor = { 0.16f, 0.12f, 0.09f, 1.0f };
 	light.GroundNormal = { 0.0f, 1.0f, 0.0f, 0.0f };
-	Renderer::SetLight(light);
+	Engine::Renderer::SetLight(light);
 	const float fov = kHipFovDegrees + (kAimFovDegrees - kHipFovDegrees) * GetAimBlend();
-	Renderer::SetProjectionMatrix(XMMatrixPerspectiveFovLH(XMConvertToRadians(fov),
+	Engine::Renderer::SetProjectionMatrix(XMMatrixPerspectiveFovLH(XMConvertToRadians(fov),
 		static_cast<float>(SCREEN_WIDTH) / SCREEN_HEIGHT, 0.05f, 200.0f));
-	Renderer::SetViewMatrix(m_View);
+	Engine::Renderer::SetViewMatrix(m_View);
 	const Vector3 eye = GetCameraPosition();
-	Renderer::SetCameraPosition(XMFLOAT3(eye.x, eye.y, eye.z));
+	Engine::Renderer::SetCameraPosition(XMFLOAT3(eye.x, eye.y, eye.z));
 }
 
 void FpsWeapon::Init()
@@ -321,7 +326,7 @@ bool FpsWeapon::GetMuzzleFlash(XMMATRIX& world) const
 
 void FpsWeapon::Update()
 {
-	const float deltaTime = GameTime::GetDeltaTime();
+	const float deltaTime = Engine::GameTime::GetDeltaTime();
 	// 反動は指数的に戻します。
 	m_Recoil *= expf(-14.0f * deltaTime);
 	m_FlashTime -= deltaTime;
@@ -342,10 +347,10 @@ void FpsWeapon::Draw()
 		return;
 	}
 
-	Renderer::ClearDepth();
+	Engine::Renderer::ClearDepth();
 	// 手元だけ視野角を狭めると、画面端で銃が引き伸ばされません。
 	// この後に描かれるのは2DのUIだけなので、投影行列は戻しません(次のフレームはカメラが設定します)。
-	Renderer::SetProjectionMatrix(XMMatrixPerspectiveFovLH(XMConvertToRadians(60.0f),
+	Engine::Renderer::SetProjectionMatrix(XMMatrixPerspectiveFovLH(XMConvertToRadians(60.0f),
 		static_cast<float>(SCREEN_WIDTH) / SCREEN_HEIGHT, 0.01f, 10.0f));
 
 	// カメラ座標での位置です。照準を隠さないよう右下に構え、歩くと8の字に揺れ、撃つと後ろへ下がって銃口が上がります。
@@ -362,7 +367,7 @@ void FpsWeapon::Draw()
 			0.46f - kAimCameraOffset.z * aim - 0.045f * m_Recoil);
 	// ライトはワールド座標で計算されるので、カメラの逆行列でワールドへ戻してから描きます。
 	m_GunWorld = local * XMMatrixInverse(nullptr, player->GetViewMatrix());
-	Renderer::SetWorldMatrix(m_GunWorld);
+	Engine::Renderer::SetWorldMatrix(m_GunWorld);
 }
 
 void FpsMuzzleFlash::Init()
@@ -387,9 +392,9 @@ void FpsMuzzleFlash::Draw()
 	}
 	// 加算合成で光らせ、深度は書かずに銃の手前だけへ重ねます。
 	// 投影行列と深度は銃が設定した手元用のものをそのまま使います。描画状態は描画後にRenderQueueが戻します。
-	Renderer::SetBlendMode(RenderBlendMode::Additive);
-	Renderer::SetDepthMode(RenderDepthMode::TestOnly);
-	Renderer::SetWorldMatrix(world);
+	Engine::Renderer::SetBlendMode(Engine::RenderBlendMode::Additive);
+	Engine::Renderer::SetDepthMode(Engine::RenderDepthMode::TestOnly);
+	Engine::Renderer::SetWorldMatrix(world);
 }
 
 void FpsBlock::Init()
@@ -426,7 +431,7 @@ void FpsTarget::Init()
 
 void FpsTarget::Update()
 {
-	m_Rotation.y += 1.5f * GameTime::GetDeltaTime();
+	{ Vector3 value = GetRotation(); value.y += 1.5f * Engine::GameTime::GetDeltaTime(); SetRotation(value); }
 }
 
 void FpsImpactMarker::Init()
@@ -452,7 +457,7 @@ void FpsImpactMarker::Place(const Vector3& point, const Vector3& normal)
 
 void FpsImpactMarker::Update()
 {
-	m_RemainingSeconds -= GameTime::GetDeltaTime();
+	m_RemainingSeconds -= Engine::GameTime::GetDeltaTime();
 	if (m_RemainingSeconds <= 0.0f)
 	{
 		MarkForDestroy();
@@ -462,7 +467,7 @@ void FpsImpactMarker::Update()
 void FpsImpactMarker::Draw()
 {
 	// 直径約20cm、厚さ1mm未満のマーカーです。通常の深度テストで遮蔽物に隠れます。
-	Renderer::SetWorldMatrix(XMMatrixScaling(0.22f, 0.22f, 0.01f)
+	Engine::Renderer::SetWorldMatrix(XMMatrixScaling(0.22f, 0.22f, 0.01f)
 		* m_SurfaceRotation * XMMatrixTranslation(GetPosition().x, GetPosition().y, GetPosition().z));
 }
 
@@ -525,7 +530,7 @@ void FpsGameScene::Init()
 
 void FpsGameScene::Update()
 {
-	if (Keyboard_IsKeyDownTrigger(KK_R))
+	if (Engine::InputActions::IsTriggered("retry"))
 	{
 		ChangeSceneWith<FpsGameScene>(SceneTransition::Instant());
 		return;
@@ -536,7 +541,7 @@ void FpsGameScene::Update()
 	const std::size_t remaining = world.FindAll<FpsTarget>().size();
 	if (!m_Cleared)
 	{
-		m_ElapsedSeconds += GameTime::GetDeltaTime();
+		m_ElapsedSeconds += Engine::GameTime::GetDeltaTime();
 		m_Cleared = remaining == 0;
 	}
 

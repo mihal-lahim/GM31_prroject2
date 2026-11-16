@@ -71,22 +71,22 @@
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="include\animationModel.h">
+    <ClInclude Include="include\animation\animationModel.h">
       <Filter>Code\Character</Filter>
     </ClInclude>
-    <ClInclude Include="include\animator.h">
+    <ClInclude Include="include\animation\animator.h">
       <Filter>Code\Character</Filter>
     </ClInclude>
-    <ClInclude Include="include\sky.h">
+    <ClInclude Include="include\shared\sky.h">
       <Filter>Code\Environment</Filter>
     </ClInclude>
-    <ClInclude Include="include\wave.h">
+    <ClInclude Include="include\games\classroom\wave.h">
       <Filter>Code\Environment</Filter>
     </ClInclude>
-    <ClInclude Include="include\meshField.h">
+    <ClInclude Include="include\games\classroom\meshField.h">
       <Filter>Code\Game</Filter>
     </ClInclude>
-    <ClInclude Include="include\classroomWalk.h">
+    <ClInclude Include="include\games\classroom\classroomWalk.h">
       <Filter>Code\Game</Filter>
     </ClInclude>
   </ItemGroup>

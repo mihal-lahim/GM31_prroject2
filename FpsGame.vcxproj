@@ -63,15 +63,15 @@
   <Import Project="SurfaceShaders.props" />
   <ItemDefinitionGroup>
     <ClCompile>
-      <AdditionalIncludeDirectories>$(ProjectDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir);$(ProjectDir)include\games\fps;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <AdditionalLibraryDirectories>$(ProjectDir);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClInclude Include="include\fpsGame.h" />
-    <ClInclude Include="include\sky.h" />
+    <ClInclude Include="include\games\fps\fpsGame.h" />
+    <ClInclude Include="include\shared\sky.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\engine\main.cpp" />
@@ -110,6 +110,9 @@
     </RuntimeAsset>
     <RuntimeAsset Include="third_party\assimp\bin\assimp-vc143-mt.dll">
       <TargetPath>assimp-vc143-mt.dll</TargetPath>
+    </RuntimeAsset>
+    <RuntimeAsset Include="assets\config\fps-input.cfg">
+      <TargetPath>assets\config\fps-input.cfg</TargetPath>
     </RuntimeAsset>
     <RuntimeAsset Include="assets\config\fps.cfg">
       <TargetPath>assets\config\fps.cfg</TargetPath>

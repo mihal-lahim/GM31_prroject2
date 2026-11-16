@@ -1,286 +1,274 @@
-# Project Structure
+# プロジェクト構成
 
-The solution contains one reusable engine library, two shared support libraries
-(`AnimationLib`, `ImGuiLib`), and six independent applications.
+ソリューションは、再利用するエンジンライブラリ1つ、共通の補助ライブラリ2つ
+(`AnimationLib`、`ImGuiLib`)、独立したアプリケーション6つで構成されています。
 
-## Projects
+## プロジェクト
 
 ### Engine (`Engine.vcxproj`)
 
-`Engine` is a static library. It owns platform-independent game runtime
-concepts and the DirectX 11 backend used by both applications:
+`Engine` は静的ライブラリです。プラットフォームに依存しないゲーム実行の仕組みと、
+全アプリが使うDirectX 11の描画処理を持ちます。
 
-- `World`, `Manager`, `Scene`, `GameObject`, and `Component`
-- rendering, model loading, numeric UI, audio, input, and time
-- per-World collision queries, spatial indexing, and shared particle systems
-- the `ICameraView` contract used by rendering and shared effects
-- typed texture, WAV, shader, and model handles managed by `ResourceManager`
-- `Cloth`: a mass-spring cloth object (ported from the GY cloth lesson) that is pushed by
-  any sphere/capsule/AABB `Collider` in its World. `ClothSimulation` is render-independent
-  and covered by the engine self-tests.
-- `ShadowMap`: a directional-light shadow map. `RenderQueue::Execute` draws the Camera
-  layer first (cameras set the light), then calls `RunDrawShadow()` on every non-UI object,
-  then draws normally. Objects opt in by overriding `DrawShadow()` (GameObject or Component)
-  and calling `ShadowMap::BindCaster()`. It uses slots the `RendererStateScope` does not touch
-  (b8, s1, t4), so scenes without casters render exactly as before.
+- `World`、`Manager`、`Scene`、`GameObject`、`Component`
+- 描画、モデル読み込み、数値UI、音声、入力、時間
+- Worldごとの当たり判定、空間インデックス、共通のパーティクル
+- 描画と共通エフェクトが使うカメラの約束事 `ICameraView`
+- `ResourceManager` が管理する、型付きのテクスチャ・WAV・シェーダー・モデルのハンドル
+- `Cloth`: バネと質点の布です(GYの布の授業から移植)。同じWorldにある球・カプセル・AABBの
+  `Collider` に押されます。`ClothSimulation` は描画に依存せず、エンジンの自己テストで確認しています。
+- `ShadowMap`: 平行光源のシャドウマップです。`RenderQueue::Execute` はまずCameraレイヤーを描き
+  (カメラがライトを決めます)、次にUI以外の全オブジェクトの `RunDrawShadow()` を呼び、最後に
+  通常の描画をします。影を落としたいオブジェクトは `DrawShadow()`(GameObjectまたはComponent)を
+  上書きして `ShadowMap::BindCaster()` を呼びます。`RendererStateScope` が触らないスロット
+  (b8、s1、t4)を使うので、影を落とす物がないSceneの見た目は変わりません。
 
-Engine source files must not include Wire Action or Batting Center headers.
-Every `Scene` owns an independently constructible `World`. `World::Spawn`
-injects that world into each `GameObject`, so gameplay code performs local
-spawn/query operations without using the global `Manager`. `Manager` is now
-limited to application lifecycle, scene transitions, and frame orchestration.
-`CollisionWorld` follows the same ownership boundary. There is no process-wide
-collider registry: collision layers belong to each game, collision masks avoid
-unrelated narrow-phase tests, and static colliders are indexed in spatial hash
-cells. Query results retain registration order for deterministic behavior.
+Engineのソースはゲームのヘッダーを読み込みません。
+すべての `Scene` は単独で作れる `World` を持ちます。`World::Spawn` が各 `GameObject` にその
+Worldを渡すので、ゲームの処理はグローバルな `Manager` を使わずに生成・検索できます。
+`Manager` の仕事は、アプリの起動と終了、Sceneの切り替え、フレームの進行だけです。
+`CollisionWorld` も同じ所有関係です。プロセス全体で共有するColliderの登録先はありません。
+当たり判定のレイヤーは各ゲームが決め、マスクで無関係な詳細判定を省き、静的なColliderは
+空間ハッシュのセルに登録します。検索結果は登録順を保つので、挙動は毎回同じになります。
 
 ### WireAction (`WireAction.vcxproj`)
 
-`WireAction` is a vertical, single-player time attack race.
+`WireAction` は、上へ登っていく1人用のタイムアタックレースです。
 
-- `wireGame.*`: race scene, fixed safe respawns, summit finish, persisted personal best.
-- `wireRace.h`: render-independent race clock and swept goal-volume intersection.
-- `wireFactory.*`: 300m tower, outside platforms, central shortcuts, elevators and moving boxes.
-  Moving collision boxes, rendering and attached anchor positions use the same transforms.
-- `wireGrappleAbility.*`: immediate attachment, moving targets, momentum-preserving release.
-- `wireSwingPhysics.h`: numerical rope integration and ascent-dependent release assistance.
-- `wireRopePath.*`: rope path that bends on block edges; the last bend is the swing pivot. No rendering, input, or World dependency.
-- `wireRopeVisual.h`: render-only Verlet chain for the slack between the pivot and the hand.
-- `wirePlayerMovement.*`: tangent input, jumping, wall kicks, aerial direction changes and landings.
-- `wirePlayer.*`, `wireRobotRenderer.*`, `wirePlayerPresentation.*`: toy robot and wire feedback.
-- `wireMissionHud.*`: race time, altitude, speed, best time and short movement feedback.
-- `wireTitleScene.*`, `wireResultScene.*`, `wireMenuBackdrop.h`: race / retry / optional practice menus.
-- `wireTutorialScene.*`, `wireChatBox.*`, `wireGuide.*`: optional movement and swing practice.
-- `wireRaceTests.cpp`: numerical regressions and optional real-render scene-loop tests.
+- `wireGame.*`: レースのScene、決まった安全地点への復帰、頂上のゴール、自己ベストの保存。
+- `wireRace.h`: 描画に依存しないレースの時計と、移動量を考慮したゴール判定。
+- `wireFactory.*`: 高さ300mの塔、外側の足場、中央の近道、エレベーターと動く箱。
+  動く箱の当たり判定、描画、取り付けたアンカーの位置は同じ変換を使います。
+- `wireGrappleAbility.*`: 即座の接続、動く対象への接続、勢いを保ったままの解除。
+- `wireSwingPhysics.h`: ロープの数値積分と、上昇量に応じた解除時の補助。
+- `wireRopePath.*`: 足場の角で折れるロープの経路です。最後の折れ目が振り子の支点になります。
+  描画・入力・Worldには依存しません。
+- `wireRopeVisual.h`: 支点から手までのたるみを描く、描画専用のVerlet鎖。
+- `wirePlayerMovement.*`: 接線方向の入力、ジャンプ、壁蹴り、空中での方向転換、着地。
+- `wirePlayer.*`、`wireRobotRenderer.*`、`wirePlayerPresentation.*`: おもちゃのロボットとワイヤーの見た目。
+- `wireMissionHud.*`: レース時間、高度、速度、ベストタイム、移動の短い手応え表示。
+- `wireTitleScene.*`、`wireResultScene.*`、`wireMenuBackdrop.h`: レース・リトライ・練習のメニュー。
+- `wireTutorialScene.*`、`wireChatBox.*`、`wireGuide.*`: 移動とスイングの練習(任意)。
+- `wireRaceTests.cpp`: 数値の回帰テストと、実際に描画するSceneループのテスト。
 
-`GameDefinition` provides optional self-test/render-test callbacks so Engine never includes game headers.
-Japanese and formatted time text use Engine's `dynamicText.*` renderer.
-Legacy enemies, sword abilities, breakable parts and workers remain available as unused implementations;
-the race and practice scenes do not spawn them or run sword attacks.
+`GameDefinition` が自己テストと描画テストの関数を任意で渡すので、Engineはゲームのヘッダーを
+読み込まずに済みます。日本語と時間の表示はEngineの `dynamicText.*` で描きます。
+敵(`wireEnemy.*`)は屋上を巡回して体当たりしてきますが、倒すことはできません。
 
-`IWireTarget` represents anchor points, including moving machinery. `WireBlockField` supplies surface
-raycasts, body collision and landing queries. `wireBoxMesh` supplies the shared box geometry.
+`IWireTarget` は、動く機械も含めたアンカーの位置を表します。`WireBlockField` は面への
+レイキャスト、体の当たり判定、着地の判定を担当します。`wireBoxMesh` は共通の箱の形状です。
 
 ### BattingCenter (`BattingCenter.vcxproj`)
 
-`BattingCenter` builds `BattingCenter.exe` and contains the preserved batting
-game. Its initial scene is `Title`, registered by
-`battingGameDefinition.cpp`.
+`BattingCenter` は `BattingCenter.exe` を作ります。以前から残しているバッティングゲームです。
+最初のSceneは `Title` で、`battingGameDefinition.cpp` で登録しています。
 
 ### ClassroomWalk (`ClassroomWalk.vcxproj`)
 
-`ClassroomWalk` is a small teaching sample linked to `Engine.lib`. Its scene
-spawns a field, follow camera, and the previously unused `Akai.fbx` player.
-`Akai_Idle.fbx` plays while still and `Akai_Run.fbx` while moving. WASD or arrow
-keys walk on the field. The application packages only its own runtime assets.
+`ClassroomWalk` は `Engine.lib` を使う小さな教材です。地面、追従カメラ、以前は使っていなかった
+`Akai.fbx` のプレイヤーを置きます。止まっている間は `Akai_Idle.fbx`、動いている間は
+`Akai_Run.fbx` を再生します。WASDか矢印キーで歩きます。アプリが含めるのは自分の実行時アセットだけです。
 
-`AnimationModel` (skinning, foot IK) delegates clip selection to `Anim::Animator`
-(`animator.*`): crossfades, 1D blend trees with phase-synchronized clips, masked
-override/additive action layers for attacks and hit reactions, and root motion extraction. `Animator` has no rendering dependency and is covered by
-`animatorSelfTests.cpp` (`ClassroomWalk.exe --self-test`). See `docs/animation.md`.
+`AnimationModel`(スキニング、足のIK)は、どのクリップを再生するかを `Anim::Animator`
+(`animator.*`)に任せます。`Animator` はクロスフェード、位相をそろえる1Dブレンドツリー、
+攻撃や被弾リアクション向けのマスク付きの上書き・加算レイヤー、ルートモーションの抽出を
+扱います。描画には依存せず、`animatorSelfTests.cpp`(`ClassroomWalk.exe --self-test`)で
+確認しています。詳しくは `docs/animation.md` を見てください。
 
 ### SlowAction (`SlowAction.vcxproj`)
 
-`SlowAction` is a prototype for a time-slow melee action game. Only world-side
-time is slowed; the player and camera keep running on real time.
+`SlowAction` は、時間を遅くする近接アクションの試作です。遅くなるのはWorld側の時間だけで、
+プレイヤーとカメラは実時間のまま動きます。
 
-- `slowAction.*`: scene, test arena, debug HUD, `SlowInput` (one input snapshot per step,
-  replaceable from tests) and `SlowClock` (world time scale and the slow gauge).
-  Enemies read `SlowClock::GetWorldDeltaTime()`; the player and camera read `GameTime`.
-- `slowPlayer.cpp`: move / dash / attack state machine, attack buffering and dash cancel.
-  The player is drawn with the class character `Akai.fbx` through `AnimationModel` (compiled by
-  the app, like ClassroomWalk). Only Idle and Run are used for now; attack clips come later.
-- `slowEnemy.cpp`: enemy AI for three kinds (melee, gunner, armored brute) selected by the
-  reflected `Kind` value, launch arc, wall bounce and pursuit. Launch speed and height are
-  functions of elapsed launch time, so repeated pursuits and bounces cannot accumulate speed.
-- `slowBullet.cpp`: gunner projectile on world time; player attacks deflect it back at the shooter.
-- `slowFeedback.cpp`: `SlowScore` (combo, multiplier, score, popups) and `SlowSound`
-  (pooled sound effects owned by one `SlowSoundBank` object in the scene).
-- `slowCamera.cpp`: third-person follow camera with dash FOV, launch assist and wall pull-in.
-- `slowActionTuning.*`: every gameplay number, overridable from `assets/config/slow-gameplay.cfg`.
-  The list lives in one place, `slowActionTuning.def`; the struct members, the config reads and the
-  unknown-key check are all generated from it (`Engine::TuningFields` in `tuningFields.h`).
-  WireAction (`wireGameplayTuning.def`) and BattingCenter (`battingGameplayTuning.def`) use the same
-  scheme; their entries also carry the config key and, where needed, an explicit range.
-  To add a tuning value in any game, add one line to that game's `.def` file. Each game's tests fail
-  when its `*-gameplay.cfg` contains a key that is not in the list.
-- `slowActionRenderTest.cpp`: scripted checks of the specified numbers and transitions.
-- `sceneEditor.*`: the in-game editor UI (hierarchy, inspector, save, free camera). It depends on
-  ImGui, so it is compiled by the application instead of living in `Engine.lib`, and it knows no
-  game types: it only uses `Engine::SceneSerializer` and `GameObject::Reflect`.
-  The stage layout lives in `assets/scene/slow-stage.scene`, not in code.
+- `slowAction.*`: Scene、テスト用の闘技場、デバッグ表示、`SlowInput`(1ステップに1回取る入力。
+  テストから差し替えられます)、`SlowClock`(Worldの時間倍率とスロー用ゲージ)。
+  敵は `SlowClock::GetWorldDeltaTime()` を、プレイヤーとカメラは `GameTime` を読みます。
+- `slowPlayer.cpp`: 移動・ダッシュ・攻撃の状態遷移、攻撃の先行入力、ダッシュによるキャンセル。
+  プレイヤーは授業のキャラクター `Akai.fbx` を `AnimationModel` で描きます(ClassroomWalkと同じく
+  アプリ側でコンパイルします)。今はIdleとRunだけを使い、攻撃のクリップは後で入れます。
+- `slowEnemy.cpp`: 3種類(近接、射撃、重装)の敵のAIです。種類はリフレクションされた `Kind` の値で
+  選びます。打ち上げの軌道、壁での跳ね返り、追撃も担当します。打ち上げの速さと高さは打ち上げてからの
+  経過時間で決まるので、追撃や跳ね返りを繰り返しても速度がたまりません。
+- `slowBullet.cpp`: World時間で動く射撃の弾です。プレイヤーの攻撃で撃った敵へ跳ね返せます。
+- `slowFeedback.cpp`: `SlowScore`(コンボ、倍率、スコア、ポップアップ)と `SlowSound`
+  (Sceneにある1つの `SlowSoundBank` が持つ、使い回しの効果音)。
+- `slowCamera.cpp`: ダッシュ時の視野角、打ち上げ時の補助、壁際での寄せを持つ三人称の追従カメラ。
+- `slowActionTuning.*`: ゲームプレイの数値すべてです。`assets/config/slow-gameplay.cfg` で上書きできます。
+  一覧は `slowActionTuning.def` の1か所だけにあり、構造体のメンバー、設定の読み込み、知らないキーの
+  検出はすべてここから作ります(`tuningFields.h` の `Engine::TuningFields`)。
+  WireAction(`wireGameplayTuning.def`)とBattingCenter(`battingGameplayTuning.def`)も同じ仕組みで、
+  こちらは各項目に設定キーと、必要なら範囲も書きます。
+  どのゲームでも、調整値を足すときはそのゲームの `.def` に1行足すだけです。`*-gameplay.cfg` に一覧にない
+  キーがあると、そのゲームのテストが失敗します。
+- `slowActionRenderTest.cpp`: 仕様の数値と遷移を台本どおりに確かめるテスト。
+- `sceneEditor.*`: ゲーム内エディタのUI(階層、インスペクター、保存、自由カメラ)です。ImGuiに依存する
+  ので `Engine.lib` ではなくアプリ側でコンパイルします。ゲームの型は知らず、`Engine::SceneSerializer` と
+  `GameObject::Reflect` だけを使います。ステージの配置はコードではなく `assets/scene/slow-stage.scene` にあります。
 
-## Source layout
+### FpsGame (`FpsGame.vcxproj`)
 
-Headers stay flat in `include/` (one include directory for every project).
-Sources are grouped by owner:
-
-| Folder | Built by |
-|---|---|
-| `src/engine/` | `Engine.lib` (plus `main.cpp` and `enginePch.cpp`, compiled by every application) |
-| `src/animation/` | `AnimationLib.lib`: `Animator` and `AnimationModel`, optimized even in Debug |
-| `third_party/imgui/` | `ImGuiLib.lib`: Dear ImGui and its Win32/DX11 backends |
-| `third_party/assimp/` | Assimp headers (`include/`) and runtime DLL (`bin/`); the import library is in `lib/` with DirectXTex |
-| `src/shared/` | sources compiled by several applications (`sky.cpp`) |
-| `src/games/<name>/` | one application only (`wire`, `batting`, `classroom`, `fps`, `shaderGallery`, `slow`) |
-
-Applications reference `AnimationLib` / `ImGuiLib` with a `ProjectReference`
-instead of compiling those sources themselves.
-
-## Framework services for games
-
-- **Scene transitions** — `ChangeScene<T>()` fades out/in for 0.45 s each.
-  `ChangeSceneWith<T>(SceneTransition::Instant())` (or `Quick()`, or custom
-  seconds) is for retries and other repeated transitions.
-- **Quitting** — `GameDefinition::QuitOnEscape` (default `true`) keeps the old
-  "Esc closes the window" behavior for tools and demos. Games that use Esc
-  themselves set it to `false` and call `Scene::RequestQuit()`.
-- **Input actions** — `Engine::InputActions` maps action names to keys, mouse
-  buttons, and the first XInput gamepad. A game registers defaults through
-  `GameDefinition::DefineInputs`; `GameDefinition::InputBindingsPath`
-  (e.g. `assets/config/slow-input.cfg`) lets players rebind them
-  (`attack = MOUSE_LEFT, PAD_X`). States are latched once per fixed step by
-  `Manager`, so `IsTriggered` / `IsReleased` are consistent within a step.
-- **Time channels** — `GameTime::SetChannelScale(n, scale)` /
-  `GetChannelDeltaTime(n)` give "only enemies are slowed" style time without a
-  game-specific clock. Hit stop and pause still apply to every channel.
-  Channels reset on every scene change. SlowAction's world time is channel 1.
-- **Character movement** — `Engine::CharacterMover::TryMove` / `MoveAndSlide`
-  (`characterMover.h`) move an object and undo the move if its collider would
-  overlap the given layers; per-axis moves slide along walls.
-- **Sound pools** — `SoundPool` (`soundPool.h`) is a component with several
-  voices for one sound so rapid repeats do not cut each other off.
-- **Stepping in tests** — `Manager::StepScene(scene, dt)` runs exactly the
-  same per-step order as the application loop (time, input, `Scene::Update`,
-  Pre/Update/Late, destroy). `Manager::DrawWorld` renders a World. Tests use
-  these instead of re-implementing the loop.
-
-## Scene files and reflection
-
-- Every `GameObject` has a `World`-unique id (assigned by `World::Spawn`) and an optional name.
-- `GameObject::Reflect(Engine::PropertyVisitor&)` exposes values once; the same description drives
-  saving, loading, and the inspector. `OnPropertiesChanged()` applies them after a load or an edit.
-- `Engine::ObjectTypeRegistry` maps type names to factories. Only registered types are saved.
-- `Engine::SceneSerializer` reads and writes the line-based scene text. Unknown values are ignored
-  and missing values keep their defaults, so adding or removing a reflected value does not break
-  existing files.
-- Not covered yet: component-level serialization (objects build their components in `Init`),
-  parent/child transforms, references between objects, undo, prefabs, and gizmos.
+一人称シューティングの試作です。詳しくは `docs/games/fps-game.md` を見てください。
 
 ### ShaderGallery (`ShaderGallery.vcxproj`)
 
-`ShaderGallery` compares the SP31 surface modes using GM31's shared Engine,
-shader catalogue, `SurfaceMaterial`, and post effect renderer. It is a separate
-teaching application with its own runtime asset manifest. Its ImGui source and
-controls live in the application. `GameDefinition` supplies optional UI hooks;
-the Engine presents the UI after its post effect and before the swap chain present.
+`ShaderGallery` は、GM31の共通Engine、シェーダー一覧、`SurfaceMaterial`、ポストエフェクトを使って、
+SP31の表面表現のモードを見比べるアプリです。独立した教材アプリで、実行時アセットの一覧も自分で持ちます。
+ImGuiのソースと操作UIはアプリ側にあります。`GameDefinition` がUI用の関数を任意で渡し、Engineは
+ポストエフェクトの後、画面に出す直前にそのUIを描きます。
 
-Building `WireAction` does not compile Batting Center sources. Building
-`BattingCenter` does not compile Wire Action sources. Both link the same
-`Engine.lib`.
+`WireAction` をビルドしてもBatting Centerのソースはコンパイルされず、その逆も同じです。
+どちらも同じ `Engine.lib` にリンクします。
 
-## Runtime lifecycle
+## ソースとヘッダーの配置
 
-Each fixed simulation step runs in three phases:
+ヘッダーもソースも、持ち主ごとにフォルダを分けています。
 
-1. `PreUpdate`: input/orientation work, including camera input
-2. `Update`: gameplay simulation
-3. `LateUpdate`: camera follow and presentation work that needs final positions
+| フォルダ | 使う側 |
+|---|---|
+| `include/engine/`、`src/engine/` | `Engine.lib`(`main.cpp` と `enginePch.cpp` だけは各アプリがコンパイルします) |
+| `include/animation/`、`src/animation/` | `AnimationLib.lib`: `Animator` と `AnimationModel`。Debugでも最適化します |
+| `include/shared/`、`src/shared/` | 複数のアプリがコンパイルするもの(`sky`) |
+| `include/games/<name>/`、`src/games/<name>/` | そのアプリだけ(`wire`、`batting`、`classroom`、`fps`、`shaderGallery`、`slow`) |
+| `third_party/imgui/` | `ImGuiLib.lib`: Dear ImGuiとWin32/DX11のバックエンド |
+| `third_party/assimp/` | Assimpのヘッダー(`include/`)と実行時DLL(`bin/`)。インポートライブラリはDirectXTexと一緒に `lib/` にあります |
 
-Objects spawned during a simulation step are initialized immediately but are
-queued by `World`; they begin updating on the next step. Scene changes and
-destroy requests are applied at the frame boundary.
+`Common.props` が全プロジェクトに `include/engine`、`include/animation`、`include/shared` を
+インクルードパスとして渡します。各アプリは自分の `include/games/<name>` だけを追加するので、
+別のゲームのヘッダーを読み込もうとするとコンパイルエラーになります。
+`#include` はファイル名だけで書きます(例: `#include "renderer.h"`)。
 
-`World` invokes non-virtual lifecycle entry points (`Initialize`, `RunUpdate`,
-`RunDraw`, and `Shutdown`). They invoke object-specific virtual behavior and
-then component behavior exactly once. A derived object can no longer break its
-components by forgetting a `GameObject::Update`, `Draw`, or `Uninit` call.
-World type queries are cached and invalidated at spawn/destroy boundaries;
-objects already marked for destruction are excluded immediately.
+アプリは `AnimationLib` と `ImGuiLib` のソースを自分でコンパイルせず、`ProjectReference` で参照します。
 
-Rendering is submitted through `RenderQueue`. Opaque world objects are sorted
-front-to-back, transparent effects back-to-front, and overlay UI retains
-submission order. Each object draw is wrapped in `RendererStateScope`, which
-restores input assembly, shaders, constant buffers, rasterizer/viewports,
-render targets, depth/blend state, sampler, and texture state even when a draw
-implementation returns early.
+## 名前空間
 
-The application loop uses a 60 Hz accumulator with capped catch-up work. This
-preserves fractional elapsed time without allowing an unbounded update spiral.
+Engineの型はすべて `Engine::` 名前空間にあります(`Engine::Renderer`、`Engine::Manager`、
+`Engine::GameTime`、`Engine::ResourceManager` など)。以前あった `using Renderer = Engine::Renderer;`
+のようなグローバルの互換名は廃止しました。新しいEngine APIも `Engine::` に追加します。
+`engineApi.h` を読み込むと、主なEngineの型をまとめて使えます。
 
-Objects submitted at the same camera depth keep their submission order. The
-comparator falls through to `SubmissionOrder` on ties because `std::sort` is not
-stable, so coplanar geometry would otherwise swap between frames.
+## ゲーム向けのフレームワーク機能
 
-## Transform writes and collider indexing
+- **Sceneの切り替え** — `ChangeScene<T>()` はフェードアウトとフェードインを0.45秒ずつ行います。
+  リトライなど何度も繰り返す切り替えには `ChangeSceneWith<T>(SceneTransition::Instant())`
+  (または `Quick()`、秒数の指定)を使います。
+- **終了** — `GameDefinition::QuitOnEscape`(既定は `true`)で、ツールやデモ向けの
+  「Escでウィンドウを閉じる」動作を残しています。Escを自分で使うゲームは `false` にして
+  `Scene::RequestQuit()` を呼びます。
+- **入力アクション** — `Engine::InputActions` が操作名をキー、マウスボタン、1台目のXInputゲームパッドへ
+  割り当てます。ゲームは `GameDefinition::DefineInputs` で既定の割り当てを登録し、
+  `GameDefinition::InputBindingsPath`(例: `assets/config/slow-input.cfg`)でプレイヤーが差し替えられます
+  (`attack = MOUSE_LEFT, PAD_X`)。押下状態は固定ステップごとに1回 `Manager` が確定させるので、
+  `IsTriggered` と `IsReleased` は1ステップの中で食い違いません。右スティックの視点操作は
+  `DefineLookStick` と `GetLookDelta` で共通化しています。
+- **時間チャンネル** — `GameTime::SetChannelScale(n, scale)` と `GetChannelDeltaTime(n)` で、
+  ゲーム専用の時計を作らずに「敵だけ遅くする」ような時間を扱えます。ヒットストップと一時停止は
+  全チャンネルにかかります。チャンネルはSceneを切り替えるたびに元に戻ります。SlowActionのWorld時間は
+  チャンネル1です。
+- **キャラクターの移動** — `Engine::CharacterMover::TryMove` と `MoveAndSlide`(`characterMover.h`)は、
+  オブジェクトを動かし、Colliderが指定したレイヤーと重なるなら移動を取り消します。軸ごとに動かすので
+  壁に沿って滑ります。
+- **サウンドプール** — `SoundPool`(`soundPool.h`)は、1つの音に複数の発音を持つコンポーネントです。
+  連続で鳴らしても前の音が途切れません。
+- **テストでの進行** — `Manager::StepScene(scene, dt)` は、アプリのループと同じ順序(時間、入力、
+  `Scene::Update`、Pre/Update/Late、破棄)で1ステップ進めます。`Manager::DrawWorld` はWorldを描きます。
+  テストはループを自前で書かずにこれらを使います。
 
-`m_Position` is private to `GameObject`: every position write goes through
-`SetPosition`, which raises `Component::OnOwnerTransformChanged` and refreshes
-the static collider spatial index (`collider.h`). Derived classes read it with
-`GetPosition()`. `m_Rotation` and `m_Scale` are still protected and written
-directly in places; an object whose collider depends on them must use
-`SetRotation` / `SetScale`.
+## シーンファイルとリフレクション
 
-The direction accessors (`GetForward`, `GetRight`, `GetUp`, `GetLeft`) are
-immune to this: they key their cached rotation axes on the rotation value
-itself, not on a dirty flag, so a direct write still produces the correct basis
-while repeated reads within a frame reuse one matrix build.
+- すべての `GameObject` は、World内で重複しない番号(`World::Spawn` が振ります)と、任意の名前を持ちます。
+- `GameObject::Reflect(Engine::PropertyVisitor&)` で値を1回だけ公開すると、同じ記述で保存・読み込み・
+  インスペクターが動きます。読み込みや編集の後は `OnPropertiesChanged()` で反映します。
+- `Engine::ObjectTypeRegistry` は型名と生成関数を結び付けます。保存されるのは登録した型だけです。
+- `Engine::SceneSerializer` は行単位のシーンテキストを読み書きします。知らない値は無視し、ない値は
+  既定値のままにするので、リフレクションする値を足したり消したりしても既存のファイルは壊れません。
+- まだ対応していないもの: コンポーネント単位の保存(オブジェクトは `Init` で自分のコンポーネントを作ります)、
+  親子の変換、オブジェクト間の参照、元に戻す操作、プレハブ、ギズモ。
 
-## Resource ownership
+## 実行時の流れ
 
-`ResourceManager` normalizes asset paths and caches each texture, WAV, compiled
-shader, and model once. Callers retain typed shared handles instead of owning
-duplicate decoded data or GPU objects. Model material textures use the same
-cache as sprites, particles, UI, and stage geometry. Each `Audio` component
-still owns its XAudio source voice, while immutable WAV format and sample data
-are shared.
+固定の更新ステップは3段階で進みます。
 
-The compatibility shader creation methods on `Renderer` now delegate to this
-cache, so existing draw classes receive the same input-layout and shader COM
-objects. `ModelRenderer` stores a `ModelHandle` rather than a raw pointer; cache
-clears therefore cannot invalidate a model still referenced by a component.
-Failed model loads are not cached and may be retried after an asset is fixed.
-OBJ/MTL parsing lives in `objModelLoader.cpp`; `ModelRenderer` is limited to
-GPU resource creation, handle ownership, and drawing. Mouse device state is
-similarly isolated in `mouseInput.cpp` instead of the application entry point.
+1. `PreUpdate`: 入力と向きの処理(カメラの入力を含みます)
+2. `Update`: ゲームプレイのシミュレーション
+3. `LateUpdate`: 最終位置が必要なカメラの追従と見た目の処理
 
-GPUバッファと標準シェーダーの生成は `Engine::GraphicsResourceFactory` に集約
-されています。失敗時は対象COMポインタを空にして統一ログを残すため、各描画
-クラスが失敗したリソースを使い続けることはありません。
+ステップの途中で生成したオブジェクトはすぐに初期化されますが、`World` が順番待ちにし、次のステップから
+更新が始まります。Sceneの切り替えと破棄の要求はフレームの区切りで反映します。
 
-新規のEngine APIは `Engine::RuntimeConfig`、`Engine::GraphicsResourceFactory`
-のように `Engine::` 名前空間へ追加します。既存のグローバル型は二つのゲームを
-段階的に移行するための互換APIであり、`engineApi.h` からも `Engine::Renderer`
-等の名前で参照できます。
+`World` は仮想でない入口(`Initialize`、`RunUpdate`、`RunDraw`、`Shutdown`)を呼びます。入口は
+オブジェクト固有の仮想関数を呼んだ後、コンポーネントの処理をちょうど1回ずつ呼びます。派生クラスが
+`GameObject::Update`、`Draw`、`Uninit` の呼び出しを忘れても、コンポーネントが壊れることはありません。
+Worldの型検索はキャッシュし、生成と破棄の区切りで無効にします。破棄予定のオブジェクトはすぐに検索結果から外します。
 
-The cache is cleared after all scene objects and model resources are released,
-and before XAudio and Direct3D are shut down. A handle may safely outlive a
-cache clear; its resource remains alive until the last handle is released.
+描画は `RenderQueue` を通して出します。不透明なWorldのオブジェクトは手前から奥へ、透明なエフェクトは
+奥から手前へ並べ、重ねるUIは出した順のままです。各オブジェクトの描画は `RendererStateScope` で囲み、
+描画処理が途中で戻っても、入力アセンブラ、シェーダー、定数バッファ、ラスタライザとビューポート、
+レンダーターゲット、深度とブレンドの状態、サンプラー、テクスチャを元に戻します。
 
-## Assets and output
+アプリのループは60Hzの積み上げ方式で、遅れを取り戻す回数に上限があります。端数の経過時間を失わず、
+更新が際限なく増えることもありません。
 
-Both application projects compile their shaders and copy only the files in
-their explicit `RuntimeAsset` manifest into their own output directory using
-MSBuild's built-in `Copy` task. The target recreates only `OutDir\assets`, so
-removed manifest entries cannot remain in a package from an older build. At
-startup the working directory is set to the executable directory, so runtime
-asset paths do not depend on how the executable was launched. Shared volume and mouse defaults are read from the
-application's `assets/config/*.cfg` file and fall back to validated defaults.
-ゲームプレイ値は別の `*-gameplay.cfg` で管理し、Wire Actionでは移動・ワイヤー・
-剣・TPSカメラ、Batting Centerでは打撃判定をコード再コンパイルなしで調整できます。
+カメラからの奥行きが同じオブジェクトは、出した順を保ちます。`std::sort` は安定でないため、比較が
+同じときは `SubmissionOrder` で決めます。そうしないと同じ平面にある形がフレームごとに入れ替わります。
 
-DirectXTex is shipped in `include/` and `lib/`; global vcpkg integration is
-disabled so builds do not depend on a developer-specific `C:\vcpkg` install.
-See `THIRD_PARTY.md` (repository root) for provenance requirements on upgrades.
+## 変換の書き込みとColliderのインデックス
 
-Debug x64 outputs are:
+`m_Position`、`m_Rotation`、`m_Scale` は `GameObject` の非公開メンバーです。書き込みは必ず
+`SetPosition`、`SetRotation`、`SetScale` を通り、`Component::OnOwnerTransformChanged` を呼んで
+静的Colliderの空間インデックス(`collider.h`)を更新します。派生クラスは `GetPosition()`、
+`GetRotation()`、`GetScale()` で読みます。一部の成分だけ変えるときは、値を取り出して変えてから戻します。
+
+```cpp
+Vector3 rotation = GetRotation();
+rotation.y += yawDelta;
+SetRotation(rotation);
+```
+
+向きを返す関数(`GetForward`、`GetRight`、`GetUp`、`GetLeft`)は、回転の値そのものをキーにして
+回転軸をキャッシュします。1フレームに何度読んでも行列は1回しか作りません。
+
+## リソースの所有
+
+`ResourceManager` はアセットのパスを正規化し、テクスチャ、WAV、コンパイル済みシェーダー、モデルを
+それぞれ1回だけ読み込んでキャッシュします。呼び出し側は、読み込んだデータやGPUオブジェクトを
+重複して持たず、型付きの共有ハンドルを持ちます。モデルのマテリアルのテクスチャも、スプライト、
+パーティクル、UI、ステージの形状と同じキャッシュを使います。各 `Audio` コンポーネントはXAudioの
+発音を自分で持ちますが、変わらないWAVの形式とサンプルは共有します。
+
+`Engine::Renderer` のシェーダー作成関数もこのキャッシュを使うので、既存の描画クラスは同じ入力レイアウトと
+シェーダーのCOMオブジェクトを受け取ります。`ModelRenderer` は生のポインタではなく `ModelHandle` を
+持つので、キャッシュを消してもコンポーネントが使っているモデルは無効になりません。読み込みに失敗した
+モデルはキャッシュしないので、アセットを直せばもう一度読み込めます。OBJ/MTLの解析は `objModelLoader.cpp`
+にあり、`ModelRenderer` はGPUリソースの作成、ハンドルの所有、描画だけを担当します。マウスの状態も、
+アプリの入口ではなく `mouseInput.cpp` に分けています。
+
+GPUバッファと標準シェーダーの生成は `Engine::GraphicsResourceFactory` にまとめています。失敗したときは
+対象のCOMポインタを空にして同じ形式のログを残すので、各描画クラスが失敗したリソースを使い続けることは
+ありません。
+
+キャッシュは、Sceneのオブジェクトとモデルのリソースをすべて解放した後、XAudioとDirect3Dを終了する前に
+消します。ハンドルはキャッシュを消した後も安全に残せます。リソースは最後のハンドルが解放されるまで生きています。
+
+## アセットと出力
+
+各アプリはシェーダーをコンパイルし、明示した `RuntimeAsset` の一覧にあるファイルだけを、MSBuildの
+`Copy` タスクで自分の出力フォルダへコピーします。作り直すのは `OutDir\assets` だけなので、一覧から
+消したファイルが古いビルドの残りとして出力に残ることはありません。起動時に作業フォルダを実行ファイルの
+フォルダにするので、どこから起動してもアセットのパスは変わりません。音量とマウスの共通設定は
+アプリの `assets/config/*.cfg` から読み、読めなければ確認済みの既定値を使います。
+ゲームプレイの値は別の `*-gameplay.cfg` で管理し、Wire Actionでは移動・ワイヤー・TPSカメラ、
+Batting Centerでは打撃判定を、再コンパイルせずに調整できます。
+
+DirectXTexは `include/engine/` と `lib/` に同梱しています。vcpkgのグローバル連携は切ってあるので、
+開発者ごとの `C:\vcpkg` がなくてもビルドできます。更新するときの出所の条件はリポジトリ直下の
+`THIRD_PARTY.md` を見てください。
+
+Debug x64の出力は次のとおりです。
 
 - `bin/x64/Debug/Engine/Engine.lib`
-- `bin/x64/Debug/WireAction/WireAction.exe`
-- `bin/x64/Debug/BattingCenter/BattingCenter.exe`
-- `bin/x64/Debug/ClassroomWalk/ClassroomWalk.exe`
+- `bin/x64/Debug/<アプリ名>/<アプリ名>.exe`(例: `bin/x64/Debug/WireAction/WireAction.exe`)
 
-## Crash reports
+## クラッシュレポート
 
 `Engine::CrashReporter`(`crashReporter.*`)が未処理例外を捕まえ、実行ファイルの
 隣に `crash.log`(例外コード・発生アドレス・モジュール内オフセット)と
@@ -288,33 +276,31 @@ Debug x64 outputs are:
 この2ファイルを添えてください。`crash.dmp` を Visual Studio で開くと、発生時の
 呼び出し履歴とローカル変数がそのまま見えます。
 
-## Self-tests
+## 自己テスト
 
-Both applications expose the same Engine self-test entry point without adding
-a fourth Visual Studio project:
+どのアプリも、テスト用のプロジェクトを増やさずに同じEngineの自己テストを実行できます。
+実行ファイルのフォルダで実行してください。
 
 ```powershell
-bin\x64\Debug\WireAction\WireAction.exe --self-test
-bin\x64\Debug\BattingCenter\BattingCenter.exe --self-test
+cd bin\x64\Debug\WireAction
+.\WireAction.exe --self-test
+.\WireAction.exe --render-test
 ```
 
-The command creates no window and returns `0` when World/cache invalidation,
-guaranteed component teardown, collision isolation/layers/static reindexing,
-render ordering, GameTime behavior, and WAV/model cache reuse pass. GitHub
-Actions builds and runs both applications in Debug and Release.
-`scripts/validate-project-boundaries.ps1` also prevents Engine sources from
-including application headers, rejects wildcard asset packaging, and guards
-the exact solution shape (Engine, AnimationLib, ImGuiLib, and six applications).
+ウィンドウは作らず、Worldとキャッシュの無効化、コンポーネントの確実な後片付け、当たり判定の分離・
+レイヤー・静的Colliderの再登録、描画順、GameTimeの動作、WAVとモデルのキャッシュの再利用がすべて通ると
+`0` を返します。GitHub ActionsはDebugとReleaseの両方でビルドとテストを行います。
+`scripts/validate-project-boundaries.ps1` は、Engineのソースがアプリのヘッダーを読み込まないこと、
+アセットをワイルドカードでまとめてコピーしていないこと、ソリューションの構成(Engine、AnimationLib、
+ImGuiLib、6つのアプリ)が決まったとおりであることを確かめます。
 
-## Adding another game
+## ゲームを追加するとき
 
-1. Add a new Application project to the solution.
-2. Reference `Engine.vcxproj` (and `AnimationLib.vcxproj` / `ImGuiLib.vcxproj` if needed).
-3. Compile `src/engine/main.cpp` in the application project.
-4. Provide one implementation of `GetGameDefinition()` with a settings path.
-5. Put that game's sources in `src/games/<name>/`, and add only those sources, shaders,
-   and explicit `RuntimeAsset` entries.
-6. Define game-specific collision layer bits outside Engine.
-7. Reuse engine interfaces such as `ICameraView`; do not add game-specific
-   types to Engine.
-
+1. ソリューションにアプリのプロジェクトを追加します。
+2. `Engine.vcxproj`(必要なら `AnimationLib.vcxproj` と `ImGuiLib.vcxproj` も)を参照します。
+3. アプリのプロジェクトで `src/engine/main.cpp` をコンパイルします。
+4. 設定ファイルのパスを持つ `GetGameDefinition()` を1つ実装します。
+5. ソースは `src/games/<name>/`、ヘッダーは `include/games/<name>/` に置き、インクルードパスに
+   `include/games/<name>` を追加します。そのゲームのソース、シェーダー、明示した `RuntimeAsset` だけを登録します。
+6. ゲーム固有の当たり判定レイヤーのビットはEngineの外で決めます。
+7. `ICameraView` のようなEngineのインターフェースを使い回し、ゲーム固有の型をEngineに足さないでください。

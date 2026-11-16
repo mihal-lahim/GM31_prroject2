@@ -40,8 +40,8 @@
     </ClCompile>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClInclude Include="include\animationModel.h" />
-    <ClInclude Include="include\animator.h" />
+    <ClInclude Include="include\animation\animationModel.h" />
+    <ClInclude Include="include\animation\animator.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\animation\animationModel.cpp" />

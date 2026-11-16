@@ -218,6 +218,8 @@ void Manager::UpdateSceneTransition(float fixedDeltaTime)
 
 void Manager::StepWorld(World& world, Scene* scene)
 {
+	// 操作名の押下状態は、Sceneとオブジェクトが読む前に1ステップ分だけ確定させます。
+	InputActions::Update();
 	// ポーズ中はUI以外を止めますが、コマ送りのフレームだけは通常どおり1回進めます。
 	const bool skipWorldUpdate = GameTime::IsPaused() && !GameTime::IsSteppingFrame();
 
@@ -250,7 +252,6 @@ void Manager::StepWorld(World& world, Scene* scene)
 void Manager::StepScene(Scene& scene, float fixedDeltaTime)
 {
 	GameTime::Update(fixedDeltaTime);
-	InputActions::Update();
 	StepWorld(scene.GetWorld(), &scene);
 }
 
@@ -276,8 +277,6 @@ void Manager::Update(float fixedDeltaTime)
 		return;
 	}
 
-	// 操作名の押下状態は、Sceneとオブジェクトが読む前に1ステップ分だけ確定させます。
-	InputActions::Update();
 	StepWorld(m_Scene->GetWorld(), m_Scene.get());
 	UpdateSceneTransition(fixedDeltaTime);
 }

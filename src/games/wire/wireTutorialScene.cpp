@@ -77,7 +77,7 @@ void WireTutorialScene::ShowCurrentStep()
 
 void WireTutorialScene::Init()
 {
-	GameTime::SetPaused(false);
+	Engine::GameTime::SetPaused(false);
 	Collider::SetDebugDrawEnabled(false);
 	World& world = GetWorld();
 
@@ -152,7 +152,7 @@ void WireTutorialScene::Update()
 	}
 
 	// 練習は飛ばせません。全ての操作を一度ずつ行ってから本編へ進みます。
-	const float dt = GameTime::GetDeltaTime();
+	const float dt = Engine::GameTime::GetDeltaTime();
 
 	if (m_Finished)
 	{

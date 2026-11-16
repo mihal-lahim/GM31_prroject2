@@ -36,7 +36,7 @@ void ModelRenderer::Draw()
 {
 	if (!m_Visible) return;
 	if (m_Model == nullptr || m_Model->VertexBuffer == nullptr || m_Model->IndexBuffer == nullptr
-		|| m_Model->SubsetNum == 0 || Renderer::GetDeviceContext() == nullptr)
+		|| m_Model->SubsetNum == 0 || Engine::Renderer::GetDeviceContext() == nullptr)
 	{
 		return;
 	}
@@ -56,14 +56,14 @@ void ModelRenderer::Draw()
 	}
 	else
 	{
-		Renderer::GetDeviceContext()->IASetInputLayout(m_DefaultVertexLayout.Get());
-		Renderer::GetDeviceContext()->VSSetShader(m_DefaultVertexShader.Get(), nullptr, 0);
-		Renderer::GetDeviceContext()->PSSetShader(m_DefaultPixelShader.Get(), nullptr, 0);
+		Engine::Renderer::GetDeviceContext()->IASetInputLayout(m_DefaultVertexLayout.Get());
+		Engine::Renderer::GetDeviceContext()->VSSetShader(m_DefaultVertexShader.Get(), nullptr, 0);
+		Engine::Renderer::GetDeviceContext()->PSSetShader(m_DefaultPixelShader.Get(), nullptr, 0);
 	}
 
 	if (m_UseWorldOverride)
 	{
-		Renderer::SetWorldMatrix(XMLoadFloat4x4(&m_WorldOverride));
+		Engine::Renderer::SetWorldMatrix(XMLoadFloat4x4(&m_WorldOverride));
 	}
 	else if (m_UseOwnerTransform && m_GameObject != nullptr)
 	{
@@ -74,34 +74,34 @@ void ModelRenderer::Draw()
 		XMMATRIX scale = XMMatrixScaling(scaleValue.x, scaleValue.y, scaleValue.z);
 		XMMATRIX rot = XMMatrixRotationRollPitchYaw(rotationValue.x, rotationValue.y, rotationValue.z);
 		XMMATRIX trans = XMMatrixTranslation(positionValue.x, positionValue.y, positionValue.z);
-		Renderer::SetWorldMatrix(scale * rot * trans);
+		Engine::Renderer::SetWorldMatrix(scale * rot * trans);
 	}
 
-	UINT stride = sizeof(VERTEX_3D);
+	UINT stride = sizeof(Engine::VERTEX_3D);
 	UINT offset = 0;
-	Renderer::GetDeviceContext()->IASetVertexBuffers(0, 1, m_Model->VertexBuffer.GetAddressOf(), &stride, &offset);
-	Renderer::GetDeviceContext()->IASetIndexBuffer(m_Model->IndexBuffer.Get(), DXGI_FORMAT_R32_UINT, 0);
-	Renderer::GetDeviceContext()->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+	Engine::Renderer::GetDeviceContext()->IASetVertexBuffers(0, 1, m_Model->VertexBuffer.GetAddressOf(), &stride, &offset);
+	Engine::Renderer::GetDeviceContext()->IASetIndexBuffer(m_Model->IndexBuffer.Get(), DXGI_FORMAT_R32_UINT, 0);
+	Engine::Renderer::GetDeviceContext()->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 	const std::size_t passCount = m_UseSurfaceShader ? m_Surface.PassCount() : 1;
 	for (std::size_t pass = 0; pass < passCount; ++pass)
 	{
 		if (m_UseSurfaceShader && !m_Surface.BindPass(pass)) return;
 		for (unsigned int i = 0; i < m_Model->SubsetNum; ++i)
 		{
-			MATERIAL subsetMaterial = m_Model->SubsetArray[i].Material.Material;
-			const TextureHandle activeTexture = m_UseSurfaceShader && m_Surface.Texture
+			Engine::MATERIAL subsetMaterial = m_Model->SubsetArray[i].Material.Material;
+			const Engine::TextureHandle activeTexture = m_UseSurfaceShader && m_Surface.Texture
 				? m_Surface.Texture : m_Model->SubsetArray[i].Material.Texture;
 			subsetMaterial.TextureEnable = activeTexture != nullptr;
 			if (m_UseSurfaceShader)
 				subsetMaterial.Dummy[0] = m_Surface.DetailTexture ? 1.0f : 0.0f;
-			Renderer::SetMaterial(subsetMaterial);
+			Engine::Renderer::SetMaterial(subsetMaterial);
 
 			ID3D11ShaderResourceView* texture = activeTexture != nullptr
 				? activeTexture->Get()
 				: nullptr;
-			Renderer::GetDeviceContext()->PSSetShaderResources(0, 1, &texture);
+			Engine::Renderer::GetDeviceContext()->PSSetShaderResources(0, 1, &texture);
 
-			Renderer::GetDeviceContext()->DrawIndexed(m_Model->SubsetArray[i].IndexNum, m_Model->SubsetArray[i].StartIndex, 0);
+			Engine::Renderer::GetDeviceContext()->DrawIndexed(m_Model->SubsetArray[i].IndexNum, m_Model->SubsetArray[i].StartIndex, 0);
 		}
 	}
 }
@@ -129,7 +129,7 @@ void ModelRenderer::Load(const char* FileName)
 	m_Model = AcquireModel(FileName);
 }
 
-ModelHandle ModelRenderer::AcquireModel(const char* FileName)
+Engine::ModelHandle ModelRenderer::AcquireModel(const char* FileName)
 {
 	if (FileName == nullptr || FileName[0] == '\0')
 	{
@@ -137,7 +137,7 @@ ModelHandle ModelRenderer::AcquireModel(const char* FileName)
 	}
 
 	const std::string path(FileName);
-	return ResourceManager::LoadModel(path, [path]()
+	return Engine::ResourceManager::LoadModel(path, [path]()
 	{
 		auto model = std::make_shared<MODEL>();
 		return ModelRenderer::LoadModel(path.c_str(), model.get())
@@ -181,12 +181,12 @@ bool ModelRenderer::SetShaderFloat(std::string_view name, float value)
 
 bool ModelRenderer::SetShaderTexture(std::string_view name, const std::filesystem::path& path)
 {
-	return m_Surface.SetTexture(name, ResourceManager::LoadTexture(path));
+	return m_Surface.SetTexture(name, Engine::ResourceManager::LoadTexture(path));
 }
 
 ModelRenderer* ModelRenderer::SetShaderDetailTexture(const std::filesystem::path& path)
 {
-	m_Surface.DetailTexture = ResourceManager::LoadTexture(path);
+	m_Surface.DetailTexture = Engine::ResourceManager::LoadTexture(path);
 	return this;
 }
 
@@ -209,7 +209,7 @@ bool ModelRenderer::LoadModel(const char* FileName, MODEL* Model)
 
 	D3D11_BUFFER_DESC vertexBufferDesc{};
 	vertexBufferDesc.Usage = D3D11_USAGE_DEFAULT;
-	vertexBufferDesc.ByteWidth = static_cast<UINT>(sizeof(VERTEX_3D) * modelObj.VertexArray.size());
+	vertexBufferDesc.ByteWidth = static_cast<UINT>(sizeof(Engine::VERTEX_3D) * modelObj.VertexArray.size());
 	vertexBufferDesc.BindFlags = D3D11_BIND_VERTEX_BUFFER;
 
 	D3D11_SUBRESOURCE_DATA vertexData{};
@@ -253,7 +253,7 @@ bool ModelRenderer::LoadModel(const char* FileName, MODEL* Model)
 			continue;
 		}
 
-		subset.Material.Texture = ResourceManager::LoadTexture(subset.Material.TextureName);
+		subset.Material.Texture = Engine::ResourceManager::LoadTexture(subset.Material.TextureName);
 		if (subset.Material.Texture != nullptr)
 		{
 			subset.Material.Material.TextureEnable = TRUE;

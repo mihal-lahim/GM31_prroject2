@@ -12,7 +12,7 @@
 void Tree::Init()
 {
 	m_Layer = Layer::Effect;
-	VERTEX_3D vertex[4];
+	Engine::VERTEX_3D vertex[4];
 
 	vertex[0].Position = XMFLOAT3(-4.0f, 8.0f, 0.0f);
 	vertex[0].Normal = XMFLOAT3(0.0f,  0.0f, -1.0f);
@@ -37,7 +37,7 @@ void Tree::Init()
 	// 木のビルボード用頂点バッファを生成する。
 	D3D11_BUFFER_DESC bd{};
 	bd.Usage = D3D11_USAGE_DEFAULT;
-	bd.ByteWidth = sizeof(VERTEX_3D) * 4;
+	bd.ByteWidth = sizeof(Engine::VERTEX_3D) * 4;
 	bd.BindFlags = D3D11_BIND_VERTEX_BUFFER;
 	bd.CPUAccessFlags = 0;
 
@@ -53,7 +53,7 @@ void Tree::Init()
 		&& m_RenderingAvailable;
 
 	// 木のテクスチャを読み込む。
-	m_Texture = ResourceManager::LoadTexture(L"assets/texture/tree.png");
+	m_Texture = Engine::ResourceManager::LoadTexture(L"assets/texture/tree.png");
 	m_RenderingAvailable = m_Texture != nullptr && m_RenderingAvailable;
 
 	AddComponent<Collider>()
@@ -78,11 +78,11 @@ void Tree::Update()
 void Tree::Draw()
 {
 	// 入力レイアウトを設定する。
-	Renderer::GetDeviceContext()->IASetInputLayout(m_VertexLayout.Get());
+	Engine::Renderer::GetDeviceContext()->IASetInputLayout(m_VertexLayout.Get());
 
 	// シェーダーを設定する。
-	Renderer::GetDeviceContext()->VSSetShader(m_VertexShader.Get(), NULL, 0);
-	Renderer::GetDeviceContext()->PSSetShader(m_PixelShader.Get(), NULL, 0);
+	Engine::Renderer::GetDeviceContext()->VSSetShader(m_VertexShader.Get(), NULL, 0);
+	Engine::Renderer::GetDeviceContext()->PSSetShader(m_PixelShader.Get(), NULL, 0);
 
 	ICameraView* camera = GetWorld().FindFirst<ICameraView>();
 	if (camera == nullptr)
@@ -97,32 +97,32 @@ void Tree::Draw()
 
 	// ビルボード用のワールド行列を作成する。
 	XMMATRIX world, scale, trans;
-	scale = XMMatrixScaling(m_Scale.x, m_Scale.y, m_Scale.z);
+	scale = XMMatrixScaling(GetScale().x, GetScale().y, GetScale().z);
 	trans = XMMatrixTranslation(GetPosition().x, GetPosition().y, GetPosition().z);
 	world = scale * invView * trans;
 
-	Renderer::SetWorldMatrix(world);
+	Engine::Renderer::SetWorldMatrix(world);
 
 	// マテリアルを設定する。
-	MATERIAL material{};
+	Engine::MATERIAL material{};
 	material.Diffuse = XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f);
 	material.TextureEnable = TRUE;
-	Renderer::SetMaterial(material);
+	Engine::Renderer::SetMaterial(material);
 
 	// テクスチャを設定する。
 	ID3D11ShaderResourceView* texture = m_Texture != nullptr ? m_Texture->Get() : nullptr;
-	Renderer::GetDeviceContext()->PSSetShaderResources(0, 1, &texture);
+	Engine::Renderer::GetDeviceContext()->PSSetShaderResources(0, 1, &texture);
 
 	// 頂点バッファを設定する。
-	UINT stride = sizeof(VERTEX_3D);
+	UINT stride = sizeof(Engine::VERTEX_3D);
 	UINT offset = 0;
-	Renderer::GetDeviceContext()->IASetVertexBuffers(0, 1, m_VertexBuffer.GetAddressOf(), &stride, &offset);
+	Engine::Renderer::GetDeviceContext()->IASetVertexBuffers(0, 1, m_VertexBuffer.GetAddressOf(), &stride, &offset);
 
 	// プリミティブトポロジを設定する。
-	Renderer::GetDeviceContext()->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
+	Engine::Renderer::GetDeviceContext()->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
 
 	// ポリゴンを描画する。
-	Renderer::GetDeviceContext()->Draw(4, 0);
+	Engine::Renderer::GetDeviceContext()->Draw(4, 0);
 }
 
 

@@ -17,7 +17,7 @@ namespace
 	bool Capture(const wchar_t* path)
 	{
 		ComPtr<ID3D11RenderTargetView> target;
-		Renderer::GetDeviceContext()->OMGetRenderTargets(1, target.GetAddressOf(), nullptr);
+		Engine::Renderer::GetDeviceContext()->OMGetRenderTargets(1, target.GetAddressOf(), nullptr);
 		if (!target)
 		{
 			return false;
@@ -25,8 +25,8 @@ namespace
 		ComPtr<ID3D11Resource> resource;
 		target->GetResource(resource.GetAddressOf());
 		DirectX::ScratchImage image;
-		if (FAILED(DirectX::CaptureTexture(Renderer::GetDevice(),
-			Renderer::GetDeviceContext(), resource.Get(), image)))
+		if (FAILED(DirectX::CaptureTexture(Engine::Renderer::GetDevice(),
+			Engine::Renderer::GetDeviceContext(), resource.Get(), image)))
 		{
 			return false;
 		}
@@ -44,8 +44,8 @@ namespace
 	// Managerを通さずにシーンを1ステップ進めて描きます。テストから撃つためにWorldへ直接触れます。
 	void Step(FpsGameScene& scene)
 	{
-		Manager::StepScene(scene, 1.0f / 60.0f);
-		Manager::DrawWorld(scene.GetWorld());
+		Engine::Manager::StepScene(scene, 1.0f / 60.0f);
+		Engine::Manager::DrawWorld(scene.GetWorld());
 	}
 }
 
@@ -59,7 +59,7 @@ namespace
 bool RunFpsRenderTest()
 {
 	std::ofstream log("render-test-fps.log");
-	GameTime::Init();
+	Engine::GameTime::Init();
 	FpsGameScene scene;
 	scene.Init();
 	for (int i = 0; i < 30; ++i)
@@ -150,7 +150,7 @@ bool RunFpsRenderTest()
 	bool soundsLoaded = true;
 	for (const char* path : { "assets/audio/fpsRifle.wav", "assets/audio/fpsTargetBreak.wav" })
 	{
-		const WaveHandle wave = ResourceManager::LoadWave(path);
+		const Engine::WaveHandle wave = Engine::ResourceManager::LoadWave(path);
 		const bool loaded = wave != nullptr && wave->GetFormat() != nullptr && wave->PlayLength > 0;
 		log << (loaded ? "PASS" : "FAIL") << " load " << path << '\n';
 		soundsLoaded &= loaded;

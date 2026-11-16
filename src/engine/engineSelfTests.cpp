@@ -458,56 +458,56 @@ namespace
 
 	bool TestGameTime()
 	{
-		GameTime::Init();
-		GameTime::SetTimeScale(0.5f);
-		GameTime::Update(0.02f);
-		if (!NearlyEqual(GameTime::GetDeltaTime(), 0.01f))
+		Engine::GameTime::Init();
+		Engine::GameTime::SetTimeScale(0.5f);
+		Engine::GameTime::Update(0.02f);
+		if (!NearlyEqual(Engine::GameTime::GetDeltaTime(), 0.01f))
 		{
 			return false;
 		}
 
-		GameTime::SetPaused(true);
-		GameTime::Update(0.02f);
-		if (!NearlyEqual(GameTime::GetDeltaTime(), 0.0f))
+		Engine::GameTime::SetPaused(true);
+		Engine::GameTime::Update(0.02f);
+		if (!NearlyEqual(Engine::GameTime::GetDeltaTime(), 0.0f))
 		{
 			return false;
 		}
 
-		GameTime::SetPaused(false);
-		GameTime::SetTimeScale(1.0f);
-		GameTime::StartHitStop(1, 0.1f);
-		GameTime::Update(0.02f);
-		if (!NearlyEqual(GameTime::GetDeltaTime(), 0.002f))
+		Engine::GameTime::SetPaused(false);
+		Engine::GameTime::SetTimeScale(1.0f);
+		Engine::GameTime::StartHitStop(1, 0.1f);
+		Engine::GameTime::Update(0.02f);
+		if (!NearlyEqual(Engine::GameTime::GetDeltaTime(), 0.002f))
 		{
 			return false;
 		}
 
 		// チャンネルは全体の時間に倍率を掛けます。0番は変えられず、範囲外は倍率1です。
-		GameTime::SetChannelScale(1, 0.25f);
-		GameTime::SetChannelScale(0, 0.0f);
-		GameTime::Update(0.02f);
-		const bool channelsOk = NearlyEqual(GameTime::GetChannelDeltaTime(1), 0.005f)
-			&& NearlyEqual(GameTime::GetChannelDeltaTime(0), 0.02f)
-			&& NearlyEqual(GameTime::GetChannelDeltaTime(GameTime::kMaxTimeChannels), 0.02f);
-		GameTime::Init();
-		return channelsOk && NearlyEqual(GameTime::GetChannelScale(1), 1.0f);
+		Engine::GameTime::SetChannelScale(1, 0.25f);
+		Engine::GameTime::SetChannelScale(0, 0.0f);
+		Engine::GameTime::Update(0.02f);
+		const bool channelsOk = NearlyEqual(Engine::GameTime::GetChannelDeltaTime(1), 0.005f)
+			&& NearlyEqual(Engine::GameTime::GetChannelDeltaTime(0), 0.02f)
+			&& NearlyEqual(Engine::GameTime::GetChannelDeltaTime(Engine::GameTime::kMaxTimeChannels), 0.02f);
+		Engine::GameTime::Init();
+		return channelsOk && NearlyEqual(Engine::GameTime::GetChannelScale(1), 1.0f);
 	}
 
 	bool TestWaveResourceCache()
 	{
-		ResourceManager::Clear();
-		const WaveHandle first = ResourceManager::LoadWave("assets/audio/wan.wav");
-		const WaveHandle second = ResourceManager::LoadWave(
+		Engine::ResourceManager::Clear();
+		const Engine::WaveHandle first = Engine::ResourceManager::LoadWave("assets/audio/wan.wav");
+		const Engine::WaveHandle second = Engine::ResourceManager::LoadWave(
 			std::filesystem::absolute("assets\\audio\\..\\audio\\wan.wav"));
 		if (first == nullptr || first != second || first->AudioData.empty()
-			|| ResourceManager::GetWaveCount() != 1)
+			|| Engine::ResourceManager::GetWaveCount() != 1)
 		{
-			ResourceManager::Clear();
+			Engine::ResourceManager::Clear();
 			return false;
 		}
 
-		ResourceManager::Clear();
-		return ResourceManager::GetWaveCount() == 0 && !first->AudioData.empty();
+		Engine::ResourceManager::Clear();
+		return Engine::ResourceManager::GetWaveCount() == 0 && !first->AudioData.empty();
 	}
 
 	Engine::ClothSettings MakeTestClothSettings()
@@ -632,51 +632,51 @@ namespace
 	// 参照が残っているものは保持し、誰も使っていないものだけ解放されることを確かめます。
 	bool TestCollectUnusedKeepsReferencedResources()
 	{
-		ResourceManager::Clear();
+		Engine::ResourceManager::Clear();
 
 		{
-			const WaveHandle held = ResourceManager::LoadWave("assets/audio/wan.wav");
-			if (held == nullptr || ResourceManager::GetWaveCount() != 1)
+			const Engine::WaveHandle held = Engine::ResourceManager::LoadWave("assets/audio/wan.wav");
+			if (held == nullptr || Engine::ResourceManager::GetWaveCount() != 1)
 			{
-				ResourceManager::Clear();
+				Engine::ResourceManager::Clear();
 				return false;
 			}
 
 			// ハンドルを保持している間は解放されてはいけません。
-			ResourceManager::CollectUnused();
-			if (ResourceManager::GetWaveCount() != 1 || held->AudioData.empty())
+			Engine::ResourceManager::CollectUnused();
+			if (Engine::ResourceManager::GetWaveCount() != 1 || held->AudioData.empty())
 			{
-				ResourceManager::Clear();
+				Engine::ResourceManager::Clear();
 				return false;
 			}
 		}
 
 		// ハンドルを手放した後は解放されます。
-		const std::size_t released = ResourceManager::CollectUnused();
-		const bool passed = released >= 1 && ResourceManager::GetWaveCount() == 0;
-		ResourceManager::Clear();
+		const std::size_t released = Engine::ResourceManager::CollectUnused();
+		const bool passed = released >= 1 && Engine::ResourceManager::GetWaveCount() == 0;
+		Engine::ResourceManager::Clear();
 		return passed;
 	}
 
 	bool TestModelResourceCache()
 	{
-		ResourceManager::Clear();
-		const ModelHandle failed = ResourceManager::LoadModel("assets/model/missing.obj", []()
+		Engine::ResourceManager::Clear();
+		const Engine::ModelHandle failed = Engine::ResourceManager::LoadModel("assets/model/missing.obj", []()
 		{
 			return std::shared_ptr<MODEL>{};
 		});
-		if (failed != nullptr || ResourceManager::GetModelCount() != 0)
+		if (failed != nullptr || Engine::ResourceManager::GetModelCount() != 0)
 		{
 			return false;
 		}
 
 		int factoryCalls = 0;
-		const ModelHandle first = ResourceManager::LoadModel("assets/model/test.obj", [&factoryCalls]()
+		const Engine::ModelHandle first = Engine::ResourceManager::LoadModel("assets/model/test.obj", [&factoryCalls]()
 		{
 			factoryCalls++;
 			return std::make_shared<MODEL>();
 		});
-		const ModelHandle second = ResourceManager::LoadModel(
+		const Engine::ModelHandle second = Engine::ResourceManager::LoadModel(
 			std::filesystem::absolute("assets\\model\\..\\model\\test.obj"),
 			[&factoryCalls]()
 			{
@@ -684,14 +684,14 @@ namespace
 				return std::make_shared<MODEL>();
 			});
 		if (first == nullptr || first != second || factoryCalls != 1
-			|| ResourceManager::GetModelCount() != 1)
+			|| Engine::ResourceManager::GetModelCount() != 1)
 		{
-			ResourceManager::Clear();
+			Engine::ResourceManager::Clear();
 			return false;
 		}
 
-		ResourceManager::Clear();
-		return ResourceManager::GetModelCount() == 0 && first != nullptr;
+		Engine::ResourceManager::Clear();
+		return Engine::ResourceManager::GetModelCount() == 0 && first != nullptr;
 	}
 
 	// シーンファイルの読み書きを確かめるための、値を一通り持つオブジェクトです。
@@ -872,7 +872,7 @@ namespace
 			if (definition.Id.empty() || !ids.insert(definition.Id).second
 				|| !definition.DisplayName || definition.Passes.empty()
 				|| (definition.Usage == Engine::ShaderUsage::Post
-					&& definition.Passes.size() > Renderer::MaxPostPasses)) return false;
+					&& definition.Passes.size() > Engine::Renderer::MaxPostPasses)) return false;
 			for (const Engine::ShaderPass& pass : definition.Passes)
 			{
 				if (pass.VertexFile.empty() || pass.PixelFile.empty()

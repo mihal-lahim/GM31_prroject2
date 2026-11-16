@@ -48,7 +48,7 @@ class ForestScene final : public Scene {
 public:
     void Init() override {
         settings=Settings{};
-        auto* d=Renderer::GetDevice();
+        auto* d=Engine::Renderer::GetDevice();
         const auto v=Read("forestVS.cso"), p=Read("forestPS.cso");
         if(v.empty()||p.empty()) return;
         if(FAILED(d->CreateVertexShader(v.data(),v.size(),nullptr,vs.GetAddressOf())) ||
@@ -63,12 +63,12 @@ public:
             q.Query=D3D11_QUERY_TIMESTAMP;
             if(FAILED(d->CreateQuery(&q,t.start.GetAddressOf()))||FAILED(d->CreateQuery(&q,t.end.GetAddressOf()))) return;
         }
-        Renderer::SetClearColor({.48f,.59f,.55f,1});
+        Engine::Renderer::SetClearColor({.48f,.59f,.55f,1});
         settings.ready=true;
     }
-    void Uninit() override { settings.ready=false; Renderer::SetClearColor(Renderer::DefaultClearColor); }
+    void Uninit() override { settings.ready=false; Engine::Renderer::SetClearColor(Engine::Renderer::DefaultClearColor); }
     void Update() override {
-        const float dt=GameTime::GetDeltaTime(); elapsed+=dt;
+        const float dt=Engine::GameTime::GetDeltaTime(); elapsed+=dt;
         if(settings.tour) { eye={std::sin(elapsed*.12f)*2,2.3f,-12+std::fmod(elapsed*1.5f,64.0f)}; yaw=std::sin(elapsed*.16f)*.2f; return; }
         float dx=0,dy=0;
         if(Mouse_ConsumeDelta(&dx,&dy) && Mouse_IsRightButtonDown() && !ImGui::GetIO().WantCaptureMouse) {
@@ -86,8 +86,8 @@ public:
     void Draw() override {
         if(!settings.ready) return;
         const auto begin=std::chrono::steady_clock::now();
-        RendererStateScope scope;
-        auto* c=Renderer::GetDeviceContext();
+        Engine::RendererStateScope scope;
+        auto* c=Engine::Renderer::GetDeviceContext();
         struct RestoreSlot { ID3D11DeviceContext* context; ComPtr<ID3D11Buffer> v,p;
             explicit RestoreSlot(ID3D11DeviceContext* value):context(value) { context->VSGetConstantBuffers(7,1,v.GetAddressOf()); context->PSGetConstantBuffers(7,1,p.GetAddressOf()); }
             ~RestoreSlot() { ID3D11Buffer* a=v.Get(); ID3D11Buffer* b=p.Get(); context->VSSetConstantBuffers(7,1,&a); context->PSSetConstantBuffers(7,1,&b); }
@@ -111,7 +111,7 @@ public:
         data.eyeTime={eye.x,eye.y,eye.z,elapsed}; data.options={settings.wind,settings.fog,0,0};
         c->IASetInputLayout(nullptr); c->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
         c->VSSetShader(vs.Get(),nullptr,0); c->PSSetShader(ps.Get(),nullptr,0); c->GSSetShader(nullptr,nullptr,0);
-        c->RSSetState(raster.Get()); Renderer::SetDepthEnable(true);
+        c->RSSetState(raster.Get()); Engine::Renderer::SetDepthEnable(true);
         c->OMSetBlendState(nullptr,nullptr,0xffffffff);
         ID3D11Buffer* cb=constants.Get(); c->VSSetConstantBuffers(7,1,&cb); c->PSSetConstantBuffers(7,1,&cb);
         settings.calls=0; settings.blades=0;
@@ -141,7 +141,7 @@ public:
 bool InitUi() {
     ImGui::CreateContext(); ImGui::GetIO().IniFilename=nullptr;
     if(!ImGui_ImplWin32_Init(GetWindow())) { ImGui::DestroyContext(); return false; }
-    if(!ImGui_ImplDX11_Init(Renderer::GetDevice(),Renderer::GetDeviceContext())) { ImGui_ImplWin32_Shutdown(); ImGui::DestroyContext(); return false; }
+    if(!ImGui_ImplDX11_Init(Engine::Renderer::GetDevice(),Engine::Renderer::GetDeviceContext())) { ImGui_ImplWin32_Shutdown(); ImGui::DestroyContext(); return false; }
     Mouse_SetAutoCapture(false); return true;
 }
 void StopUi() { ImGui_ImplDX11_Shutdown(); ImGui_ImplWin32_Shutdown(); ImGui::DestroyContext(); Mouse_SetAutoCapture(true); }
@@ -166,9 +166,9 @@ void DrawUi() { ImGui::Render(); ImGui_ImplDX11_RenderDrawData(ImGui::GetDrawDat
 bool Message(unsigned int m,std::uintptr_t w,std::intptr_t l) { if(ImGui::GetCurrentContext()) ImGui_ImplWin32_WndProcHandler(GetWindow(),m,w,l); return false; }
 bool RenderTest() {
     std::ofstream log("render-test-forest.log");
-    auto frame=[] { BeginUi(); Manager::Update(1.0f/60); Manager::Draw(); };
+    auto frame=[] { BeginUi(); Engine::Manager::Update(1.0f/60); Engine::Manager::Draw(); };
     ComPtr<IDXGIDevice> dxgi; ComPtr<IDXGIAdapter> adapter; DXGI_ADAPTER_DESC adapterDesc{};
-    if(SUCCEEDED(Renderer::GetDevice()->QueryInterface(IID_PPV_ARGS(dxgi.GetAddressOf()))) && SUCCEEDED(dxgi->GetAdapter(adapter.GetAddressOf())) && SUCCEEDED(adapter->GetDesc(&adapterDesc))) {
+    if(SUCCEEDED(Engine::Renderer::GetDevice()->QueryInterface(IID_PPV_ARGS(dxgi.GetAddressOf()))) && SUCCEEDED(dxgi->GetAdapter(adapter.GetAddressOf())) && SUCCEEDED(adapter->GetDesc(&adapterDesc))) {
         char name[512]{}; WideCharToMultiByte(CP_UTF8,0,adapterDesc.Description,-1,name,512,nullptr,nullptr); log << "adapter=" << name << " resolution=1280x720 configuration=Release-recommended\n";
     }
     auto benchmark=[&](const char* label) {
@@ -182,10 +182,10 @@ bool RenderTest() {
     };
     for(int i=0;i<90;++i) frame();
     auto capture=[](const wchar_t* path) {
-        ComPtr<ID3D11RenderTargetView> target; Renderer::GetDeviceContext()->OMGetRenderTargets(1,target.GetAddressOf(),nullptr);
+        ComPtr<ID3D11RenderTargetView> target; Engine::Renderer::GetDeviceContext()->OMGetRenderTargets(1,target.GetAddressOf(),nullptr);
         if(!target) return false;
         ComPtr<ID3D11Resource> resource; target->GetResource(resource.GetAddressOf()); ScratchImage image;
-        return SUCCEEDED(CaptureTexture(Renderer::GetDevice(),Renderer::GetDeviceContext(),resource.Get(),image)) &&
+        return SUCCEEDED(CaptureTexture(Engine::Renderer::GetDevice(),Engine::Renderer::GetDeviceContext(),resource.Get(),image)) &&
             SUCCEEDED(SaveToWICFile(*image.GetImage(0,0,0),WIC_FLAGS_NONE,GetWICCodec(WIC_CODEC_PNG),path));
     };
     benchmark("optimized");

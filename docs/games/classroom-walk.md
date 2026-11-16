@@ -22,7 +22,7 @@ bin\x64\Debug\ClassroomWalk\ClassroomWalk.exe
 
 シェーダーやポストエフェクトをキーで切り替える機能は外し、SP31 の照明教材を組み合わせた
 写実寄りの表現に固定しています（切り替えて比べたい場合は ShaderGallery を使ってください）。
-シェーダーは `shaders/surfaces/` にあり、`include/shaderCatalog.h` に登録しています。
+シェーダーは `shaders/surfaces/` にあり、`include/engine/shaderCatalog.h` に登録しています。
 
 | 登録名 | 使っている SP31 の機能 | 対象 |
 |---|---|---|

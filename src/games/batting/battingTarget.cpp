@@ -36,7 +36,7 @@ void BattingTarget::Update()
 {
 	if (m_HitFlash > 0.0f)
 	{
-		m_HitFlash -= GameTime::GetDeltaTime();
+		m_HitFlash -= Engine::GameTime::GetDeltaTime();
 		if (m_HitFlash < 0.0f)
 		{
 			m_HitFlash = 0.0f;
@@ -53,10 +53,10 @@ void BattingTarget::Draw()
 		? m_HitFlash / tuning.TargetHitFlashDuration
 		: 0.0f;
 	float pulse = 1.0f + flashRatio * tuning.TargetHitPulseScale;
-	XMMATRIX scale = XMMatrixScaling(m_Scale.x * pulse, m_Scale.y * pulse, m_Scale.z);
-	XMMATRIX rot = XMMatrixRotationRollPitchYaw(m_Rotation.x, m_Rotation.y, m_Rotation.z);
+	XMMATRIX scale = XMMatrixScaling(GetScale().x * pulse, GetScale().y * pulse, GetScale().z);
+	XMMATRIX rot = XMMatrixRotationRollPitchYaw(GetRotation().x, GetRotation().y, GetRotation().z);
 	XMMATRIX trans = XMMatrixTranslation(GetPosition().x, GetPosition().y, GetPosition().z);
-	Renderer::SetWorldMatrix(scale * rot * trans);
+	Engine::Renderer::SetWorldMatrix(scale * rot * trans);
 
 	GameObject::Draw();
 }

@@ -86,7 +86,7 @@ void RenderQueue::Execute()
 
 	// 各スコープは直前スコープの復元後=同一ベースラインを再取得していただけなので、
 	// スナップショットは1回だけ取得し、各Draw後に同じ状態へ復元します。
-	RendererStateScope stateScope;
+	Engine::RendererStateScope stateScope;
 	auto draw = [&stateScope](const RenderItem& item)
 	{
 		if (item.Object == nullptr)

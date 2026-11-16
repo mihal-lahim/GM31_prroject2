@@ -19,7 +19,7 @@ namespace
 	constexpr float kTopMargin = 140.0f;
 	constexpr float kFlashDuration = 0.35f;
 
-	void PushVert(VERTEX_3D* out, float x, float y, const XMFLOAT4& color)
+	void PushVert(Engine::VERTEX_3D* out, float x, float y, const XMFLOAT4& color)
 	{
 		out->Position = { x, y, 0.0f };
 		out->Normal = { 0.0f, 0.0f, 1.0f };
@@ -27,7 +27,7 @@ namespace
 		out->TexCoord = { 0.0f, 0.0f };
 	}
 
-	int BuildHeart(VERTEX_3D* verts, float cx, float cy, float size, const XMFLOAT4& color)
+	int BuildHeart(Engine::VERTEX_3D* verts, float cx, float cy, float size, const XMFLOAT4& color)
 	{
 		const float s = size * 0.5f;
 
@@ -80,7 +80,7 @@ void WireHealthUI::Init()
 {
 	m_Layer = Layer::UI;
 
-	VERTEX_3D vertices[kMaxVertices]{};
+	Engine::VERTEX_3D vertices[kMaxVertices]{};
 	D3D11_BUFFER_DESC bufferDesc{};
 	bufferDesc.Usage = D3D11_USAGE_DEFAULT;
 	bufferDesc.ByteWidth = sizeof(vertices);
@@ -109,7 +109,7 @@ void WireHealthUI::Update()
 	if (m_PreviousHealth >= 0 && hp < m_PreviousHealth)
 		m_DamageFlash = kFlashDuration;
 	m_PreviousHealth = hp;
-	m_DamageFlash = std::max(0.0f, m_DamageFlash - GameTime::GetDeltaTime());
+	m_DamageFlash = std::max(0.0f, m_DamageFlash - Engine::GameTime::GetDeltaTime());
 }
 
 void WireHealthUI::Draw()
@@ -121,7 +121,7 @@ void WireHealthUI::Draw()
 	const int maxHp = std::clamp(player->GetMaxHealth(), 0, kMaxHearts);
 	const int hp = std::clamp(player->GetHealth(), 0, maxHp);
 
-	VERTEX_3D vertices[kMaxVertices]{};
+	Engine::VERTEX_3D vertices[kMaxVertices]{};
 	int totalVertices = 0;
 
 	const float flashPulse = m_DamageFlash > 0.0f
@@ -147,22 +147,22 @@ void WireHealthUI::Draw()
 		totalVertices += BuildHeart(&vertices[totalVertices], cx, cy, kHeartSize, color);
 	}
 
-	Renderer::GetDeviceContext()->UpdateSubresource(m_VertexBuffer.Get(), 0, nullptr, vertices, 0, 0);
+	Engine::Renderer::GetDeviceContext()->UpdateSubresource(m_VertexBuffer.Get(), 0, nullptr, vertices, 0, 0);
 
-	Renderer::GetDeviceContext()->IASetInputLayout(m_VertexLayout.Get());
-	Renderer::GetDeviceContext()->VSSetShader(m_VertexShader.Get(), nullptr, 0);
-	Renderer::GetDeviceContext()->PSSetShader(m_PixelShader.Get(), nullptr, 0);
-	Renderer::SetWorldViewProjection2D();
+	Engine::Renderer::GetDeviceContext()->IASetInputLayout(m_VertexLayout.Get());
+	Engine::Renderer::GetDeviceContext()->VSSetShader(m_VertexShader.Get(), nullptr, 0);
+	Engine::Renderer::GetDeviceContext()->PSSetShader(m_PixelShader.Get(), nullptr, 0);
+	Engine::Renderer::SetWorldViewProjection2D();
 
-	MATERIAL material{};
+	Engine::MATERIAL material{};
 	material.Diffuse = { 1.0f, 1.0f, 1.0f, 1.0f };
 	material.Ambient = material.Diffuse;
 	material.TextureEnable = FALSE;
-	Renderer::SetMaterial(material);
+	Engine::Renderer::SetMaterial(material);
 
-	UINT stride = sizeof(VERTEX_3D);
+	UINT stride = sizeof(Engine::VERTEX_3D);
 	UINT offset = 0;
-	Renderer::GetDeviceContext()->IASetVertexBuffers(0, 1, m_VertexBuffer.GetAddressOf(), &stride, &offset);
-	Renderer::GetDeviceContext()->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-	Renderer::GetDeviceContext()->Draw(static_cast<UINT>(totalVertices), 0);
+	Engine::Renderer::GetDeviceContext()->IASetVertexBuffers(0, 1, m_VertexBuffer.GetAddressOf(), &stride, &offset);
+	Engine::Renderer::GetDeviceContext()->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+	Engine::Renderer::GetDeviceContext()->Draw(static_cast<UINT>(totalVertices), 0);
 }

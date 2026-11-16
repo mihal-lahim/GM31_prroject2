@@ -171,7 +171,7 @@ void WireGrappleAbility::Update(
 	const Vector3 flatDirection = Flatten(toPivot);
 	if (flatDirection.length() > kVectorEpsilon)
 	{
-		player.MutableRotation({}).y = LerpAngle(player.MutableRotation({}).y, atan2f(flatDirection.x, flatDirection.z), GetWireGameplayTuning().Grapple.TurnLerp);
+		{ Vector3 rotation = player.GetRotation(); rotation.y = LerpAngle(rotation.y, atan2f(flatDirection.x, flatDirection.z), GetWireGameplayTuning().Grapple.TurnLerp); player.SetRotation(rotation); }
 	}
 }
 
@@ -186,8 +186,8 @@ void WireGrappleAbility::Cancel(WirePlayer& player, bool addBoost)
 	{
 		player.NotifyWireReleased(m_Path.GetPivot());
         player.MutableVelocity({}) = WireSwing::Release(player.MutableVelocity({}),GetWireGameplayTuning().Grapple);
-        player.MutableScale({}) = {GetWireGameplayTuning().Grapple.ReleaseSquashXZ,
-            GetWireGameplayTuning().Grapple.ReleaseStretchY,GetWireGameplayTuning().Grapple.ReleaseSquashXZ};
+        player.SetScale(Vector3{GetWireGameplayTuning().Grapple.ReleaseSquashXZ,
+            GetWireGameplayTuning().Grapple.ReleaseStretchY,GetWireGameplayTuning().Grapple.ReleaseSquashXZ});
 	}
 
 	m_Active = false;
@@ -303,7 +303,7 @@ void WireGrappleAbility::Attach(WirePlayer& player)
 		else if (after <= kVectorEpsilon)
 		{
 			// 静止状態からも振り始められる接線方向の小さなキックです。
-            Vector3 tangent{cosf(player.MutableRotation({}).y),0,-sinf(player.MutableRotation({}).y)};
+            Vector3 tangent{cosf(player.GetRotation().y),0,-sinf(player.GetRotation().y)};
             tangent -= toAnchor * Vector3::dot(tangent,toAnchor);
             if (tangent.length() < kVectorEpsilon) tangent = Vector3::cross(toAnchor,{0,1,0});
             if (tangent.length() > kVectorEpsilon) tangent.normalize();

@@ -386,7 +386,7 @@ void SlowEnemy::Update()
 	const float worldDeltaTime = SlowClock::GetWorldDeltaTime();
 	if (m_FlashTime > 0.0f)
 	{
-		m_FlashTime -= GameTime::GetDeltaTime();
+		m_FlashTime -= Engine::GameTime::GetDeltaTime();
 		if (m_FlashTime <= 0.0f)
 		{
 			RefreshModel();
@@ -501,7 +501,7 @@ void SlowEnemy::UpdateChase(float worldDeltaTime)
 		// 殴る向きは予兆に入った時点で決めます(人型は振り向きに時間が掛かるので、ここで向きを合わせます)。
 		if (distance > 0.01f)
 		{
-			m_Rotation.y = YawFromDirection(toPlayer);
+			{ Vector3 value = GetRotation(); value.y = YawFromDirection(toPlayer); SetRotation(value); }
 		}
 		SetState(State::Windup, spec.WindupSeconds);
 		return;
@@ -542,7 +542,7 @@ void SlowEnemy::UpdateGunnerChase(float worldDeltaTime)
 	else if (distance > tuning.GunnerMaxRange || blocked)
 	{
 		// 遮られているときは、近づきながら横へ回って射線を探します。
-		const Vector3 side = blocked ? RightFromYaw(m_Rotation.y) * 0.7f : Vector3();
+		const Vector3 side = blocked ? RightFromYaw(GetRotation().y) * 0.7f : Vector3();
 		MoveWithSeparation((toPlayer + side) * speed);
 	}
 	if (!blocked && distance >= tuning.GunnerMinRange * 0.7f && distance <= tuning.GunnerMaxRange)
@@ -577,7 +577,7 @@ void SlowEnemy::MoveWithSeparation(Vector3 step)
 void SlowEnemy::Strike()
 {
 	const StrikeSpec spec = GetStrikeSpec(m_Kind);
-	const Vector3 forward = ForwardFromYaw(m_Rotation.y);
+	const Vector3 forward = ForwardFromYaw(GetRotation().y);
 	const float halfAngle = XMConvertToRadians(spec.HalfAngleDegrees);
 	EmitFan(GetPosition() + Vector3(0.0f, 1.0f, 0.0f), forward, spec.HitRange, halfAngle,
 		m_Kind == Kind::Brute ? 15 : 9, m_Kind == Kind::Brute ? 0.55f : 0.4f, 12, { 1.0f, 0.2f, 0.2f, 1.0f });
@@ -631,20 +631,20 @@ SlowEnemy::HitResult SlowEnemy::ApplyHit(const Vector3& direction, HitStrength s
 			: m_Kind == Kind::Gunner ? SlowScore::Event::KillGunner : SlowScore::Event::KillMelee);
 		SlowSound::Play(SlowSound::Id::Kill);
 		SlowCamera::Shake(GetWorld(), tuning.ShakeKill);
-		GameTime::StartHitStop(tuning.KillHitStopFrames, tuning.HitStopScale);
+		Engine::GameTime::StartHitStop(tuning.KillHitStopFrames, tuning.HitStopScale);
 		// 人型の敵は亡骸を残して、倒れるモーションを見せます。
 		if (HasSkinnedBody())
 		{
 			if (wasLaunched)
 			{
 				// 吹き飛び中に倒したときは、向きも倒れるモーションもそのまま続きから引き継ぎます。
-				GetWorld().Spawn<SlowCorpse>()->Begin(GetPosition(), m_Rotation.y, GetKnockdownSeconds());
+				GetWorld().Spawn<SlowCorpse>()->Begin(GetPosition(), GetRotation().y, GetKnockdownSeconds());
 			}
 			else
 			{
 				// 攻撃してきた方を向いて、後ろへ倒れます。
 				const Vector3 facing = Flatten(direction) * -1.0f;
-				GetWorld().Spawn<SlowCorpse>()->Begin(GetPosition(), facing.length() > 0.01f ? YawFromDirection(facing) : m_Rotation.y);
+				GetWorld().Spawn<SlowCorpse>()->Begin(GetPosition(), facing.length() > 0.01f ? YawFromDirection(facing) : GetRotation().y);
 			}
 		}
 		MarkForDestroy();
@@ -713,7 +713,7 @@ void SlowEnemy::Launch(const Vector3& direction, bool light)
 	Vector3 flat = Flatten(direction);
 	if (flat.length() < 0.001f)
 	{
-		flat = ForwardFromYaw(m_Rotation.y) * -1.0f;
+		flat = ForwardFromYaw(GetRotation().y) * -1.0f;
 	}
 	flat.normalize();
 	m_LaunchDirection = flat;
@@ -739,7 +739,7 @@ void SlowEnemy::Launch(const Vector3& direction, bool light)
 	if (HasSkinnedBody())
 	{
 		// 人型は回さず、飛ぶ方向に背を向けて(殴られた方を向いたまま)後ろへ飛びます。倒れるモーションの向きと合います。
-		m_Rotation.y = YawFromDirection(flat * -1.0f);
+		{ Vector3 value = GetRotation(); value.y = YawFromDirection(flat * -1.0f); SetRotation(value); }
 		PlayKnockdown(0.0f, m_LaunchSeconds);
 	}
 }
@@ -750,7 +750,7 @@ void SlowEnemy::UpdateLaunched(float worldDeltaTime)
 	// 吹き飛び中は回って見せます。向きはAIに戻るときに付け直します。人型はモーションで見せるので回しません。
 	if (!HasSkinnedBody())
 	{
-		m_Rotation.y = WrapAngle(m_Rotation.y + 12.0f * worldDeltaTime);
+		{ Vector3 value = GetRotation(); value.y = WrapAngle(GetRotation().y + 12.0f * worldDeltaTime); SetRotation(value); }
 	}
 
 	if (m_HangTime > 0.0f)
@@ -816,12 +816,12 @@ void SlowEnemy::FaceTowards(const Vector3& direction)
 	const float target = YawFromDirection(direction);
 	if (!HasSkinnedBody())
 	{
-		m_Rotation.y = target;
+		{ Vector3 value = GetRotation(); value.y = target; SetRotation(value); }
 		return;
 	}
 	// 人型は一瞬で振り向くと不自然なので、速さを決めて回します。
 	const float step = kHumanoidTurnSpeed * SlowClock::GetWorldDeltaTime();
-	m_Rotation.y = WrapAngle(m_Rotation.y + std::clamp(WrapAngle(target - m_Rotation.y), -step, step));
+	{ Vector3 value = GetRotation(); value.y = WrapAngle(GetRotation().y + std::clamp(WrapAngle(target - GetRotation().y), -step, step)); SetRotation(value); }
 }
 
 bool SlowEnemy::TryMove(const Vector3& offset)
@@ -847,13 +847,13 @@ void SlowCorpse::Init()
 		MarkForDestroy();
 		return;
 	}
-	Begin(GetPosition(), m_Rotation.y);
+	Begin(GetPosition(), GetRotation().y);
 }
 
 void SlowCorpse::Begin(const Vector3& position, float yaw, float startSeconds)
 {
 	SetPosition(position);
-	m_Rotation.y = yaw;
+	{ Vector3 value = GetRotation(); value.y = yaw; SetRotation(value); }
 	if (m_Body == nullptr)
 	{
 		return;

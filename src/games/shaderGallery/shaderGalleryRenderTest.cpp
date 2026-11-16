@@ -15,19 +15,19 @@ bool RunShaderGalleryRenderTest()
 	auto frame = []
 	{
 		BeginGalleryUiFrame();
-		Manager::Update(1.0f / 60.0f);
-		Manager::Draw();
+		Engine::Manager::Update(1.0f / 60.0f);
+		Engine::Manager::Draw();
 	};
 	auto capture = [](const wchar_t* path)
 	{
 		ComPtr<ID3D11RenderTargetView> target;
-		Renderer::GetDeviceContext()->OMGetRenderTargets(1, target.GetAddressOf(), nullptr);
+		Engine::Renderer::GetDeviceContext()->OMGetRenderTargets(1, target.GetAddressOf(), nullptr);
 		if (!target) return false;
 		ComPtr<ID3D11Resource> resource;
 		target->GetResource(resource.GetAddressOf());
 		DirectX::ScratchImage image;
-		if (FAILED(DirectX::CaptureTexture(Renderer::GetDevice(),
-			Renderer::GetDeviceContext(), resource.Get(), image))) return false;
+		if (FAILED(DirectX::CaptureTexture(Engine::Renderer::GetDevice(),
+			Engine::Renderer::GetDeviceContext(), resource.Get(), image))) return false;
 		return SUCCEEDED(DirectX::SaveToWICFile(*image.GetImage(0, 0, 0),
 			DirectX::WIC_FLAGS_NONE, DirectX::GetWICCodec(DirectX::WIC_CODEC_PNG), path));
 	};
@@ -41,10 +41,10 @@ bool RunShaderGalleryRenderTest()
 	const bool post = capture(L"shader-gallery-rgb.png");
 	state.Post = GalleryBloomPost;
 	frame();
-	const bool bloom = Renderer::GetPostEffectDefinitionId() == "post-bloom"
+	const bool bloom = Engine::Renderer::GetPostEffectDefinitionId() == "post-bloom"
 		&& capture(L"shader-gallery-bloom.png");
 	// 既定のライトでは輝度しきい値を超える所が少ないため、明るいシーンでも撮っておく。
-	const LIGHT savedLight = state.Light;
+	const Engine::LIGHT savedLight = state.Light;
 	state.Light.Diffuse = { 2.5f, 2.5f, 2.2f, 1.0f };
 	state.BumpFloor = true;
 	frame();

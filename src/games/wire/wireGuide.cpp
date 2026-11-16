@@ -11,7 +11,7 @@
 void WireGuide::Init()
 {
 	m_Layer = Layer::World;
-	m_Scale = { 1.1f, 1.1f, 1.1f };
+	SetScale({ 1.1f, 1.1f, 1.1f });
 
 	AddComponent<WireRobotRenderer>(WireRobotRenderer::Style::Player);
 }
@@ -29,7 +29,7 @@ void WireGuide::Place(const Vector3& position)
 
 void WireGuide::Update()
 {
-	m_Time += GameTime::GetDeltaTime();
+	m_Time += Engine::GameTime::GetDeltaTime();
 	{ Vector3 position = GetPosition(); position.y = m_BaseY + sinf(m_Time * 2.2f) * 0.08f; SetPosition(position); }
 
 	// 話している相手として、常にプレイヤーの方を向きます。
@@ -38,7 +38,7 @@ void WireGuide::Update()
 		const Vector3 toPlayer = player->GetPosition() - GetPosition();
 		if (std::abs(toPlayer.x) + std::abs(toPlayer.z) > 0.001f)
 		{
-			m_Rotation.y = atan2f(toPlayer.x, toPlayer.z);
+			{ Vector3 value = GetRotation(); value.y = atan2f(toPlayer.x, toPlayer.z); SetRotation(value); }
 		}
 	}
 	GameObject::Update();

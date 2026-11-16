@@ -48,7 +48,7 @@ void SlowCamera::PreUpdate()
 	}
 	else if (m_AssistRemaining != 0.0f)
 	{
-		const float maxStep = XMConvertToRadians(tuning.CameraAssistDegreesPerSecond) * GameTime::GetDeltaTime();
+		const float maxStep = XMConvertToRadians(tuning.CameraAssistDegreesPerSecond) * Engine::GameTime::GetDeltaTime();
 		const float step = std::clamp(m_AssistRemaining, -maxStep, maxStep);
 		m_Yaw = WrapAngle(m_Yaw + step);
 		m_AssistRemaining -= step;
@@ -92,7 +92,7 @@ void SlowCamera::LateUpdate()
 		return;
 	}
 	const SlowActionTuning& tuning = GetSlowActionTuning();
-	const float deltaTime = GameTime::GetDeltaTime();
+	const float deltaTime = Engine::GameTime::GetDeltaTime();
 	// 編集用カメラは真上や真下も向けるので、戻ってきたときにゲームの範囲へ収めます。
 	m_Pitch = std::clamp(m_Pitch,
 		XMConvertToRadians(tuning.CameraMinPitchDegrees), XMConvertToRadians(tuning.CameraMaxPitchDegrees));
@@ -168,7 +168,7 @@ void SlowCamera::Draw()
 		: 0.0f;
 	const auto blend = [slowAmount](float normal, float slow) { return normal + (slow - normal) * slowAmount; };
 
-	LIGHT light{};
+	Engine::LIGHT light{};
 	light.Enable = TRUE;
 	light.Direction = { -0.45f, -0.78f, 0.43f, 0.0f };
 	light.Diffuse = { blend(0.92f, 0.74f), blend(0.90f, 0.84f), blend(0.80f, 0.98f), 1.0f };
@@ -176,11 +176,11 @@ void SlowCamera::Draw()
 	light.SkyColor = { blend(0.50f, 0.40f), blend(0.66f, 0.60f), blend(0.82f, 0.92f), 1.0f };
 	light.GroundColor = { 0.16f, 0.12f, 0.09f, 1.0f };
 	light.GroundNormal = { 0.0f, 1.0f, 0.0f, 0.0f };
-	Renderer::SetLight(light);
-	Renderer::SetProjectionMatrix(XMMatrixPerspectiveFovLH(XMConvertToRadians(m_FovDegrees),
+	Engine::Renderer::SetLight(light);
+	Engine::Renderer::SetProjectionMatrix(XMMatrixPerspectiveFovLH(XMConvertToRadians(m_FovDegrees),
 		static_cast<float>(SCREEN_WIDTH) / SCREEN_HEIGHT, 0.1f, 200.0f));
-	Renderer::SetViewMatrix(m_View);
-	Renderer::SetCameraPosition(XMFLOAT3(m_Eye.x, m_Eye.y, m_Eye.z));
+	Engine::Renderer::SetViewMatrix(m_View);
+	Engine::Renderer::SetCameraPosition(XMFLOAT3(m_Eye.x, m_Eye.y, m_Eye.z));
 }
 
 void SlowCamera::Shake(World& world, float strength)

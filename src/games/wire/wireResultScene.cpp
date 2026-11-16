@@ -11,7 +11,7 @@
 #include "world.h"
 void WireResultScene::Init()
 {
-    GameTime::SetPaused(false);
+    Engine::GameTime::SetPaused(false);
     auto& world = GetWorld();
     world.Spawn<WireFactory>();
     world.Spawn<WireCourseOverview>();

@@ -11,7 +11,7 @@ void Sky::Init()
 	m_Layer = Layer::World;
 	AddComponent<ModelRenderer>()->Load("assets\\model\\sky.obj");
 
-	m_Scale = { kDefaultRadius, kDefaultRadius, kDefaultRadius };
+	SetScale({ kDefaultRadius, kDefaultRadius, kDefaultRadius });
 }
 
 void Sky::Uninit()
@@ -35,12 +35,12 @@ void Sky::Draw()
 {
 	// ワールド行列を作成する。
 	XMMATRIX world, scale, rot, trans;
-	scale = XMMatrixScaling(m_Scale.x, m_Scale.y, m_Scale.z);
-	rot = XMMatrixRotationRollPitchYaw(m_Rotation.x, m_Rotation.y, m_Rotation.z);
+	scale = XMMatrixScaling(GetScale().x, GetScale().y, GetScale().z);
+	rot = XMMatrixRotationRollPitchYaw(GetRotation().x, GetRotation().y, GetRotation().z);
 	trans = XMMatrixTranslation(GetPosition().x, GetPosition().y, GetPosition().z);
 	world = scale * rot * trans;
 
-	Renderer::SetWorldMatrix(world);
+	Engine::Renderer::SetWorldMatrix(world);
 
 	GameObject::Draw();
 }

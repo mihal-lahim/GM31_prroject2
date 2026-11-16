@@ -98,7 +98,7 @@ namespace
 			if (SUCCEEDED(loadResult))
 			{
 				CreateShaderResourceView(
-					Renderer::GetDevice(), image.GetImages(), image.GetImageCount(), metadata,
+					Engine::Renderer::GetDevice(), image.GetImages(), image.GetImageCount(), metadata,
 					texture.GetAddressOf());
 			}
 			if (texture != nullptr)
@@ -133,7 +133,7 @@ void AnimationModel::Draw()
 		return;
 	}
 
-	ID3D11DeviceContext* context = Renderer::GetDeviceContext();
+	ID3D11DeviceContext* context = Engine::Renderer::GetDeviceContext();
 	if (context == nullptr || m_AiScene == nullptr || m_VertexBuffer.empty() || m_IndexBuffer.empty()
 		|| m_VertexLayout == nullptr || m_VertexShader == nullptr || m_PixelShader == nullptr)
 	{
@@ -148,19 +148,19 @@ void AnimationModel::Draw()
 		context->PSSetShader(m_PixelShader.Get(), nullptr, 0);
 	}
 
-	Renderer::SetWorldMatrix(GetWorldMatrix());
+	Engine::Renderer::SetWorldMatrix(GetWorldMatrix());
 
 	// プリミティブトポロジ設定
 	context->IASetPrimitiveTopology(
 		D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 
 	// マテリアル設定
-	MATERIAL material;
+	Engine::MATERIAL material;
 	ZeroMemory(&material, sizeof(material));
 	material.Diffuse = XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f);
 	material.Ambient = XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f);
 	material.TextureEnable = true;
-	Renderer::SetMaterial(material);
+	Engine::Renderer::SetMaterial(material);
 
 	const std::size_t passCount = m_UseSurfaceShader ? m_Surface.PassCount() : 1;
 	for (std::size_t pass = 0; pass < passCount; ++pass)
@@ -198,11 +198,11 @@ void AnimationModel::Draw()
 
 		material.Diffuse = XMFLOAT4(diffuse.r * m_Tint.x, diffuse.g * m_Tint.y, diffuse.b * m_Tint.z, opacity * m_Tint.w);
 		material.Ambient = material.Diffuse;
-		Renderer::SetMaterial(material);
+		Engine::Renderer::SetMaterial(material);
 
 
 		// 頂点バッファ設定
-		UINT stride = sizeof(VERTEX_3D);
+		UINT stride = sizeof(Engine::VERTEX_3D);
 		UINT offset = 0;
 		context->IASetVertexBuffers(0, 1, m_VertexBuffer[m].GetAddressOf(), &stride, &offset);
 
@@ -217,16 +217,16 @@ void AnimationModel::Draw()
 
 void AnimationModel::DrawShadow()
 {
-	ID3D11DeviceContext* context = Renderer::GetDeviceContext();
+	ID3D11DeviceContext* context = Engine::Renderer::GetDeviceContext();
 	if (!m_Visible || context == nullptr || m_AiScene == nullptr
 		|| m_VertexBuffer.empty() || m_IndexBuffer.empty())
 	{
 		return;
 	}
 	Engine::ShadowMap::BindCaster(false);
-	Renderer::SetWorldMatrix(GetWorldMatrix());
+	Engine::Renderer::SetWorldMatrix(GetWorldMatrix());
 	context->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-	UINT stride = sizeof(VERTEX_3D);
+	UINT stride = sizeof(Engine::VERTEX_3D);
 	UINT offset = 0;
 	for (unsigned int m = 0; m < m_AiScene->mNumMeshes; ++m)
 	{
@@ -250,7 +250,7 @@ bool AnimationModel::SetShaderFloat(std::string_view name, float value)
 
 bool AnimationModel::SetShaderTexture(std::string_view name, const std::filesystem::path& path)
 {
-	return m_Surface.SetTexture(name, ResourceManager::LoadTexture(path));
+	return m_Surface.SetTexture(name, Engine::ResourceManager::LoadTexture(path));
 }
 
 bool AnimationModel::SetShaderMode(Engine::SurfaceShader shader)
@@ -307,7 +307,7 @@ void AnimationModel::Load(const char* FileName)
 
 		// 頂点バッファ生成
 		{
-			VERTEX_3D* vertex = new VERTEX_3D[mesh->mNumVertices];
+			Engine::VERTEX_3D* vertex = new Engine::VERTEX_3D[mesh->mNumVertices];
 
 			for (unsigned int v = 0; v < mesh->mNumVertices; v++)
 			{
@@ -320,7 +320,7 @@ void AnimationModel::Load(const char* FileName)
 			D3D11_BUFFER_DESC bd;
 			ZeroMemory(&bd, sizeof(bd));
 			bd.Usage = D3D11_USAGE_DYNAMIC;
-			bd.ByteWidth = sizeof(VERTEX_3D) * mesh->mNumVertices;
+			bd.ByteWidth = sizeof(Engine::VERTEX_3D) * mesh->mNumVertices;
 			bd.BindFlags = D3D11_BIND_VERTEX_BUFFER;
 			bd.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
 
@@ -328,7 +328,7 @@ void AnimationModel::Load(const char* FileName)
 			ZeroMemory(&sd, sizeof(sd));
 			sd.pSysMem = vertex;
 
-			Renderer::GetDevice()->CreateBuffer(&bd, &sd,
+			Engine::Renderer::GetDevice()->CreateBuffer(&bd, &sd,
 				m_VertexBuffer[m].GetAddressOf());
 
 			delete[] vertex;
@@ -361,7 +361,7 @@ void AnimationModel::Load(const char* FileName)
 			ZeroMemory(&sd, sizeof(sd));
 			sd.pSysMem = index;
 
-			Renderer::GetDevice()->CreateBuffer(&bd, &sd, m_IndexBuffer[m].GetAddressOf());
+			Engine::Renderer::GetDevice()->CreateBuffer(&bd, &sd, m_IndexBuffer[m].GetAddressOf());
 
 			delete[] index;
 		}
@@ -909,7 +909,7 @@ void AnimationModel::ApplyPose(const Anim::Pose& pose, bool uploadMesh)
 
 	aiMatrix4x4 globalInverse = m_AiScene->mRootNode->mTransformation;
 	globalInverse.Inverse();
-	ID3D11DeviceContext* context = Renderer::GetDeviceContext();
+	ID3D11DeviceContext* context = Engine::Renderer::GetDeviceContext();
 	if (context == nullptr)
 	{
 		return;
@@ -931,7 +931,7 @@ void AnimationModel::ApplyPose(const Anim::Pose& pose, bool uploadMesh)
 			continue;
 		}
 
-		VERTEX_3D* vertices = static_cast<VERTEX_3D*>(mappedResource.pData);
+		Engine::VERTEX_3D* vertices = static_cast<Engine::VERTEX_3D*>(mappedResource.pData);
 		std::vector<aiMatrix3x3> normalTransforms;
 		normalTransforms.reserve(m_SkinTransforms[meshIndex].size());
 		for (const aiMatrix4x4& transform : m_SkinTransforms[meshIndex])

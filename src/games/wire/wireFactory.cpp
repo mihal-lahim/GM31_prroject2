@@ -35,7 +35,7 @@ namespace
 }
 
 void WireFactory::AddBox(
-	std::vector<VERTEX_3D>& vertices, std::vector<unsigned int>& indices,
+	std::vector<Engine::VERTEX_3D>& vertices, std::vector<unsigned int>& indices,
 	const Vector3& center, const Vector3& halfSize, const XMFLOAT4& color)
 {
 	// 巻き順を含む生成処理は共通ヘルパーに集約しています。
@@ -44,7 +44,7 @@ void WireFactory::AddBox(
 
 void WireFactory::BuildGeometry()
 {
-	std::vector<VERTEX_3D> vertices;
+	std::vector<Engine::VERTEX_3D> vertices;
 	std::vector<unsigned int> indices;
 	m_BlockField.Clear();
 	m_HighPerchPoints.clear();
@@ -176,7 +176,7 @@ void WireFactory::BuildGeometry()
     }
 	D3D11_BUFFER_DESC vertexDesc{};
 	vertexDesc.Usage = D3D11_USAGE_DEFAULT;
-	vertexDesc.ByteWidth = static_cast<UINT>(vertices.size() * sizeof(VERTEX_3D));
+	vertexDesc.ByteWidth = static_cast<UINT>(vertices.size() * sizeof(Engine::VERTEX_3D));
 	vertexDesc.BindFlags = D3D11_BIND_VERTEX_BUFFER;
 	D3D11_SUBRESOURCE_DATA vertexData{};
 	vertexData.pSysMem = vertices.data();
@@ -222,29 +222,29 @@ void WireFactory::Draw()
 		return;
 	}
 
-	Renderer::GetDeviceContext()->IASetInputLayout(m_VertexLayout.Get());
-	Renderer::GetDeviceContext()->VSSetShader(m_VertexShader.Get(), nullptr, 0);
-	Renderer::GetDeviceContext()->PSSetShader(m_PixelShader.Get(), nullptr, 0);
-	Renderer::SetWorldMatrix(XMMatrixIdentity());
+	Engine::Renderer::GetDeviceContext()->IASetInputLayout(m_VertexLayout.Get());
+	Engine::Renderer::GetDeviceContext()->VSSetShader(m_VertexShader.Get(), nullptr, 0);
+	Engine::Renderer::GetDeviceContext()->PSSetShader(m_PixelShader.Get(), nullptr, 0);
+	Engine::Renderer::SetWorldMatrix(XMMatrixIdentity());
 
-	MATERIAL material{};
+	Engine::MATERIAL material{};
 	material.Diffuse = { 1.0f, 1.0f, 1.0f, 1.0f };
 	material.Ambient = { 1.0f, 1.0f, 1.0f, 1.0f };
 	material.TextureEnable = FALSE;
-	Renderer::SetMaterial(material);
+	Engine::Renderer::SetMaterial(material);
 
-	UINT stride = sizeof(VERTEX_3D);
+	UINT stride = sizeof(Engine::VERTEX_3D);
 	UINT offset = 0;
-	Renderer::GetDeviceContext()->IASetVertexBuffers(0, 1, m_VertexBuffer.GetAddressOf(), &stride, &offset);
-	Renderer::GetDeviceContext()->IASetIndexBuffer(m_IndexBuffer.Get(), DXGI_FORMAT_R32_UINT, 0);
-	Renderer::GetDeviceContext()->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-	Renderer::GetDeviceContext()->DrawIndexed(m_StaticIndexCount, 0, 0);
+	Engine::Renderer::GetDeviceContext()->IASetVertexBuffers(0, 1, m_VertexBuffer.GetAddressOf(), &stride, &offset);
+	Engine::Renderer::GetDeviceContext()->IASetIndexBuffer(m_IndexBuffer.Get(), DXGI_FORMAT_R32_UINT, 0);
+	Engine::Renderer::GetDeviceContext()->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+	Engine::Renderer::GetDeviceContext()->DrawIndexed(m_StaticIndexCount, 0, 0);
     for (const auto& block : m_MovingBlocks)
     {
-        Renderer::SetWorldMatrix(XMMatrixTranslation(block.Position.x, block.Position.y, block.Position.z));
-        Renderer::GetDeviceContext()->DrawIndexed(36, block.FirstIndex, 0);
+        Engine::Renderer::SetWorldMatrix(XMMatrixTranslation(block.Position.x, block.Position.y, block.Position.z));
+        Engine::Renderer::GetDeviceContext()->DrawIndexed(36, block.FirstIndex, 0);
     }
-    Renderer::SetWorldMatrix(XMMatrixIdentity());
+    Engine::Renderer::SetWorldMatrix(XMMatrixIdentity());
 
 	GameObject::Draw();
 }
@@ -252,7 +252,7 @@ void WireFactory::Draw()
 
 void WireFactory::Update()
 {
-    m_MotionTime += GameTime::GetDeltaTime();
+    m_MotionTime += Engine::GameTime::GetDeltaTime();
     m_BlockField = m_StaticField;
     WirePlayer* player = GetWorld().FindFirst<WirePlayer>();
     for (auto& block : m_MovingBlocks)

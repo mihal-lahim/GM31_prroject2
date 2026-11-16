@@ -11,7 +11,7 @@
 #include <cmath>
 void WireTitleScene::Init()
 {
-    GameTime::SetPaused(false);
+    Engine::GameTime::SetPaused(false);
     auto& world = GetWorld();
     world.Spawn<WireFactory>();
     world.Spawn<WireCourseOverview>();
@@ -33,7 +33,7 @@ void WireTitleScene::Init()
 void WireTitleScene::Uninit() {}
 void WireTitleScene::Update()
 {
-    m_AnimationTime += GameTime::GetDeltaTime();
+    m_AnimationTime += Engine::GameTime::GetDeltaTime();
     m_StartLine->SetColor({1,1,1,0.75f+0.25f*sinf(m_AnimationTime*3)});
     if (Engine::InputActions::IsTriggered("confirm")) ChangeScene<WireGame>();
     else if (Engine::InputActions::IsTriggered("tutorial")) ChangeScene<WireTutorialScene>();

@@ -94,7 +94,7 @@ namespace
 void BaseballBat::Init()
 {
 	m_Layer = Layer::World;
-	m_Scale = { 0.09f, 0.09f, 1.0f };
+	SetScale({ 0.09f, 0.09f, 1.0f });
 
 	AddComponent<ModelRenderer>()
 		->SetUseOwnerTransform()
@@ -177,10 +177,10 @@ void BaseballBat::UpdatePose()
 	m_HitDirection = forward + Vector3(0.0f, 0.18f, 0.0f);
 	m_HitDirection.normalize();
 
-	m_Rotation.x = IsHitActive() ? -0.08f : -0.18f;
-	m_Rotation.y = atan2f(batDirection.x, batDirection.z);
-	m_Rotation.z = 0.0f;
-	m_Scale = IsHitActive() ? Vector3(0.12f, 0.12f, 1.0f) : Vector3(0.09f, 0.09f, 0.96f);
+	{ Vector3 value = GetRotation(); value.x = IsHitActive() ? -0.08f : -0.18f; SetRotation(value); }
+	{ Vector3 value = GetRotation(); value.y = atan2f(batDirection.x, batDirection.z); SetRotation(value); }
+	{ Vector3 value = GetRotation(); value.z = 0.0f; SetRotation(value); }
+	SetScale(IsHitActive() ? Vector3(0.12f, 0.12f, 1.0f) : Vector3(0.09f, 0.09f, 0.96f));
 
 	if (m_Collider != nullptr)
 	{
@@ -240,7 +240,7 @@ void BaseballBat::Update()
 		return;
 	}
 
-	const float dt = GameTime::GetDeltaTime();
+	const float dt = Engine::GameTime::GetDeltaTime();
 	if (m_SwingTimer > 0.0f)
 	{
 		m_SwingTimer -= dt;

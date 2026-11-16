@@ -385,7 +385,7 @@ bool InitializeUi()
 	// 編集していない間は、ゲームが隠したカーソルをImGuiが戻さないようにします。
 	io.ConfigFlags |= ImGuiConfigFlags_NoMouseCursorChange;
 	g_Initialized = ImGui_ImplWin32_Init(GetWindow())
-		&& ImGui_ImplDX11_Init(Renderer::GetDevice(), Renderer::GetDeviceContext());
+		&& ImGui_ImplDX11_Init(Engine::Renderer::GetDevice(), Engine::Renderer::GetDeviceContext());
 	if (!g_Initialized)
 	{
 		ShutdownUi();

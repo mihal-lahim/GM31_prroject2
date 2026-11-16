@@ -79,7 +79,7 @@ void SlowBullet::Update()
 		MarkForDestroy();
 		return;
 	}
-	m_Rotation.y = WrapAngle(m_Rotation.y + 10.0f * deltaTime);
+	{ Vector3 value = GetRotation(); value.y = WrapAngle(GetRotation().y + 10.0f * deltaTime); SetRotation(value); }
 
 	// 壁や障害物は、このステップで進む線分へレイを飛ばして調べます。速くても抜けません。
 	const Vector3 step = m_Velocity * deltaTime;

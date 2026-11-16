@@ -7,7 +7,6 @@
 #include "wirePlatform.h"
 #include "wirePlayer.h"
 #include "wirePlayerInput.h"
-#include "wireSwordAbility.h"
 #include "wireTpsCamera.h"
 #include "wireGameplayTuning.h"
 
@@ -71,10 +70,10 @@ void WirePlayerMovement::Update(
 	{
 		m_BlinkTimeRemaining = std::max(0.0f, m_BlinkTimeRemaining - dt);
 		player.MutableVelocity({}) = m_BlinkDirection * m_BlinkTravelSpeed;
-		player.MutableRotation({}).y = LerpAngle(
-			player.MutableRotation({}).y,
+		{ Vector3 rotation = player.GetRotation(); rotation.y = LerpAngle(
+			rotation.y,
 			atan2f(m_BlinkDirection.x, m_BlinkDirection.z),
-			GetWireGameplayTuning().Movement.BlinkTurnLerp);
+			GetWireGameplayTuning().Movement.BlinkTurnLerp); player.SetRotation(rotation); }
 		EmitBlinkParticles(player.GetPosition(), -m_BlinkDirection, GetWireGameplayTuning().Movement.BlinkTrailParticleCount);
 		return;
 	}
@@ -96,10 +95,10 @@ void WirePlayerMovement::Update(
 
 		if (!player.MutableGrapple({}).IsActive())
 		{
-			player.MutableRotation({}).y = LerpAngle(
-				player.MutableRotation({}).y,
+			{ Vector3 rotation = player.GetRotation(); rotation.y = LerpAngle(
+				rotation.y,
 				atan2f(moveDirection.x, moveDirection.z),
-				GetWireGameplayTuning().Movement.MoveTurnLerp);
+				GetWireGameplayTuning().Movement.MoveTurnLerp); player.SetRotation(rotation); }
 		}
 	}
 
@@ -110,7 +109,7 @@ void WirePlayerMovement::Update(
 		if (m_OnGround)
 		{
 			player.MutableVelocity({}).y = GetWireGameplayTuning().Movement.JumpVelocity;
-			player.MutableScale({}) = { GetWireGameplayTuning().Movement.JumpSquashXZ, GetWireGameplayTuning().Movement.JumpStretchY, GetWireGameplayTuning().Movement.JumpSquashXZ };
+			player.SetScale(Vector3{ GetWireGameplayTuning().Movement.JumpSquashXZ, GetWireGameplayTuning().Movement.JumpStretchY, GetWireGameplayTuning().Movement.JumpSquashXZ });
 		}
 		else
 		{
@@ -124,13 +123,13 @@ void WirePlayerMovement::Update(
 	player.MutableVelocity({}).z += -player.MutableVelocity({}).z * damping * dt;
 	player.MutableVelocity({}).y += GetWireGameplayTuning().Movement.Gravity * dt;
 
-	player.MutableScale({}).x += (1.0f - player.MutableScale({}).x) * GetWireGameplayTuning().Movement.ScaleRecoverLerp;
-	player.MutableScale({}).y += (1.0f - player.MutableScale({}).y) * GetWireGameplayTuning().Movement.ScaleRecoverLerp;
-	player.MutableScale({}).z += (1.0f - player.MutableScale({}).z) * GetWireGameplayTuning().Movement.ScaleRecoverLerp;
+	{ Vector3 scale = player.GetScale(); scale.x += (1.0f - scale.x) * GetWireGameplayTuning().Movement.ScaleRecoverLerp; player.SetScale(scale); }
+	{ Vector3 scale = player.GetScale(); scale.y += (1.0f - scale.y) * GetWireGameplayTuning().Movement.ScaleRecoverLerp; player.SetScale(scale); }
+	{ Vector3 scale = player.GetScale(); scale.z += (1.0f - scale.z) * GetWireGameplayTuning().Movement.ScaleRecoverLerp; player.SetScale(scale); }
 	if (m_OnGround)
 	{
 		m_MoveAnimation += Vector3(player.MutableVelocity({}).x, 0.0f, player.MutableVelocity({}).z).length() * dt;
-		player.MutableScale({}).y += sinf(m_MoveAnimation * GetWireGameplayTuning().Movement.GroundBobFrequency) * GetWireGameplayTuning().Movement.GroundBobAmount;
+		{ Vector3 scale = player.GetScale(); scale.y += sinf(m_MoveAnimation * GetWireGameplayTuning().Movement.GroundBobFrequency) * GetWireGameplayTuning().Movement.GroundBobAmount; player.SetScale(scale); }
 	}
 }
 
@@ -253,12 +252,11 @@ void WirePlayerMovement::StartBlink(WirePlayer& player, const Vector3& direction
         position.z = std::clamp(position.z, -movement.WorldBoundsZ, movement.WorldBoundsZ);
         player.SetPosition(position);
     }
-	player.MutableRotation({}).y = LerpAngle(
-		player.MutableRotation({}).y,
+	{ Vector3 rotation = player.GetRotation(); rotation.y = LerpAngle(
+		rotation.y,
 		atan2f(m_BlinkDirection.x, m_BlinkDirection.z),
-		GetWireGameplayTuning().Movement.BlinkTurnLerp);
-	player.MutableScale({}) = { GetWireGameplayTuning().Movement.BlinkScaleXZ, GetWireGameplayTuning().Movement.BlinkScaleY, GetWireGameplayTuning().Movement.BlinkScaleXZ };
-	player.MutableSword({}).Cancel();
+		GetWireGameplayTuning().Movement.BlinkTurnLerp); player.SetRotation(rotation); }
+	player.SetScale(Vector3{ GetWireGameplayTuning().Movement.BlinkScaleXZ, GetWireGameplayTuning().Movement.BlinkScaleY, GetWireGameplayTuning().Movement.BlinkScaleXZ });
 
 	EmitBlinkParticles(startPosition, -m_BlinkDirection, GetWireGameplayTuning().Movement.BlinkStartParticleCount);
 	EmitBlinkParticles(player.GetPosition(), m_BlinkDirection, GetWireGameplayTuning().Movement.BlinkEndParticleCount);
@@ -395,9 +393,9 @@ bool WirePlayerMovement::TryWallKick(WirePlayer& player, const Vector3& moveDire
 	player.MutableVelocity({}).z = kickDirection.z * carried;
 	player.MutableVelocity({}).y = std::max(player.MutableVelocity({}).y, 0.0f) + tuning.UpSpeed;
 
-	player.MutableRotation({}).y = LerpAngle(
-		player.MutableRotation({}).y, atan2f(kickDirection.x, kickDirection.z), 0.7f);
-	player.MutableScale({}) = { tuning.SquashXZ, tuning.StretchY, tuning.SquashXZ };
+	{ Vector3 rotation = player.GetRotation(); rotation.y = LerpAngle(
+		rotation.y, atan2f(kickDirection.x, kickDirection.z), 0.7f); player.SetRotation(rotation); }
+	player.SetScale(Vector3{ tuning.SquashXZ, tuning.StretchY, tuning.SquashXZ });
 
 	m_LastKickedNormal = normal;
 	m_WallContactTime = 0.0f;

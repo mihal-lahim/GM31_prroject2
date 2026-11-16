@@ -171,8 +171,8 @@ int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLi
 	UpdateWindow(g_Window);
 	Keyboard_Initialize();
 	Mouse_Initialize(g_Window);
-	GameTime::Init();
-	if (!Manager::Init(gameDefinition))
+	Engine::GameTime::Init();
+	if (!Engine::Manager::Init(gameDefinition))
 	{
 		MessageBoxW(nullptr, L"ゲームランタイムの初期化に失敗しました。", L"DX11 Game", MB_OK | MB_ICONERROR);
 		Mouse_SetCursorCaptured(false);
@@ -182,19 +182,19 @@ int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLi
 	}
 	if (gameDefinition.InitializeUi != nullptr && !gameDefinition.InitializeUi())
 	{
-		Manager::Uninit();
+		Engine::Manager::Uninit();
 		DestroyWindow(g_Window);
 		UnregisterClass(CLASS_NAME, wcex.hInstance);
 		return -1;
 	}
-	Renderer::SetOverlayCallback(gameDefinition.DrawUi);
+	Engine::Renderer::SetOverlayCallback(gameDefinition.DrawUi);
 
 	if (renderTest)
 	{
 		const bool passed = gameDefinition.RunRenderTests != nullptr && gameDefinition.RunRenderTests();
-		Renderer::SetOverlayCallback(nullptr);
+		Engine::Renderer::SetOverlayCallback(nullptr);
 		if (gameDefinition.ShutdownUi != nullptr) gameDefinition.ShutdownUi();
-		Manager::Uninit();
+		Engine::Manager::Uninit();
 		Mouse_SetCursorCaptured(false);
 		DestroyWindow(g_Window);
 		UnregisterClass(CLASS_NAME, wcex.hInstance);
@@ -239,7 +239,7 @@ int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLi
 			gameDefinition.BeginUiFrame();
 		while (accumulator >= kFixedDeltaSeconds && updateSteps < kMaximumCatchUpSteps)
 		{
-			Manager::Update(static_cast<float>(kFixedDeltaSeconds));
+			Engine::Manager::Update(static_cast<float>(kFixedDeltaSeconds));
 			keycopy();
 			Mouse_EndFrame();
 			accumulator -= kFixedDeltaSeconds;
@@ -251,7 +251,7 @@ int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLi
 			accumulator = std::fmod(accumulator, kFixedDeltaSeconds);
 		}
 
-		if (Manager::IsQuitRequested())
+		if (Engine::Manager::IsQuitRequested())
 		{
 			DestroyWindow(g_Window);
 			continue;
@@ -259,7 +259,7 @@ int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLi
 
 		if (updateSteps > 0)
 		{
-			Manager::Draw();
+			Engine::Manager::Draw();
 		}
 		else
 		{
@@ -269,9 +269,9 @@ int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLi
 
 	timeEndPeriod(1);
 	Mouse_SetCursorCaptured(false);
-	Renderer::SetOverlayCallback(nullptr);
+	Engine::Renderer::SetOverlayCallback(nullptr);
 	if (gameDefinition.ShutdownUi != nullptr) gameDefinition.ShutdownUi();
-	Manager::Uninit();
+	Engine::Manager::Uninit();
 	UnregisterClass(CLASS_NAME, wcex.hInstance);
 
 	return (int)msg.wParam;

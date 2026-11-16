@@ -12,7 +12,7 @@ ComPtr<ID3D11Buffer> Firework::s_VertexBuffer = nullptr;
 ComPtr<ID3D11InputLayout> Firework::s_VertexLayout = nullptr;
 ComPtr<ID3D11VertexShader> Firework::s_VertexShader = nullptr;
 ComPtr<ID3D11PixelShader> Firework::s_PixelShader = nullptr;
-TextureHandle Firework::s_Texture;
+Engine::TextureHandle Firework::s_Texture;
 int Firework::s_RefCount = 0;
 
 namespace
@@ -74,7 +74,7 @@ void Firework::Init()
 	{
 		D3D11_BUFFER_DESC bd{};
 		bd.Usage = D3D11_USAGE_DYNAMIC;
-		bd.ByteWidth = sizeof(VERTEX_3D) * MAX_FIREWORK_VERTICES;
+		bd.ByteWidth = sizeof(Engine::VERTEX_3D) * MAX_FIREWORK_VERTICES;
 		bd.BindFlags = D3D11_BIND_VERTEX_BUFFER;
 		bd.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
 
@@ -84,7 +84,7 @@ void Firework::Init()
 			s_VertexShader, s_VertexLayout, s_PixelShader, "Firework")
 			&& m_RenderingAvailable;
 
-		s_Texture = ResourceManager::LoadTexture(L"assets/texture/particle.png");
+		s_Texture = Engine::ResourceManager::LoadTexture(L"assets/texture/particle.png");
 	}
 	m_RenderingAvailable = Engine::GraphicsResourceFactory::IsDrawable(
 		s_VertexBuffer.Get(), s_VertexLayout.Get(), s_VertexShader.Get(), s_PixelShader.Get())
@@ -228,7 +228,7 @@ void Firework::Explode()
 
 void Firework::Update()
 {
-	const float dt = GameTime::GetDeltaTime();
+	const float dt = Engine::GameTime::GetDeltaTime();
 
 	for (auto& spark : m_Sparks)
 	{
@@ -301,7 +301,7 @@ void Firework::Draw()
 	Vector3 right{ rightValue.x, rightValue.y, rightValue.z };
 	Vector3 up{ upValue.x, upValue.y, upValue.z };
 
-	std::vector<VERTEX_3D> vertices;
+	std::vector<Engine::VERTEX_3D> vertices;
 	vertices.reserve(m_Sparks.size() * 6);
 
 	for (const auto& spark : m_Sparks)
@@ -347,30 +347,30 @@ void Firework::Draw()
 		m_RenderingAvailable = false;
 		return;
 	}
-	memcpy(mapped.pData, vertices.data(), sizeof(VERTEX_3D) * vertices.size());
-	Renderer::GetDeviceContext()->Unmap(s_VertexBuffer.Get(), 0);
+	memcpy(mapped.pData, vertices.data(), sizeof(Engine::VERTEX_3D) * vertices.size());
+	Engine::Renderer::GetDeviceContext()->Unmap(s_VertexBuffer.Get(), 0);
 
-	Renderer::GetDeviceContext()->IASetInputLayout(s_VertexLayout.Get());
-	Renderer::GetDeviceContext()->VSSetShader(s_VertexShader.Get(), NULL, 0);
-	Renderer::GetDeviceContext()->PSSetShader(s_PixelShader.Get(), NULL, 0);
+	Engine::Renderer::GetDeviceContext()->IASetInputLayout(s_VertexLayout.Get());
+	Engine::Renderer::GetDeviceContext()->VSSetShader(s_VertexShader.Get(), NULL, 0);
+	Engine::Renderer::GetDeviceContext()->PSSetShader(s_PixelShader.Get(), NULL, 0);
 	ID3D11ShaderResourceView* texture = s_Texture != nullptr ? s_Texture->Get() : nullptr;
-	Renderer::GetDeviceContext()->PSSetShaderResources(0, 1, &texture);
+	Engine::Renderer::GetDeviceContext()->PSSetShaderResources(0, 1, &texture);
 
-	UINT stride = sizeof(VERTEX_3D);
+	UINT stride = sizeof(Engine::VERTEX_3D);
 	UINT offset = 0;
-	Renderer::GetDeviceContext()->IASetVertexBuffers(0, 1, s_VertexBuffer.GetAddressOf(), &stride, &offset);
-	Renderer::GetDeviceContext()->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+	Engine::Renderer::GetDeviceContext()->IASetVertexBuffers(0, 1, s_VertexBuffer.GetAddressOf(), &stride, &offset);
+	Engine::Renderer::GetDeviceContext()->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 
-	Renderer::SetAddBlendEnable(true);
-	Renderer::SetDepthEnable(false);
+	Engine::Renderer::SetAddBlendEnable(true);
+	Engine::Renderer::SetDepthEnable(false);
 
-	MATERIAL material{};
+	Engine::MATERIAL material{};
 	material.Diffuse = XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f);
 	material.TextureEnable = TRUE;
-	Renderer::SetMaterial(material);
-	Renderer::SetWorldMatrix(XMMatrixIdentity());
-	Renderer::GetDeviceContext()->Draw(static_cast<UINT>(vertices.size()), 0);
+	Engine::Renderer::SetMaterial(material);
+	Engine::Renderer::SetWorldMatrix(XMMatrixIdentity());
+	Engine::Renderer::GetDeviceContext()->Draw(static_cast<UINT>(vertices.size()), 0);
 
-	Renderer::SetDepthEnable(true);
-	Renderer::SetAddBlendEnable(false);
+	Engine::Renderer::SetDepthEnable(true);
+	Engine::Renderer::SetAddBlendEnable(false);
 }

@@ -72,13 +72,10 @@
     <ClCompile Include="src\games\wire\wireReticle.cpp">
       <Filter>Code\Abilities\Grapple</Filter>
     </ClCompile>
-    <ClCompile Include="src\games\wire\wireSlashEffect.cpp">
       <Filter>Code\Abilities\Sword</Filter>
     </ClCompile>
-    <ClCompile Include="src\games\wire\wireSword.cpp">
       <Filter>Code\Abilities\Sword</Filter>
     </ClCompile>
-    <ClCompile Include="src\games\wire\wireSwordAbility.cpp">
       <Filter>Code\Abilities\Sword</Filter>
     </ClCompile>
     <ClCompile Include="src\games\wire\wireDebugTools.cpp">
@@ -170,121 +167,117 @@
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="include\wireAnchor.h">
+    <ClInclude Include="include\games\wire\wireAnchor.h">
       <Filter>Code\Abilities\Grapple</Filter>
     </ClInclude>
-    <ClInclude Include="include\wireGrappleAbility.h">
+    <ClInclude Include="include\games\wire\wireGrappleAbility.h">
       <Filter>Code\Abilities\Grapple</Filter>
     </ClInclude>
-    <ClInclude Include="include\wireReticle.h">
+    <ClInclude Include="include\games\wire\wireReticle.h">
       <Filter>Code\Abilities\Grapple</Filter>
     </ClInclude>
-    <ClInclude Include="include\wireSwingPhysics.h">
+    <ClInclude Include="include\games\wire\wireSwingPhysics.h">
       <Filter>Code\Abilities\Grapple</Filter>
     </ClInclude>
-    <ClInclude Include="include\wireRopePath.h">
+    <ClInclude Include="include\games\wire\wireRopePath.h">
       <Filter>Code\Abilities\Grapple</Filter>
     </ClInclude>
-    <ClInclude Include="include\wireRopeVisual.h">
+    <ClInclude Include="include\games\wire\wireRopeVisual.h">
       <Filter>Code\Abilities\Grapple</Filter>
     </ClInclude>
-    <ClInclude Include="include\wireSlashEffect.h">
       <Filter>Code\Abilities\Sword</Filter>
     </ClInclude>
-    <ClInclude Include="include\wireSword.h">
       <Filter>Code\Abilities\Sword</Filter>
     </ClInclude>
-    <ClInclude Include="include\wireSwordAbility.h">
       <Filter>Code\Abilities\Sword</Filter>
     </ClInclude>
-    <ClInclude Include="include\wireCollisionLayers.h">
+    <ClInclude Include="include\games\wire\wireCollisionLayers.h">
       <Filter>Code\Collision</Filter>
     </ClInclude>
-    <ClInclude Include="include\wireDebugTools.h">
+    <ClInclude Include="include\games\wire\wireDebugTools.h">
       <Filter>Code\Diagnostics</Filter>
     </ClInclude>
-    <ClInclude Include="include\wireFactory.h">
+    <ClInclude Include="include\games\wire\wireFactory.h">
       <Filter>Code\Game</Filter>
     </ClInclude>
-    <ClInclude Include="include\wireGame.h">
+    <ClInclude Include="include\games\wire\wireGame.h">
       <Filter>Code\Game</Filter>
     </ClInclude>
-    <ClInclude Include="include\wireGameplayTuning.h">
+    <ClInclude Include="include\games\wire\wireGameplayTuning.h">
       <Filter>Code\Game</Filter>
     </ClInclude>
-    <ClInclude Include="include\animationModel.h">
+    <ClInclude Include="include\animation\animationModel.h">
       <Filter>Code\Player</Filter>
     </ClInclude>
-    <ClInclude Include="include\animator.h">
+    <ClInclude Include="include\animation\animator.h">
       <Filter>Code\Player</Filter>
     </ClInclude>
-    <ClInclude Include="include\wirePlayer.h">
+    <ClInclude Include="include\games\wire\wirePlayer.h">
       <Filter>Code\Player</Filter>
     </ClInclude>
-    <ClInclude Include="include\wirePlayerInput.h">
+    <ClInclude Include="include\games\wire\wirePlayerInput.h">
       <Filter>Code\Player</Filter>
     </ClInclude>
-    <ClInclude Include="include\wirePlayerMovement.h">
+    <ClInclude Include="include\games\wire\wirePlayerMovement.h">
       <Filter>Code\Player</Filter>
     </ClInclude>
-    <ClInclude Include="include\wirePlayerPresentation.h">
+    <ClInclude Include="include\games\wire\wirePlayerPresentation.h">
       <Filter>Code\Player</Filter>
     </ClInclude>
-    <ClInclude Include="include\wireRobotRenderer.h">
+    <ClInclude Include="include\games\wire\wireRobotRenderer.h">
       <Filter>Code\Player</Filter>
     </ClInclude>
-    <ClInclude Include="include\wireTpsCamera.h">
+    <ClInclude Include="include\games\wire\wireTpsCamera.h">
       <Filter>Code\Player</Filter>
     </ClInclude>
-    <ClInclude Include="include\wireRace.h">
+    <ClInclude Include="include\games\wire\wireRace.h">
       <Filter>Code\Scenes</Filter>
     </ClInclude>
-    <ClInclude Include="include\wireResultScene.h">
+    <ClInclude Include="include\games\wire\wireResultScene.h">
       <Filter>Code\Scenes</Filter>
     </ClInclude>
-    <ClInclude Include="include\wireTitleScene.h">
+    <ClInclude Include="include\games\wire\wireTitleScene.h">
       <Filter>Code\Scenes</Filter>
     </ClInclude>
-    <ClInclude Include="include\wireTutorialScene.h">
+    <ClInclude Include="include\games\wire\wireTutorialScene.h">
       <Filter>Code\Scenes</Filter>
     </ClInclude>
-    <ClInclude Include="include\wireBlinkGauge.h">
+    <ClInclude Include="include\games\wire\wireBlinkGauge.h">
       <Filter>Code\UI</Filter>
     </ClInclude>
-    <ClInclude Include="include\wireChatBox.h">
+    <ClInclude Include="include\games\wire\wireChatBox.h">
       <Filter>Code\UI</Filter>
     </ClInclude>
-    <ClInclude Include="include\wireGuide.h">
+    <ClInclude Include="include\games\wire\wireGuide.h">
       <Filter>Code\UI</Filter>
     </ClInclude>
-    <ClInclude Include="include\wireHealthUI.h">
+    <ClInclude Include="include\games\wire\wireHealthUI.h">
       <Filter>Code\UI</Filter>
     </ClInclude>
-    <ClInclude Include="include\wireMenuBackdrop.h">
+    <ClInclude Include="include\games\wire\wireMenuBackdrop.h">
       <Filter>Code\UI</Filter>
     </ClInclude>
-    <ClInclude Include="include\wireMissionHud.h">
+    <ClInclude Include="include\games\wire\wireMissionHud.h">
       <Filter>Code\UI</Filter>
     </ClInclude>
-    <ClInclude Include="include\sky.h">
+    <ClInclude Include="include\shared\sky.h">
       <Filter>Code\World</Filter>
     </ClInclude>
-    <ClInclude Include="include\wireBlockField.h">
+    <ClInclude Include="include\games\wire\wireBlockField.h">
       <Filter>Code\World</Filter>
     </ClInclude>
-    <ClInclude Include="include\wireBoxMesh.h">
+    <ClInclude Include="include\games\wire\wireBoxMesh.h">
       <Filter>Code\World</Filter>
     </ClInclude>
-    <ClInclude Include="include\wireBreakable.h">
       <Filter>Code\World</Filter>
     </ClInclude>
-    <ClInclude Include="include\wireEnemy.h">
+    <ClInclude Include="include\games\wire\wireEnemy.h">
       <Filter>Code\World</Filter>
     </ClInclude>
-    <ClInclude Include="include\wirePlatform.h">
+    <ClInclude Include="include\games\wire\wirePlatform.h">
       <Filter>Code\World</Filter>
     </ClInclude>
-    <ClInclude Include="include\wireTarget.h">
+    <ClInclude Include="include\games\wire\wireTarget.h">
       <Filter>Code\World</Filter>
     </ClInclude>
   </ItemGroup>

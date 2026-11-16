@@ -19,7 +19,7 @@
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
   <PropertyGroup><OutDir>$(ProjectDir)bin\$(Platform)\$(Configuration)\$(ProjectName)\</OutDir><IntDir>$(ProjectDir)obj\$(ProjectName)\$(Platform)\$(Configuration)\</IntDir></PropertyGroup>
   <Import Project="Common.props" />
-  <ItemDefinitionGroup><ClCompile><AdditionalIncludeDirectories>$(ProjectDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories></ClCompile></ItemDefinitionGroup>
+  <ItemDefinitionGroup><ClCompile><AdditionalIncludeDirectories>$(ProjectDir);$(ProjectDir)include\games\shaderGallery;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories></ClCompile></ItemDefinitionGroup>
   <Import Project="SurfaceShaders.props" />
   <ItemGroup>
     <FxCompile Include="shaders\forestVS.hlsl"><ShaderType>Vertex</ShaderType><ShaderModel>5.0</ShaderModel><ObjectFileOutput>$(OutDir)%(Filename).cso</ObjectFileOutput></FxCompile>
@@ -34,9 +34,10 @@
     </FxCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="include\forestDemo.h" /><ClCompile Include="src\games\shaderGallery\forestDemo.cpp" />
-    <ClInclude Include="include\shaderGalleryScene.h" />
-    <ClInclude Include="include\shaderGalleryUi.h" />
+    <ClInclude Include="include\games\shaderGallery\forestDemo.h" /><ClCompile Include="src\games\shaderGallery\forestDemo.cpp" />
+    <ClInclude Include="include\games\shaderGallery\shaderGalleryScene.h" />
+    <ClInclude Include="include\games\shaderGallery\shaderGalleryModes.h" />
+    <ClInclude Include="include\games\shaderGallery\shaderGalleryUi.h" />
     <ClCompile Include="src\engine\main.cpp" />
     <ClCompile Include="src\games\shaderGallery\shaderGalleryScene.cpp" />
     <ClCompile Include="src\games\shaderGallery\shaderGalleryUi.cpp" />
@@ -53,6 +54,8 @@
     </ProjectReference>
   </ItemGroup>
   <ItemGroup>
+    <!-- エンジン共通の自己テストが読む音声です。 -->
+    <RuntimeAsset Include="assets\audio\wan.wav"><TargetPath>assets\audio\wan.wav</TargetPath></RuntimeAsset>
     <RuntimeAsset Include="assets\config\classroom.cfg"><TargetPath>assets\config\classroom.cfg</TargetPath></RuntimeAsset>
     <RuntimeAsset Include="assets\model\shaderDonut.obj"><TargetPath>assets\model\shaderDonut.obj</TargetPath></RuntimeAsset>
     <RuntimeAsset Include="assets\model\shaderDonut.mtl"><TargetPath>assets\model\shaderDonut.mtl</TargetPath></RuntimeAsset>
