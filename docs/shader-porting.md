@@ -1,6 +1,6 @@
 # SP31 → GM31: シェーダーの追加
 
-独立した比較アプリは `ShaderGallery.vcxproj` と `SHADER_GALLERY.md` を参照してください。
+独立した比較アプリは `ShaderGallery.vcxproj` と [shader-gallery.md](games/shader-gallery.md) を参照してください。
 
 SP31 は効果の実験場、GM31 はゲームへの採用先です。`Sample Stripes` が追加例です。
 GM31 では `SurfaceShader` enum や `spSurfacePS.hlsl` のモード分岐を増やさず、

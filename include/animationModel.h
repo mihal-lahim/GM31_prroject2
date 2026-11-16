@@ -146,7 +146,7 @@ public:
 	const auto& GetAnimationPose() const { return m_AnimatedPose; }
 	const std::string& GetAnimationName() const { return m_Animator.GetCurrentName(); }
 
-	// ブレンドツリー・アクション層 (仕様は ANIMATION.md) ------------------------------
+	// ブレンドツリー・アクション層 (仕様は docs/animation.md) ------------------------------
 	// parameterの値でclipsを混ぜる1Dブレンドツリーを登録します。PlayAnimation(name)で再生します。
 	void AddBlendSpace1D(const char* name, const char* parameter,
 		std::vector<Anim::BlendClip> clips, float parameterSmoothing = 0.1f);

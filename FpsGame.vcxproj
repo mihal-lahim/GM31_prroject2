@@ -108,7 +108,7 @@
     <RuntimeAsset Include="licenses\DirectXTex-LICENSE.txt">
       <TargetPath>licenses\DirectXTex-LICENSE.txt</TargetPath>
     </RuntimeAsset>
-    <RuntimeAsset Include="assimp-vc143-mt.dll">
+    <RuntimeAsset Include="third_party\assimp\bin\assimp-vc143-mt.dll">
       <TargetPath>assimp-vc143-mt.dll</TargetPath>
     </RuntimeAsset>
     <RuntimeAsset Include="assets\config\fps.cfg">

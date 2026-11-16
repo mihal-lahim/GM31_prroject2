@@ -237,7 +237,7 @@
     <RuntimeAsset Include="assets\texture\particle.png">
       <TargetPath>assets\texture\particle.png</TargetPath>
     </RuntimeAsset>
-    <RuntimeAsset Include="assimp-vc143-mt.dll">
+    <RuntimeAsset Include="third_party\assimp\bin\assimp-vc143-mt.dll">
       <TargetPath>assimp-vc143-mt.dll</TargetPath>
     </RuntimeAsset>
   </ItemGroup>

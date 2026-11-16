@@ -77,7 +77,7 @@ keys walk on the field. The application packages only its own runtime assets.
 `AnimationModel` (skinning, foot IK) delegates clip selection to `Anim::Animator`
 (`animator.*`): crossfades, 1D blend trees with phase-synchronized clips, masked
 override/additive action layers for attacks and hit reactions, and root motion extraction. `Animator` has no rendering dependency and is covered by
-`animatorSelfTests.cpp` (`ClassroomWalk.exe --self-test`). See `ANIMATION.md`.
+`animatorSelfTests.cpp` (`ClassroomWalk.exe --self-test`). See `docs/animation.md`.
 
 ### SlowAction (`SlowAction.vcxproj`)
 
@@ -120,6 +120,7 @@ Sources are grouped by owner:
 | `src/engine/` | `Engine.lib` (plus `main.cpp` and `enginePch.cpp`, compiled by every application) |
 | `src/animation/` | `AnimationLib.lib`: `Animator` and `AnimationModel`, optimized even in Debug |
 | `third_party/imgui/` | `ImGuiLib.lib`: Dear ImGui and its Win32/DX11 backends |
+| `third_party/assimp/` | Assimp headers (`include/`) and runtime DLL (`bin/`); the import library is in `lib/` with DirectXTex |
 | `src/shared/` | sources compiled by several applications (`sky.cpp`) |
 | `src/games/<name>/` | one application only (`wire`, `batting`, `classroom`, `fps`, `shaderGallery`, `slow`) |
 
@@ -270,7 +271,7 @@ application's `assets/config/*.cfg` file and fall back to validated defaults.
 
 DirectXTex is shipped in `include/` and `lib/`; global vcpkg integration is
 disabled so builds do not depend on a developer-specific `C:\vcpkg` install.
-See `THIRD_PARTY.md` for provenance requirements on upgrades.
+See `THIRD_PARTY.md` (repository root) for provenance requirements on upgrades.
 
 Debug x64 outputs are:
 
