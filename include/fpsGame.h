@@ -30,7 +30,8 @@ public:
 	void Draw() override;
 
 	XMMATRIX GetViewMatrix() const override { return m_View; }
-	Vector3 GetCameraPosition() const override { return m_Position + Vector3(0.0f, kEyeHeight, 0.0f); }
+	Vector3 GetCameraPosition() const override;
+	float GetAimBlend() const { return m_AimProgress * m_AimProgress * (3.0f - 2.0f * m_AimProgress); }
 	Vector3 GetCameraForward() const override;
 
 	int GetScore() const { return m_Score; }
@@ -48,6 +49,7 @@ private:
 	float m_VerticalSpeed = 0.0f;
 	float m_MoveSpeed = 0.0f;
 	float m_FireCooldown = 0.0f;
+	float m_AimProgress = 0.0f;
 	bool m_Grounded = false;
 	int m_Score = 0;
 
