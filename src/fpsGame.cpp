@@ -217,6 +217,7 @@ void FpsPlayer::Shoot()
 	}
 	const bool hitTarget = (hit.HitCollider->GetCollisionLayer() & FpsCollisionLayers::Target) != 0;
 	SpawnImpact(hit.Point, hit.Normal, hitTarget);
+	GetWorld().Spawn<FpsImpactMarker>()->Place(hit.Point, hit.Normal);
 	if (hitTarget)
 	{
 		hit.HitCollider->GetOwner()->MarkForDestroy();
@@ -343,12 +344,12 @@ void FpsWeapon::Draw()
 	Renderer::SetProjectionMatrix(XMMatrixPerspectiveFovLH(XMConvertToRadians(60.0f),
 		static_cast<float>(SCREEN_WIDTH) / SCREEN_HEIGHT, 0.01f, 10.0f));
 
-	// カメラ座標での位置です。右下に構え、歩くと8の字に揺れ、撃つと後ろへ下がって銃口が上がります。
+	// 照準を隠さないよう右下に構えます。歩行の揺れと最大反動でも中央に余白を残します。
 	const float bobX = sinf(m_BobTime) * 0.012f * m_BobWeight;
 	const float bobY = -fabsf(cosf(m_BobTime)) * 0.010f * m_BobWeight;
 	const XMMATRIX local =
 		XMMatrixRotationRollPitchYaw(-0.12f * m_Recoil, XMConvertToRadians(-2.5f), 0.0f)
-		* XMMatrixTranslation(0.17f + bobX, -0.17f + bobY, 0.46f - 0.045f * m_Recoil);
+		* XMMatrixTranslation(0.21f + bobX, -0.23f + bobY, 0.46f - 0.045f * m_Recoil);
 	// ライトはワールド座標で計算されるので、カメラの逆行列でワールドへ戻してから描きます。
 	m_GunWorld = local * XMMatrixInverse(nullptr, player->GetViewMatrix());
 	Renderer::SetWorldMatrix(m_GunWorld);
@@ -416,6 +417,43 @@ void FpsTarget::Init()
 void FpsTarget::Update()
 {
 	m_Rotation.y += 1.5f * GameTime::GetDeltaTime();
+}
+
+void FpsImpactMarker::Init()
+{
+	m_Layer = Layer::World;
+	// 小さな赤白の標的模様を流用。既定の非ライティング描画で暗い面でも見えるようにします。
+	AddComponent<ModelRenderer>()->Load("assets\\model\\fpsTarget.obj");
+}
+
+void FpsImpactMarker::Place(const Vector3& point, const Vector3& normal)
+{
+	Vector3 facing = normal;
+	facing.normalize();
+	// 床・天井でも基底が退化しないよう、法線と平行でない上方向を選びます。
+	const XMVECTOR forward = XMVectorSet(facing.x, facing.y, facing.z, 0.0f);
+	const XMVECTOR up = fabsf(facing.y) > 0.95f
+		? XMVectorSet(1.0f, 0.0f, 0.0f, 0.0f) : XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f);
+	m_SurfaceRotation = XMMatrixInverse(nullptr,
+		XMMatrixLookToLH(XMVectorZero(), forward, up));
+	// 面から少し浮かせて深度のちらつきを防ぎます。位置は命中時のワールド座標に固定します。
+	SetPosition(point + facing * 0.012f);
+}
+
+void FpsImpactMarker::Update()
+{
+	m_RemainingSeconds -= GameTime::GetDeltaTime();
+	if (m_RemainingSeconds <= 0.0f)
+	{
+		MarkForDestroy();
+	}
+}
+
+void FpsImpactMarker::Draw()
+{
+	// 直径約20cm、厚さ1mm未満のマーカーです。通常の深度テストで遮蔽物に隠れます。
+	Renderer::SetWorldMatrix(XMMatrixScaling(0.22f, 0.22f, 0.01f)
+		* m_SurfaceRotation * XMMatrixTranslation(m_Position.x, m_Position.y, m_Position.z));
 }
 
 void FpsGameScene::Init()

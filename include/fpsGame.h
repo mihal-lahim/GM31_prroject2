@@ -112,6 +112,20 @@ public:
 	void Update() override;
 };
 
+// 命中位置に4秒間残る小さな標的模様。コライダーは持たず、次の射撃を遮りません。
+class FpsImpactMarker final : public GameObject
+{
+public:
+	void Init() override;
+	void Update() override;
+	void Draw() override;
+	void Place(const Vector3& point, const Vector3& normal);
+
+private:
+	XMMATRIX m_SurfaceRotation = XMMatrixIdentity();
+	float m_RemainingSeconds = 4.0f;
+};
+
 class FpsGameScene final : public Scene
 {
 public:
