@@ -67,6 +67,8 @@ namespace
 //   fps-render-shot.png   撃った直後(マズルフラッシュ)
 //   fps-render-impact.png 撃って少し後(的の破片と火花)
 //   fps-render-aim-half.png / fps-render-aim.png エイム途中と完了
+//   fps-render-marker.png 2秒後も命中位置に残るマーカー
+//   fps-render-wall-marker.png 奥の壁への着弾マーカー
 bool RunFpsRenderTest()
 {
 	std::ofstream log("render-test-fps.log");
@@ -132,6 +134,27 @@ bool RunFpsRenderTest()
 
 	const std::size_t targetsAfter = scene.GetWorld().FindAll<FpsTarget>().size();
 	const bool targetDestroyed = targetsAfter + 1 == targetsBefore;
+	const auto markers = scene.GetWorld().FindAll<FpsImpactMarker>();
+	const bool targetMarked = markers.size() == 1;
+	const Vector3 markerPosition = targetMarked ? markers.front()->GetPosition() : Vector3{};
+	for (int i = 0; i < 120; ++i) Step(scene);
+	const auto persistentMarkers = scene.GetWorld().FindAll<FpsImpactMarker>();
+	const bool markerPersists = persistentMarkers.size() == 1
+		&& (persistentMarkers.front()->GetPosition() - markerPosition).length() < 0.001f;
+	passed &= Capture(L"fps-render-marker.png");
+	for (int i = 0; i < 130; ++i) Step(scene);
+	const bool markerExpired = scene.GetWorld().FindAll<FpsImpactMarker>().empty();
+	// 的が消えた後の同じ方向への射撃は奥の壁に当たります。
+	if (player != nullptr) player->Shoot();
+	Step(scene);
+	const bool wallMarked = scene.GetWorld().FindAll<FpsImpactMarker>().size() == 1
+		&& player != nullptr && player->GetScore() == 1;
+	passed &= Capture(L"fps-render-wall-marker.png");
+	const bool markersPassed = targetMarked && markerPersists && markerExpired && wallMarked;
+	log << (targetMarked ? "PASS" : "FAIL") << " target impact marker spawned\n";
+	log << (markerPersists ? "PASS" : "FAIL") << " marker stays at impact after 2 seconds\n";
+	log << (markerExpired ? "PASS" : "FAIL") << " marker expires after 4 seconds\n";
+	log << (wallMarked ? "PASS" : "FAIL") << " wall impact marker without target score\n";
 	log << (passed ? "PASS" : "FAIL") << " captures\n";
 	log << (targetDestroyed ? "PASS" : "FAIL") << " center target destroyed by shot ("
 		<< targetsBefore << " -> " << targetsAfter << ")\n";
@@ -146,5 +169,5 @@ bool RunFpsRenderTest()
 		soundsLoaded &= loaded;
 	}
 	scene.Uninit();
-	return passed && aimPassed && targetDestroyed && soundsLoaded;
+	return passed && aimPassed && targetDestroyed && soundsLoaded && markersPassed;
 }
