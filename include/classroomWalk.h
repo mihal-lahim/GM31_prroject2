@@ -46,7 +46,7 @@ public:
 	void Draw() override;
 	float GetYaw() const { return m_Yaw; }
 	XMMATRIX GetViewMatrix() const override { return m_View; }
-	Vector3 GetCameraPosition() const override { return m_Position; }
+	Vector3 GetCameraPosition() const override { return GetPosition(); }
 	Vector3 GetCameraForward() const override;
 private:
 	XMMATRIX m_View = XMMatrixIdentity();

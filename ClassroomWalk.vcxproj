@@ -70,25 +70,21 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClInclude Include="include\animationModel.h" />
-    <ClInclude Include="include\animator.h" />
     <ClInclude Include="include\meshField.h" />
     <ClInclude Include="include\classroomWalk.h" />
     <ClInclude Include="include\sky.h" />
     <ClInclude Include="include\wave.h" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="src\main.cpp" />
-    <ClCompile Include="src\animationModel.cpp" />
-    <ClCompile Include="src\animator.cpp" />
-    <ClCompile Include="src\animatorSelfTests.cpp" />
-    <ClCompile Include="src\meshField.cpp" />
-    <ClCompile Include="src\classroomWalk.cpp" />
-    <ClCompile Include="src\sky.cpp" />
-    <ClCompile Include="src\classroomGameDefinition.cpp" />
-    <ClCompile Include="src\classroomRenderTest.cpp" />
-    <ClCompile Include="src\wave.cpp" />
-    <ClCompile Include="src\enginePch.cpp">
+    <ClCompile Include="src\engine\main.cpp" />
+    <ClCompile Include="src\games\classroom\animatorSelfTests.cpp" />
+    <ClCompile Include="src\games\classroom\meshField.cpp" />
+    <ClCompile Include="src\games\classroom\classroomWalk.cpp" />
+    <ClCompile Include="src\shared\sky.cpp" />
+    <ClCompile Include="src\games\classroom\classroomGameDefinition.cpp" />
+    <ClCompile Include="src\games\classroom\classroomRenderTest.cpp" />
+    <ClCompile Include="src\games\classroom\wave.cpp" />
+    <ClCompile Include="src\engine\enginePch.cpp">
       <PrecompiledHeader>Create</PrecompiledHeader>
       <ForcedIncludeFiles />
     </ClCompile>
@@ -96,6 +92,9 @@
   <ItemGroup>
     <ProjectReference Include="Engine.vcxproj">
       <Project>{4F1C6718-071A-4B3E-AED7-938C39C32F02}</Project>
+    </ProjectReference>
+    <ProjectReference Include="AnimationLib.vcxproj">
+      <Project>{6A0E3C52-2B71-4E8D-9F14-3C7B5D2A8E01}</Project>
     </ProjectReference>
   </ItemGroup>
   <ItemGroup>

@@ -11,6 +11,7 @@ class Collider;
 class DynamicText;
 class ModelRenderer;
 class SlowEnemy;
+class SoundPool;
 
 namespace SlowCollisionLayers
 {
@@ -39,6 +40,8 @@ public:
 	static const SlowInputState& Get();
 	// nullptr以外を渡している間、実デバイスの代わりにその値を使います(テスト用)。
 	static void SetOverride(const SlowInputState* state);
+	// 操作名と既定のキー・ボタンを登録します。GameDefinition::DefineInputsから呼ばれます。
+	static void DefineDefaults();
 };
 
 // 実時間とワールド時間を分ける時計です。時間減速ゲージもここで持ちます。
@@ -46,6 +49,9 @@ public:
 //   ワールド時間 SlowClock::GetWorldDeltaTime()      敵の移動・AI・攻撃・吹き飛び
 class SlowClock
 {
+public:
+	// GameTimeの時間チャンネル番号です。GameTime::GetChannelDeltaTime(kWorldTimeChannel)でも同じ値が読めます。
+	static constexpr int kWorldTimeChannel = 1;
 public:
 	static void Reset();
 	// シーンが1ステップに1回、オブジェクトの更新より前に呼びます。
@@ -229,8 +235,7 @@ public:
 
 private:
 	static constexpr int kVoices = 3;
-	Audio* m_Voices[static_cast<int>(SlowSound::Id::Count)][kVoices]{};
-	int m_Next[static_cast<int>(SlowSound::Id::Count)]{};
+	SoundPool* m_Pools[static_cast<int>(SlowSound::Id::Count)]{};
 };
 
 // スコアとコンボです。シーンの初期化でResetし、最高記録だけはやり直しても残します。

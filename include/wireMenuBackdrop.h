@@ -11,19 +11,19 @@ class WireCourseOverview : public GameObject, public ICameraView
     float m_Time = 0;
     Vector3 m_Target{0,155,0};
 public:
-    void Init() override { m_Layer=Layer::Camera; m_Position={170,155,-285}; }
+    void Init() override { m_Layer=Layer::Camera; SetPosition({170,155,-285}); }
     void Update() override
     {
         m_Time+=GameTime::GetDeltaTime();
-        m_Position={sinf(0.5f+m_Time*0.025f)*330,155,-cosf(0.5f+m_Time*0.025f)*330};
+        SetPosition({sinf(0.5f+m_Time*0.025f)*330,155,-cosf(0.5f+m_Time*0.025f)*330});
     }
     XMMATRIX GetViewMatrix() const override
     {
-        return XMMatrixLookAtLH(XMVectorSet(m_Position.x,m_Position.y,m_Position.z,1),
+        return XMMatrixLookAtLH(XMVectorSet(GetPosition().x,GetPosition().y,GetPosition().z,1),
             XMVectorSet(m_Target.x,m_Target.y,m_Target.z,1),XMVectorSet(0,1,0,0));
     }
-    Vector3 GetCameraPosition() const override { return m_Position; }
-    Vector3 GetCameraForward() const override { auto v=m_Target-m_Position; v.normalize(); return v; }
+    Vector3 GetCameraPosition() const override { return GetPosition(); }
+    Vector3 GetCameraForward() const override { auto v=m_Target-GetPosition(); v.normalize(); return v; }
     void Draw() override
     {
         Renderer::SetViewMatrix(GetViewMatrix());

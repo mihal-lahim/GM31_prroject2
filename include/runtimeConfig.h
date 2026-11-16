@@ -3,6 +3,7 @@
 #include <filesystem>
 #include <cstdint>
 #include <string>
+#include <vector>
 
 namespace Engine
 {
@@ -18,6 +19,10 @@ namespace Engine
 		static float GetFloat(const std::string& key, float defaultValue, float minimum, float maximum);
 		static int GetInt(const std::string& key, int defaultValue);
 		static int GetInt(const std::string& key, int defaultValue, int minimum, int maximum);
+
+		// 読み込み済みのキーのうち、prefixで始まるものを名前順で返します。
+		// 調整値の一覧に無いキー(書き間違い)を見つけるために使います。
+		static std::vector<std::string> GetKeysWithPrefix(const std::string& prefix);
 
 		// 設定の読込成功ごとに増える世代番号です。Tuning側の安全な再構築に使用します。
 		static std::uint64_t GetGeneration() noexcept;

@@ -39,34 +39,34 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="src\animationModel.cpp">
+    <ClCompile Include="src\animation\animationModel.cpp">
       <Filter>Code\Character</Filter>
     </ClCompile>
-    <ClCompile Include="src\animator.cpp">
+    <ClCompile Include="src\animation\animator.cpp">
       <Filter>Code\Character</Filter>
     </ClCompile>
-    <ClCompile Include="src\animatorSelfTests.cpp">
+    <ClCompile Include="src\games\classroom\animatorSelfTests.cpp">
       <Filter>Code\Character</Filter>
     </ClCompile>
-    <ClCompile Include="src\sky.cpp">
+    <ClCompile Include="src\shared\sky.cpp">
       <Filter>Code\Environment</Filter>
     </ClCompile>
-    <ClCompile Include="src\wave.cpp">
+    <ClCompile Include="src\games\classroom\wave.cpp">
       <Filter>Code\Environment</Filter>
     </ClCompile>
-    <ClCompile Include="src\classroomGameDefinition.cpp">
+    <ClCompile Include="src\games\classroom\classroomGameDefinition.cpp">
       <Filter>Code\Game</Filter>
     </ClCompile>
-    <ClCompile Include="src\classroomRenderTest.cpp">
+    <ClCompile Include="src\games\classroom\classroomRenderTest.cpp">
       <Filter>Code\Game</Filter>
     </ClCompile>
-    <ClCompile Include="src\meshField.cpp">
+    <ClCompile Include="src\games\classroom\meshField.cpp">
       <Filter>Code\Game</Filter>
     </ClCompile>
-    <ClCompile Include="src\classroomWalk.cpp">
+    <ClCompile Include="src\games\classroom\classroomWalk.cpp">
       <Filter>Code\Game</Filter>
     </ClCompile>
-    <ClCompile Include="src\main.cpp">
+    <ClCompile Include="src\engine\main.cpp">
       <Filter>Code\Game</Filter>
     </ClCompile>
   </ItemGroup>

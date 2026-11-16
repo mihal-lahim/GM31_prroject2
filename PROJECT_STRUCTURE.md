@@ -1,6 +1,7 @@
 # Project Structure
 
-The solution contains one reusable engine library and four independent applications.
+The solution contains one reusable engine library, two shared support libraries
+(`AnimationLib`, `ImGuiLib`), and six independent applications.
 
 ## Projects
 
@@ -97,11 +98,61 @@ time is slowed; the player and camera keep running on real time.
   (pooled sound effects owned by one `SlowSoundBank` object in the scene).
 - `slowCamera.cpp`: third-person follow camera with dash FOV, launch assist and wall pull-in.
 - `slowActionTuning.*`: every gameplay number, overridable from `assets/config/slow-gameplay.cfg`.
+  The list lives in one place, `slowActionTuning.def`; the struct members, the config reads and the
+  unknown-key check are all generated from it (`Engine::TuningFields` in `tuningFields.h`).
+  WireAction (`wireGameplayTuning.def`) and BattingCenter (`battingGameplayTuning.def`) use the same
+  scheme; their entries also carry the config key and, where needed, an explicit range.
+  To add a tuning value in any game, add one line to that game's `.def` file. Each game's tests fail
+  when its `*-gameplay.cfg` contains a key that is not in the list.
 - `slowActionRenderTest.cpp`: scripted checks of the specified numbers and transitions.
 - `sceneEditor.*`: the in-game editor UI (hierarchy, inspector, save, free camera). It depends on
   ImGui, so it is compiled by the application instead of living in `Engine.lib`, and it knows no
   game types: it only uses `Engine::SceneSerializer` and `GameObject::Reflect`.
   The stage layout lives in `assets/scene/slow-stage.scene`, not in code.
+
+## Source layout
+
+Headers stay flat in `include/` (one include directory for every project).
+Sources are grouped by owner:
+
+| Folder | Built by |
+|---|---|
+| `src/engine/` | `Engine.lib` (plus `main.cpp` and `enginePch.cpp`, compiled by every application) |
+| `src/animation/` | `AnimationLib.lib`: `Animator` and `AnimationModel`, optimized even in Debug |
+| `third_party/imgui/` | `ImGuiLib.lib`: Dear ImGui and its Win32/DX11 backends |
+| `src/shared/` | sources compiled by several applications (`sky.cpp`) |
+| `src/games/<name>/` | one application only (`wire`, `batting`, `classroom`, `fps`, `shaderGallery`, `slow`) |
+
+Applications reference `AnimationLib` / `ImGuiLib` with a `ProjectReference`
+instead of compiling those sources themselves.
+
+## Framework services for games
+
+- **Scene transitions** — `ChangeScene<T>()` fades out/in for 0.45 s each.
+  `ChangeSceneWith<T>(SceneTransition::Instant())` (or `Quick()`, or custom
+  seconds) is for retries and other repeated transitions.
+- **Quitting** — `GameDefinition::QuitOnEscape` (default `true`) keeps the old
+  "Esc closes the window" behavior for tools and demos. Games that use Esc
+  themselves set it to `false` and call `Scene::RequestQuit()`.
+- **Input actions** — `Engine::InputActions` maps action names to keys, mouse
+  buttons, and the first XInput gamepad. A game registers defaults through
+  `GameDefinition::DefineInputs`; `GameDefinition::InputBindingsPath`
+  (e.g. `assets/config/slow-input.cfg`) lets players rebind them
+  (`attack = MOUSE_LEFT, PAD_X`). States are latched once per fixed step by
+  `Manager`, so `IsTriggered` / `IsReleased` are consistent within a step.
+- **Time channels** — `GameTime::SetChannelScale(n, scale)` /
+  `GetChannelDeltaTime(n)` give "only enemies are slowed" style time without a
+  game-specific clock. Hit stop and pause still apply to every channel.
+  Channels reset on every scene change. SlowAction's world time is channel 1.
+- **Character movement** — `Engine::CharacterMover::TryMove` / `MoveAndSlide`
+  (`characterMover.h`) move an object and undo the move if its collider would
+  overlap the given layers; per-axis moves slide along walls.
+- **Sound pools** — `SoundPool` (`soundPool.h`) is a component with several
+  voices for one sound so rapid repeats do not cut each other off.
+- **Stepping in tests** — `Manager::StepScene(scene, dt)` runs exactly the
+  same per-step order as the application loop (time, input, `Scene::Update`,
+  Pre/Update/Late, destroy). `Manager::DrawWorld` renders a World. Tests use
+  these instead of re-implementing the loop.
 
 ## Scene files and reflection
 
@@ -162,12 +213,12 @@ stable, so coplanar geometry would otherwise swap between frames.
 
 ## Transform writes and collider indexing
 
-`m_Position`, `m_Rotation`, and `m_Scale` are protected, and gameplay code
-writes them directly in many places. Only `SetPosition`, `SetRotation`, and
-`SetScale` raise `Component::OnOwnerTransformChanged`, which is what refreshes
-the static collider spatial index (`collider.h`). An object that owns a collider
-and needs to move must therefore use the setters; direct member writes leave the
-index stale.
+`m_Position` is private to `GameObject`: every position write goes through
+`SetPosition`, which raises `Component::OnOwnerTransformChanged` and refreshes
+the static collider spatial index (`collider.h`). Derived classes read it with
+`GetPosition()`. `m_Rotation` and `m_Scale` are still protected and written
+directly in places; an object whose collider depends on them must use
+`SetRotation` / `SetScale`.
 
 The direction accessors (`GetForward`, `GetRight`, `GetUp`, `GetLeft`) are
 immune to this: they key their cached rotation axes on the rotation value
@@ -252,15 +303,16 @@ render ordering, GameTime behavior, and WAV/model cache reuse pass. GitHub
 Actions builds and runs both applications in Debug and Release.
 `scripts/validate-project-boundaries.ps1` also prevents Engine sources from
 including application headers, rejects wildcard asset packaging, and guards
-the exact five-project solution shape.
+the exact solution shape (Engine, AnimationLib, ImGuiLib, and six applications).
 
 ## Adding another game
 
 1. Add a new Application project to the solution.
-2. Reference `Engine.vcxproj`.
-3. Compile `src/main.cpp` in the application project.
+2. Reference `Engine.vcxproj` (and `AnimationLib.vcxproj` / `ImGuiLib.vcxproj` if needed).
+3. Compile `src/engine/main.cpp` in the application project.
 4. Provide one implementation of `GetGameDefinition()` with a settings path.
-5. Add only that game's sources, shaders, and explicit `RuntimeAsset` entries.
+5. Put that game's sources in `src/games/<name>/`, and add only those sources, shaders,
+   and explicit `RuntimeAsset` entries.
 6. Define game-specific collision layer bits outside Engine.
 7. Reuse engine interfaces such as `ICameraView`; do not add game-specific
    types to Engine.

@@ -1,0 +1,47 @@
+// Batting Center の調整値の一覧です。調整値を足す・消すときは、このファイルだけを編集します。
+//
+//   BATTING_TUNING_FLOAT_RANGE(名前, "設定ファイルのキー", 既定値, 最小, 最大)
+//   BATTING_TUNING_INT_RANGE(名前, "設定ファイルのキー", 既定値, 最小, 最大)
+//   BATTING_TUNING_VECTOR3_RANGE(名前, "キーの共通部分", x, y, z, 最小, 最大)   キーは 共通部分_x / _y / _z の3つになります
+//
+// ここに1行書くと、BattingGameplayTuning のメンバー、assets/config/batting-gameplay.cfg からの上書き、
+// 設定ファイルの書き間違い検出(FindUnknownBattingTuningKeys)がそろいます。
+// このファイルは battingGameplayTuning.h と battingGameplayTuning.cpp から、マクロの定義を変えて読み込まれます。
+
+// バット
+BATTING_TUNING_FLOAT_RANGE(SwingDuration, "batting.bat.swing_duration", 0.32f, 0.03f, 5.0f)
+BATTING_TUNING_FLOAT_RANGE(HitWindowStart, "batting.bat.hit_window_start", 0.16f, 0.0f, 1.0f)
+BATTING_TUNING_FLOAT_RANGE(HitWindowEnd, "batting.bat.hit_window_end", 0.78f, 0.0f, 1.0f)
+BATTING_TUNING_FLOAT_RANGE(BatLength, "batting.bat.length", 2.15f, 0.1f, 20.0f)
+BATTING_TUNING_FLOAT_RANGE(BatRadius, "batting.bat.hit_radius", 0.62f, 0.01f, 10.0f)
+BATTING_TUNING_FLOAT_RANGE(BatPower, "batting.bat.hit_power", 29.0f, 0.0f, 500.0f)
+BATTING_TUNING_FLOAT_RANGE(BatHitLift, "batting.bat.hit_lift", 2.4f, -50.0f, 50.0f)
+
+// ピッチングマシン
+BATTING_TUNING_FLOAT_RANGE(PitchInitialDelay, "batting.pitch.initial_delay", 1.0f, 0.0f, 30.0f)
+BATTING_TUNING_FLOAT_RANGE(PitchInterval, "batting.pitch.interval", 2.2f, 0.05f, 30.0f)
+BATTING_TUNING_VECTOR3_RANGE(PitchSpawnOffset, "batting.pitch.spawn_offset", 0.0f, 1.0f, -1.2f, -20.0f, 20.0f)
+BATTING_TUNING_FLOAT_RANGE(PitchHorizontalSpread, "batting.pitch.horizontal_spread", 1.1f, 0.0f, 20.0f)
+BATTING_TUNING_FLOAT_RANGE(PitchVerticalSpread, "batting.pitch.vertical_spread", 0.6f, 0.0f, 20.0f)
+BATTING_TUNING_FLOAT_RANGE(PitchVelocityZ, "batting.pitch.velocity_z", -13.5f, -100.0f, 100.0f)
+
+// ボール
+BATTING_TUNING_FLOAT_RANGE(BallScale, "batting.ball.scale", 0.35f, 0.01f, 10.0f)
+BATTING_TUNING_FLOAT_RANGE(BallColliderRadius, "batting.ball.collider_radius", 0.55f, 0.01f, 10.0f)
+BATTING_TUNING_FLOAT_RANGE(BallLifetime, "batting.ball.lifetime", 8.0f, 0.1f, 120.0f)
+BATTING_TUNING_FLOAT_RANGE(BallGravity, "batting.ball.gravity", -2.0f, -100.0f, 100.0f)
+BATTING_TUNING_FLOAT_RANGE(TrailInterval, "batting.ball.trail_interval", 0.03f, 0.005f, 2.0f)
+BATTING_TUNING_FLOAT_RANGE(MissDestroyZ, "batting.ball.miss_destroy_z", -8.0f, -100.0f, 100.0f)
+BATTING_TUNING_FLOAT_RANGE(WallBounceZ, "batting.ball.wall_bounce_z", -0.62f, -2.0f, 2.0f)
+BATTING_TUNING_FLOAT_RANGE(WallBounceX, "batting.ball.wall_bounce_x", 0.72f, -2.0f, 2.0f)
+BATTING_TUNING_FLOAT_RANGE(WallBounceLift, "batting.ball.wall_bounce_lift", 3.0f, -50.0f, 50.0f)
+BATTING_TUNING_FLOAT_RANGE(WallSeparation, "batting.ball.wall_separation", 0.25f, 0.0f, 5.0f)
+BATTING_TUNING_FLOAT_RANGE(WallExplosionDelay, "batting.ball.wall_explosion_delay", 0.28f, 0.0f, 10.0f)
+
+// ターゲットと演出負荷
+BATTING_TUNING_INT_RANGE(DefaultTargetScore, "batting.target.default_score", 100, 0, 1000000)
+BATTING_TUNING_FLOAT_RANGE(TargetHitFlashDuration, "batting.target.hit_flash_duration", 0.55f, 0.0f, 10.0f)
+BATTING_TUNING_FLOAT_RANGE(TargetHitPulseScale, "batting.target.hit_pulse_scale", 0.7425f, 0.0f, 10.0f)
+BATTING_TUNING_INT_RANGE(TrailParticleCount, "batting.effects.trail_particle_count", 2, 0, 100)
+BATTING_TUNING_INT_RANGE(TargetBurstParticleCount, "batting.effects.target_burst_particle_count", 150, 0, 2000)
+BATTING_TUNING_INT_RANGE(WallExplosionParticleCount, "batting.effects.wall_explosion_particle_count", 42, 0, 1000)

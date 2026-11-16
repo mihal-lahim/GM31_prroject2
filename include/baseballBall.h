@@ -28,5 +28,5 @@ public:
 	void SetVelocity(const Vector3& velocity) { m_Velocity = velocity; }
 	void HitBack(const Vector3& direction, float speed);
 	bool HasBeenHitBack() const { return m_HitBack; }
-	Vector3 GetPreviousPosition() const { return m_HasPreviousPosition ? m_PreviousPosition : m_Position; }
+	Vector3 GetPreviousPosition() const { return m_HasPreviousPosition ? m_PreviousPosition : GetPosition(); }
 };

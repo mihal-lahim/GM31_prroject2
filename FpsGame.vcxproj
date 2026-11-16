@@ -74,12 +74,12 @@
     <ClInclude Include="include\sky.h" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="src\main.cpp" />
-    <ClCompile Include="src\fpsGame.cpp" />
-    <ClCompile Include="src\fpsGameDefinition.cpp" />
-    <ClCompile Include="src\fpsRenderTest.cpp" />
-    <ClCompile Include="src\sky.cpp" />
-    <ClCompile Include="src\enginePch.cpp">
+    <ClCompile Include="src\engine\main.cpp" />
+    <ClCompile Include="src\games\fps\fpsGame.cpp" />
+    <ClCompile Include="src\games\fps\fpsGameDefinition.cpp" />
+    <ClCompile Include="src\games\fps\fpsRenderTest.cpp" />
+    <ClCompile Include="src\shared\sky.cpp" />
+    <ClCompile Include="src\engine\enginePch.cpp">
       <PrecompiledHeader>Create</PrecompiledHeader>
       <ForcedIncludeFiles />
     </ClCompile>

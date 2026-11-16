@@ -71,8 +71,6 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClInclude Include="include\animationModel.h" />
-    <ClInclude Include="include\animator.h" />
     <ClInclude Include="include\wireCollisionLayers.h" />
     <ClInclude Include="include\wireAnchor.h" />
     <ClInclude Include="include\wireBlinkGauge.h" />
@@ -110,45 +108,44 @@
     <ClInclude Include="include\wireSwordAbility.h" />
     <ClInclude Include="include\wireTpsCamera.h" />
     <ClInclude Include="include\wireGameplayTuning.h" />
+    <None Include="include\wireGameplayTuning.def" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="src\animationModel.cpp" />
-    <ClCompile Include="src\animator.cpp" />
-    <ClCompile Include="src\main.cpp" />
-    <ClCompile Include="src\wireGameDefinition.cpp" />
-    <ClCompile Include="src\wireAnchor.cpp" />
-    <ClCompile Include="src\wireBlinkGauge.cpp" />
-    <ClCompile Include="src\wireHealthUI.cpp" />
-	<ClCompile Include="src\wireBlockField.cpp" />
-	<ClCompile Include="src\wireBoxMesh.cpp" />
-	<ClCompile Include="src\wireChatBox.cpp" />
-	<ClCompile Include="src\wireGuide.cpp" />
-	<ClCompile Include="src\wireTutorialScene.cpp" />
-	<ClCompile Include="src\wireDebugTools.cpp" />
-	<ClCompile Include="src\wireFactory.cpp" />
-	<ClCompile Include="src\wireMissionHud.cpp" />
-	<ClCompile Include="src\wireTarget.cpp" />
-	<ClCompile Include="src\wireTitleScene.cpp" />
-	<ClCompile Include="src\wireResultScene.cpp" />
-    <ClCompile Include="src\wireEnemy.cpp" />
-    <ClCompile Include="src\wireGame.cpp" />
-    <ClCompile Include="src\wireRaceTests.cpp" />
-    <ClCompile Include="src\wireGrappleAbility.cpp" />
-    <ClCompile Include="src\wireRopePath.cpp" />
-    <ClCompile Include="src\wirePlatform.cpp" />
-    <ClCompile Include="src\wirePlayer.cpp" />
-    <ClCompile Include="src\wirePlayerInput.cpp" />
-    <ClCompile Include="src\wirePlayerMovement.cpp" />
-    <ClCompile Include="src\wirePlayerPresentation.cpp" />
-    <ClCompile Include="src\wireReticle.cpp" />
-    <ClCompile Include="src\wireRobotRenderer.cpp" />
-    <ClCompile Include="src\sky.cpp" />
-    <ClCompile Include="src\wireSlashEffect.cpp" />
-    <ClCompile Include="src\wireSword.cpp" />
-    <ClCompile Include="src\wireSwordAbility.cpp" />
-    <ClCompile Include="src\wireTpsCamera.cpp" />
-    <ClCompile Include="src\wireGameplayTuning.cpp" />
-    <ClCompile Include="src\enginePch.cpp">
+    <ClCompile Include="src\engine\main.cpp" />
+    <ClCompile Include="src\games\wire\wireGameDefinition.cpp" />
+    <ClCompile Include="src\games\wire\wireAnchor.cpp" />
+    <ClCompile Include="src\games\wire\wireBlinkGauge.cpp" />
+    <ClCompile Include="src\games\wire\wireHealthUI.cpp" />
+	<ClCompile Include="src\games\wire\wireBlockField.cpp" />
+	<ClCompile Include="src\games\wire\wireBoxMesh.cpp" />
+	<ClCompile Include="src\games\wire\wireChatBox.cpp" />
+	<ClCompile Include="src\games\wire\wireGuide.cpp" />
+	<ClCompile Include="src\games\wire\wireTutorialScene.cpp" />
+	<ClCompile Include="src\games\wire\wireDebugTools.cpp" />
+	<ClCompile Include="src\games\wire\wireFactory.cpp" />
+	<ClCompile Include="src\games\wire\wireMissionHud.cpp" />
+	<ClCompile Include="src\games\wire\wireTarget.cpp" />
+	<ClCompile Include="src\games\wire\wireTitleScene.cpp" />
+	<ClCompile Include="src\games\wire\wireResultScene.cpp" />
+    <ClCompile Include="src\games\wire\wireEnemy.cpp" />
+    <ClCompile Include="src\games\wire\wireGame.cpp" />
+    <ClCompile Include="src\games\wire\wireRaceTests.cpp" />
+    <ClCompile Include="src\games\wire\wireGrappleAbility.cpp" />
+    <ClCompile Include="src\games\wire\wireRopePath.cpp" />
+    <ClCompile Include="src\games\wire\wirePlatform.cpp" />
+    <ClCompile Include="src\games\wire\wirePlayer.cpp" />
+    <ClCompile Include="src\games\wire\wirePlayerInput.cpp" />
+    <ClCompile Include="src\games\wire\wirePlayerMovement.cpp" />
+    <ClCompile Include="src\games\wire\wirePlayerPresentation.cpp" />
+    <ClCompile Include="src\games\wire\wireReticle.cpp" />
+    <ClCompile Include="src\games\wire\wireRobotRenderer.cpp" />
+    <ClCompile Include="src\shared\sky.cpp" />
+    <ClCompile Include="src\games\wire\wireSlashEffect.cpp" />
+    <ClCompile Include="src\games\wire\wireSword.cpp" />
+    <ClCompile Include="src\games\wire\wireSwordAbility.cpp" />
+    <ClCompile Include="src\games\wire\wireTpsCamera.cpp" />
+    <ClCompile Include="src\games\wire\wireGameplayTuning.cpp" />
+    <ClCompile Include="src\engine\enginePch.cpp">
       <PrecompiledHeader>Create</PrecompiledHeader>
       <ForcedIncludeFiles />
     </ClCompile>
@@ -156,6 +153,9 @@
   <ItemGroup>
     <ProjectReference Include="Engine.vcxproj">
       <Project>{4F1C6718-071A-4B3E-AED7-938C39C32F02}</Project>
+    </ProjectReference>
+    <ProjectReference Include="AnimationLib.vcxproj">
+      <Project>{6A0E3C52-2B71-4E8D-9F14-3C7B5D2A8E01}</Project>
     </ProjectReference>
   </ItemGroup>
   <ItemGroup>
@@ -182,6 +182,9 @@
     </RuntimeAsset>
     <RuntimeAsset Include="assets\config\wire-gameplay.cfg">
       <TargetPath>assets\config\wire-gameplay.cfg</TargetPath>
+    </RuntimeAsset>
+    <RuntimeAsset Include="assets\config\wire-input.cfg">
+      <TargetPath>assets\config\wire-input.cfg</TargetPath>
     </RuntimeAsset>
     <RuntimeAsset Include="assets\audio\wan.wav">
       <TargetPath>assets\audio\wan.wav</TargetPath>

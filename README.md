@@ -213,7 +213,10 @@ F3 でゲームを止めて編集モードに入り、もう一度 F3 でその�
 ステージの配置(床・壁・障害物・プレイヤー・敵)はこのシーンファイルが持っています。テキストなので直接書き換えることもできます。
 新しい型を編集対象にするには、`GameObject::Reflect` で値を公開し、`Engine::ObjectTypeRegistry::Register` で登録します。
 
-調整値は `assets/config/slow-gameplay.cfg` にまとめてあり、再コンパイルなしで変えられます(意味は `include/slowActionTuning.h`)。
+調整値は `assets/config/slow-gameplay.cfg` にまとめてあり、再コンパイルなしで変えられます。
+調整値の一覧・既定値・説明は `include/slowActionTuning.def` の1か所にあり、項目を足す・消すときはこのファイルに1行書くだけです。
+WireAction(`wireGameplayTuning.def`)と BattingCenter(`battingGameplayTuning.def`)も同じ方式です。
+設定ファイルに一覧に無いキー(書き間違い)があると、画面左上に警告が出て `--render-test` が失敗します。
 `SlowAction.exe --render-test` は仕様の数値と状態遷移を自動で確かめ、結果を `render-test-slow.log` と `slow-render*.png` に残します。
 
 ## 森の描画デモ（第一段階）

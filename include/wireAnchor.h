@@ -35,7 +35,7 @@ public:
 	void Update() override;
 	void Draw() override;
 
-	Vector3 GetHookPosition() const { return m_Position; }
+	Vector3 GetHookPosition() const { return GetPosition(); }
 	float GetRadius() const { return m_Radius; }
 	void SetRadius(float radius) { m_Radius = radius; }
 	void SetColors(const XMFLOAT4& outer, const XMFLOAT4& inner) { m_OuterColor = outer; m_InnerColor = inner; }
@@ -43,7 +43,7 @@ public:
 	// 現在狙われている対象として強調表示します。毎フレーム狙い側から設定します。
 	void SetHighlighted() { m_Highlight = 1.0f; }
 
-	Vector3 GetWireAnchorPosition() const override { return m_Position; }
+	Vector3 GetWireAnchorPosition() const override { return GetPosition(); }
 	bool IsWireTargetActive() const override { return m_Active && !m_Destroy; }
 	float GetWireTargetRadius() const override { return m_Radius; }
 	GameObject* GetWireTargetObject() override { return this; }

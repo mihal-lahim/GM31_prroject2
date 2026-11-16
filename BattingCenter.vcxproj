@@ -32,6 +32,7 @@
 	<ClInclude Include="include\battingCollisionLayers.h" />
     <ClInclude Include="include\baseballBat.h" /><ClInclude Include="include\baseballBall.h" /><ClInclude Include="include\baseballEffects.h" />
 	<ClInclude Include="include\battingGameplayTuning.h" />
+	<None Include="include\battingGameplayTuning.def" />
     <ClInclude Include="include\battingTarget.h" /><ClInclude Include="include\battingWall.h" /><ClInclude Include="include\box.h" />
     <ClInclude Include="include\bullet.h" /><ClInclude Include="include\camera.h" /><ClInclude Include="include\enemy.h" />
     <ClInclude Include="include\explosion.h" /><ClInclude Include="include\field.h" /><ClInclude Include="include\firework.h" />
@@ -41,18 +42,18 @@
     <ClInclude Include="include\sky.h" /><ClInclude Include="include\title.h" /><ClInclude Include="include\tree.h" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="src\main.cpp" /><ClCompile Include="src\battingGameDefinition.cpp" />
-	<ClCompile Include="src\battingGameplayTuning.cpp" />
-    <ClCompile Include="src\baseballBat.cpp" /><ClCompile Include="src\baseballBall.cpp" /><ClCompile Include="src\baseballEffects.cpp" />
-    <ClCompile Include="src\battingTarget.cpp" /><ClCompile Include="src\battingWall.cpp" /><ClCompile Include="src\box.cpp" />
-    <ClCompile Include="src\bullet.cpp" /><ClCompile Include="src\camera.cpp" /><ClCompile Include="src\enemy.cpp" />
-    <ClCompile Include="src\explosion.cpp" /><ClCompile Include="src\field.cpp" /><ClCompile Include="src\firework.cpp" />
-    <ClCompile Include="src\game.cpp" /><ClCompile Include="src\gameplayInputController.cpp" /><ClCompile Include="src\gameSetup.cpp" />
-    <ClCompile Include="src\jumpEffect.cpp" /><ClCompile Include="src\pauseMenu.cpp" /><ClCompile Include="src\pitchingMachine.cpp" />
-    <ClCompile Include="src\player.cpp" /><ClCompile Include="src\playerCollision.cpp" /><ClCompile Include="src\playerCombat.cpp" />
-    <ClCompile Include="src\playerMovement.cpp" /><ClCompile Include="src\playerMoveParticle.cpp" /><ClCompile Include="src\result.cpp" />
-    <ClCompile Include="src\sky.cpp" /><ClCompile Include="src\title.cpp" /><ClCompile Include="src\tree.cpp" />
-    <ClCompile Include="src\enginePch.cpp">
+    <ClCompile Include="src\engine\main.cpp" /><ClCompile Include="src\games\batting\battingGameDefinition.cpp" />
+	<ClCompile Include="src\games\batting\battingGameplayTuning.cpp" />
+    <ClCompile Include="src\games\batting\baseballBat.cpp" /><ClCompile Include="src\games\batting\baseballBall.cpp" /><ClCompile Include="src\games\batting\baseballEffects.cpp" />
+    <ClCompile Include="src\games\batting\battingTarget.cpp" /><ClCompile Include="src\games\batting\battingWall.cpp" /><ClCompile Include="src\games\batting\box.cpp" />
+    <ClCompile Include="src\games\batting\bullet.cpp" /><ClCompile Include="src\games\batting\camera.cpp" /><ClCompile Include="src\games\batting\enemy.cpp" />
+    <ClCompile Include="src\games\batting\explosion.cpp" /><ClCompile Include="src\games\batting\field.cpp" /><ClCompile Include="src\games\batting\firework.cpp" />
+    <ClCompile Include="src\games\batting\game.cpp" /><ClCompile Include="src\games\batting\gameplayInputController.cpp" /><ClCompile Include="src\games\batting\gameSetup.cpp" />
+    <ClCompile Include="src\games\batting\jumpEffect.cpp" /><ClCompile Include="src\games\batting\pauseMenu.cpp" /><ClCompile Include="src\games\batting\pitchingMachine.cpp" />
+    <ClCompile Include="src\games\batting\player.cpp" /><ClCompile Include="src\games\batting\playerCollision.cpp" /><ClCompile Include="src\games\batting\playerCombat.cpp" />
+    <ClCompile Include="src\games\batting\playerMovement.cpp" /><ClCompile Include="src\games\batting\playerMoveParticle.cpp" /><ClCompile Include="src\games\batting\result.cpp" />
+    <ClCompile Include="src\shared\sky.cpp" /><ClCompile Include="src\games\batting\title.cpp" /><ClCompile Include="src\games\batting\tree.cpp" />
+    <ClCompile Include="src\engine\enginePch.cpp">
       <PrecompiledHeader>Create</PrecompiledHeader>
       <ForcedIncludeFiles />
     </ClCompile>

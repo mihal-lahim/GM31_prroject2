@@ -17,7 +17,7 @@ public:
 	void Draw()override;
 
 	XMMATRIX GetViewMatrix() const override { return m_ViewMatrix; }
-	Vector3 GetCameraPosition() const override { return m_Position; }
+	Vector3 GetCameraPosition() const override { return GetPosition(); }
 	Vector3 GetCameraForward() const override
 	{
 		const float cosPitch = cosf(m_Rotation.x);

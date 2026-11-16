@@ -60,112 +60,112 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="src\wireAnchor.cpp">
+    <ClCompile Include="src\games\wire\wireAnchor.cpp">
       <Filter>Code\Abilities\Grapple</Filter>
     </ClCompile>
-    <ClCompile Include="src\wireGrappleAbility.cpp">
+    <ClCompile Include="src\games\wire\wireGrappleAbility.cpp">
       <Filter>Code\Abilities\Grapple</Filter>
     </ClCompile>
-    <ClCompile Include="src\wireRopePath.cpp">
+    <ClCompile Include="src\games\wire\wireRopePath.cpp">
       <Filter>Code\Abilities\Grapple</Filter>
     </ClCompile>
-    <ClCompile Include="src\wireReticle.cpp">
+    <ClCompile Include="src\games\wire\wireReticle.cpp">
       <Filter>Code\Abilities\Grapple</Filter>
     </ClCompile>
-    <ClCompile Include="src\wireSlashEffect.cpp">
+    <ClCompile Include="src\games\wire\wireSlashEffect.cpp">
       <Filter>Code\Abilities\Sword</Filter>
     </ClCompile>
-    <ClCompile Include="src\wireSword.cpp">
+    <ClCompile Include="src\games\wire\wireSword.cpp">
       <Filter>Code\Abilities\Sword</Filter>
     </ClCompile>
-    <ClCompile Include="src\wireSwordAbility.cpp">
+    <ClCompile Include="src\games\wire\wireSwordAbility.cpp">
       <Filter>Code\Abilities\Sword</Filter>
     </ClCompile>
-    <ClCompile Include="src\wireDebugTools.cpp">
+    <ClCompile Include="src\games\wire\wireDebugTools.cpp">
       <Filter>Code\Diagnostics</Filter>
     </ClCompile>
-    <ClCompile Include="src\main.cpp">
+    <ClCompile Include="src\engine\main.cpp">
       <Filter>Code\Game</Filter>
     </ClCompile>
-    <ClCompile Include="src\wireFactory.cpp">
+    <ClCompile Include="src\games\wire\wireFactory.cpp">
       <Filter>Code\Game</Filter>
     </ClCompile>
-    <ClCompile Include="src\wireGame.cpp">
+    <ClCompile Include="src\games\wire\wireGame.cpp">
       <Filter>Code\Game</Filter>
     </ClCompile>
-    <ClCompile Include="src\wireGameDefinition.cpp">
+    <ClCompile Include="src\games\wire\wireGameDefinition.cpp">
       <Filter>Code\Game</Filter>
     </ClCompile>
-    <ClCompile Include="src\wireGameplayTuning.cpp">
+    <ClCompile Include="src\games\wire\wireGameplayTuning.cpp">
       <Filter>Code\Game</Filter>
     </ClCompile>
-    <ClCompile Include="src\animationModel.cpp">
+    <ClCompile Include="src\animation\animationModel.cpp">
       <Filter>Code\Player</Filter>
     </ClCompile>
-    <ClCompile Include="src\animator.cpp">
+    <ClCompile Include="src\animation\animator.cpp">
       <Filter>Code\Player</Filter>
     </ClCompile>
-    <ClCompile Include="src\wirePlayer.cpp">
+    <ClCompile Include="src\games\wire\wirePlayer.cpp">
       <Filter>Code\Player</Filter>
     </ClCompile>
-    <ClCompile Include="src\wirePlayerInput.cpp">
+    <ClCompile Include="src\games\wire\wirePlayerInput.cpp">
       <Filter>Code\Player</Filter>
     </ClCompile>
-    <ClCompile Include="src\wirePlayerMovement.cpp">
+    <ClCompile Include="src\games\wire\wirePlayerMovement.cpp">
       <Filter>Code\Player</Filter>
     </ClCompile>
-    <ClCompile Include="src\wirePlayerPresentation.cpp">
+    <ClCompile Include="src\games\wire\wirePlayerPresentation.cpp">
       <Filter>Code\Player</Filter>
     </ClCompile>
-    <ClCompile Include="src\wireRobotRenderer.cpp">
+    <ClCompile Include="src\games\wire\wireRobotRenderer.cpp">
       <Filter>Code\Player</Filter>
     </ClCompile>
-    <ClCompile Include="src\wireTpsCamera.cpp">
+    <ClCompile Include="src\games\wire\wireTpsCamera.cpp">
       <Filter>Code\Player</Filter>
     </ClCompile>
-    <ClCompile Include="src\wireRaceTests.cpp">
+    <ClCompile Include="src\games\wire\wireRaceTests.cpp">
       <Filter>Code\Scenes</Filter>
     </ClCompile>
-    <ClCompile Include="src\wireResultScene.cpp">
+    <ClCompile Include="src\games\wire\wireResultScene.cpp">
       <Filter>Code\Scenes</Filter>
     </ClCompile>
-    <ClCompile Include="src\wireTitleScene.cpp">
+    <ClCompile Include="src\games\wire\wireTitleScene.cpp">
       <Filter>Code\Scenes</Filter>
     </ClCompile>
-    <ClCompile Include="src\wireTutorialScene.cpp">
+    <ClCompile Include="src\games\wire\wireTutorialScene.cpp">
       <Filter>Code\Scenes</Filter>
     </ClCompile>
-    <ClCompile Include="src\wireBlinkGauge.cpp">
+    <ClCompile Include="src\games\wire\wireBlinkGauge.cpp">
       <Filter>Code\UI</Filter>
     </ClCompile>
-    <ClCompile Include="src\wireChatBox.cpp">
+    <ClCompile Include="src\games\wire\wireChatBox.cpp">
       <Filter>Code\UI</Filter>
     </ClCompile>
-    <ClCompile Include="src\wireGuide.cpp">
+    <ClCompile Include="src\games\wire\wireGuide.cpp">
       <Filter>Code\UI</Filter>
     </ClCompile>
-    <ClCompile Include="src\wireHealthUI.cpp">
+    <ClCompile Include="src\games\wire\wireHealthUI.cpp">
       <Filter>Code\UI</Filter>
     </ClCompile>
-    <ClCompile Include="src\wireMissionHud.cpp">
+    <ClCompile Include="src\games\wire\wireMissionHud.cpp">
       <Filter>Code\UI</Filter>
     </ClCompile>
-    <ClCompile Include="src\sky.cpp">
+    <ClCompile Include="src\shared\sky.cpp">
       <Filter>Code\World</Filter>
     </ClCompile>
-    <ClCompile Include="src\wireBlockField.cpp">
+    <ClCompile Include="src\games\wire\wireBlockField.cpp">
       <Filter>Code\World</Filter>
     </ClCompile>
-    <ClCompile Include="src\wireBoxMesh.cpp">
+    <ClCompile Include="src\games\wire\wireBoxMesh.cpp">
       <Filter>Code\World</Filter>
     </ClCompile>
-    <ClCompile Include="src\wireEnemy.cpp">
+    <ClCompile Include="src\games\wire\wireEnemy.cpp">
       <Filter>Code\World</Filter>
     </ClCompile>
-    <ClCompile Include="src\wirePlatform.cpp">
+    <ClCompile Include="src\games\wire\wirePlatform.cpp">
       <Filter>Code\World</Filter>
     </ClCompile>
-    <ClCompile Include="src\wireTarget.cpp">
+    <ClCompile Include="src\games\wire\wireTarget.cpp">
       <Filter>Code\World</Filter>
     </ClCompile>
   </ItemGroup>

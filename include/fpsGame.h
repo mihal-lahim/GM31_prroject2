@@ -5,6 +5,7 @@
 #include "cameraView.h"
 #include "collisionWorld.h"
 
+class SoundPool;
 class Collider;
 class DynamicText;
 class ModelRenderer;
@@ -77,9 +78,8 @@ private:
 	static constexpr int kShotVoices = 8;
 
 	ModelRenderer* m_Model = nullptr;
-	Audio* m_ShotVoices[kShotVoices]{};
+	SoundPool* m_ShotSound = nullptr;
 	Audio* m_TargetBreakVoice = nullptr;
-	int m_NextShotVoice = 0;
 	XMMATRIX m_GunWorld = XMMatrixIdentity();
 	float m_Recoil = 0.0f;
 	float m_BobTime = 0.0f;

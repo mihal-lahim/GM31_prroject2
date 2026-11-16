@@ -19,10 +19,8 @@ public:
 		AbilityAccess() = default;
 	};
 
-	// 注意: MutablePositionはNotifyTransformChangedを発火しません(従来の直接書き込みと同じ)。
-	// コライダー付きオブジェクトを動かす場合はSetPositionを使ってください。
 	Vector3& MutableVelocity(AbilityAccess) { return m_Velocity; }
-	Vector3& MutablePosition(AbilityAccess) { return m_Position; }
+
 	Vector3& MutableRotation(AbilityAccess) { return m_Rotation; }
 	Vector3& MutableScale(AbilityAccess) { return m_Scale; }
 	WireGrappleAbility& MutableGrapple(AbilityAccess) { return m_Grapple; }
@@ -108,7 +106,7 @@ public:
 	int GetBlinkCount() const { return m_Movement.GetBlinkCount(); }
 	int GetWallKickCount() const { return m_Movement.GetWallKickCount(); }
 	const WireTargetHit& GetWireAimPreview() const { return m_Grapple.GetAimPreview(); }
-	float GetWireDistance() const { return IsWireVisible() ? (m_Grapple.GetAnchor() - m_Position).length() : 0.0f; }
+	float GetWireDistance() const { return IsWireVisible() ? (m_Grapple.GetAnchor() - GetPosition()).length() : 0.0f; }
 	float GetWireTension() const { return m_Grapple.GetTension(); }
 	float GetWireTangentialSpeed() const { return m_Grapple.GetTangentialSpeed(); }
 	float GetWireVelocityScale() const { return m_Grapple.GetLastVelocityScale(); }

@@ -71,52 +71,26 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="include\slowAction.h" />
-    <ClInclude Include="include\animationModel.h" />
-    <ClInclude Include="include\animator.h" />
     <ClInclude Include="include\slowActionTuning.h" />
+    <None Include="include\slowActionTuning.def" />
     <ClInclude Include="include\slowActionUtil.h" />
     <ClInclude Include="include\sceneEditor.h" />
     <ClInclude Include="include\sky.h" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="src\main.cpp" />
-    <ClCompile Include="src\slowAction.cpp" />
-    <ClCompile Include="src\slowActionGameDefinition.cpp" />
-    <ClCompile Include="src\slowActionRenderTest.cpp" />
-    <ClCompile Include="src\slowActionTuning.cpp" />
-    <ClCompile Include="src\slowCamera.cpp" />
-    <ClCompile Include="src\slowEnemy.cpp" />
-    <ClCompile Include="src\slowBullet.cpp" />
-    <ClCompile Include="src\slowFeedback.cpp" />
-    <ClCompile Include="src\slowPlayer.cpp" />
-    <!-- 人型モデルの変形(毎フレーム全頂点)とモーション合成は、Debugでも最適化します。
-         しないと人型1体で約2ms掛かり、敵を数体出すだけで60fpsを保てません。
-         最適化と両立しない設定(エディットコンティニュ・実行時チェック・JustMyCode・最適化なしのPCH)はこの2つだけ外します。 -->
-    <ClCompile Include="src\animationModel.cpp">
-      <Optimization Condition="'$(Configuration)'=='Debug'">MaxSpeed</Optimization>
-      <InlineFunctionExpansion Condition="'$(Configuration)'=='Debug'">AnySuitable</InlineFunctionExpansion>
-      <BasicRuntimeChecks Condition="'$(Configuration)'=='Debug'">Default</BasicRuntimeChecks>
-      <DebugInformationFormat Condition="'$(Configuration)'=='Debug'">ProgramDatabase</DebugInformationFormat>
-      <SupportJustMyCode Condition="'$(Configuration)'=='Debug'">false</SupportJustMyCode>
-      <PrecompiledHeader Condition="'$(Configuration)'=='Debug'">NotUsing</PrecompiledHeader>
-    </ClCompile>
-    <ClCompile Include="src\animator.cpp">
-      <Optimization Condition="'$(Configuration)'=='Debug'">MaxSpeed</Optimization>
-      <InlineFunctionExpansion Condition="'$(Configuration)'=='Debug'">AnySuitable</InlineFunctionExpansion>
-      <BasicRuntimeChecks Condition="'$(Configuration)'=='Debug'">Default</BasicRuntimeChecks>
-      <DebugInformationFormat Condition="'$(Configuration)'=='Debug'">ProgramDatabase</DebugInformationFormat>
-      <SupportJustMyCode Condition="'$(Configuration)'=='Debug'">false</SupportJustMyCode>
-      <PrecompiledHeader Condition="'$(Configuration)'=='Debug'">NotUsing</PrecompiledHeader>
-    </ClCompile>
-    <ClCompile Include="src\sceneEditor.cpp" />
-    <ClCompile Include="third_party\imgui\imgui.cpp"><PrecompiledHeader>NotUsing</PrecompiledHeader><ForcedIncludeFiles /></ClCompile>
-    <ClCompile Include="third_party\imgui\imgui_draw.cpp"><PrecompiledHeader>NotUsing</PrecompiledHeader><ForcedIncludeFiles /></ClCompile>
-    <ClCompile Include="third_party\imgui\imgui_tables.cpp"><PrecompiledHeader>NotUsing</PrecompiledHeader><ForcedIncludeFiles /></ClCompile>
-    <ClCompile Include="third_party\imgui\imgui_widgets.cpp"><PrecompiledHeader>NotUsing</PrecompiledHeader><ForcedIncludeFiles /></ClCompile>
-    <ClCompile Include="third_party\imgui\imgui_impl_dx11.cpp"><PrecompiledHeader>NotUsing</PrecompiledHeader><ForcedIncludeFiles /></ClCompile>
-    <ClCompile Include="third_party\imgui\imgui_impl_win32.cpp"><PrecompiledHeader>NotUsing</PrecompiledHeader><ForcedIncludeFiles /></ClCompile>
-    <ClCompile Include="src\sky.cpp" />
-    <ClCompile Include="src\enginePch.cpp">
+    <ClCompile Include="src\engine\main.cpp" />
+    <ClCompile Include="src\games\slow\slowAction.cpp" />
+    <ClCompile Include="src\games\slow\slowActionGameDefinition.cpp" />
+    <ClCompile Include="src\games\slow\slowActionRenderTest.cpp" />
+    <ClCompile Include="src\games\slow\slowActionTuning.cpp" />
+    <ClCompile Include="src\games\slow\slowCamera.cpp" />
+    <ClCompile Include="src\games\slow\slowEnemy.cpp" />
+    <ClCompile Include="src\games\slow\slowBullet.cpp" />
+    <ClCompile Include="src\games\slow\slowFeedback.cpp" />
+    <ClCompile Include="src\games\slow\slowPlayer.cpp" />
+    <ClCompile Include="src\games\slow\sceneEditor.cpp" />
+    <ClCompile Include="src\shared\sky.cpp" />
+    <ClCompile Include="src\engine\enginePch.cpp">
       <PrecompiledHeader>Create</PrecompiledHeader>
       <ForcedIncludeFiles />
     </ClCompile>
@@ -124,6 +98,12 @@
   <ItemGroup>
     <ProjectReference Include="Engine.vcxproj">
       <Project>{4F1C6718-071A-4B3E-AED7-938C39C32F02}</Project>
+    </ProjectReference>
+    <ProjectReference Include="AnimationLib.vcxproj">
+      <Project>{6A0E3C52-2B71-4E8D-9F14-3C7B5D2A8E01}</Project>
+    </ProjectReference>
+    <ProjectReference Include="ImGuiLib.vcxproj">
+      <Project>{9C4D1E73-5A28-4F6B-8E03-7B1A2C6D4F92}</Project>
     </ProjectReference>
   </ItemGroup>
   <ItemGroup>
@@ -261,6 +241,9 @@
     </RuntimeAsset>
     <RuntimeAsset Include="assets\config\slow-gameplay.cfg">
       <TargetPath>assets\config\slow-gameplay.cfg</TargetPath>
+    </RuntimeAsset>
+    <RuntimeAsset Include="assets\config\slow-input.cfg">
+      <TargetPath>assets\config\slow-input.cfg</TargetPath>
     </RuntimeAsset>
     <RuntimeAsset Include="assets\model\Akai.fbx">
       <TargetPath>assets\model\Akai.fbx</TargetPath>

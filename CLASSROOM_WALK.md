@@ -94,6 +94,6 @@ cloth->SetWind({ 0.0f, 0.0f, -0.5f }, 0.9f);
 レンダーテストでは、プレイヤーがのれんをくぐる様子を `classroom-noren-*.png` に保存し、
 布が押しのけられること・体にめり込まないこと・通過後に戻ることを数値でも確認します。
 
-授業で変える箇所は `src/classroomWalk.cpp` の `ClassroomPlayer`、
+授業で変える箇所は `src/games/classroom/classroomWalk.cpp` の `ClassroomPlayer`、
 `ClassroomCamera`、`MeshField` です。初期画面は
-`src/classroomGameDefinition.cpp` で登録しています。
+`src/games/classroom/classroomGameDefinition.cpp` で登録しています。

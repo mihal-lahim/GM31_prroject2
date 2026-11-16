@@ -14,6 +14,7 @@ private:
 	static bool m_StepRequested;
 	static bool m_SteppingThisFrame;
 	static unsigned long long m_FrameCount;
+	static float m_ChannelScales[];
 
 public:
 	static void Init();
@@ -34,6 +35,15 @@ public:
 	static void RequestStepFrame() { if (m_Paused) { m_StepRequested = true; } }
 	// Updateが要求を消化したフレームだけtrueです。ポーズ中でも更新を通す判定に使います。
 	static bool IsSteppingFrame() { return m_SteppingThisFrame; }
+
+	// 時間チャンネル: 全体の時間(GetDeltaTime)に、チャンネルごとの倍率を掛けた時間です。
+	// 「敵だけ遅い」のように一部の時間だけを変えたいときに使います。チャンネル0は常に倍率1です。
+	// ヒットストップとポーズは全体の時間に掛かるため、どのチャンネルにも同じく効きます。
+	static constexpr int kMaxTimeChannels = 8;
+	static void SetChannelScale(int channel, float scale);
+	static float GetChannelScale(int channel);
+	static float GetChannelDeltaTime(int channel) { return m_DeltaTime * GetChannelScale(channel); }
+	static void ResetChannels();
 };
 }
 

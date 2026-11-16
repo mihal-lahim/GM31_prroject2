@@ -16,4 +16,6 @@ class WirePlayerInput
 {
 public:
 	static WirePlayerInputState Capture();
+	// 操作名と既定のキー・ボタンを登録します。GameDefinition::DefineInputsから呼ばれます。
+	static void DefineDefaults();
 };

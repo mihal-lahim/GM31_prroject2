@@ -22,6 +22,11 @@ struct GameDefinition
 	bool (*HandleWindowMessage)(unsigned int, std::uintptr_t, std::intptr_t) = nullptr;
 	// true なら全画面ではなく、描画解像度(SCREEN_WIDTH x SCREEN_HEIGHT)のウィンドウで開きます。
 	bool Windowed = false;
+	// true なら Esc で即終了します(ツール・デモ向け)。ゲームは false にして、Scene から RequestQuit を呼びます。
+	bool QuitOnEscape = true;
+	// 操作名(InputActions)の既定の割り当てを決める関数と、キーコンフィグのファイルです。どちらも省略できます。
+	void (*DefineInputs)() = nullptr;
+	const char* InputBindingsPath = nullptr;
 };
 
 const GameDefinition& GetGameDefinition();

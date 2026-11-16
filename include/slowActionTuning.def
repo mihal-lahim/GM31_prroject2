@@ -1,0 +1,228 @@
+// SlowAction(時間減速アクション試作)の調整値の一覧です。調整値を足す・消すときは、このファイルだけを編集します。
+//
+//   SLOW_TUNING_FLOAT(名前, 既定値)   float の調整値
+//   SLOW_TUNING_INT(名前, 既定値)     int の調整値
+//
+// ここに1行書くと、次の3つが自動でそろいます。
+//   1. SlowActionTuning のメンバー (GetSlowActionTuning().名前 で読めます)
+//   2. assets/config/slow-gameplay.cfg の slow.名前 による上書き(再コンパイルなしで調整できます)
+//   3. 設定ファイルの書き間違い検出(ここに無い slow.* のキーは警告とテスト失敗になります)
+//
+// 単位は距離=m、時間=秒、速さ=m/s。角度は名前にDegreesと付くものだけ度です。
+// 設定ファイルで指定できる範囲は 0〜既定値の10倍 です(桁間違いで挙動が発散しないようにするため)。
+// このファイルは slowActionTuning.h と slowActionTuning.cpp から、マクロの定義を変えて2回読み込まれます。
+
+// ---- プレイヤー移動 ----
+SLOW_TUNING_FLOAT(WalkSpeed, 6.0f)
+SLOW_TUNING_FLOAT(WalkAcceleration, 70.0f)
+SLOW_TUNING_FLOAT(DashSpeed, 16.0f)
+// ダッシュ中の方向転換の追従率(1/秒)です。小さいほど慣性が強く、大回りになります。
+SLOW_TUNING_FLOAT(DashSteer, 9.0f)
+// 向きを移動方向へ回す速さ(ラジアン/秒)です。
+SLOW_TUNING_FLOAT(TurnSpeed, 25.0f)
+SLOW_TUNING_FLOAT(PlayerRadius, 0.4f)
+SLOW_TUNING_FLOAT(PlayerHeight, 1.8f)
+SLOW_TUNING_INT(PlayerMaxHp, 100)
+
+// ---- 攻撃 ----
+// 左クリックをこの秒数以上押してから離すと強攻撃になります。
+SLOW_TUNING_FLOAT(StrongHoldSeconds, 0.25f)
+// 攻撃終了前のこの秒数の間に離した入力は、次の攻撃として予約します。
+SLOW_TUNING_FLOAT(AttackBufferSeconds, 0.2f)
+// 通常攻撃は3段のコンボです。大剣の3連撃のクリップ(Akai_Slash.fbx)を3区間に分けて1段ずつ再生します。
+// Start/End/Hitは元クリップに対する割合(0〜1)です。攻撃の長さと当たる瞬間はこの区間と再生倍率から決まるので、
+// 斬る動きと当たり判定が常に一致します。
+SLOW_TUNING_FLOAT(Combo1Start, 0.14f)
+SLOW_TUNING_FLOAT(Combo1Hit, 0.19f)
+SLOW_TUNING_FLOAT(Combo1End, 0.31f)
+SLOW_TUNING_FLOAT(Combo2Start, 0.31f)
+SLOW_TUNING_FLOAT(Combo2Hit, 0.475f)
+SLOW_TUNING_FLOAT(Combo2End, 0.56f)
+SLOW_TUNING_FLOAT(Combo3Start, 0.56f)
+SLOW_TUNING_FLOAT(Combo3Hit, 0.71f)
+SLOW_TUNING_FLOAT(Combo3End, 0.95f)
+SLOW_TUNING_FLOAT(ComboPlaybackSpeed, 2.0f)
+// 攻撃が終わってからこの秒数以内に通常攻撃を出すと、次の段へつながります。
+SLOW_TUNING_FLOAT(ComboChainSeconds, 0.3f)
+// 右手に持たせる剣(slowSword.obj、長さ1.4m)の見た目です。向きは指の骨から毎フレーム決めるので、
+// ここでは大きさと、握る位置のずれ(剣の軸方向・刃の向き・厚み方向、メートル)だけを調整します。
+SLOW_TUNING_FLOAT(SwordScale, 1.0f)
+SLOW_TUNING_FLOAT(SwordGripOffsetX, 0.0f)
+SLOW_TUNING_FLOAT(SwordGripOffsetY, 0.0f)
+SLOW_TUNING_FLOAT(SwordGripOffsetZ, 0.0f)
+SLOW_TUNING_FLOAT(NormalRange, 2.8f)
+SLOW_TUNING_FLOAT(NormalHalfAngleDegrees, 40.0f)
+SLOW_TUNING_INT(NormalDamage, 1)
+// 強攻撃は範囲と吹き飛ばしが強い代わりに、出が遅く後の隙が長い技です。
+// 回転斬りのクリップ(Akai_Strong.fbx)のStart〜Endを再生し、Hitの位置で当たります(元クリップに対する割合、0〜1)。
+// 攻撃の長さと当たる瞬間は、この区間と再生倍率から決まります。
+SLOW_TUNING_FLOAT(StrongClipStart, 0.745f)
+SLOW_TUNING_FLOAT(StrongClipHit, 0.915f)
+SLOW_TUNING_FLOAT(StrongClipEnd, 1.0f)
+SLOW_TUNING_FLOAT(StrongPlaybackSpeed, 3.4f)
+// クリップが読めなかったときだけ使う、強攻撃の長さと当たるまでの秒数です。
+SLOW_TUNING_FLOAT(StrongDuration, 0.7f)
+SLOW_TUNING_FLOAT(StrongHitDelay, 0.22f)
+// 強攻撃を出してからこの秒数が過ぎるまで、ダッシュでキャンセルできません。
+SLOW_TUNING_FLOAT(StrongCancelSeconds, 0.35f)
+SLOW_TUNING_FLOAT(StrongRange, 4.2f)
+SLOW_TUNING_FLOAT(StrongHalfAngleDegrees, 75.0f)
+SLOW_TUNING_INT(StrongDamage, 1)
+// 足元から上下この範囲にいる敵へ届きます。吹き飛び中の敵を地上から追撃できる高さです。
+SLOW_TUNING_FLOAT(AttackVerticalReach, 3.2f)
+// 向きの前方この範囲・角度に敵がいれば、攻撃方向をその敵へ寄せます。
+// 移動入力があればその方向、なければ今の向きを基準にします。
+SLOW_TUNING_FLOAT(AimAssistRange, 6.0f)
+SLOW_TUNING_FLOAT(AimAssistHalfAngleDegrees, 50.0f)
+// 通常攻撃は寄せた敵をロックし、当たる瞬間まで向きを追わせながら踏み込みます。
+// 踏み込みは敵との隙間がNormalLungeGapになるまでで、最大NormalLungeMaxDistanceまでです。
+SLOW_TUNING_FLOAT(NormalLungeMaxDistance, 2.2f)
+SLOW_TUNING_FLOAT(NormalLungeGap, 0.7f)
+SLOW_TUNING_FLOAT(AimTrackDegreesPerSecond, 720.0f)
+// 強攻撃が当たった瞬間のヒットストップです。0で無効になります。
+SLOW_TUNING_INT(StrongHitStopFrames, 9)
+SLOW_TUNING_FLOAT(HitStopScale, 0.1f)
+
+// ---- 時間減速 ----
+SLOW_TUNING_FLOAT(SlowTimeScale, 0.35f)
+// 通常速度と減速を行き来する補間時間です。
+SLOW_TUNING_FLOAT(SlowBlendSeconds, 0.08f)
+SLOW_TUNING_FLOAT(GaugeMax, 100.0f)
+SLOW_TUNING_FLOAT(GaugeDrainPerSecond, 22.0f)
+SLOW_TUNING_FLOAT(GaugeGainNormalHit, 5.0f)
+SLOW_TUNING_FLOAT(GaugeGainStrongHit, 8.0f)
+SLOW_TUNING_FLOAT(GaugeGainPursuit, 18.0f)
+// ジャスト減速: 敵の攻撃が当たる直前に減速を発動すると、ゲージがその場で回復し得点が入ります。
+// 近接・重量型は予兆の残りがJustSlowWindowSeconds(ワールド時間)以下のとき、
+// 弾はプレイヤーからJustSlowBulletRange以内のときです。1回の予兆・1発の弾につき1度だけです。
+SLOW_TUNING_FLOAT(JustSlowWindowSeconds, 0.3f)
+SLOW_TUNING_FLOAT(JustSlowBulletRange, 3.0f)
+SLOW_TUNING_FLOAT(JustSlowGaugeGain, 20.0f)
+
+// ---- 吹き飛ばし ----
+SLOW_TUNING_FLOAT(LaunchDistance, 6.0f)
+SLOW_TUNING_FLOAT(LaunchSeconds, 1.2f)
+// 地上から吹き飛ばしたときの頂点の高さです。
+SLOW_TUNING_FLOAT(LaunchHeight, 1.8f)
+// 空中で追撃を重ねても、頂点はこの高さまでしか上がりません。
+SLOW_TUNING_FLOAT(LaunchMaxHeight, 2.4f)
+// 吹き飛びの終わりに初速の何割を失うか(0〜1)。大きいほど出だしが速く、終わりが遅くなります。
+SLOW_TUNING_FLOAT(LaunchSpeedFalloff, 0.8f)
+// 通常攻撃3段目の打ち上げです。前へはほとんど飛ばさず、真上へ高く打ち上げます。
+// 頂点はLaunchMaxHeightの制限を受けません(AttackVerticalReach以下にすると地上から追撃できます)。
+SLOW_TUNING_FLOAT(FinisherLaunchDistance, 0.5f)
+SLOW_TUNING_FLOAT(FinisherLaunchHeight, 3.0f)
+SLOW_TUNING_FLOAT(FinisherLaunchSeconds, 1.1f)
+SLOW_TUNING_INT(MaxWallBounces, 1)
+// 壁で反射した直後に空中へ留まる時間(ワールド時間)です。
+SLOW_TUNING_FLOAT(WallBounceHangSeconds, 0.3f)
+// 着地後の受け身の時間です。
+SLOW_TUNING_FLOAT(RecoverSeconds, 0.45f)
+
+// ---- 敵 ----
+SLOW_TUNING_INT(EnemyHp, 6)
+// 吹き飛び中の敵へ当てた追撃に上乗せするダメージです。地上で殴り続けるより、浮かせて追撃する方が早く倒せます。
+SLOW_TUNING_INT(PursuitDamageBonus, 1)
+SLOW_TUNING_FLOAT(EnemyRadius, 0.45f)
+SLOW_TUNING_FLOAT(EnemyMoveSpeed, 3.5f)
+SLOW_TUNING_FLOAT(EnemyDetectRange, 16.0f)
+// この距離まで近づくと予兆に入ります。
+SLOW_TUNING_FLOAT(EnemyAttackRange, 1.9f)
+// 予兆の後、この距離・角度の中にプレイヤーがいれば当たります。
+SLOW_TUNING_FLOAT(EnemyAttackHitRange, 2.4f)
+SLOW_TUNING_FLOAT(EnemyAttackHalfAngleDegrees, 50.0f)
+SLOW_TUNING_FLOAT(EnemyWindupSeconds, 0.55f)
+SLOW_TUNING_FLOAT(EnemyAttackCooldownSeconds, 1.2f)
+SLOW_TUNING_INT(EnemyAttackDamage, 10)
+// 通常攻撃を地上で受けたときのひるみ時間と、押される距離です。
+SLOW_TUNING_FLOAT(EnemyStaggerSeconds, 0.3f)
+SLOW_TUNING_FLOAT(EnemyStaggerPush, 0.8f)
+// 全滅してから次の一団が出るまでの実時間です(テスト用の再配置で、ウェーブではありません)。
+SLOW_TUNING_FLOAT(EnemyRespawnSeconds, 2.5f)
+
+// ---- 射撃型の敵 ----
+SLOW_TUNING_INT(GunnerHp, 2)
+SLOW_TUNING_FLOAT(GunnerRadius, 0.4f)
+SLOW_TUNING_FLOAT(GunnerMoveSpeed, 3.0f)
+// この距離の間に収まるよう、近づいたり離れたりします。
+SLOW_TUNING_FLOAT(GunnerMinRange, 6.0f)
+SLOW_TUNING_FLOAT(GunnerMaxRange, 12.0f)
+// 狙いを付けてから撃つまでの時間です。この間、照準線が見えます。
+SLOW_TUNING_FLOAT(GunnerWindupSeconds, 0.75f)
+SLOW_TUNING_FLOAT(GunnerCooldownSeconds, 1.8f)
+SLOW_TUNING_FLOAT(BulletSpeed, 9.0f)
+SLOW_TUNING_FLOAT(BulletRadius, 0.3f)
+SLOW_TUNING_FLOAT(BulletLifeSeconds, 4.0f)
+SLOW_TUNING_INT(BulletDamage, 12)
+// 打ち返した弾の速さの倍率と、当たった敵へのダメージです。打ち返した弾は敵を吹き飛ばします。
+SLOW_TUNING_FLOAT(DeflectSpeedScale, 1.8f)
+SLOW_TUNING_INT(DeflectDamage, 2)
+
+// ---- 重量型の敵 ----
+SLOW_TUNING_INT(BruteHp, 8)
+SLOW_TUNING_FLOAT(BruteRadius, 0.7f)
+SLOW_TUNING_FLOAT(BruteMoveSpeed, 2.4f)
+SLOW_TUNING_FLOAT(BruteAttackRange, 2.6f)
+SLOW_TUNING_FLOAT(BruteAttackHitRange, 3.4f)
+SLOW_TUNING_FLOAT(BruteAttackHalfAngleDegrees, 85.0f)
+SLOW_TUNING_FLOAT(BruteWindupSeconds, 0.95f)
+SLOW_TUNING_FLOAT(BruteAttackCooldownSeconds, 1.6f)
+SLOW_TUNING_INT(BruteAttackDamage, 25)
+// 強攻撃をこの回数当てると装甲が割れて打ち上がります。予兆中に当てると一撃で割れます。
+SLOW_TUNING_INT(BruteArmor, 2)
+SLOW_TUNING_FLOAT(BruteStaggerSeconds, 0.18f)
+// 吹き飛ぶ距離の倍率です。重いので短く飛びます。
+SLOW_TUNING_FLOAT(BruteLaunchScale, 0.6f)
+
+// ---- 手触り ----
+// 通常攻撃1・2段目のヒットストップ(フレーム数)。3段目はFinisherHitStopFramesを使います。
+SLOW_TUNING_INT(NormalHitStopFrames, 7)
+SLOW_TUNING_INT(FinisherHitStopFrames, 11)
+SLOW_TUNING_INT(PursuitHitStopFrames, 9)
+SLOW_TUNING_INT(KillHitStopFrames, 13)
+// 画面揺れの強さ(m)と、揺れが収まる速さ(1/秒)です。
+SLOW_TUNING_FLOAT(ShakeStrongHit, 0.12f)
+SLOW_TUNING_FLOAT(ShakeWallBounce, 0.18f)
+SLOW_TUNING_FLOAT(ShakeKill, 0.22f)
+SLOW_TUNING_FLOAT(ShakePlayerDamage, 0.3f)
+SLOW_TUNING_FLOAT(ShakeDecay, 7.0f)
+// 被弾した敵を白く光らせる時間(実時間)です。
+SLOW_TUNING_FLOAT(HitFlashSeconds, 0.07f)
+
+// ---- スコアとコンボ ----
+// 最後に当ててからこの時間(ワールド時間)が過ぎるとコンボが切れます。減速中は切れにくくなります。
+SLOW_TUNING_FLOAT(ComboWindowSeconds, 2.5f)
+// コンボがこの数増えるごとに、倍率がComboMultiplierStepずつ上がります。
+SLOW_TUNING_INT(ComboMultiplierEvery, 5)
+SLOW_TUNING_FLOAT(ComboMultiplierStep, 0.5f)
+SLOW_TUNING_FLOAT(ComboMultiplierMax, 4.0f)
+SLOW_TUNING_INT(ScoreNormalHit, 10)
+SLOW_TUNING_INT(ScoreStrongHit, 20)
+SLOW_TUNING_INT(ScorePursuit, 40)
+SLOW_TUNING_INT(ScoreWallBounce, 30)
+SLOW_TUNING_INT(ScoreDeflect, 50)
+SLOW_TUNING_INT(ScoreJustSlow, 60)
+SLOW_TUNING_INT(ScoreKillMelee, 100)
+SLOW_TUNING_INT(ScoreKillGunner, 150)
+SLOW_TUNING_INT(ScoreKillBrute, 300)
+SLOW_TUNING_INT(ScoreClearBonus, 500)
+
+// ---- カメラ ----
+SLOW_TUNING_FLOAT(CameraDistance, 7.5f)
+SLOW_TUNING_FLOAT(CameraMinDistance, 1.2f)
+SLOW_TUNING_FLOAT(CameraFocusHeight, 1.5f)
+SLOW_TUNING_FLOAT(CameraDefaultPitchDegrees, 18.0f)
+SLOW_TUNING_FLOAT(CameraMinPitchDegrees, -10.0f)
+SLOW_TUNING_FLOAT(CameraMaxPitchDegrees, 70.0f)
+SLOW_TUNING_FLOAT(CameraFovDegrees, 62.0f)
+SLOW_TUNING_FLOAT(CameraDashFovDegrees, 70.0f)
+SLOW_TUNING_FLOAT(CameraFovBlendRate, 6.0f)
+// 注視点がプレイヤーへ追いつく率(1/秒)です。ダッシュ中は小さくして少し遅らせます。
+SLOW_TUNING_FLOAT(CameraFollowRate, 22.0f)
+SLOW_TUNING_FLOAT(CameraDashFollowRate, 12.0f)
+// 強攻撃で吹き飛ばした敵の方へ向きを寄せる量です。マウスを動かすと中断します。
+SLOW_TUNING_FLOAT(CameraAssistFraction, 0.5f)
+SLOW_TUNING_FLOAT(CameraAssistMaxDegrees, 18.0f)
+SLOW_TUNING_FLOAT(CameraAssistDegreesPerSecond, 70.0f)
+// 壁に遮られたとき、当たった位置からこの距離だけ手前へ寄せます。
+SLOW_TUNING_FLOAT(CameraWallMargin, 0.3f)

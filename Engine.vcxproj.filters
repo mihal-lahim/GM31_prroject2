@@ -42,94 +42,97 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="src\audio.cpp">
+    <ClCompile Include="src\engine\audio.cpp">
       <Filter>Code\Audio</Filter>
     </ClCompile>
-    <ClCompile Include="src\collider.cpp">
+    <ClCompile Include="src\engine\collider.cpp">
       <Filter>Code\Collision</Filter>
     </ClCompile>
-    <ClCompile Include="src\colliderDebugDraw.cpp">
+    <ClCompile Include="src\engine\colliderDebugDraw.cpp">
       <Filter>Code\Collision</Filter>
     </ClCompile>
-    <ClCompile Include="src\colliderMath.cpp">
+    <ClCompile Include="src\engine\colliderMath.cpp">
       <Filter>Code\Collision</Filter>
     </ClCompile>
-    <ClCompile Include="src\collisionWorld.cpp">
+    <ClCompile Include="src\engine\collisionWorld.cpp">
       <Filter>Code\Collision</Filter>
     </ClCompile>
-    <ClCompile Include="src\gameSettings.cpp">
+    <ClCompile Include="src\engine\gameSettings.cpp">
       <Filter>Code\Configuration</Filter>
     </ClCompile>
-    <ClCompile Include="src\runtimeConfig.cpp">
+    <ClCompile Include="src\engine\runtimeConfig.cpp">
       <Filter>Code\Configuration</Filter>
     </ClCompile>
-    <ClCompile Include="src\gameTime.cpp">
+    <ClCompile Include="src\engine\gameTime.cpp">
       <Filter>Code\Core</Filter>
     </ClCompile>
-    <ClCompile Include="src\manager.cpp">
+    <ClCompile Include="src\engine\inputActions.cpp">
       <Filter>Code\Core</Filter>
     </ClCompile>
-    <ClCompile Include="src\world.cpp">
+    <ClCompile Include="src\engine\manager.cpp">
       <Filter>Code\Core</Filter>
     </ClCompile>
-    <ClCompile Include="src\sceneSerializer.cpp">
+    <ClCompile Include="src\engine\world.cpp">
       <Filter>Code\Core</Filter>
     </ClCompile>
-    <ClCompile Include="src\crashReporter.cpp">
+    <ClCompile Include="src\engine\sceneSerializer.cpp">
+      <Filter>Code\Core</Filter>
+    </ClCompile>
+    <ClCompile Include="src\engine\crashReporter.cpp">
       <Filter>Code\Diagnostics</Filter>
     </ClCompile>
-    <ClCompile Include="src\engineSelfTests.cpp">
+    <ClCompile Include="src\engine\engineSelfTests.cpp">
       <Filter>Code\Diagnostics</Filter>
     </ClCompile>
-    <ClCompile Include="src\keyboard_utf8.cpp">
+    <ClCompile Include="src\engine\keyboard_utf8.cpp">
       <Filter>Code\Input</Filter>
     </ClCompile>
-    <ClCompile Include="src\mouseInput.cpp">
+    <ClCompile Include="src\engine\mouseInput.cpp">
       <Filter>Code\Input</Filter>
     </ClCompile>
-    <ClCompile Include="src\modelRenderer.cpp">
+    <ClCompile Include="src\engine\modelRenderer.cpp">
       <Filter>Code\Rendering</Filter>
     </ClCompile>
-    <ClCompile Include="src\polygon2D.cpp">
+    <ClCompile Include="src\engine\polygon2D.cpp">
       <Filter>Code\Rendering</Filter>
     </ClCompile>
-    <ClCompile Include="src\renderer.cpp">
+    <ClCompile Include="src\engine\renderer.cpp">
       <Filter>Code\Rendering</Filter>
     </ClCompile>
-    <ClCompile Include="src\renderQueue.cpp">
+    <ClCompile Include="src\engine\renderQueue.cpp">
       <Filter>Code\Rendering</Filter>
     </ClCompile>
-    <ClCompile Include="src\particleSystem.cpp">
+    <ClCompile Include="src\engine\particleSystem.cpp">
       <Filter>Code\Rendering\Effects</Filter>
     </ClCompile>
-    <ClCompile Include="src\sceneFade.cpp">
+    <ClCompile Include="src\engine\sceneFade.cpp">
       <Filter>Code\Rendering\Effects</Filter>
     </ClCompile>
-    <ClCompile Include="src\alphabetText.cpp">
+    <ClCompile Include="src\engine\alphabetText.cpp">
       <Filter>Code\Rendering\Text</Filter>
     </ClCompile>
-    <ClCompile Include="src\dynamicText.cpp">
+    <ClCompile Include="src\engine\dynamicText.cpp">
       <Filter>Code\Rendering\Text</Filter>
     </ClCompile>
-    <ClCompile Include="src\glyphRenderer2D.cpp">
+    <ClCompile Include="src\engine\glyphRenderer2D.cpp">
       <Filter>Code\Rendering\Text</Filter>
     </ClCompile>
-    <ClCompile Include="src\kanaText.cpp">
+    <ClCompile Include="src\engine\kanaText.cpp">
       <Filter>Code\Rendering\Text</Filter>
     </ClCompile>
-    <ClCompile Include="src\kanjiText.cpp">
+    <ClCompile Include="src\engine\kanjiText.cpp">
       <Filter>Code\Rendering\Text</Filter>
     </ClCompile>
-    <ClCompile Include="src\score.cpp">
+    <ClCompile Include="src\engine\score.cpp">
       <Filter>Code\Rendering\Text</Filter>
     </ClCompile>
-    <ClCompile Include="src\graphicsResourceFactory.cpp">
+    <ClCompile Include="src\engine\graphicsResourceFactory.cpp">
       <Filter>Code\Resources</Filter>
     </ClCompile>
-    <ClCompile Include="src\objModelLoader.cpp">
+    <ClCompile Include="src\engine\objModelLoader.cpp">
       <Filter>Code\Resources</Filter>
     </ClCompile>
-    <ClCompile Include="src\resourceManager.cpp">
+    <ClCompile Include="src\engine\resourceManager.cpp">
       <Filter>Code\Resources</Filter>
     </ClCompile>
   </ItemGroup>
@@ -171,6 +174,9 @@
       <Filter>Code\Core</Filter>
     </ClInclude>
     <ClInclude Include="include\gameTime.h">
+      <Filter>Code\Core</Filter>
+    </ClInclude>
+    <ClInclude Include="include\inputActions.h">
       <Filter>Code\Core</Filter>
     </ClInclude>
     <ClInclude Include="include\main.h">

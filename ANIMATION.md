@@ -1,7 +1,7 @@
 # アニメーション合成 (ブレンドツリー・アクション層)
 
 `AnimationModel` のアニメーションは、描画に依存しない `Anim::Animator`
-(`include/animator.h`、`src/animator.cpp`)が合成します。`AnimationModel` は合成された
+(`include/animator.h`、`src/animation/animator.cpp`)が合成します。`AnimationModel` は合成された
 姿勢を受け取り、足のIKとスキニングだけを行います。
 
 ```
@@ -204,7 +204,7 @@ m_Model->SetLayerWeight(std::clamp(turnRate * 0.5f, 0.0f, 1.0f), 2);
 
 ## テスト
 
-`ClassroomWalk.exe --self-test` で `src/animatorSelfTests.cpp` を実行し、
+`ClassroomWalk.exe --self-test` で `src/games/classroom/animatorSelfTests.cpp` を実行し、
 `self-test-animator.log` に結果を出します。GPU・FBXを使わず、メモリ上の小さな骨格で
 次を数値で確かめます。
 

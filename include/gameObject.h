@@ -43,7 +43,7 @@ protected:
 
 	float m_CameraZ = 0.0f; // ソート用のカメラ奥行き値
 
-	Vector3 m_Position{ 0.0f, 0.0f, 0.0f };
+
 	Vector3 m_Rotation{ 0.0f, 0.0f, 0.0f };
 	Vector3 m_Scale{ 1.0f, 1.0f, 1.0f };
 
@@ -256,6 +256,9 @@ private:
 
 	// 初回は必ずミスするよう、あり得ない回転値で初期化します。
 	mutable Vector3 m_CachedAxesRotation{ FLT_MAX, FLT_MAX, FLT_MAX };
+	// 直接書き換えると当たり判定のインデックスが古くなるため、派生クラスにも見せません。
+	// 書き込みは必ずSetPositionを通します。
+	Vector3 m_Position{ 0.0f, 0.0f, 0.0f };
 	mutable RotationAxes m_CachedAxes;
 
 	const RotationAxes& RefreshAxes() const

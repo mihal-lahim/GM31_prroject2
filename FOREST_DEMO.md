@@ -29,10 +29,10 @@ FPSは画面描画の周期で、GPU時間の逆数ではありません。エ�
 
 ## 実装の入口
 
-- `src/forestDemo.cpp`: シーン、区画描画、自由カメラ、UI、非同期GPU計測、描画テスト
+- `src/games/shaderGallery/forestDemo.cpp`: シーン、区画描画、自由カメラ、UI、非同期GPU計測、描画テスト
 - `shaders/forestVS.hlsl`: 手続き的な草・地面・仮の木の形状、風
 - `shaders/forestPS.hlsl`: 簡易照明、色の変化、距離霧
-- `src/shaderGalleryGameDefinition.cpp`: 起動モード選択
+- `src/games/shaderGallery/shaderGalleryGameDefinition.cpp`: 起動モード選択
 
 既存Engineのデバイス、シーンループ、リソース生成、描画状態復元を利用しています。植物専用の描画はまだアプリ側の試作です。利用方法が固まった段階で、汎用インスタンス描画や計測器としてEngineへ抽出します。
 

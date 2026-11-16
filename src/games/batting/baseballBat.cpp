@@ -1,0 +1,269 @@
+#include "main.h"
+#include "renderer.h"
+#include "modelRenderer.h"
+#include "world.h"
+#include "gameTime.h"
+#include "collider.h"
+#include "baseballBall.h"
+#include "baseballBat.h"
+#include "player.h"
+#include "battingGameplayTuning.h"
+
+namespace
+{
+	float Clamp01(float value)
+	{
+		if (value < 0.0f)
+		{
+			return 0.0f;
+		}
+		if (value > 1.0f)
+		{
+			return 1.0f;
+		}
+		return value;
+	}
+
+	float SmoothStep(float value)
+	{
+		value = Clamp01(value);
+		return value * value * (3.0f - 2.0f * value);
+	}
+
+	float Lerp(float a, float b, float t)
+	{
+		return a + (b - a) * t;
+	}
+
+	// ボールの移動軌跡(線分)とバット(線分)の最短距離。高速球のすり抜けを防ぎます。
+	float DistanceSegmentToSegment(const Vector3& p1, const Vector3& q1, const Vector3& p2, const Vector3& q2)
+	{
+		const Vector3 d1 = q1 - p1;
+		const Vector3 d2 = q2 - p2;
+		const Vector3 r = p1 - p2;
+		const float a = Vector3::dot(d1, d1);
+		const float e = Vector3::dot(d2, d2);
+		const float f = Vector3::dot(d2, r);
+		float s = 0.0f;
+		float t = 0.0f;
+
+		if (a <= 0.0001f && e <= 0.0001f)
+		{
+			return (p1 - p2).length();
+		}
+		if (a <= 0.0001f)
+		{
+			t = Clamp01(f / e);
+		}
+		else
+		{
+			const float c = Vector3::dot(d1, r);
+			if (e <= 0.0001f)
+			{
+				s = Clamp01(-c / a);
+			}
+			else
+			{
+				const float b = Vector3::dot(d1, d2);
+				const float denominator = a * e - b * b;
+				if (denominator != 0.0f)
+				{
+					s = Clamp01((b * f - c * e) / denominator);
+				}
+
+				t = (b * s + f) / e;
+				if (t < 0.0f)
+				{
+					t = 0.0f;
+					s = Clamp01(-c / a);
+				}
+				else if (t > 1.0f)
+				{
+					t = 1.0f;
+					s = Clamp01((b - c) / a);
+				}
+			}
+		}
+
+		const Vector3 closest1 = p1 + d1 * s;
+		const Vector3 closest2 = p2 + d2 * t;
+		return (closest1 - closest2).length();
+	}
+}
+
+void BaseballBat::Init()
+{
+	m_Layer = Layer::World;
+	m_Scale = { 0.09f, 0.09f, 1.0f };
+
+	AddComponent<ModelRenderer>()
+		->SetUseOwnerTransform()
+		->Load("assets\\model\\baseball_bat.obj");
+	m_Collider = AddComponent<Collider>();
+	m_Collider->SetAABB({ 0.45f, 0.25f, 0.45f })
+		->SetDebugColor(XMFLOAT4(0.55f, 0.35f, 0.12f, 1.0f));
+}
+
+void BaseballBat::Uninit()
+{
+	GameObject::Uninit();
+}
+
+void BaseballBat::StartSwing()
+{
+	if (m_SwingTimer > 0.0f)
+	{
+		return;
+	}
+
+	m_SwingTimer = GetBattingGameplayTuning().SwingDuration;
+	m_HitThisSwing = false;
+}
+
+bool BaseballBat::IsHitActive() const
+{
+	if (m_SwingTimer <= 0.0f)
+	{
+		return false;
+	}
+
+	const auto& tuning = GetBattingGameplayTuning();
+	const float progress = 1.0f - (m_SwingTimer / tuning.SwingDuration);
+	return progress >= tuning.HitWindowStart && progress <= tuning.HitWindowEnd;
+}
+
+void BaseballBat::UpdatePose()
+{
+	if (m_Player == nullptr)
+	{
+		return;
+	}
+
+	const auto& tuning = GetBattingGameplayTuning();
+	Vector3 forward = m_Player->GetForward();
+	forward.y = 0.0f;
+	if (forward.length() <= 0.0001f)
+	{
+		forward = { 0.0f, 0.0f, 1.0f };
+	}
+	forward.normalize();
+
+	Vector3 right = m_Player->GetRight();
+	right.y = 0.0f;
+	if (right.length() <= 0.0001f)
+	{
+		right = { 1.0f, 0.0f, 0.0f };
+	}
+	right.normalize();
+
+	float progress = 0.0f;
+	if (m_SwingTimer > 0.0f)
+	{
+		progress = 1.0f - (m_SwingTimer / tuning.SwingDuration);
+	}
+
+	const float swing = SmoothStep(progress);
+	const float angle = (m_SwingTimer > 0.0f) ? Lerp(1.25f, -1.05f, swing) : 1.15f;
+	const float c = cosf(angle);
+	const float s = sinf(angle);
+	Vector3 batDirection = forward * c + right * s;
+	batDirection.normalize();
+
+	Vector3 shoulder = m_Player->GetPosition() + Vector3(0.0f, 1.15f, 0.0f) + forward * 0.32f + right * 0.22f;
+	m_SegmentStart = shoulder + batDirection * 0.22f;
+	m_SegmentEnd = shoulder + batDirection * tuning.BatLength;
+	SetPosition((m_SegmentStart + m_SegmentEnd) * 0.5f);
+
+	m_HitDirection = forward + Vector3(0.0f, 0.18f, 0.0f);
+	m_HitDirection.normalize();
+
+	m_Rotation.x = IsHitActive() ? -0.08f : -0.18f;
+	m_Rotation.y = atan2f(batDirection.x, batDirection.z);
+	m_Rotation.z = 0.0f;
+	m_Scale = IsHitActive() ? Vector3(0.12f, 0.12f, 1.0f) : Vector3(0.09f, 0.09f, 0.96f);
+
+	if (m_Collider != nullptr)
+	{
+		if (IsHitActive())
+		{
+			m_Collider->SetAABB({ 1.15f, 0.35f, 1.15f })
+				->SetDebugColor(XMFLOAT4(1.0f, 0.85f, 0.15f, 1.0f));
+		}
+		else
+		{
+			m_Collider->SetAABB({ 0.55f, 0.28f, 0.55f })
+				->SetDebugColor(XMFLOAT4(0.55f, 0.35f, 0.12f, 1.0f));
+		}
+	}
+}
+
+void BaseballBat::TryHitBalls()
+{
+	if (!IsHitActive() || m_HitThisSwing)
+	{
+		return;
+	}
+
+	const auto& tuning = GetBattingGameplayTuning();
+	auto balls = GetWorld().FindAll<BaseballBall>();
+	for (BaseballBall* ball : balls)
+	{
+		if (ball->HasBeenHitBack())
+		{
+			continue;
+		}
+
+		// ボールが今ステップで通過した軌跡全体とバット線分で判定し、高速球のすり抜けを防ぎます。
+		const float distance = DistanceSegmentToSegment(
+			ball->GetPreviousPosition(), ball->GetPosition(), m_SegmentStart, m_SegmentEnd);
+		if (distance > tuning.BatRadius)
+		{
+			continue;
+		}
+
+		ball->HitBack(m_HitDirection, tuning.BatPower);
+		m_HitThisSwing = true;
+
+		if (m_Collider != nullptr)
+		{
+			m_Collider->SetDebugColor(XMFLOAT4(1.0f, 0.25f, 0.10f, 1.0f));
+		}
+		break;
+	}
+}
+
+void BaseballBat::Update()
+{
+	if (m_Player == nullptr || m_Player->IsPendingDestroy())
+	{
+		MarkForDestroy();
+		return;
+	}
+
+	const float dt = GameTime::GetDeltaTime();
+	if (m_SwingTimer > 0.0f)
+	{
+		m_SwingTimer -= dt;
+		if (m_SwingTimer < 0.0f)
+		{
+			m_SwingTimer = 0.0f;
+		}
+	}
+
+	UpdatePose();
+
+	GameObject::Update();
+}
+
+void BaseballBat::LateUpdate()
+{
+	// ボールを含む全オブジェクトのUpdate完了後に判定するため、1ステップ古い位置を見ません。
+	TryHitBalls();
+
+	GameObject::LateUpdate();
+}
+
+void BaseballBat::Draw()
+{
+	GameObject::Draw();
+}

@@ -48,94 +48,94 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="src\baseballBall.cpp">
+    <ClCompile Include="src\games\batting\baseballBall.cpp">
       <Filter>Code\Batting</Filter>
     </ClCompile>
-    <ClCompile Include="src\baseballBat.cpp">
+    <ClCompile Include="src\games\batting\baseballBat.cpp">
       <Filter>Code\Batting</Filter>
     </ClCompile>
-    <ClCompile Include="src\battingTarget.cpp">
+    <ClCompile Include="src\games\batting\battingTarget.cpp">
       <Filter>Code\Batting</Filter>
     </ClCompile>
-    <ClCompile Include="src\battingWall.cpp">
+    <ClCompile Include="src\games\batting\battingWall.cpp">
       <Filter>Code\Batting</Filter>
     </ClCompile>
-    <ClCompile Include="src\pitchingMachine.cpp">
+    <ClCompile Include="src\games\batting\pitchingMachine.cpp">
       <Filter>Code\Batting</Filter>
     </ClCompile>
-    <ClCompile Include="src\baseballEffects.cpp">
+    <ClCompile Include="src\games\batting\baseballEffects.cpp">
       <Filter>Code\Effects</Filter>
     </ClCompile>
-    <ClCompile Include="src\explosion.cpp">
+    <ClCompile Include="src\games\batting\explosion.cpp">
       <Filter>Code\Effects</Filter>
     </ClCompile>
-    <ClCompile Include="src\firework.cpp">
+    <ClCompile Include="src\games\batting\firework.cpp">
       <Filter>Code\Effects</Filter>
     </ClCompile>
-    <ClCompile Include="src\jumpEffect.cpp">
+    <ClCompile Include="src\games\batting\jumpEffect.cpp">
       <Filter>Code\Effects</Filter>
     </ClCompile>
-    <ClCompile Include="src\playerMoveParticle.cpp">
+    <ClCompile Include="src\games\batting\playerMoveParticle.cpp">
       <Filter>Code\Effects</Filter>
     </ClCompile>
-    <ClCompile Include="src\battingGameDefinition.cpp">
+    <ClCompile Include="src\games\batting\battingGameDefinition.cpp">
       <Filter>Code\Game</Filter>
     </ClCompile>
-    <ClCompile Include="src\battingGameplayTuning.cpp">
+    <ClCompile Include="src\games\batting\battingGameplayTuning.cpp">
       <Filter>Code\Game</Filter>
     </ClCompile>
-    <ClCompile Include="src\game.cpp">
+    <ClCompile Include="src\games\batting\game.cpp">
       <Filter>Code\Game</Filter>
     </ClCompile>
-    <ClCompile Include="src\gameSetup.cpp">
+    <ClCompile Include="src\games\batting\gameSetup.cpp">
       <Filter>Code\Game</Filter>
     </ClCompile>
-    <ClCompile Include="src\main.cpp">
+    <ClCompile Include="src\engine\main.cpp">
       <Filter>Code\Game</Filter>
     </ClCompile>
-    <ClCompile Include="src\camera.cpp">
+    <ClCompile Include="src\games\batting\camera.cpp">
       <Filter>Code\Player</Filter>
     </ClCompile>
-    <ClCompile Include="src\gameplayInputController.cpp">
+    <ClCompile Include="src\games\batting\gameplayInputController.cpp">
       <Filter>Code\Player</Filter>
     </ClCompile>
-    <ClCompile Include="src\player.cpp">
+    <ClCompile Include="src\games\batting\player.cpp">
       <Filter>Code\Player</Filter>
     </ClCompile>
-    <ClCompile Include="src\playerCollision.cpp">
+    <ClCompile Include="src\games\batting\playerCollision.cpp">
       <Filter>Code\Player</Filter>
     </ClCompile>
-    <ClCompile Include="src\playerCombat.cpp">
+    <ClCompile Include="src\games\batting\playerCombat.cpp">
       <Filter>Code\Player</Filter>
     </ClCompile>
-    <ClCompile Include="src\playerMovement.cpp">
+    <ClCompile Include="src\games\batting\playerMovement.cpp">
       <Filter>Code\Player</Filter>
     </ClCompile>
-    <ClCompile Include="src\pauseMenu.cpp">
+    <ClCompile Include="src\games\batting\pauseMenu.cpp">
       <Filter>Code\UI and Scenes</Filter>
     </ClCompile>
-    <ClCompile Include="src\result.cpp">
+    <ClCompile Include="src\games\batting\result.cpp">
       <Filter>Code\UI and Scenes</Filter>
     </ClCompile>
-    <ClCompile Include="src\title.cpp">
+    <ClCompile Include="src\games\batting\title.cpp">
       <Filter>Code\UI and Scenes</Filter>
     </ClCompile>
-    <ClCompile Include="src\box.cpp">
+    <ClCompile Include="src\games\batting\box.cpp">
       <Filter>Code\World</Filter>
     </ClCompile>
-    <ClCompile Include="src\bullet.cpp">
+    <ClCompile Include="src\games\batting\bullet.cpp">
       <Filter>Code\World</Filter>
     </ClCompile>
-    <ClCompile Include="src\enemy.cpp">
+    <ClCompile Include="src\games\batting\enemy.cpp">
       <Filter>Code\World</Filter>
     </ClCompile>
-    <ClCompile Include="src\field.cpp">
+    <ClCompile Include="src\games\batting\field.cpp">
       <Filter>Code\World</Filter>
     </ClCompile>
-    <ClCompile Include="src\sky.cpp">
+    <ClCompile Include="src\shared\sky.cpp">
       <Filter>Code\World</Filter>
     </ClCompile>
-    <ClCompile Include="src\tree.cpp">
+    <ClCompile Include="src\games\batting\tree.cpp">
       <Filter>Code\World</Filter>
     </ClCompile>
   </ItemGroup>

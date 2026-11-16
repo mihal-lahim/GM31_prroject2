@@ -34,26 +34,23 @@
     </FxCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="include\forestDemo.h" /><ClCompile Include="src\forestDemo.cpp" />
+    <ClInclude Include="include\forestDemo.h" /><ClCompile Include="src\games\shaderGallery\forestDemo.cpp" />
     <ClInclude Include="include\shaderGalleryScene.h" />
     <ClInclude Include="include\shaderGalleryUi.h" />
-    <ClCompile Include="src\main.cpp" />
-    <ClCompile Include="src\shaderGalleryScene.cpp" />
-    <ClCompile Include="src\shaderGalleryUi.cpp" />
-    <ClCompile Include="src\shaderGalleryRenderTest.cpp" />
-    <ClCompile Include="src\shaderGalleryGameDefinition.cpp" />
-    <ClCompile Include="src\enginePch.cpp">
+    <ClCompile Include="src\engine\main.cpp" />
+    <ClCompile Include="src\games\shaderGallery\shaderGalleryScene.cpp" />
+    <ClCompile Include="src\games\shaderGallery\shaderGalleryUi.cpp" />
+    <ClCompile Include="src\games\shaderGallery\shaderGalleryRenderTest.cpp" />
+    <ClCompile Include="src\games\shaderGallery\shaderGalleryGameDefinition.cpp" />
+    <ClCompile Include="src\engine\enginePch.cpp">
       <PrecompiledHeader>Create</PrecompiledHeader>
       <ForcedIncludeFiles />
     </ClCompile>
     <!-- サードパーティのソースは自前のインクルード前提で書かれているため、PCHを強制しません。 -->
-    <ClCompile Include="third_party\imgui\imgui.cpp"><PrecompiledHeader>NotUsing</PrecompiledHeader><ForcedIncludeFiles /></ClCompile>
-    <ClCompile Include="third_party\imgui\imgui_draw.cpp"><PrecompiledHeader>NotUsing</PrecompiledHeader><ForcedIncludeFiles /></ClCompile>
-    <ClCompile Include="third_party\imgui\imgui_tables.cpp"><PrecompiledHeader>NotUsing</PrecompiledHeader><ForcedIncludeFiles /></ClCompile>
-    <ClCompile Include="third_party\imgui\imgui_widgets.cpp"><PrecompiledHeader>NotUsing</PrecompiledHeader><ForcedIncludeFiles /></ClCompile>
-    <ClCompile Include="third_party\imgui\imgui_impl_dx11.cpp"><PrecompiledHeader>NotUsing</PrecompiledHeader><ForcedIncludeFiles /></ClCompile>
-    <ClCompile Include="third_party\imgui\imgui_impl_win32.cpp"><PrecompiledHeader>NotUsing</PrecompiledHeader><ForcedIncludeFiles /></ClCompile>
     <ProjectReference Include="Engine.vcxproj"><Project>{4F1C6718-071A-4B3E-AED7-938C39C32F02}</Project></ProjectReference>
+    <ProjectReference Include="ImGuiLib.vcxproj">
+      <Project>{9C4D1E73-5A28-4F6B-8E03-7B1A2C6D4F92}</Project>
+    </ProjectReference>
   </ItemGroup>
   <ItemGroup>
     <RuntimeAsset Include="assets\config\classroom.cfg"><TargetPath>assets\config\classroom.cfg</TargetPath></RuntimeAsset>

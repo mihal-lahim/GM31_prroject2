@@ -29,7 +29,7 @@ private:
 	float m_Roll = 0.0f;
 
 	// 揺れ・パンチ・ロールを反映した最終的な描画用の値です。
-	// m_Position/m_Targetは揺れを含まない追従結果のままにし、
+	// GetPosition()/m_Targetは揺れを含まない追従結果のままにし、
 	// 追従計算に揺れが混ざって発散しないようにします。
 	Vector3 m_ShakenPosition{ 0.0f, 0.0f, 0.0f };
 	Vector3 m_ShakenTarget{ 0.0f, 0.0f, 0.0f };
@@ -53,9 +53,9 @@ public:
 	void Draw() override;
 
 	XMMATRIX GetViewMatrix() const override { return m_ViewMatrix; }
-	Vector3 GetCameraPosition() const override { return m_Position; }
+	Vector3 GetCameraPosition() const override { return GetPosition(); }
 	Vector3 GetCameraForward() const override;
-	Vector3 GetAimOrigin() const { return m_Position; }
+	Vector3 GetAimOrigin() const { return GetPosition(); }
 	Vector3 GetAimDirection() const;
 	void SnapOnNextLateUpdate() { m_TargetInitialized = false; }
 	// 描画位置がプレイヤーにどれだけ近いかです。壁際で寄り切ったときに

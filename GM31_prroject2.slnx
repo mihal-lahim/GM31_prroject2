@@ -3,6 +3,8 @@
     <Platform Name="x64" />
   </Configurations>
   <Project Path="Engine.vcxproj" Id="4f1c6718-071a-4b3e-aed7-938c39c32f02" />
+  <Project Path="AnimationLib.vcxproj" Id="6a0e3c52-2b71-4e8d-9f14-3c7b5d2a8e01" />
+  <Project Path="ImGuiLib.vcxproj" Id="9c4d1e73-5a28-4f6b-8e03-7b1a2c6d4f92" />
   <Project Path="WireAction.vcxproj" Id="5b30e919-9494-44c5-bb6a-baf79f6d5284" />
   <Project Path="BattingCenter.vcxproj" Id="b755fd23-c4e4-4c69-b1bb-38ae0234b48b" />
   <Project Path="ClassroomWalk.vcxproj" Id="d64a3b79-5fb0-47c9-9992-cb456278a4d1" />
