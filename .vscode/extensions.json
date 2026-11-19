@@ -1,0 +1,7 @@
+{
+    // このワークスペースを開くと、VS Code が以下の拡張のインストールを勧めます。
+    "recommendations": [
+        "ms-vscode.cpptools",
+        "editorconfig.editorconfig"
+    ]
+}

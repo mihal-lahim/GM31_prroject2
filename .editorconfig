@@ -8,3 +8,42 @@ insert_final_newline = true
 [*.{cpp,h,hlsl}]
 indent_style = tab
 indent_size = 4
+
+# ---- ここから追加 ----
+
+# C++ のヘッダーの一種と、調整値の一覧(X マクロ)も C++ と同じ書式にします。
+[*.{inl,def,hlsli}]
+indent_style = tab
+indent_size = 4
+
+# Windows PowerShell 5.1 は BOM なしの UTF-8 を ANSI として読み、日本語のコメントで構文が壊れます。
+[*.ps1]
+charset = utf-8-bom
+indent_style = space
+indent_size = 4
+
+# bash は CR を解釈できません(.gitattributes でも LF に固定しています)。
+[*.sh]
+end_of_line = lf
+indent_style = space
+indent_size = 4
+
+[*.{vcxproj,props,filters,slnx}]
+indent_style = space
+indent_size = 2
+
+[*.{json,js}]
+indent_style = space
+indent_size = 4
+
+[*.{yml,yaml}]
+indent_style = space
+indent_size = 2
+
+# 第三者のコードは元の書式のままにします。
+[third_party/**]
+charset = unset
+end_of_line = unset
+insert_final_newline = unset
+indent_style = unset
+indent_size = unset

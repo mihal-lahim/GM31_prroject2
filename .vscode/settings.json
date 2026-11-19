@@ -1,0 +1,40 @@
+{
+    // EditorConfig 拡張が無くても、主な書式がそろうようにする設定です(.editorconfig と同じ内容)。
+    "[cpp]": {
+        "editor.insertSpaces": false,
+        "editor.tabSize": 4,
+        "editor.detectIndentation": false
+    },
+    "[c]": {
+        "editor.insertSpaces": false,
+        "editor.tabSize": 4,
+        "editor.detectIndentation": false
+    },
+    "[hlsl]": {
+        "editor.insertSpaces": false,
+        "editor.tabSize": 4
+    },
+    "files.eol": "\r\n",
+    // bash は CR を解釈できないので、シェルスクリプトだけ LF にします。
+    "[shellscript]": {
+        "files.eol": "\n"
+    },
+    "files.insertFinalNewline": true,
+    // Windows PowerShell 5.1 は BOM なしの UTF-8 を正しく読めないため、BOM 付きで保存します。
+    "[powershell]": {
+        "files.encoding": "utf8bom"
+    },
+    "files.associations": {
+        "*.def": "cpp",
+        "*.hlsli": "hlsl"
+    },
+    // ビルド出力は検索やファイル監視の対象から外します。
+    "search.exclude": {
+        "bin/**": true,
+        "obj/**": true
+    },
+    "files.watcherExclude": {
+        "bin/**": true,
+        "obj/**": true
+    }
+}
