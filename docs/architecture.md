@@ -53,7 +53,7 @@ Worldを渡すので、ゲームの処理はグローバルな `Manager` を使�
 
 `GameDefinition` が自己テストと描画テストの関数を任意で渡すので、Engineはゲームのヘッダーを
 読み込まずに済みます。日本語と時間の表示はEngineの `dynamicText.*` で描きます。
-敵(`wireEnemy.*`)は屋上を巡回して体当たりしてきますが、倒すことはできません。
+敵(`wireEnemy.*`)は50mごとの踊り場を巡回して体当たりしてきますが、倒すことはできません。
 
 `IWireTarget` は、動く機械も含めたアンカーの位置を表します。`WireBlockField` は面への
 レイキャスト、体の当たり判定、着地の判定を担当します。`wireBoxMesh` は共通の箱の形状です。
@@ -85,8 +85,9 @@ Worldを渡すので、ゲームの処理はグローバルな `Manager` を使�
   敵は `SlowClock::GetWorldDeltaTime()` を、プレイヤーとカメラは `GameTime` を読みます。
 - `slowPlayer.cpp`: 移動・ダッシュ・攻撃の状態遷移、攻撃の先行入力、ダッシュによるキャンセル。
   プレイヤーは授業のキャラクター `Akai.fbx` を `AnimationModel` で描きます(ClassroomWalkと同じく
-  アプリ側でコンパイルします)。今はIdleとRunだけを使い、攻撃のクリップは後で入れます。
-- `slowEnemy.cpp`: 3種類(近接、射撃、重装)の敵のAIです。種類はリフレクションされた `Kind` の値で
+  アプリ側でコンパイルします)。クリップは `Akai_Idle`・`Akai_Run`・`Akai_Dash`・`Akai_Slash`(3段コンボ)・
+  `Akai_Strong`(強攻撃)です。
+- `slowEnemy.cpp`: 3種類(近接、射撃、重量)の敵のAIです。種類はリフレクションされた `Kind` の値で
   選びます。打ち上げの軌道、壁での跳ね返り、追撃も担当します。打ち上げの速さと高さは打ち上げてからの
   経過時間で決まるので、追撃や跳ね返りを繰り返しても速度がたまりません。
 - `slowBullet.cpp`: World時間で動く射撃の弾です。プレイヤーの攻撃で撃った敵へ跳ね返せます。
@@ -113,7 +114,8 @@ Worldを渡すので、ゲームの処理はグローバルな `Manager` を使�
 
 `ShaderGallery` は、GM31の共通Engine、シェーダー一覧、`SurfaceMaterial`、ポストエフェクトを使って、
 SP31の表面表現のモードを見比べるアプリです。独立した教材アプリで、実行時アセットの一覧も自分で持ちます。
-ImGuiのソースと操作UIはアプリ側にあります。`GameDefinition` がUI用の関数を任意で渡し、Engineは
+ImGui本体は `ImGuiLib.lib` を参照して使い(SlowActionのゲーム内エディタも同じ)、操作UIはアプリ側にあります。
+`GameDefinition` がUI用の関数を任意で渡し、Engineは
 ポストエフェクトの後、画面に出す直前にそのUIを描きます。
 
 `WireAction` をビルドしてもBatting Centerのソースはコンパイルされず、その逆も同じです。

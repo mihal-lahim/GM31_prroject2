@@ -16,8 +16,9 @@ all three artifacts from one tagged DirectXTex release.
 ## Dear ImGui
 
 `third_party/imgui/` contains the SP31 project's Dear ImGui v1.92.7 WIP copy,
-including its DX11 and Win32 backends. ShaderGallery alone compiles these
-sources. Its MIT license is retained at `third_party/imgui/LICENSE.txt`.
+including its DX11 and Win32 backends. Only `ImGuiLib.vcxproj` compiles these
+sources; ShaderGallery and SlowAction (its in-game scene editor) link to it
+through a `ProjectReference`. Its MIT license is retained at `third_party/imgui/LICENSE.txt`.
 
 ## 効果音工房 (umipla.com) sound effects
 

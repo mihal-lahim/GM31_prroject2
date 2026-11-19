@@ -36,8 +36,10 @@ cd bin\x64\Debug\WireAction
 - **WireAction**: 時計・ゴール交差・振り子・慣性・落下判定に加え、ワイヤーの巻き付き
   (角での折れと解除、柱への2周の巻き付け、動く足場への追従、約2万フレームのランダム飛行で貫通しないこと)。
   `race-wire.png` は支柱の向こうへ接続して角で折れたワイヤーの描画です。
-- **SlowAction**: 仕様の数値と状態遷移(コンボ、溜め、追撃、ジャスト減速など)。
-- **全ゲーム共通**: 設定ファイルに一覧(`.def`)に無いキーがあれば失敗します。
+- **SlowAction**: 仕様の数値と状態遷移(コンボ、溜め、追撃、ジャスト減速など)。`--render-test` で確かめます。
+- **調整値の一覧(`.def`)を持つゲーム**(WireAction、SlowAction、BattingCenter): 設定ファイルに一覧に無いキーが
+  あれば失敗します。WireAction と BattingCenter は `--self-test`、SlowAction は `--render-test` で確かめます。
+  CI は `--self-test` だけを実行するので、SlowAction の設定の書き間違いは CI では見つかりません。
 
 プロジェクトの境界(Engine がゲームのヘッダを読まない等)は次で検証します。CI も同じものを実行します。
 
@@ -63,6 +65,8 @@ ClassroomWalk 左上の FPS 表示(760×48)は毎回変わるため比較から�
 
 ## 調整値
 
-各ゲームの調整値は `include/<game>Tuning.def` の1か所に一覧・既定値・説明があり、
+WireAction・SlowAction・BattingCenter の調整値は `include/games/<name>/*Tuning.def` の1か所に
+一覧・既定値・説明があり(`wireGameplayTuning.def`、`slowActionTuning.def`、`battingGameplayTuning.def`)、
 実際の値は `assets/config/*-gameplay.cfg` で再コンパイルなしに変えられます。
+FpsGame・ClassroomWalk・ShaderGallery には調整値の一覧はありません。
 項目を足す・消すときは `.def` に1行書くだけです。キー割り当ては `assets/config/*-input.cfg` です。

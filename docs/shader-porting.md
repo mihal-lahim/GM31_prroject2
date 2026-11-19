@@ -17,9 +17,9 @@ GM31 では `SurfaceShader` enum や `spSurfacePS.hlsl` のモード分岐を増
 - `t0` アルベド、`t1` 補助テクスチャ、`s0` サンプラー。移植用PSは `t0` を必須とします。
 - SP31 の `shader/PortableCommon.hlsli` と GM31 の
   `shaders/surfaces/PortableCommon.hlsli` は同一内容です。
-  `SampleStripesVS.hlsl` / `SampleStripesPS.hlsl` も両側で同一ソースをコンパイルします。
+  `SampleStripesVS.hlsl` / `sampleStripesPS.hlsl` も両側で同一ソースをコンパイルします。
 - GM31 の `shaders/surfaces/*VS.hlsl` と `*PS.hlsl`、
-  `shaders/post/*PS.hlsl` は4アプリで自動コンパイルされます。
+  `shaders/post/*PS.hlsl` は、`SurfaceShaders.props` を通して6アプリすべてで自動コンパイルされます。
 
 ## 追加手順
 

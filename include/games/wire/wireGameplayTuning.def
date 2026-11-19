@@ -230,7 +230,7 @@ WIRE_TUNING_FLOAT(SpeedLineForwardOffset, "wire.camera.speed_line_forward_offset
 WIRE_TUNING_FLOAT(SpeedLineSpeed, "wire.camera.speed_line_speed", 34.0f)
 WIRE_TUNING_GROUP_END()
 
-// 屋上を巡回する敵と、被弾するプレイヤー側の値です。
+// 50mごとの踊り場を巡回する敵と、被弾するプレイヤー側の値です。
 WIRE_TUNING_GROUP(WireEnemyTuning, Enemy)
 WIRE_TUNING_INT(CountPerRooftop, "wire.enemy.count_per_rooftop", 2)
 WIRE_TUNING_FLOAT(PatrolSpeed, "wire.enemy.patrol_speed", 3.2f)
@@ -242,7 +242,7 @@ WIRE_TUNING_FLOAT(PatrolTurnInterval, "wire.enemy.patrol_turn_interval", 2.4f)
 WIRE_TUNING_FLOAT(DetectRadius, "wire.enemy.detect_radius", 14.0f)
 // 探知半径との差がヒステリシスになり、境界での状態往復を防ぎます。
 WIRE_TUNING_FLOAT(LoseRadius, "wire.enemy.lose_radius", 20.0f)
-WIRE_TUNING_FLOAT(DetectHeightRange, "wire.enemy.detect_height_range", 6.0f) // 高さがこれ以上離れていれば見失う(別の屋上の敵が反応しない)
+WIRE_TUNING_FLOAT(DetectHeightRange, "wire.enemy.detect_height_range", 6.0f) // 高さがこれ以上離れていれば見失う(別の踊り場の敵が反応しない)
 WIRE_TUNING_FLOAT(AttackRadius, "wire.enemy.attack_radius", 2.2f)
 WIRE_TUNING_FLOAT(AttackInterval, "wire.enemy.attack_interval", 1.2f)
 WIRE_TUNING_INT(ContactDamage, "wire.enemy.contact_damage", 1)
