@@ -27,8 +27,9 @@ msbuild GM31_prroject2.slnx /p:Configuration=Debug /p:Platform=x64 /m
 
 変更を確かめるときは `scripts\verify.ps1` が便利です。未コミットの変更から影響するアプリを判断し
 (Engine やシェーダーなら6アプリすべて、`src/games/wire/` なら WireAction だけ、文書だけなら無し)、
-それだけをビルドして `--self-test` を実行します。`-Since origin/master` でプッシュ前のコミットも含め、
-`-All` で全アプリ、`-DryRun` で対象の表示だけを行います。VS Code では「タスク: テスト タスクの実行」から使えます。
+それだけを CI と同じく Debug と Release の両方でビルドして `--self-test` を実行します
+(警告をエラーにしているため、片方の構成だけ失敗することがあります)。`-Since origin/master` でプッシュ前のコミットも含め、
+`-All` で全アプリ、`-DryRun` で対象の表示だけ、`-Configuration Debug` で片方の構成だけを行います。VS Code では「タスク: テスト タスクの実行」から使えます。
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File scripts\verify.ps1

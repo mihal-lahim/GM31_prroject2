@@ -4,12 +4,13 @@
 #   scripts\verify.ps1 -Since origin/master  そのコミット以降の変更 + 未コミットの変更が対象
 #   scripts\verify.ps1 -All                  6アプリすべて
 #   scripts\verify.ps1 -DryRun               対象のアプリを表示するだけ
+#   scripts\verify.ps1 -Configuration Debug  片方の構成だけ(既定は CI と同じく Debug と Release の両方)
 param(
     [string]$Since = "HEAD",
     [switch]$All,
     [switch]$DryRun,
-    [ValidateSet("Debug", "Release")]
-    [string]$Configuration = "Debug"
+    [ValidateSet("Both", "Debug", "Release")]
+    [string]$Configuration = "Both"
 )
 
 $ErrorActionPreference = "Stop"
@@ -81,10 +82,20 @@ if ($apps.Count -eq 0) {
 Write-Host "対象のアプリ: $($apps -join ', ')"
 if ($DryRun) { exit 0 }
 
-& (Join-Path $PSScriptRoot "build.ps1") -Target $apps -Configuration $Configuration
-if ($LASTEXITCODE -ne 0) {
-    Write-Host "ビルドに失敗しました。"
-    exit 1
+# CI は Debug と Release の両方でビルドします。警告をエラーにしているので、片方だけ失敗することがあります。
+$configurations = if ($Configuration -eq "Both") { @("Debug", "Release") } else { @($Configuration) }
+foreach ($config in $configurations) {
+    Write-Host "==== $config ===="
+    & (Join-Path $PSScriptRoot "build.ps1") -Target $apps -Configuration $config
+    if ($LASTEXITCODE -ne 0) {
+        Write-Host "[FAIL] $config のビルドに失敗しました。"
+        exit 1
+    }
+    & (Join-Path $PSScriptRoot "run-self-tests.ps1") -Apps $apps -Configuration $config
+    if ($LASTEXITCODE -ne 0) {
+        Write-Host "[FAIL] $config の自己テストに失敗しました。"
+        exit 1
+    }
 }
-& (Join-Path $PSScriptRoot "run-self-tests.ps1") -Apps $apps -Configuration $Configuration
-exit $LASTEXITCODE
+Write-Host "検証成功: $($configurations -join ' と ') でビルドと自己テストが通りました。"
+exit 0
