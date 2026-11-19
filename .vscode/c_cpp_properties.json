@@ -1,0 +1,39 @@
+{
+    // VS Code の C++ 拡張(IntelliSense)向けの設定です。ビルドには使いません(ビルドは .vcxproj)。
+    // Common.props と各アプリの .vcxproj のインクルードパス・マクロ・強制インクルードに合わせています。
+    // ゲームごとのヘッダーは名前が重複しないので、全ゲームのフォルダをまとめて見せています。
+    "configurations": [
+        {
+            "name": "GM31 (Debug x64)",
+            "intelliSenseMode": "windows-msvc-x64",
+            "cStandard": "c17",
+            "cppStandard": "c++20",
+            "includePath": [
+                "${workspaceFolder}",
+                "${workspaceFolder}/include/engine",
+                "${workspaceFolder}/include/animation",
+                "${workspaceFolder}/include/shared",
+                "${workspaceFolder}/include/games/wire",
+                "${workspaceFolder}/include/games/slow",
+                "${workspaceFolder}/include/games/fps",
+                "${workspaceFolder}/include/games/batting",
+                "${workspaceFolder}/include/games/classroom",
+                "${workspaceFolder}/include/games/shaderGallery",
+                "${workspaceFolder}/third_party/assimp/include"
+            ],
+            "defines": [
+                "WIN32_LEAN_AND_MEAN",
+                "NOMINMAX",
+                "_CRT_SECURE_NO_WARNINGS",
+                "_DEBUG",
+                "_WINDOWS",
+                "_MBCS"
+            ],
+            "forcedInclude": [
+                "${workspaceFolder}/include/engine/enginePch.h"
+            ],
+            "compilerArgs": ["/utf-8"]
+        }
+    ],
+    "version": 4
+}
