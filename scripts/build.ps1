@@ -1,10 +1,11 @@
 ﻿# VS Code などから、Developer PowerShell を開かずにビルドするためのスクリプトです。
 #   scripts\build.ps1                         ソリューション全体(Debug)
 #   scripts\build.ps1 -Target WireAction      1つのアプリと、それが参照するライブラリだけ
+#   scripts\build.ps1 -Target WireAction,SlowAction   複数のアプリ
 #   scripts\build.ps1 -Configuration Release
 #   scripts\build.ps1 -Target WireAction -Rebuild
 param(
-    [string]$Target = "",
+    [string[]]$Target = @(),
     [ValidateSet("Debug", "Release")]
     [string]$Configuration = "Debug",
     [switch]$Rebuild
@@ -23,9 +24,14 @@ if (-not $msbuild) {
     throw "MSBuild.exe が見つかりません。"
 }
 
-$targetName = if ($Target) { $Target } else { "Build" }
-if ($Rebuild) {
-    $targetName = if ($Target) { "${Target}:Rebuild" } else { "Rebuild" }
+# 「WireAction,SlowAction」のように1つの文字列で渡されても分けて扱います。
+$apps = @($Target | ForEach-Object { $_ -split "," } | ForEach-Object { $_.Trim() } | Where-Object { $_ })
+if ($apps.Count -eq 0) {
+    $targetName = if ($Rebuild) { "Rebuild" } else { "Build" }
+} elseif ($Rebuild) {
+    $targetName = ($apps | ForEach-Object { "${_}:Rebuild" }) -join ";"
+} else {
+    $targetName = $apps -join ";"
 }
 
 # GenerateFullPaths: VS Code の「問題」パネルからエラー行へ飛べるよう、フルパスで出力します。

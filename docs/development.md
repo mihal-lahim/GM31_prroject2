@@ -25,6 +25,15 @@ msbuild GM31_prroject2.slnx /p:Configuration=Debug /p:Platform=x64 /m
 ログと画像は **起動したフォルダー** に出ます。`bin\x64\Debug\<App>\` から起動すると、
 ビルド出力と一緒に git の管理外になります。リポジトリ直下から起動するとそこに出るので避けてください。
 
+変更を確かめるときは `scripts\verify.ps1` が便利です。未コミットの変更から影響するアプリを判断し
+(Engine やシェーダーなら6アプリすべて、`src/games/wire/` なら WireAction だけ、文書だけなら無し)、
+それだけをビルドして `--self-test` を実行します。`-Since origin/master` でプッシュ前のコミットも含め、
+`-All` で全アプリ、`-DryRun` で対象の表示だけを行います。VS Code では「タスク: テスト タスクの実行」から使えます。
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\verify.ps1
+```
+
 6アプリの `--self-test` をまとめて実行するには次のスクリプトを使います。CI も同じものを実行します。
 
 ```powershell

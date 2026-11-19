@@ -36,6 +36,12 @@
             "group": "build"
         },
         {
+            "label": "検証: 変更に影響するアプリをビルドしてテスト",
+            "type": "shell",
+            "command": "& '${workspaceFolder}/scripts/verify.ps1'",
+            "group": { "kind": "test", "isDefault": true }
+        },
+        {
             "label": "テスト: --self-test (全アプリ)",
             "type": "shell",
             "command": "& '${workspaceFolder}/scripts/run-self-tests.ps1'",
