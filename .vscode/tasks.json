@@ -1,0 +1,75 @@
+{
+    // Ctrl+Shift+B: ソリューション全体をビルド(Debug)
+    // Ctrl+Shift+P →「タスクの実行」: アプリを選んでビルド、Release、リビルド、テストなど
+    "version": "2.0.0",
+    "options": {
+        "shell": {
+            "executable": "powershell.exe",
+            "args": ["-NoProfile", "-ExecutionPolicy", "Bypass", "-Command"]
+        }
+    },
+    "presentation": { "reveal": "always", "clear": true },
+    "problemMatcher": "$msCompile",
+    "tasks": [
+        {
+            "label": "ビルド: 全体 (Debug)",
+            "type": "shell",
+            "command": "& '${workspaceFolder}/scripts/build.ps1'",
+            "group": { "kind": "build", "isDefault": true }
+        },
+        {
+            "label": "ビルド: 全体 (Release)",
+            "type": "shell",
+            "command": "& '${workspaceFolder}/scripts/build.ps1' -Configuration Release",
+            "group": "build"
+        },
+        {
+            "label": "ビルド: アプリを選ぶ",
+            "type": "shell",
+            "command": "& '${workspaceFolder}/scripts/build.ps1' -Target ${input:app} -Configuration ${input:configuration}",
+            "group": "build"
+        },
+        {
+            "label": "リビルド: アプリを選ぶ",
+            "type": "shell",
+            "command": "& '${workspaceFolder}/scripts/build.ps1' -Target ${input:app} -Configuration ${input:configuration} -Rebuild",
+            "group": "build"
+        },
+        {
+            "label": "テスト: --self-test (アプリを選ぶ)",
+            "type": "shell",
+            "command": "Set-Location '${workspaceFolder}/bin/x64/Debug/${input:app}'; $p = Start-Process './${input:app}.exe' -ArgumentList '--self-test' -Wait -PassThru; Write-Host \"終了コード: $($p.ExitCode)\"; Select-String -Path self-test-*.log -Pattern 'FAIL'; exit $p.ExitCode",
+            "problemMatcher": []
+        },
+        {
+            "label": "テスト: --render-test (アプリを選ぶ)",
+            "type": "shell",
+            "command": "Set-Location '${workspaceFolder}/bin/x64/Debug/${input:app}'; $p = Start-Process './${input:app}.exe' -ArgumentList '--render-test' -Wait -PassThru; Write-Host \"終了コード: $($p.ExitCode)\"; exit $p.ExitCode",
+            "problemMatcher": []
+        },
+
+        // F5 (launch.json) から呼ぶ、アプリごとのビルドです。
+        { "label": "build:WireAction",    "type": "shell", "command": "& '${workspaceFolder}/scripts/build.ps1' -Target WireAction",    "presentation": { "reveal": "silent" } },
+        { "label": "build:SlowAction",    "type": "shell", "command": "& '${workspaceFolder}/scripts/build.ps1' -Target SlowAction",    "presentation": { "reveal": "silent" } },
+        { "label": "build:FpsGame",       "type": "shell", "command": "& '${workspaceFolder}/scripts/build.ps1' -Target FpsGame",       "presentation": { "reveal": "silent" } },
+        { "label": "build:BattingCenter", "type": "shell", "command": "& '${workspaceFolder}/scripts/build.ps1' -Target BattingCenter", "presentation": { "reveal": "silent" } },
+        { "label": "build:ClassroomWalk", "type": "shell", "command": "& '${workspaceFolder}/scripts/build.ps1' -Target ClassroomWalk", "presentation": { "reveal": "silent" } },
+        { "label": "build:ShaderGallery", "type": "shell", "command": "& '${workspaceFolder}/scripts/build.ps1' -Target ShaderGallery", "presentation": { "reveal": "silent" } }
+    ],
+    "inputs": [
+        {
+            "id": "app",
+            "type": "pickString",
+            "description": "アプリ",
+            "options": ["WireAction", "SlowAction", "FpsGame", "BattingCenter", "ClassroomWalk", "ShaderGallery"],
+            "default": "WireAction"
+        },
+        {
+            "id": "configuration",
+            "type": "pickString",
+            "description": "構成",
+            "options": ["Debug", "Release"],
+            "default": "Debug"
+        }
+    ]
+}

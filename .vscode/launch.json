@@ -1,0 +1,57 @@
+{
+    // 「実行とデバッグ」でアプリを選んで F5。ビルドしてから Visual Studio のデバッガー(cppvsdbg)で起動します。
+    // 作業フォルダは実行ファイルの隣なので、ログや画像はビルド出力の中に出ます。
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "WireAction",
+            "type": "cppvsdbg", "request": "launch",
+            "program": "${workspaceFolder}/bin/x64/Debug/WireAction/WireAction.exe",
+            "cwd": "${workspaceFolder}/bin/x64/Debug/WireAction",
+            "preLaunchTask": "build:WireAction", "console": "internalConsole"
+        },
+        {
+            "name": "SlowAction",
+            "type": "cppvsdbg", "request": "launch",
+            "program": "${workspaceFolder}/bin/x64/Debug/SlowAction/SlowAction.exe",
+            "cwd": "${workspaceFolder}/bin/x64/Debug/SlowAction",
+            "preLaunchTask": "build:SlowAction", "console": "internalConsole"
+        },
+        {
+            "name": "FpsGame",
+            "type": "cppvsdbg", "request": "launch",
+            "program": "${workspaceFolder}/bin/x64/Debug/FpsGame/FpsGame.exe",
+            "cwd": "${workspaceFolder}/bin/x64/Debug/FpsGame",
+            "preLaunchTask": "build:FpsGame", "console": "internalConsole"
+        },
+        {
+            "name": "BattingCenter",
+            "type": "cppvsdbg", "request": "launch",
+            "program": "${workspaceFolder}/bin/x64/Debug/BattingCenter/BattingCenter.exe",
+            "cwd": "${workspaceFolder}/bin/x64/Debug/BattingCenter",
+            "preLaunchTask": "build:BattingCenter", "console": "internalConsole"
+        },
+        {
+            "name": "ClassroomWalk",
+            "type": "cppvsdbg", "request": "launch",
+            "program": "${workspaceFolder}/bin/x64/Debug/ClassroomWalk/ClassroomWalk.exe",
+            "cwd": "${workspaceFolder}/bin/x64/Debug/ClassroomWalk",
+            "preLaunchTask": "build:ClassroomWalk", "console": "internalConsole"
+        },
+        {
+            "name": "ShaderGallery",
+            "type": "cppvsdbg", "request": "launch",
+            "program": "${workspaceFolder}/bin/x64/Debug/ShaderGallery/ShaderGallery.exe",
+            "cwd": "${workspaceFolder}/bin/x64/Debug/ShaderGallery",
+            "preLaunchTask": "build:ShaderGallery", "console": "internalConsole"
+        },
+        {
+            "name": "ShaderGallery (森のデモ)",
+            "type": "cppvsdbg", "request": "launch",
+            "program": "${workspaceFolder}/bin/x64/Debug/ShaderGallery/ShaderGallery.exe",
+            "args": ["--forest"],
+            "cwd": "${workspaceFolder}/bin/x64/Debug/ShaderGallery",
+            "preLaunchTask": "build:ShaderGallery", "console": "internalConsole"
+        }
+    ]
+}
