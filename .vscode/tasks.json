@@ -36,9 +36,16 @@
             "group": "build"
         },
         {
+            "label": "テスト: --self-test (全アプリ)",
+            "type": "shell",
+            "command": "& '${workspaceFolder}/scripts/run-self-tests.ps1'",
+            "group": "test",
+            "problemMatcher": []
+        },
+        {
             "label": "テスト: --self-test (アプリを選ぶ)",
             "type": "shell",
-            "command": "Set-Location '${workspaceFolder}/bin/x64/Debug/${input:app}'; $p = Start-Process './${input:app}.exe' -ArgumentList '--self-test' -Wait -PassThru; Write-Host \"終了コード: $($p.ExitCode)\"; Select-String -Path self-test-*.log -Pattern 'FAIL'; exit $p.ExitCode",
+            "command": "& '${workspaceFolder}/scripts/run-self-tests.ps1' -Apps ${input:app}",
             "problemMatcher": []
         },
         {

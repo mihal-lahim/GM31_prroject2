@@ -25,10 +25,20 @@ msbuild GM31_prroject2.slnx /p:Configuration=Debug /p:Platform=x64 /m
 ログと画像は **起動したフォルダー** に出ます。`bin\x64\Debug\<App>\` から起動すると、
 ビルド出力と一緒に git の管理外になります。リポジトリ直下から起動するとそこに出るので避けてください。
 
+6アプリの `--self-test` をまとめて実行するには次のスクリプトを使います。CI も同じものを実行します。
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\run-self-tests.ps1                     # 全アプリ(Debug)
+powershell -ExecutionPolicy Bypass -File scripts\run-self-tests.ps1 -Apps WireAction    # 1つだけ
+```
+
+アプリは GUI の実行ファイルなので、PowerShell から `.\WireAction.exe --self-test` と直接呼ぶと
+**終了を待たず、終了コードも取れません**(失敗しても気づけません)。手で実行するときは待ってから結果を見てください。
+
 ```powershell
 cd bin\x64\Debug\WireAction
-.\WireAction.exe --self-test
-.\WireAction.exe --render-test
+$p = Start-Process .\WireAction.exe -ArgumentList '--self-test' -Wait -PassThru; $p.ExitCode
+$p = Start-Process .\WireAction.exe -ArgumentList '--render-test' -Wait -PassThru; $p.ExitCode
 ```
 
 主なゲーム別の検証:
@@ -38,8 +48,7 @@ cd bin\x64\Debug\WireAction
   `race-wire.png` は支柱の向こうへ接続して角で折れたワイヤーの描画です。
 - **SlowAction**: 仕様の数値と状態遷移(コンボ、溜め、追撃、ジャスト減速など)。`--render-test` で確かめます。
 - **調整値の一覧(`.def`)を持つゲーム**(WireAction、SlowAction、BattingCenter): 設定ファイルに一覧に無いキーが
-  あれば失敗します。WireAction と BattingCenter は `--self-test`、SlowAction は `--render-test` で確かめます。
-  CI は `--self-test` だけを実行するので、SlowAction の設定の書き間違いは CI では見つかりません。
+  あれば `--self-test` が失敗します(SlowAction は `--render-test` でも確かめます)。
 
 プロジェクトの境界(Engine がゲームのヘッダを読まない等)は次で検証します。CI も同じものを実行します。
 

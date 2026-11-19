@@ -25,22 +25,8 @@ jobs:
       - name: Build all projects
         run: msbuild GM31_prroject2.slnx /m /p:Configuration=${{ matrix.configuration }} /p:Platform=x64 /nologo /v:minimal
 
-      - name: Test Batting Center
-        working-directory: bin/x64/${{ matrix.configuration }}/BattingCenter
-        run: .\BattingCenter.exe --self-test
-
-      - name: Test Wire Action
-        working-directory: bin/x64/${{ matrix.configuration }}/WireAction
-        run: .\WireAction.exe --self-test
-
-      - name: Test Classroom Walk
-        working-directory: bin/x64/${{ matrix.configuration }}/ClassroomWalk
-        run: .\ClassroomWalk.exe --self-test
-
-      - name: Test FPS Game
-        working-directory: bin/x64/${{ matrix.configuration }}/FpsGame
-        run: .\FpsGame.exe --self-test
-
-      - name: Test Slow Action
-        working-directory: bin/x64/${{ matrix.configuration }}/SlowAction
-        run: .\SlowAction.exe --self-test
+      # アプリは GUI の実行ファイルなので、直接呼ぶと終了を待たず結果も取れません。
+      # スクリプトが Start-Process -Wait で待ち、1つでも失敗したら終了コード 1 を返します。
+      - name: Self-test all apps
+        shell: pwsh
+        run: .\scripts\run-self-tests.ps1 -Configuration ${{ matrix.configuration }}
