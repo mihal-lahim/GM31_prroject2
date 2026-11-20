@@ -663,6 +663,65 @@ namespace
 		return ok && !fixture.Graph.IsActionActive(0) && !fixture.Graph.IsActionActive(1);
 	}
 
+	// 閾値や平滑化が NaN・無限大のブレンドツリーでも、並べ替えが壊れず(未定義動作にならず)姿勢は有限です。
+	bool TestBlendSpaceNonFiniteThresholds()
+	{
+		const float nan = std::nanf("");
+		const float inf = std::numeric_limits<float>::infinity();
+		Fixture fixture;
+		BlendSpace1D space;
+		space.Parameter = "Speed";
+		space.ParameterSmoothing = nan;
+		space.Clips = {
+			{ "Run", 3.0f, {}, true },
+			{ "Idle", nan, {}, false },
+			{ "Walk", inf, {}, true },
+			{ "Attack2", -inf, {}, false } };
+		fixture.Graph.AddBlendSpace1D("Locomotion", space);
+		bool ok = fixture.Graph.Play("Locomotion", 0.0f);
+		fixture.Graph.SetParameter("Speed", 3.0f);
+		for (int frame = 0; frame < 30; ++frame)
+		{
+			ok &= fixture.Graph.Advance(1.0f / 60.0f);
+			ok &= IsFinitePose(fixture.Graph.GetPose());
+		}
+		// 平滑化は NaN → 0(平滑化なし)なのですぐに 3 になり、閾値 3 の走りだけが選ばれます。
+		ok &= Near(fixture.Graph.GetSmoothedParameter(), 3.0f)
+			&& Near(fixture.Graph.GetBlendSpaceWeight("Run"), 1.0f);
+
+		// 負の平滑化も 0 として扱います。
+		space.ParameterSmoothing = -1.0f;
+		fixture.Graph.AddBlendSpace1D("Locomotion", space);
+		fixture.Graph.SetParameter("Speed", 0.0f);
+		ok &= fixture.Graph.Advance(1.0f / 60.0f);
+		return ok && Near(fixture.Graph.GetSmoothedParameter(), 0.0f) && IsFinitePose(fixture.Graph.GetPose());
+	}
+
+	// NaN・無限大のマスクの重みは無視し(親から受け継ぐ)、姿勢は有限のままです。
+	bool TestBoneMaskIgnoresNonFiniteWeights()
+	{
+		const float nan = std::nanf("");
+		const float inf = std::numeric_limits<float>::infinity();
+		Fixture fixture;
+		const auto mask = BuildBoneMask(fixture.Graph.GetSkeleton(),
+			{ { kHips, 0.25f }, { kSpine, nan }, { kArm, 1.0f }, { kLeg, inf } });
+		bool ok = mask.size() == 5 && mask[kHipsIndex] == 0.25f && mask[2] == 0.25f
+			&& mask[kArmIndex] == 1.0f && mask[kLegIndex] == 0.25f;
+
+		fixture.Graph.DefineMask("Broken", { { kSpine, nan }, { kArm, inf }, { kLeg, 0.5f } });
+		fixture.Graph.Play("Walk", 0.0f);
+		ActionOptions options;
+		options.Mask = "Broken";
+		options.FadeIn = 0.0f;
+		ok &= fixture.Graph.PlayAction("Attack", options);
+		for (int frame = 0; frame < 30; ++frame)
+		{
+			fixture.Graph.Advance(1.0f / 60.0f);
+			ok &= IsFinitePose(fixture.Graph.GetPose());
+		}
+		return ok;
+	}
+
 	// クリップを登録して体格を合わせる指定をした後で腰のボーンを指定しても、腰の高さの比が決め直されます。
 	bool TestSetRootBoneRefreshesKeepProportions()
 	{
@@ -725,6 +784,8 @@ bool RunAnimatorSelfTests()
 		{ "blend space replaced while playing", TestBlendSpaceReplacedWhilePlaying },
 		{ "non-finite inputs keep pose finite", TestNonFiniteInputsKeepPoseFinite },
 		{ "set root bone refreshes keep proportions", TestSetRootBoneRefreshesKeepProportions },
+		{ "blend space non-finite thresholds", TestBlendSpaceNonFiniteThresholds },
+		{ "bone mask ignores non-finite weights", TestBoneMaskIgnoresNonFiniteWeights },
 	};
 	std::ofstream log("self-test-animator.log");
 	bool passed = true;

@@ -374,6 +374,9 @@ namespace Anim
 		std::vector<float> specified(count, -1.0f);
 		for (const auto& [name, weight] : bones)
 		{
+			// NaN・無限大の重みは無視します(NaN を std::clamp に渡すと、そのまま NaN が入って
+			// 「指定あり(>= 0)」の判定も外れ、親の重みとも食い違うため)。
+			if (!std::isfinite(weight)) continue;
 			const int bone = skeleton.Find(name);
 			if (bone >= 0) specified[static_cast<size_t>(bone)] = std::clamp(weight, 0.0f, 1.0f);
 		}
@@ -463,7 +466,17 @@ namespace Anim
 
 	void Animator::AddBlendSpace1D(const std::string& name, BlendSpace1D space)
 	{
-		for (BlendClip& clip : space.Clips) clip.Playback = SanitizeRange(clip.Playback);
+		// NaN の閾値があると「<」が狭義の弱順序にならず、std::stable_sort が未定義動作になります。
+		// 並べる前に非有限の閾値は0へ、平滑化の時間は非有限・負なら0(平滑化なし)へ直します。
+		for (BlendClip& clip : space.Clips)
+		{
+			clip.Playback = SanitizeRange(clip.Playback);
+			if (!std::isfinite(clip.Threshold)) clip.Threshold = 0.0f;
+		}
+		if (!std::isfinite(space.ParameterSmoothing) || space.ParameterSmoothing < 0.0f)
+		{
+			space.ParameterSmoothing = 0.0f;
+		}
 		std::stable_sort(space.Clips.begin(), space.Clips.end(),
 			[](const BlendClip& a, const BlendClip& b) { return a.Threshold < b.Threshold; });
 		BlendSpace1D& stored = m_BlendSpaces[name];

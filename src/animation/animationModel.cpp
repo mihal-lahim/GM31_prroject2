@@ -378,7 +378,10 @@ void AnimationModel::Load(const char* FileName)
 			for (unsigned int f = 0; f < mesh->mNumFaces; f++)
 			{
 				const aiFace* face = &mesh->mFaces[f];
-				if (face->mNumIndices != 3 || face->mIndices == nullptr)
+				// 頂点数を超える添字を含む面は、GPU が範囲外の頂点を読むので飛ばします(壊れたファイル)。
+				if (face->mNumIndices != 3 || face->mIndices == nullptr
+					|| face->mIndices[0] >= mesh->mNumVertices || face->mIndices[1] >= mesh->mNumVertices
+					|| face->mIndices[2] >= mesh->mNumVertices)
 				{
 					continue;
 				}
@@ -438,6 +441,12 @@ void AnimationModel::Load(const char* FileName)
 			for (unsigned int w = 0; w < bone->mNumWeights; w++)
 			{
 				aiVertexWeight weight = bone->mWeights[w];
+				// 壊れたファイルでは頂点番号が頂点数を超えたり、重みが NaN だったりします。
+				// そのまま書くとヒープの範囲外へ書き込むので、その重みは使いません。
+				if (weight.mVertexId >= m_DeformVertex[m].size() || !std::isfinite(weight.mWeight))
+				{
+					continue;
+				}
 
 				int num = m_DeformVertex[m][weight.mVertexId].BoneNum;
 				// LimitBoneWeightsで4本以下に揃っている前提です。Releaseでの範囲外書き込みだけ防ぎます。
@@ -702,6 +711,9 @@ bool AnimationModel::GetBoneWorldPosition(const char* name, Vector3& position) c
 	const auto found = m_Bone.find(name);
 	if (found == m_Bone.end() || !m_AiScene || !m_AiScene->mRootNode) return false;
 	aiMatrix4x4 inverse = m_AiScene->mRootNode->mTransformation;
+	// 逆行列が作れない(行列式が0・NaN)根の変換では、位置が NaN になるので答えません。
+	const float determinant = inverse.Determinant();
+	if (!std::isfinite(determinant) || std::fabs(determinant) < 1e-12f) return false;
 	inverse.Inverse();
 	const aiVector3D local = inverse * (found->second.Matrix * aiVector3D{});
 	XMFLOAT3 world;
@@ -750,13 +762,36 @@ void AnimationModel::SolveLegIK(
 	if (upperLength < 0.001f || lowerLength < 0.001f) return;
 
 	aiMatrix4x4 rootInverse = m_AiScene->mRootNode->mTransformation;
+	const float rootDeterminant = rootInverse.Determinant();
+	if (!std::isfinite(rootDeterminant) || std::fabs(rootDeterminant) < 1e-12f)
+	{
+		m_FootIKWeight[footIndex] = 0.0f;
+		return;
+	}
 	rootInverse.Inverse();
 	const aiVector3D ankleModel = rootInverse * ankle;
 	const XMMATRIX world = GetWorldMatrix();
+	// 持ち主の拡大率が0などで逆行列が作れないと、目標の位置と傾きが NaN になって脚の骨を壊すので、
+	// IK をしません(下の2か所の XMMatrixInverse で使います)。
+	XMVECTOR worldDeterminant{};
+	const XMMATRIX inverseWorld = XMMatrixInverse(&worldDeterminant, world);
+	const float worldDeterminantValue = XMVectorGetX(worldDeterminant);
+	if (!std::isfinite(worldDeterminantValue) || std::fabs(worldDeterminantValue) < 1e-12f)
+	{
+		m_FootIKWeight[footIndex] = 0.0f;
+		return;
+	}
 	XMFLOAT3 ankleWorld{};
 	XMStoreFloat3(&ankleWorld, XMVector3TransformCoord(
 		XMVectorSet(ankleModel.x, ankleModel.y, ankleModel.z, 1.0f), world));
-	const float groundY = m_GroundHeight(ankleWorld.x, ankleWorld.z)
+	// 地面の高さが NaN・無限大(地面の外など)なら、合わせる先が無いので IK をしません。
+	const float groundHeight = m_GroundHeight(ankleWorld.x, ankleWorld.z);
+	if (!std::isfinite(groundHeight))
+	{
+		m_FootIKWeight[footIndex] = 0.0f;
+		return;
+	}
+	const float groundY = groundHeight
 		+ m_AnkleToSoleHeight[footIndex] - m_FootTargetCorrection[footIndex];
 	float ikWeight = std::clamp(m_FootIKStrength, 0.0f, 1.0f);
 	if (ikWeight < 1.0f)
@@ -773,16 +808,18 @@ void AnimationModel::SolveLegIK(
 	XMFLOAT3 targetModel{};
 	XMStoreFloat3(&targetModel, XMVector3TransformCoord(
 		XMVectorSet(ankleWorld.x, targetY, ankleWorld.z, 1.0f),
-		XMMatrixInverse(nullptr, world)));
+		inverseWorld));
 	const aiVector3D targetRaw = m_AiScene->mRootNode->mTransformation
 		* aiVector3D(targetModel.x, targetModel.y, targetModel.z);
 	aiVector3D direction = targetRaw - hip;
 	const float unclampedDistance = direction.Length();
 	if (unclampedDistance < 0.001f) return;
 	direction /= unclampedDistance;
-	const float distance = std::clamp(unclampedDistance,
-		(std::abs)(upperLength - lowerLength) + 0.001f,
-		upperLength + lowerLength - 0.001f);
+	const float minReach = (std::abs)(upperLength - lowerLength) + 0.001f;
+	const float maxReach = upperLength + lowerLength - 0.001f;
+	// 極端に短い骨では丸め誤差で下限が上限を超え得ます。std::clamp の前提を満たさないので IK をしません。
+	if (!(maxReach > minReach)) return;
+	const float distance = std::clamp(unclampedDistance, minReach, maxReach);
 	const aiVector3D reachableTarget = hip + direction * distance;
 	const float along = (upperLength * upperLength - lowerLength * lowerLength
 		+ distance * distance) / (2.0f * distance);
@@ -841,7 +878,6 @@ void AnimationModel::SolveLegIK(
 	if (m_GroundNormal != nullptr && ikWeight > 0.0f)
 	{
 		const Vector3 groundNormal = m_GroundNormal(ankleWorld.x, ankleWorld.z);
-		const XMMATRIX inverseWorld = XMMatrixInverse(nullptr, world);
 		XMFLOAT3 modelUp{}, modelNormal{};
 		XMStoreFloat3(&modelUp, XMVector3TransformNormal(
 			XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f), inverseWorld));
@@ -851,7 +887,10 @@ void AnimationModel::SolveLegIK(
 		const aiVector3D rootOrigin = root * origin;
 		aiVector3D from = root * aiVector3D(modelUp.x, modelUp.y, modelUp.z) - rootOrigin;
 		aiVector3D to = root * aiVector3D(modelNormal.x, modelNormal.y, modelNormal.z) - rootOrigin;
-		if (from.SquareLength() > 0.0001f && to.SquareLength() > 0.0001f)
+		// 地面の法線が NaN・無限大なら、足首の傾きは足しません(脚を曲げた結果はそのまま使います)。
+		const bool finiteNormal = std::isfinite(groundNormal.x) && std::isfinite(groundNormal.y)
+			&& std::isfinite(groundNormal.z);
+		if (finiteNormal && from.SquareLength() > 0.0001f && to.SquareLength() > 0.0001f)
 		{
 			from.Normalize();
 			to.Normalize();
@@ -914,7 +953,8 @@ void AnimationModel::SampleFootVertices()
 			{
 				const float weight = source.BoneWeight[influence];
 				const int boneIndex = source.BoneIndex[influence];
-				if (weight <= 0.0f || boneIndex < 0) continue;
+				if (weight <= 0.0f || boneIndex < 0
+					|| static_cast<std::size_t>(boneIndex) >= m_SkinTransforms[meshIndex].size()) continue;
 				position += (m_SkinTransforms[meshIndex][boneIndex] * source.Position) * weight;
 				totalWeight += weight;
 			}
@@ -1004,7 +1044,8 @@ void AnimationModel::ApplyPose(const Anim::Pose& pose, bool uploadMesh)
 			{
 				const float weight = source.BoneWeight[influenceIndex];
 				const int boneIndex = source.BoneIndex[influenceIndex];
-				if (weight <= 0.0f || boneIndex < 0)
+				if (weight <= 0.0f || boneIndex < 0
+					|| static_cast<std::size_t>(boneIndex) >= m_SkinTransforms[meshIndex].size())
 				{
 					continue;
 				}
@@ -1018,7 +1059,15 @@ void AnimationModel::ApplyPose(const Anim::Pose& pose, bool uploadMesh)
 			{
 				position /= totalWeight;
 				normal /= totalWeight;
-				normal.Normalize();
+				// 向きが打ち消し合って長さがほぼ0の法線を Normalize すると 0/0 で NaN になります。
+				if (normal.SquareLength() > 1e-12f)
+				{
+					normal.Normalize();
+				}
+				else
+				{
+					normal = aiVector3D(0.0f, 1.0f, 0.0f);
+				}
 			}
 			else
 			{
