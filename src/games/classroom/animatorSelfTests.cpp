@@ -251,6 +251,36 @@ namespace
 		return startsAtBase && halfWay && full && fadingOut && finished && !fixture.Graph.ActionPassed(1.0f);
 	}
 
+	// 再生中に倍率を変えても位相は飛ばず、その後の進みが新しい倍率で決まること。
+	bool TestActionSpeedChangesRateKeepsPhase()
+	{
+		Fixture fixture;
+		fixture.Graph.Play("Idle", 0.0f);
+		ActionOptions options;
+		options.Playback = { 1.0f, 0.0f, 1.0f, false };
+		options.FadeIn = 0.0f;
+		options.RootMotionMode = RootMotion::Keep;
+		fixture.Graph.PlayAction("Attack", options);
+		// 1秒の攻撃を等速で0.25秒: 位相0.25。
+		fixture.Graph.Advance(0.25f);
+		const bool atQuarter = Near(fixture.Graph.GetActionTime(), 0.25f);
+		// 倍率を2倍にしても、その瞬間の位相は変わりません。
+		fixture.Graph.SetActionSpeed(2.0f);
+		fixture.Graph.Advance(0.0f);
+		const bool sameInstant = Near(fixture.Graph.GetActionTime(), 0.25f);
+		// 2倍で0.25秒進むと、位相は0.25 + 0.5 = 0.75。
+		fixture.Graph.Advance(0.25f);
+		const bool doubled = Near(fixture.Graph.GetActionTime(), 0.75f);
+		// 0.5倍に落として0.25秒進むと、位相は0.75 + 0.125 = 0.875。
+		fixture.Graph.SetActionSpeed(0.5f);
+		fixture.Graph.Advance(0.25f);
+		const bool slowed = Near(fixture.Graph.GetActionTime(), 0.875f);
+		// 動いていない層への指定は何もしません。
+		fixture.Graph.StopAction(0, 0.0f);
+		fixture.Graph.SetActionSpeed(4.0f);
+		return atQuarter && sameInstant && doubled && slowed && !fixture.Graph.IsActionActive();
+	}
+
 	bool TestActionPassedFiresOnce()
 	{
 		Fixture fixture;
@@ -510,6 +540,7 @@ bool RunAnimatorSelfTests()
 		{ "loop seam is continuous", TestLoopSeamIsContinuous },
 		{ "action fades in and out", TestActionFadesInAndOut },
 		{ "action passed fires once", TestActionPassedFiresOnce },
+		{ "action speed changes rate keeping phase", TestActionSpeedChangesRateKeepsPhase },
 		{ "upper body mask", TestUpperBodyMask },
 		{ "root motion lock", TestRootMotionLock },
 		{ "combo is continuous", TestComboIsContinuous },

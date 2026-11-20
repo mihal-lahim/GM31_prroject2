@@ -245,6 +245,9 @@ namespace Anim
 		// 層全体にかける重み(0〜1、既定1)。旋回量に応じた傾きなど、重みをゲーム側で決めるときに使います。
 		void SetLayerWeight(float weight, int layer = 0);
 		float GetLayerWeight(int layer = 0) const;
+		// 再生中の層の再生倍率を、再生の途中で変えます。位相は正規化した進み具合で持つので、
+		// 倍率を変えても今の位置は飛ばず、ActionPassed の判定位置もそのまま使えます。
+		void SetActionSpeed(float speed, int layer = 0);
 		// 直前の時間を進めたAdvanceで、RootMotion::Extractの層が動かした量(モデル空間・水平のみ)。
 		// 層の重みとマスクのかかり具合を掛けた値です。時間0のAdvanceでは変わりません。
 		const aiVector3D& GetRootMotion() const { return m_RootMotion; }

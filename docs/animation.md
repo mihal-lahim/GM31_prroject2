@@ -131,6 +131,8 @@ m_Model->TickAnimation(deltaTime);
 ### 問い合わせ
 
 `IsActionActive` (フェードアウトが終わるまで true)、`GetActionTime` (0〜1、再生していなければ -1)、
+`SetActionSpeed(speed, layer)` (再生の途中で倍率を変える。位相は保たれるので、`ActionPassed` の判定位置は変わらない。
+攻撃の振りかぶり・斬り抜き・振り終わりで緩急を付けるときに使う)、
 `GetAnimator().GetActionWeight()` (現在の重み)、`GetAnimator().GetActionName()`。
 
 ## ルートモーション
@@ -217,6 +219,7 @@ m_Model->SetLayerWeight(std::clamp(turnRate * 0.5f, 0.0f, 1.0f), 2);
 - ルートモーション: 移動量の抽出と姿勢の固定、フェードアウトでの減少、ループ周回時の移動量、
   マスクで腰が外れているときは移動しないこと
 - 加算ブレンド: 差分の足し込み、層の重み、上書きの攻撃の上への加算、基準フレーム・基準クリップの指定
+- アクションの再生倍率を途中で変えても、位相が飛ばず、その後の進みが新しい倍率で決まること
 
 ## 未対応
 

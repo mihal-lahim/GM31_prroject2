@@ -835,6 +835,14 @@ namespace Anim
 		LayerAt(layerIndex).LayerWeight = std::clamp(weight, 0.0f, 1.0f);
 	}
 
+	void Animator::SetActionSpeed(float speed, int layerIndex)
+	{
+		if (layerIndex < 0 || static_cast<size_t>(layerIndex) >= m_Layers.size()) return;
+		ActionLayer& layer = m_Layers[static_cast<size_t>(layerIndex)];
+		if (!layer.Active) return;
+		layer.Options.Playback.Speed = (std::max)(speed, 0.01f);
+	}
+
 	float Animator::GetLayerWeight(int layerIndex) const
 	{
 		const ActionLayer* found = FindLayer(layerIndex);
