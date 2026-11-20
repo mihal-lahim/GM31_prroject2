@@ -60,13 +60,8 @@ void SlowSwordTrail::Init()
 
 void SlowSwordTrail::Uninit()
 {
-	if (!BeginUninit())
-	{
-		return;
-	}
 	m_Arcs.clear();
 	m_Vertices.clear();
-	UninitComponents();
 }
 
 void SlowSwordTrail::Update()

@@ -62,4 +62,6 @@ public:
 	static void Emit(const Vector3& position, const Vector3& velocity, float scale, int life, const XMFLOAT4& color,
 		float gravity = -8.5f, float shrink = 0.985f, int timeChannel = 0, Blend blend = Blend::Additive);
 	static void UnloadSharedResources();
+	// Emitの送り先が生きているかを返します。破棄後に古いポインタが残らないことを自己テストで確かめます。
+	static bool HasActiveInstance() { return s_Instance != nullptr; }
 };

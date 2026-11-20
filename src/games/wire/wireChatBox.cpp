@@ -62,9 +62,10 @@ void WireChatBox::Init()
 
 void WireChatBox::Uninit()
 {
-	m_Speaker.Uninit();
-	m_Message.Uninit();
-	m_Footer.Uninit();
+	// 部品のDynamicTextもGameObjectなので、デストラクタと二重に後片付けしないようShutdownを通します。
+	m_Speaker.Shutdown();
+	m_Message.Shutdown();
+	m_Footer.Shutdown();
 	GameObject::Uninit();
 }
 

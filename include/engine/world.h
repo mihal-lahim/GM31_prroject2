@@ -31,6 +31,14 @@ private:
 	bool m_IsUpdating = false;
 	// 次のSpawnで振るIDです。0は「未割り当て」を表すので使いません。
 	std::uint64_t m_NextObjectId = 1;
+	// IDが最大値まで進んで1へ戻った後かどうかです。戻った後は、使用中のIDを飛ばして振ります。
+	// 戻る前は、振ったIDも読み込んだIDもすべてm_NextObjectIdより小さいので、確認せずに振れます。
+	bool m_ObjectIdWrapped = false;
+
+	// Spawnが振るIDを返します。0は返さず、生きている(破棄待ちを含む)オブジェクトのIDとも重なりません。
+	std::uint64_t AllocateObjectId();
+	// 破棄待ちも含め、このIDを持つオブジェクトがリストにいるかどうかです。
+	bool IsObjectIdInUse(std::uint64_t id) const;
 
 	void InvalidateQueryCache() const { m_QueryCache.clear(); }
 	// 追記は必ず末尾です。検索結果は登録順を保つことが決定性の前提になっています。
@@ -72,7 +80,7 @@ public:
 		auto gameObject = std::make_unique<T>(std::forward<Args>(args)...);
 		T* gameObjectPtr = gameObject.get();
 		gameObject->AttachWorld(this);
-		gameObject->m_Id = m_NextObjectId++;
+		gameObject->m_Id = AllocateObjectId();
 		gameObject->Initialize();
 		if (m_IsUpdating)
 		{
@@ -122,7 +130,7 @@ public:
 	// 破棄待ちを除いて、そのIDのオブジェクトを返します。なければnullptrです。
 	GameObject* FindById(std::uint64_t id);
 	// シーンファイルに保存されていたIDへ付け替えます。
-	// 0や、ほかのオブジェクトが使用中のIDは受け付けず、falseを返します(IDは元のまま)。
+	// 0、最大値(UINT64_MAX)、ほかのオブジェクトが使用中のIDは受け付けず、falseを返します(IDは元のまま)。
 	bool SetObjectId(GameObject& gameObject, std::uint64_t id);
 
 	void BeginUpdate();

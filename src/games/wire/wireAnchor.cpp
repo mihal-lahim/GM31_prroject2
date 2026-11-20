@@ -117,11 +117,6 @@ void WireAnchor::Init()
 
 void WireAnchor::Uninit()
 {
-	if (!BeginUninit())
-	{
-		return;
-	}
-
 	s_RefCount--;
 	if (s_RefCount <= 0)
 	{
@@ -132,8 +127,6 @@ void WireAnchor::Uninit()
 		s_PixelShader.Reset();
 		s_Texture.reset();
 	}
-
-	UninitComponents();
 }
 
 void WireAnchor::Update()

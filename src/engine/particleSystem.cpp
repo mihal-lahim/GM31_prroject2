@@ -70,11 +70,6 @@ void ParticleSystem::Init()
 
 void ParticleSystem::Uninit()
 {
-	if (!BeginUninit())
-	{
-		return;
-	}
-
 	if (s_Instance == this)
 	{
 		s_Instance = nullptr;
@@ -82,7 +77,6 @@ void ParticleSystem::Uninit()
 
 	m_Sparks.clear();
 	m_FreeSparkIndices.clear();
-	UninitComponents();
 }
 
 void ParticleSystem::UnloadSharedResources()

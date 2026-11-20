@@ -35,7 +35,6 @@ class GameObject
 protected:
 
 	bool m_Destroy = false;
-	bool m_Uninitialized = false;
 	// GPUリソースを用意できなかった場合も、更新や当たり判定は継続し、描画だけを止めます。
 	bool m_RenderingAvailable = true;
 	Layer m_Layer = Layer::World;
@@ -55,26 +54,6 @@ protected:
 	// Spawn直後にWorldが一度だけ設定します。ゲーム側からの差し替えは禁止です。
 	void AttachWorld(World* world) { m_World = world; }
 
-	// Worldからの明示破棄とデストラクタの両方で呼ばれても、一度だけ後片付けする。
-	bool BeginUninit()
-	{
-		if (m_Uninitialized)
-		{
-			return false;
-		}
-
-		m_Uninitialized = true;
-		return true;
-	}
-
-	void UninitComponents()
-	{
-		for (auto& component : m_Components)
-		{
-			component->Uninit();
-		}
-		m_Components.clear();
-	}
 	// 静的コライダーの空間インデックスなど、変換に依存するComponentへ通知します。
 	void NotifyTransformChanged()
 	{
@@ -158,6 +137,9 @@ public:
 		m_RenderingAvailable = true;
 		Init();
 	}
+	// 後片付けの唯一の入口です。Worldからの明示破棄とデストラクタの両方で呼ばれても、
+	// Uninit()とComponentの破棄は一度だけ実行されます。派生クラスのUninit()には
+	// 二重呼び出しの防止を書かず、固有の後片付けだけを書きます。
 	void Shutdown()
 	{
 		if (!BeginUninit())
@@ -250,6 +232,31 @@ public:
 	}
 
 private:
+	// Shutdown済みかどうかです。読み書きはInitialize/Shutdownだけが行います。
+	bool m_Uninitialized = false;
+
+	// Shutdown()だけが使います。派生クラスのUninit()から呼ぶと、Shutdown()が先に済み扱いに
+	// しているためUninit()の本体が実行されなくなるので、派生クラスには見せません。
+	bool BeginUninit()
+	{
+		if (m_Uninitialized)
+		{
+			return false;
+		}
+
+		m_Uninitialized = true;
+		return true;
+	}
+
+	void UninitComponents()
+	{
+		for (auto& component : m_Components)
+		{
+			component->Uninit();
+		}
+		m_Components.clear();
+	}
+
 	struct RotationAxes
 	{
 		Vector3 Right{ 1.0f, 0.0f, 0.0f };

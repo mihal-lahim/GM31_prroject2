@@ -35,7 +35,7 @@ public:
 
 	bool operator !=(const Vector3& vector3) const
 	{
-		return x != vector3.x && y != vector3.y && z != vector3.z;
+		return !(*this == vector3);
 	}
 
 	// ベクトル操作

@@ -59,16 +59,10 @@ void PauseMenu::Init()
 
 void PauseMenu::Uninit()
 {
-	if (!BeginUninit())
-	{
-		return;
-	}
-
 	m_VertexBuffer.Reset();
 	m_VertexLayout.Reset();
 	m_VertexShader.Reset();
 	m_PixelShader.Reset();
-	UninitComponents();
 }
 
 bool PauseMenu::IsMouseInRect(float mouseX, float mouseY, float x, float y, float width, float height) const

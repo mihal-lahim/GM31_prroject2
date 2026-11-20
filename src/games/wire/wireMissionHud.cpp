@@ -42,7 +42,8 @@ void WireMissionHud::Init()
 }
 void WireMissionHud::Uninit()
 {
-    m_Time.Uninit(); m_Best.Uninit(); m_Altitude.Uninit(); m_Hint.Uninit(); m_Notice.Uninit();
+    // 部品のDynamicTextもGameObjectなので、デストラクタと二重に後片付けしないようShutdownを通します。
+    m_Time.Shutdown(); m_Best.Shutdown(); m_Altitude.Shutdown(); m_Hint.Shutdown(); m_Notice.Shutdown();
     GameObject::Uninit();
 }
 void WireMissionHud::Update()

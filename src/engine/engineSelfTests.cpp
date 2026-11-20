@@ -2,6 +2,8 @@
 
 #include "gameTime.h"
 #include "inputActions.h"
+#include "manager.h"
+#include "scene.h"
 #include "cloth.h"
 #include "collider.h"
 #include "modelRenderer.h"
@@ -15,6 +17,7 @@
 #include "shaderCatalog.h"
 #include "world.h"
 
+#include <algorithm>
 #include <cmath>
 #include <filesystem>
 #include <fstream>
@@ -1056,6 +1059,322 @@ namespace
 		}
 		return !ids.empty();
 	}
+
+	bool TestVector3Inequality()
+	{
+		const Vector3 base{ 1.0f, 2.0f, 3.0f };
+		// 1成分だけ違っても「等しくない」です。以前は3成分すべてが違うときしかtrueになりませんでした。
+		return !(base != Vector3{ 1.0f, 2.0f, 3.0f })
+			&& (base != Vector3{ 2.0f, 2.0f, 3.0f })
+			&& (base != Vector3{ 1.0f, 5.0f, 3.0f })
+			&& (base != Vector3{ 1.0f, 2.0f, 7.0f })
+			&& (base != Vector3{ 9.0f, 9.0f, 9.0f })
+			&& (base == Vector3{ 1.0f, 2.0f, 3.0f });
+	}
+
+	// Uninit()の本体が何回走ったかを数えます。派生クラスは二重呼び出しの防止を書かない前提です。
+	class UninitCountingObject final : public GameObject
+	{
+	private:
+		LifecycleCounters& m_Counters;
+		int& m_UninitBodies;
+
+	public:
+		UninitCountingObject(LifecycleCounters& counters, int& uninitBodies)
+			: m_Counters(counters), m_UninitBodies(uninitBodies) {}
+		void Init() override { AddComponent<CountingComponent>(m_Counters); }
+		void Uninit() override { m_UninitBodies++; }
+	};
+
+	bool TestShutdownRunsUninitBodyOnce()
+	{
+		bool ok = true;
+		{
+			// 破棄要求 → 回収 → Clear → Worldのデストラクタ、のどれを通っても本体は1回だけです。
+			LifecycleCounters counters;
+			int uninitBodies = 0;
+			World world;
+			UninitCountingObject* object = world.Spawn<UninitCountingObject>(counters, uninitBodies);
+			object->MarkForDestroy();
+			world.DestroyRequestedObjects();
+			ok &= uninitBodies == 1 && counters.Uninitializations == 1;
+			world.Clear();
+			ok &= uninitBodies == 1 && counters.Uninitializations == 1;
+		}
+		{
+			LifecycleCounters counters;
+			int uninitBodies = 0;
+			{
+				World world;
+				world.Spawn<UninitCountingObject>(counters, uninitBodies);
+				world.Clear();
+				ok &= uninitBodies == 1 && counters.Uninitializations == 1;
+			}
+			ok &= uninitBodies == 1 && counters.Uninitializations == 1;
+		}
+
+		// ParticleSystemは自分の破棄でEmitの送り先を空に戻します(以前はUninitが走らず古いポインタが残りました)。
+		// GPUが無くても生成はでき、描画だけが止まります。
+		ParticleSystem::UnloadSharedResources();
+		ok &= !ParticleSystem::HasActiveInstance();
+		{
+			World world;
+			ParticleSystem* particles = world.Spawn<ParticleSystem>();
+			ok &= ParticleSystem::HasActiveInstance();
+			particles->MarkForDestroy();
+			world.DestroyRequestedObjects();
+			ok &= !ParticleSystem::HasActiveInstance();
+			ParticleSystem::Emit({ 0.0f, 0.0f, 0.0f }, { 0.0f, 1.0f, 0.0f }, 0.1f, 10, { 1.0f, 1.0f, 1.0f, 1.0f });
+
+			world.Spawn<ParticleSystem>();
+			ok &= ParticleSystem::HasActiveInstance();
+			world.Clear();
+			ok &= !ParticleSystem::HasActiveInstance();
+			ParticleSystem::Emit({ 0.0f, 0.0f, 0.0f }, { 0.0f, 1.0f, 0.0f }, 0.1f, 10, { 1.0f, 1.0f, 1.0f, 1.0f });
+		}
+		ParticleSystem::UnloadSharedResources();
+		return ok;
+	}
+
+	// 自分の各フェーズの回数を数え、指定のフェーズで相手(または自分)へ破棄を要求します。
+	class PhaseProbeObject final : public GameObject
+	{
+	public:
+		enum class MarkIn { Never, PreUpdate, Update };
+
+	private:
+		LifecycleCounters& m_Counters;
+		GameObject* m_Target = nullptr;
+		MarkIn m_MarkIn = MarkIn::Never;
+
+	public:
+		explicit PhaseProbeObject(LifecycleCounters& counters) : m_Counters(counters) {}
+		void SetMark(GameObject* target, MarkIn markIn) { m_Target = target; m_MarkIn = markIn; }
+		void PreUpdate() override
+		{
+			m_Counters.PreUpdates++;
+			if (m_MarkIn == MarkIn::PreUpdate && m_Target != nullptr) m_Target->MarkForDestroy();
+		}
+		void Update() override
+		{
+			m_Counters.Updates++;
+			if (m_MarkIn == MarkIn::Update && m_Target != nullptr) m_Target->MarkForDestroy();
+		}
+		void LateUpdate() override { m_Counters.LateUpdates++; }
+		void Uninit() override { m_Counters.Uninitializations++; }
+	};
+
+	bool TestStepWorldSkipsPendingDestroy()
+	{
+		Engine::GameTime::Init();
+		World world;
+		LifecycleCounters markerCounters;
+		LifecycleCounters victimCounters;
+		LifecycleCounters selfCounters;
+		PhaseProbeObject* marker = world.Spawn<PhaseProbeObject>(markerCounters);
+		PhaseProbeObject* victim = world.Spawn<PhaseProbeObject>(victimCounters);
+		PhaseProbeObject* self = world.Spawn<PhaseProbeObject>(selfCounters);
+		// markerは先に並んでいるので、victimのPreUpdateより前に破棄を要求します。
+		marker->SetMark(victim, PhaseProbeObject::MarkIn::PreUpdate);
+		self->SetMark(self, PhaseProbeObject::MarkIn::Update);
+
+		Engine::Manager::StepWorld(world);
+
+		return markerCounters.PreUpdates == 1 && markerCounters.Updates == 1 && markerCounters.LateUpdates == 1
+			&& markerCounters.Uninitializations == 0
+			// 破棄を要求された後は、同じステップの以降のフェーズを一切受けずに回収されます。
+			&& victimCounters.PreUpdates == 0 && victimCounters.Updates == 0 && victimCounters.LateUpdates == 0
+			&& victimCounters.Uninitializations == 1
+			&& selfCounters.PreUpdates == 1 && selfCounters.Updates == 1 && selfCounters.LateUpdates == 0
+			&& selfCounters.Uninitializations == 1
+			&& world.GetObjects().size() == 1
+			&& world.FindAll<PhaseProbeObject>().size() == 1;
+	}
+
+	// Uninit中に別のオブジェクトへ破棄を要求し、その時点で検索に何が見えるかを記録します。
+	class ChainDestroyObject final : public GameObject
+	{
+	private:
+		GameObject* m_Next = nullptr;
+		std::vector<GameObject*>* m_SeenDuringUninit = nullptr;
+		int* m_UninitBodies = nullptr;
+
+	public:
+		ChainDestroyObject(std::vector<GameObject*>* seenDuringUninit, int* uninitBodies)
+			: m_SeenDuringUninit(seenDuringUninit), m_UninitBodies(uninitBodies) {}
+		void SetNext(GameObject* next) { m_Next = next; }
+		void Uninit() override
+		{
+			(*m_UninitBodies)++;
+			if (m_SeenDuringUninit != nullptr && m_SeenDuringUninit->empty())
+			{
+				for (ChainDestroyObject* found : GetWorld().FindAll<ChainDestroyObject>())
+				{
+					m_SeenDuringUninit->push_back(found);
+				}
+			}
+			if (m_Next != nullptr)
+			{
+				m_Next->MarkForDestroy();
+			}
+		}
+	};
+
+	bool TestDestroyRequestedObjectsChain()
+	{
+		std::vector<GameObject*> seen;
+		int uninitBodies = 0;
+		World world;
+		ChainDestroyObject* first = world.Spawn<ChainDestroyObject>(&seen, &uninitBodies);
+		ChainDestroyObject* second = world.Spawn<ChainDestroyObject>(&seen, &uninitBodies);
+		ChainDestroyObject* third = world.Spawn<ChainDestroyObject>(&seen, &uninitBodies);
+		ChainDestroyObject* survivor = world.Spawn<ChainDestroyObject>(&seen, &uninitBodies);
+		first->SetNext(second);
+		second->SetNext(third);
+		// 検索キャッシュを先に作っておき、回収で正しく外れることを確かめます。
+		if (world.FindAll<ChainDestroyObject>().size() != 4)
+		{
+			return false;
+		}
+
+		first->MarkForDestroy();
+		world.DestroyRequestedObjects();
+
+		// firstのUninitの時点で、first自身はもう検索に出てきません(キャッシュから外してからShutdown)。
+		const bool firstHidden = std::find(seen.begin(), seen.end(), first) == seen.end() && seen.size() == 3;
+		// Shutdown中の連鎖した破棄要求(second → third)も同じ呼び出しで回収されます。
+		const auto remaining = world.FindAll<ChainDestroyObject>();
+		return firstHidden
+			&& uninitBodies == 3
+			&& world.GetObjects().size() == 1
+			&& remaining.size() == 1 && remaining[0] == survivor
+			&& world.FindFirst<ChainDestroyObject>() == survivor
+			&& world.FindById(survivor->GetId()) == survivor;
+	}
+
+	bool TestSetObjectIdBounds()
+	{
+		constexpr std::uint64_t maxId = (std::numeric_limits<std::uint64_t>::max)();
+		World world;
+		TestGameObject* object = world.Spawn<TestGameObject>();
+		TestGameObject* keeper = world.Spawn<TestGameObject>();
+		const std::uint64_t original = object->GetId();
+		bool ok = original == 1 && keeper->GetId() == 2;
+		ok &= !world.SetObjectId(*object, 0) && object->GetId() == original;
+		// 最大値を受け付けると、次に振るIDが桁あふれして0に戻ります。
+		ok &= !world.SetObjectId(*object, maxId) && object->GetId() == original;
+		ok &= world.SetObjectId(*object, maxId - 1) && object->GetId() == maxId - 1;
+
+		// 最大値を振った後は1へ戻り、使用中のID(keeperの2)を飛ばします。0は決して振りません。
+		std::vector<GameObject*> objects{ object, keeper };
+		for (int i = 0; i < 3; ++i)
+		{
+			objects.push_back(world.Spawn<TestGameObject>());
+		}
+		ok &= objects[2]->GetId() == maxId && objects[3]->GetId() == 1 && objects[4]->GetId() == 3;
+		std::unordered_set<std::uint64_t> ids;
+		for (GameObject* spawned : objects)
+		{
+			ok &= spawned->GetId() != 0 && ids.insert(spawned->GetId()).second
+				&& world.FindById(spawned->GetId()) == spawned;
+		}
+		return ok;
+	}
+}
+
+namespace Engine
+{
+	// Managerのprivateな状態へ触れる、自己テスト専用の入口です(manager.hでfriend指定)。
+	struct ManagerSelfTestAccess
+	{
+		// 新しいSceneのInitがすぐChangeSceneを呼んでも、その遷移が失われないことを確かめます。
+		static bool SceneChangeDuringInitIsKept()
+		{
+			struct Counters
+			{
+				int ChainInits = 0;
+				int FinalInits = 0;
+			};
+			static Counters counters;
+			counters = {};
+
+			class FinalScene final : public Scene
+			{
+			public:
+				void Init() override { counters.FinalInits++; }
+				void Uninit() override {}
+				void Update() override {}
+				void Draw() override {}
+			};
+			class ChainScene final : public Scene
+			{
+			public:
+				void Init() override
+				{
+					counters.ChainInits++;
+					ChangeSceneWith<FinalScene>(SceneTransition::Instant());
+				}
+				void Uninit() override {}
+				void Update() override {}
+				void Draw() override {}
+			};
+			class StartScene final : public Scene
+			{
+			public:
+				void Init() override {}
+				void Uninit() override {}
+				void Update() override {}
+				void Draw() override {}
+			};
+
+			const bool wasEmpty = Manager::m_Scene == nullptr && Manager::m_NextScene == nullptr;
+			if (!wasEmpty)
+			{
+				return false;
+			}
+
+			Manager::m_FadeAlpha = 0.0f;
+			Manager::m_FadingOut = false;
+			Manager::AttachScene(std::make_unique<StartScene>());
+			Manager::ChangeScene(std::make_unique<ChainScene>(), SceneTransition::Instant());
+
+			// 1回目: Start → Chain。ChainのInitが要求したFinalへの遷移が残っていなければなりません。
+			Manager::UpdateSceneTransition(1.0f / 60.0f);
+			bool ok = counters.ChainInits == 1
+				&& dynamic_cast<ChainScene*>(Manager::m_Scene.get()) != nullptr
+				&& Manager::m_FadingOut
+				&& dynamic_cast<FinalScene*>(Manager::m_NextScene.get()) != nullptr;
+
+			// 2回目: Chain → Final。その後はフェードインに戻ります。
+			Manager::UpdateSceneTransition(1.0f / 60.0f);
+			ok &= counters.FinalInits == 1
+				&& dynamic_cast<FinalScene*>(Manager::m_Scene.get()) != nullptr
+				&& !Manager::m_FadingOut
+				&& Manager::m_NextScene == nullptr;
+
+			// ほかのテストへ状態を持ち越さないよう、起動前と同じ値へ戻します。
+			if (Manager::m_Scene != nullptr)
+			{
+				Manager::m_Scene->Uninit();
+				Manager::m_Scene->GetWorld().Clear();
+				Manager::m_Scene.reset();
+			}
+			Manager::m_NextScene.reset();
+			Manager::m_FadeAlpha = 1.0f;
+			Manager::m_FadingOut = false;
+			Manager::m_Transition = SceneTransition{};
+			GameTime::ResetChannels();
+			return ok;
+		}
+	};
+}
+
+namespace
+{
+	bool TestSceneChangeDuringInitIsKept()
+	{
+		return Engine::ManagerSelfTestAccess::SceneChangeDuringInitIsKept();
+	}
 }
 
 bool RunEngineSelfTests()
@@ -1088,6 +1407,12 @@ bool RunEngineSelfTests()
 		{ "cloth hangs and settles", TestClothHangsAndSettles },
 		{ "cloth sphere does not penetrate", TestClothSphereDoesNotPenetrate },
 		{ "cloth reacts to world colliders", TestClothReactsToWorldColliders },
+		{ "vector3 inequality", TestVector3Inequality },
+		{ "shutdown runs uninit body once", TestShutdownRunsUninitBodyOnce },
+		{ "step world skips pending destroy", TestStepWorldSkipsPendingDestroy },
+		{ "destroy requested objects chain", TestDestroyRequestedObjectsChain },
+		{ "set object id bounds", TestSetObjectIdBounds },
+		{ "scene change during init is kept", TestSceneChangeDuringInitIsKept },
 	};
 
 	// どの項目で落ちたか分かるよう、全項目を実行して結果をログへ残します。

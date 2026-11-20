@@ -15,6 +15,9 @@ namespace Engine
 {
 class Manager
 {
+	// エンジンの自己テストが、ウィンドウやRendererを作らずにScene切替の状態遷移を確かめるための入口です。
+	friend struct ManagerSelfTestAccess;
+
 private:
 	static std::unique_ptr<Scene> m_Scene;
 	static std::unique_ptr<Scene> m_NextScene;

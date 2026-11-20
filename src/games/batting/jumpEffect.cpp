@@ -94,11 +94,6 @@ void JumpEffect::Init()
 
 void JumpEffect::Uninit()
 {
-	if (!BeginUninit())
-	{
-		return;
-	}
-
 	m_Rings.clear();
 
 	s_RefCount--;
@@ -110,8 +105,6 @@ void JumpEffect::Uninit()
 		s_VertexShader.Reset();
 		s_PixelShader.Reset();
 	}
-
-	UninitComponents();
 }
 
 void JumpEffect::Update()

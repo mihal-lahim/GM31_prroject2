@@ -204,10 +204,14 @@ void Manager::UpdateSceneTransition(float fixedDeltaTime)
 		{
 			m_Scene->Uninit();
 			m_Scene->GetWorld().Clear();
-			AttachScene(std::move(m_NextScene));
+			// 遷移の状態は新SceneのInitより前に戻します。Init内でChangeSceneを呼ぶと
+			// m_NextSceneとm_FadingOutが次の遷移用に設定されるので、後から上書きしてはいけません。
+			// 旧SceneのUninit中のChangeSceneは、m_NextSceneが埋まっている間なので無視されます。
+			std::unique_ptr<Scene> nextScene = std::move(m_NextScene);
+			m_FadingOut = false;
+			AttachScene(std::move(nextScene));
 			// 新Sceneが読み込んだ後に回収します。共有しているアセットは参照が残るため落ちません。
 			ResourceManager::CollectUnused();
-			m_FadingOut = false;
 		}
 	}
 	else
@@ -234,6 +238,12 @@ void Manager::StepWorld(World& world, Scene* scene)
 		for (auto& gameObject : world.GetObjects())
 		{
 			if (skipWorldUpdate && gameObject->GetLayer() != Layer::UI)
+			{
+				continue;
+			}
+			// Scene::Updateや前のフェーズ(同じフェーズの先行オブジェクトも含む)で破棄を
+			// 要求されたものは、ステップ末尾の回収まで以降の処理を走らせません。
+			if (gameObject->IsPendingDestroy())
 			{
 				continue;
 			}
