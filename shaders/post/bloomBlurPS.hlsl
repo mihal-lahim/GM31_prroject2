@@ -7,7 +7,8 @@ void main(in PS_IN input, out float4 output : SV_Target)
 {
     uint width, height;
     Previous.GetDimensions(width, height);
-    float2 offset = PassParameter.xy / float2(width, height);
+    // 大きさが取れなかった(0)ときに0除算しないよう、1以上で割ります。
+    float2 offset = PassParameter.xy / max(float2(width, height), 1.0f);
     float3 color = SampleClamped(Previous, input.TexCoord, 0.0f) * BlurWeights[0];
     [unroll]
     for (int i = 1; i < 5; ++i)

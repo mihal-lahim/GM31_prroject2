@@ -19,20 +19,32 @@ void Sky::Uninit()
 	GameObject::Uninit();
 }
 
-void Sky::Update()
+void Sky::SyncToCamera()
 {
 	// 通常カメラとTPSカメラのどちらでも追従できるよう、共通インターフェースを利用します。
 	ICameraView* camera = GetWorld().FindFirst<ICameraView>();
 	if (camera != nullptr)
 	{
-		SetPosition(camera->GetCameraPosition());
+		const Vector3 cameraPosition = camera->GetCameraPosition();
+		// 位置を変えると変換の通知が飛ぶので、変わったときだけ書きます。
+		if (GetPosition() != cameraPosition)
+		{
+			SetPosition(cameraPosition);
+		}
 	}
+}
 
-	GameObject::Update();
+void Sky::LateUpdate()
+{
+	SyncToCamera();
+	GameObject::LateUpdate();
 }
 
 void Sky::Draw()
 {
+	// LateUpdateがカメラより先に走った場合も、このフレームのカメラの位置で描きます。
+	SyncToCamera();
+
 	// ワールド行列を作成する。
 	XMMATRIX world, scale, rot, trans;
 	scale = XMMatrixScaling(GetScale().x, GetScale().y, GetScale().z);

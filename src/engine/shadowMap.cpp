@@ -124,9 +124,11 @@ Vector3 ShadowMap::GetLightDirection()
 {
 	const LIGHT& light = Renderer::GetLight();
 	Vector3 direction{ light.Direction.x, light.Direction.y, light.Direction.z };
-	if (direction.length() < 1e-4f)
+	// NaN・無限大は長さの比較をすり抜けて行列全体を壊すので、長さが足りないときと同じく真下にします。
+	const float length = direction.length();
+	if (!std::isfinite(length) || length < 1e-4f)
 	{
-		direction = { 0.0f, -1.0f, 0.0f };
+		return { 0.0f, -1.0f, 0.0f };
 	}
 	direction.normalize();
 	return direction;
@@ -134,11 +136,15 @@ Vector3 ShadowMap::GetLightDirection()
 
 bool ShadowMap::Begin(const Vector3& focus)
 {
-	if (!EnsureResources())
+	if (!std::isfinite(focus.x) || !std::isfinite(focus.y) || !std::isfinite(focus.z))
 	{
 		return false;
 	}
 	ID3D11DeviceContext* context = Renderer::GetDeviceContext();
+	if (context == nullptr || !EnsureResources())
+	{
+		return false;
+	}
 
 	// 前フレームで受け手用にテクスチャとして繋いだままだと、深度として書けません。
 	ID3D11ShaderResourceView* nullView = nullptr;
@@ -188,11 +194,11 @@ void ShadowMap::BindCaster(bool alphaTested)
 	}
 	if (!g_CasterVertexShader) g_CasterVertexShader = ResourceManager::LoadVertexShader("shadowCasterVS.cso");
 	if (!g_CasterPixelShader) g_CasterPixelShader = ResourceManager::LoadPixelShader("shadowCasterPS.cso");
-	if (!g_CasterVertexShader)
+	ID3D11DeviceContext* context = Renderer::GetDeviceContext();
+	if (!g_CasterVertexShader || context == nullptr)
 	{
 		return;
 	}
-	ID3D11DeviceContext* context = Renderer::GetDeviceContext();
 	context->IASetInputLayout(g_CasterVertexShader->InputLayout.Get());
 	context->VSSetShader(g_CasterVertexShader->Shader.Get(), nullptr, 0);
 	// 不透明な物は深度だけ書けばよいのでピクセルシェーダーを外します(描画も速くなります)。
@@ -207,12 +213,37 @@ void ShadowMap::End()
 	}
 	s_Rendering = false;
 	ID3D11DeviceContext* context = Renderer::GetDeviceContext();
+	if (context == nullptr)
+	{
+		return;
+	}
 	// 深度として外してから、受け手用のテクスチャとして繋ぎます。描画先と視点は呼び出し側が元に戻します。
 	context->OMSetRenderTargets(0, nullptr, nullptr);
 	ID3D11ShaderResourceView* view = g_ShaderView.Get();
 	context->PSSetShaderResources(kTextureSlot, 1, &view);
 	ID3D11SamplerState* sampler = g_Sampler.Get();
 	context->PSSetSamplers(kSamplerSlot, 1, &sampler);
+}
+
+void ShadowMap::Disable()
+{
+	s_Rendering = false;
+	ID3D11DeviceContext* context = Renderer::GetDeviceContext();
+	if (context == nullptr)
+	{
+		return;
+	}
+	ID3D11ShaderResourceView* nullView = nullptr;
+	context->PSSetShaderResources(kTextureSlot, 1, &nullView);
+	if (g_Constants)
+	{
+		// 有効フラグ(Parameters.z)を0にすると、受け手の SampleShadow は常に日なた(1)を返します。
+		const ShadowConstants constants{};
+		context->UpdateSubresource(g_Constants.Get(), 0, nullptr, &constants, 0, 0);
+		ID3D11Buffer* buffer = g_Constants.Get();
+		context->VSSetConstantBuffers(kConstantSlot, 1, &buffer);
+		context->PSSetConstantBuffers(kConstantSlot, 1, &buffer);
+	}
 }
 
 void ShadowMap::Release()

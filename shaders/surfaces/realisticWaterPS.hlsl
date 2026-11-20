@@ -41,10 +41,12 @@ void main(in PS_IN input, out float4 output : SV_Target)
     float roughness = clamp(Parameter.z > 0.0f ? Parameter.z : 0.08f, 0.04f, 1.0f);
 
     float2 slope = RippleSlope(input.WorldPosition.xz, time) * rippleStrength;
-    float3 N = normalize(normalize(input.Normal) + float3(-slope.x, 0.0f, -slope.y));
-    float3 V = normalize(CameraPosition.xyz - input.WorldPosition);
-    float3 L = normalize(-Light.Direction.xyz);
-    float3 H = normalize(L + V);
+    // 長さがほぼ0のときに NaN にならないよう、代わりの向き(上・面の向き)を使います(RealisticCore.hlsli)。
+    float3 up = float3(0.0f, 1.0f, 0.0f);
+    float3 N = RealisticSafeNormalize(RealisticSafeNormalize(input.Normal, up) + float3(-slope.x, 0.0f, -slope.y), up);
+    float3 V = RealisticSafeNormalize(CameraPosition.xyz - input.WorldPosition, N);
+    float3 L = RealisticSafeNormalize(-Light.Direction.xyz, up);
+    float3 H = RealisticSafeNormalize(L + V, N);
     float NL = saturate(dot(N, L));
     float NV = max(dot(N, V), 0.0001f);
     float NH = saturate(dot(N, H));
@@ -53,7 +55,7 @@ void main(in PS_IN input, out float4 output : SV_Target)
     float3 sun = RealisticToLinear(Light.Diffuse.rgb) * SUN_INTENSITY;
     float3 skyColor = RealisticToLinear(Light.SkyColor.rgb) * SKY_INTENSITY;
     float3 groundColor = RealisticToLinear(Light.GroundColor.rgb) * SKY_INTENSITY;
-    float3 groundNormal = normalize(Light.GroundNormal.xyz);
+    float3 groundNormal = RealisticSafeNormalize(Light.GroundNormal.xyz, up);
 
     // 空の映り込み。水平線付近ほど明るい空になるよう、反射方向の高さで少し持ち上げます。
     float3 reflected = reflect(-V, N);

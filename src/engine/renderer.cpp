@@ -3,6 +3,7 @@
 #include "renderer.h"
 #include "resourceManager.h"
 #include "shaderCatalog.h"
+#include "shadowMap.h"
 #include <array>
 #include <vector>
 
@@ -604,6 +605,9 @@ void Renderer::Uninit()
 		m_DeviceContext->ClearState();
 	}
 
+	// 影のテクスチャや定数はこのデバイスで作った物なので、作り直す前に必ず手放します
+	// (Manager::Uninit を通らずに Renderer だけ終了・再初期化しても古いデバイスの物が残らないように)。
+	ShadowMap::Release();
 	m_LightBuffer.Reset();
 	m_PostVertexBuffer.Reset();
 	for (auto& resource : m_PostWorkResources) resource.Reset();
@@ -664,16 +668,28 @@ void Renderer::Begin()
 	m_DepthProjection = {};
 	ID3D11RenderTargetView* target = !IsPostEffectEnabled()
 		? m_RenderTargetView.Get() : m_SceneRenderTarget.Get();
+	// 初期化前・終了後(自己テストなど)は、CPU側の状態だけ整えて描画は何もしません。
+	if (m_DeviceContext == nullptr || target == nullptr)
+	{
+		return;
+	}
 	m_DeviceContext->OMSetRenderTargets(1, &target, m_DepthStencilView.Get());
 	const float clearColor[4] = { m_ClearColor.x, m_ClearColor.y, m_ClearColor.z, m_ClearColor.w };
 	m_DeviceContext->ClearRenderTargetView(target, clearColor);
-	m_DeviceContext->ClearDepthStencilView( m_DepthStencilView.Get(), D3D11_CLEAR_DEPTH, 1.0f, 0);
+	if (m_DepthStencilView != nullptr)
+	{
+		m_DeviceContext->ClearDepthStencilView(m_DepthStencilView.Get(), D3D11_CLEAR_DEPTH, 1.0f, 0);
+	}
 }
 
 
 
 void Renderer::ClearDepth()
 {
+	if (m_DeviceContext == nullptr || m_DepthStencilView == nullptr)
+	{
+		return;
+	}
 	m_DeviceContext->ClearDepthStencilView(m_DepthStencilView.Get(), D3D11_CLEAR_DEPTH, 1.0f, 0);
 }
 
@@ -681,6 +697,11 @@ void Renderer::ClearDepth()
 
 void Renderer::End()
 {
+	// 初期化前・終了後は画面が無いので、UIの描画と表示もしません。
+	if (m_DeviceContext == nullptr || m_SwapChain == nullptr)
+	{
+		return;
+	}
 	ResolvePostEffects();
 	if (m_OverlayCallback != nullptr) m_OverlayCallback();
 	m_SwapChain->Present( 1, 0 );
@@ -901,6 +922,10 @@ bool Renderer::SetPostEffectFloat(std::string_view name, float value)
 void Renderer::SetDepthMode( RenderDepthMode Mode )
 {
 	m_DepthMode = Mode;
+	if (m_DeviceContext == nullptr)
+	{
+		return;
+	}
 	switch( Mode )
 	{
 	case RenderDepthMode::TestOnly:
@@ -934,25 +959,38 @@ void Renderer::SetWorldViewProjection2D()
 }
 
 
+namespace
+{
+	// 定数バッファへ書きます。初期化前・終了後でコンテキストやバッファが無ければ何もしません。
+	template<typename T>
+	void UpdateConstantBuffer(ID3D11DeviceContext* context, ID3D11Buffer* buffer, const T& value)
+	{
+		if (context != nullptr && buffer != nullptr)
+		{
+			context->UpdateSubresource(buffer, 0, nullptr, &value, 0, 0);
+		}
+	}
+}
+
 void Renderer::SetWorldMatrix(XMMATRIX WorldMatrix)
 {
 	XMFLOAT4X4 worldf;
 	XMStoreFloat4x4(&worldf, XMMatrixTranspose(WorldMatrix));
-	m_DeviceContext->UpdateSubresource(m_WorldBuffer.Get(), 0, NULL, &worldf, 0, 0);
+	UpdateConstantBuffer(m_DeviceContext.Get(), m_WorldBuffer.Get(), worldf);
 }
 
 void Renderer::SetViewMatrix(XMMATRIX ViewMatrix)
 {
 	XMFLOAT4X4 viewf;
 	XMStoreFloat4x4(&viewf, XMMatrixTranspose(ViewMatrix));
-	m_DeviceContext->UpdateSubresource(m_ViewBuffer.Get(), 0, NULL, &viewf, 0, 0);
+	UpdateConstantBuffer(m_DeviceContext.Get(), m_ViewBuffer.Get(), viewf);
 }
 
 void Renderer::SetProjectionMatrix(XMMATRIX ProjectionMatrix)
 {
 	XMFLOAT4X4 projectionf;
 	XMStoreFloat4x4(&projectionf, XMMatrixTranspose(ProjectionMatrix));
-	m_DeviceContext->UpdateSubresource(m_ProjectionBuffer.Get(), 0, NULL, &projectionf, 0, 0);
+	UpdateConstantBuffer(m_DeviceContext.Get(), m_ProjectionBuffer.Get(), projectionf);
 
 	// 3Dの透視投影(左手系)のときだけ、ポスト効果が深度から位置を戻すための値を覚えます。
 	// UI 用の正射影(SetWorldViewProjection2D)では上書きしません。
@@ -970,24 +1008,24 @@ void Renderer::SetProjectionMatrix(XMMATRIX ProjectionMatrix)
 
 void Renderer::SetMaterial( MATERIAL Material )
 {
-	m_DeviceContext->UpdateSubresource( m_MaterialBuffer.Get(), 0, NULL, &Material, 0, 0 );
+	UpdateConstantBuffer(m_DeviceContext.Get(), m_MaterialBuffer.Get(), Material);
 }
 
 void Renderer::SetLight( LIGHT Light )
 {
 	m_Light = Light;
-	m_DeviceContext->UpdateSubresource(m_LightBuffer.Get(), 0, NULL, &Light, 0, 0);
+	UpdateConstantBuffer(m_DeviceContext.Get(), m_LightBuffer.Get(), Light);
 }
 
 void Renderer::SetCameraPosition(XMFLOAT3 CameraPosition)
 {
 	const XMFLOAT4 value(CameraPosition.x, CameraPosition.y, CameraPosition.z, 1.0f);
-	m_DeviceContext->UpdateSubresource(m_CameraBuffer.Get(), 0, NULL, &value, 0, 0);
+	UpdateConstantBuffer(m_DeviceContext.Get(), m_CameraBuffer.Get(), value);
 }
 
 void Renderer::SetParameter(XMFLOAT4 Parameter)
 {
-	m_DeviceContext->UpdateSubresource(m_ParameterBuffer.Get(), 0, NULL, &Parameter, 0, 0);
+	UpdateConstantBuffer(m_DeviceContext.Get(), m_ParameterBuffer.Get(), Parameter);
 }
 
 void Renderer::SetAddBlendEnable(bool Enable)
@@ -999,6 +1037,10 @@ void Renderer::SetBlendMode(RenderBlendMode mode)
 {
 	float blendFactor[4] = { 0.0f, 0.0f, 0.0f, 0.0f };
 	m_BlendMode = mode;
+	if (m_DeviceContext == nullptr)
+	{
+		return;
+	}
 	if (mode == RenderBlendMode::Additive)
 	{
 		m_DeviceContext->OMSetBlendState(m_BlendStateAdd.Get(), blendFactor, 0xffffffff);
@@ -1015,6 +1057,10 @@ void Renderer::SetBlendMode(RenderBlendMode mode)
 
 void Renderer::SetCullFront(bool enabled)
 {
+	if (m_DeviceContext == nullptr)
+	{
+		return;
+	}
 	m_DeviceContext->RSSetState(enabled ? m_RasterStateFront.Get() : m_RasterStateBack.Get());
 }
 

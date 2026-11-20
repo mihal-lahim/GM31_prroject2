@@ -119,6 +119,11 @@ void RenderQueue::Execute()
 			// 影パスは描画先・視点・ラスタライザを切り替えるので、元のベースラインへ戻します。
 			stateScope.Restore();
 		}
+		else
+		{
+			// カメラが無いフレームでも、前フレームの影(深度テクスチャと有効フラグ)が残らないようにします。
+			Engine::ShadowMap::Disable();
+		}
 		// UI より前(ワールド・エフェクト)を描きます。
 		for (; index < m_Items.size() && m_Items[index].ObjectLayer != Layer::UI; ++index)
 		{
@@ -148,6 +153,8 @@ void RenderQueue::ExecuteShadowPass(std::size_t firstNonCameraItem)
 {
 	if (!Engine::ShadowMap::Begin(m_ShadowFocus))
 	{
+		// 影を描けなかったフレーム(焦点が不正など)も、前フレームの影を使わないようにします。
+		Engine::ShadowMap::Disable();
 		return;
 	}
 	for (std::size_t index = firstNonCameraItem; index < m_Items.size(); ++index)

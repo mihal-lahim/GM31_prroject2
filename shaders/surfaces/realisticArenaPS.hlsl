@@ -89,7 +89,7 @@ float ArenaHeight(float2 plane, float2 size, bool staggered, float weathering)
 
 void main(in PS_IN input, out float4 output : SV_Target)
 {
-    float3 geometryNormal = normalize(input.Normal);
+    float3 geometryNormal = RealisticSafeNormalize(input.Normal, float3(0.0f, 1.0f, 0.0f));
     float3 position = input.WorldPosition;
     float roughness = Parameter.x;
     float metallic = Parameter.y;
@@ -133,7 +133,7 @@ void main(in PS_IN input, out float4 output : SV_Target)
     // 1画素が覆う幅[m]が目地や細かな凹凸より大きい遠景では、法線の揺らぎを弱めます(ハイライトのきらつき・モアレ防止)。
     float footprint = max(length(ddx(plane)), length(ddy(plane)));
     slope *= lerp(1.0f, 0.2f, smoothstep(0.006f, 0.04f, footprint));
-    float3 normal = normalize(geometryNormal - (slope.x * U + slope.y * Vaxis));
+    float3 normal = RealisticSafeNormalize(geometryNormal - (slope.x * U + slope.y * Vaxis), geometryNormal);
 
     ArenaBlock block = FindBlock(plane, size, staggered);
     float blockRandom = ArenaHash(block.Cell + (floorLike ? 0.0f : 31.7f));

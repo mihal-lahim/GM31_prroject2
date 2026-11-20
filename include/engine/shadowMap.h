@@ -22,10 +22,14 @@ public:
 	// 形状を描く直前に呼びます。alphaTested は葉などを透明部分で抜く場合で、t0にテクスチャを渡します。
 	static void BindCaster(bool alphaTested);
 	static void End();
+	// このフレームは影を使いません。受け手のテクスチャ(t4)を外し、定数(b8)の有効フラグを0にします。
+	// 影を描かないフレーム(カメラが無い、範囲が不正など)に前フレームの影が残らないようにします。
+	static void Disable();
 	static void Release();
 
 	static bool IsRendering() { return s_Rendering; }
 	// 太陽の進む向き(ライトのDirectionを正規化したもの)。木の影の板を太陽へ向けるのに使います。
+	// 向きが0やNaN・無限大なら真下(0,-1,0)を返します。
 	static Vector3 GetLightDirection();
 
 private:

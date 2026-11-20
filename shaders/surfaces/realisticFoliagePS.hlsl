@@ -26,9 +26,10 @@ void main(in PS_IN input, out float4 output : SV_Target)
     clip(texel.a - 0.45f);
     float3 albedo = RealisticToLinear(texel.rgb);
 
-    float3 V = normalize(CameraPosition.xyz - input.WorldPosition);
-    float3 L = normalize(-Light.Direction.xyz);
+    // 長さがほぼ0のときに NaN にならないよう、代わりの向きを使います(RealisticCore.hlsli)。
     float3 up = float3(0.0f, 1.0f, 0.0f);
+    float3 V = RealisticSafeNormalize(CameraPosition.xyz - input.WorldPosition, up);
+    float3 L = RealisticSafeNormalize(-Light.Direction.xyz, up);
     float3 sun = RealisticToLinear(Light.Diffuse.rgb) * SUN_INTENSITY;
     float3 skyColor = RealisticToLinear(Light.SkyColor.rgb);
     float3 groundColor = RealisticToLinear(Light.GroundColor.rgb);
@@ -41,7 +42,7 @@ void main(in PS_IN input, out float4 output : SV_Target)
     // テクスチャ上端(v=0)が梢、下端(v=1)が根元です。
     float occlusion = lerp(1.0f, 0.55f, saturate(input.TexCoord.y));
 
-    float3 hemisphere = RealisticHemisphere(up, normalize(Light.GroundNormal.xyz), skyColor, groundColor) * SKY_INTENSITY;
+    float3 hemisphere = RealisticHemisphere(up, RealisticSafeNormalize(Light.GroundNormal.xyz, up), skyColor, groundColor) * SKY_INTENSITY;
     // 木の影は太陽へ向けた板で描くため、カメラへ向いた見た目の板は自分の影と交差します。
     // 太陽側へ大きめに押し出してから調べ、自分の影は拾わず、ほかの木の影だけを受けます。
     float shadow = SampleShadow(input.WorldPosition, up, L, 1.2f);

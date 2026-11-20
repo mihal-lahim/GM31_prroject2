@@ -5,11 +5,14 @@
 #include "renderer.h"
 
 #include <algorithm>
+#include <cmath>
 
 namespace Engine
 {
 bool SceneFade::Init()
 {
+	// 作り直しに備えて先に手放します。
+	Uninit();
 	VERTEX_3D vertices[4]{};
 	vertices[0].Position = XMFLOAT3(0.0f, 0.0f, 0.0f);
 	vertices[1].Position = XMFLOAT3(SCREEN_WIDTH, 0.0f, 0.0f);
@@ -32,7 +35,13 @@ bool SceneFade::Init()
 		m_VertexBuffer, bufferDescription, &initialData, "SceneFade");
 	const bool shadersCreated = GraphicsResourceFactory::CreateUnlitShaderPair(
 		m_VertexShader, m_VertexLayout, m_PixelShader, "SceneFade");
-	return bufferCreated && shadersCreated;
+	if (!bufferCreated || !shadersCreated)
+	{
+		// 片方だけ作れた半端な状態を残しません。
+		Uninit();
+		return false;
+	}
+	return true;
 }
 
 void SceneFade::Uninit()
@@ -45,6 +54,11 @@ void SceneFade::Uninit()
 
 void SceneFade::Draw(float alpha) const
 {
+	// NaNはclampを素通りして「<= 0」も満たさないので、先に弾きます。
+	if (!std::isfinite(alpha) || Renderer::GetDeviceContext() == nullptr)
+	{
+		return;
+	}
 	alpha = std::clamp(alpha, 0.0f, 1.0f);
 	if (alpha <= 0.0f || m_VertexBuffer == nullptr || m_VertexShader == nullptr
 		|| m_VertexLayout == nullptr || m_PixelShader == nullptr)

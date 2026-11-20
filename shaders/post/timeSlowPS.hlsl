@@ -88,10 +88,11 @@ void main(in PS_IN input, out float4 output : SV_Target)
     color += ring * 0.12f * float3(0.6f, 0.9f, 1.0f);
 
     // ジャスト減速: 一瞬だけ色を反転させ、シアンに染めます(明暗が入れ替わるので、薄めても目立ちます)。
-    const float3 flashColor = saturate((1.0f - color) * float3(0.55f, 1.0f, 1.15f) + 0.08f);
+    // 元画面は HDR(1を超える値もある)なので、反転の前に0〜1へ収めます(realisticCompositePS と同じ)。
+    const float3 flashColor = saturate((1.0f - saturate(color)) * float3(0.55f, 1.0f, 1.15f) + 0.08f);
     color = lerp(color, flashColor, flash * 0.85f);
 
     // 画面へ描くときアルファ合成が有効なままのことがあり、文字や粒の部分のアルファ(1未満)をそのまま出すと
     // 前のフレームの画面が透けます。最終の画面なので常に不透明にします。
-    output = float4(color, 1.0f);
+    output = float4(saturate(color), 1.0f);
 }

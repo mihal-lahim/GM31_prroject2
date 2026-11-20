@@ -58,7 +58,8 @@ float3 SurfaceNormal(in PS_IN input, float3 N)
         float up = RealisticLuminance(Albedo.Sample(TextureSampler, input.TexCoord + float2(0.0f, texel.y)).rgb);
         tangentNormal = float3((left - right) * strength * 4.0f, (down - up) * strength * 4.0f, 1.0f);
     }
-    float3 perturbed = RealisticPerturbNormal(N, input.WorldPosition, input.TexCoord, normalize(tangentNormal));
+    float3 perturbed = RealisticPerturbNormal(N, input.WorldPosition, input.TexCoord,
+        RealisticSafeNormalize(tangentNormal, float3(0.0f, 0.0f, 1.0f)));
     // 凹凸なしの材質では元の法線をそのまま使います。
     return strength > 0.0f ? perturbed : N;
 }
@@ -72,7 +73,7 @@ void main(in PS_IN input, out float4 output : SV_Target)
     surface.Albedo = RealisticToLinear(color.rgb);
     surface.Roughness = Parameter.x;
     surface.Metallic = Parameter.y;
-    surface.GeometryNormal = normalize(input.Normal);
+    surface.GeometryNormal = RealisticSafeNormalize(input.Normal, float3(0.0f, 1.0f, 0.0f));
     surface.Normal = SurfaceNormal(input, surface.GeometryNormal);
     surface.Occlusion = 1.0f;
     surface.RimStrength = Parameter.w;

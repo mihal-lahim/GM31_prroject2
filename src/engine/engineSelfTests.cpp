@@ -21,6 +21,8 @@
 #include "resourceManager.h"
 #include "runtimeConfig.h"
 #include "propertyVisitor.h"
+#include "sceneFade.h"
+#include "shadowMap.h"
 #include "sceneSerializer.h"
 #include "shaderCatalog.h"
 #include "world.h"
@@ -2012,6 +2014,107 @@ namespace
 	}
 }
 
+namespace
+{
+	// 自己テストはRendererを初期化しません(コンテキストがnullptr)。その状態で描画の入口を呼んでも落ちず、
+	// CPU側で覚える値(ライト・深度・合成)はちゃんと反映されることを確かめます。
+	bool TestRendererWithoutDeviceKeepsState()
+	{
+		if (Engine::Renderer::GetDeviceContext() != nullptr)
+		{
+			return false;
+		}
+		Engine::LIGHT light{};
+		light.Enable = TRUE;
+		light.Direction = { 0.3f, -1.0f, 0.2f, 0.0f };
+		light.Diffuse = { 0.9f, 0.8f, 0.7f, 1.0f };
+		Engine::Renderer::SetLight(light);
+		Engine::Renderer::SetDepthMode(Engine::RenderDepthMode::TestOnly);
+		Engine::Renderer::SetBlendMode(Engine::RenderBlendMode::Additive);
+		bool ok = Engine::Renderer::GetLight().Direction.x == 0.3f
+			&& Engine::Renderer::GetLight().Diffuse.z == 0.7f
+			&& Engine::Renderer::GetDepthMode() == Engine::RenderDepthMode::TestOnly
+			&& Engine::Renderer::GetBlendMode() == Engine::RenderBlendMode::Additive;
+
+		Engine::Renderer::SetWorldMatrix(XMMatrixIdentity());
+		Engine::Renderer::SetViewMatrix(XMMatrixIdentity());
+		Engine::Renderer::SetProjectionMatrix(XMMatrixPerspectiveFovLH(1.0f, 1.6f, 0.1f, 100.0f));
+		Engine::Renderer::SetWorldViewProjection2D();
+		Engine::Renderer::SetMaterial(Engine::MATERIAL{});
+		Engine::Renderer::SetCameraPosition({ 1.0f, 2.0f, 3.0f });
+		Engine::Renderer::SetParameter({ 1.0f, 2.0f, 3.0f, 4.0f });
+		Engine::Renderer::SetCullFront(true);
+		Engine::Renderer::SetCullFront(false);
+		Engine::Renderer::ClearDepth();
+		// Beginは深度と合成を既定へ戻します(GPUが無くても、覚える値は同じように変わります)。
+		Engine::Renderer::Begin();
+		ok &= Engine::Renderer::GetDepthMode() == Engine::RenderDepthMode::Enabled
+			&& Engine::Renderer::GetBlendMode() == Engine::RenderBlendMode::Alpha;
+		Engine::Renderer::End();
+
+		// 起動前と同じ状態へ戻します(ライトなどの値もUninitで既定に戻ります)。
+		Engine::Renderer::Uninit();
+		ok &= Engine::Renderer::GetLight().Direction.x == 0.0f
+			&& Engine::Renderer::GetDepthMode() == Engine::RenderDepthMode::Enabled;
+		return ok;
+	}
+
+	bool TestShadowMapWithoutDeviceAndInvalidLight()
+	{
+		constexpr float nan = std::numeric_limits<float>::quiet_NaN();
+		constexpr float inf = std::numeric_limits<float>::infinity();
+		const auto directionFor = [](XMFLOAT4 direction)
+		{
+			Engine::LIGHT light{};
+			light.Direction = direction;
+			Engine::Renderer::SetLight(light);
+			return Engine::ShadowMap::GetLightDirection();
+		};
+		const auto isDown = [](const Vector3& value)
+		{
+			return value.x == 0.0f && value.y == -1.0f && value.z == 0.0f;
+		};
+
+		// 向きが0・NaN・無限大なら真下にします。
+		bool ok = isDown(directionFor({ 0.0f, 0.0f, 0.0f, 0.0f }))
+			&& isDown(directionFor({ nan, -1.0f, 0.0f, 0.0f }))
+			&& isDown(directionFor({ 0.0f, -inf, 0.0f, 0.0f }))
+			&& isDown(directionFor({ inf, inf, inf, 0.0f }));
+		// 正しい向きは正規化して返します。
+		const Vector3 slanted = directionFor({ 3.0f, -4.0f, 0.0f, 0.0f });
+		ok &= NearlyEqual(slanted.x, 0.6f) && NearlyEqual(slanted.y, -0.8f) && NearlyEqual(slanted.z, 0.0f);
+
+		// GPUが無い・焦点が不正なら影は描かず、ほかの入口も何もしません。
+		ok &= !Engine::ShadowMap::Begin({ 0.0f, 0.0f, 0.0f });
+		ok &= !Engine::ShadowMap::Begin({ nan, 0.0f, 0.0f });
+		ok &= !Engine::ShadowMap::Begin({ 0.0f, inf, 0.0f });
+		Engine::ShadowMap::BindCaster(false);
+		Engine::ShadowMap::BindCaster(true);
+		Engine::ShadowMap::End();
+		Engine::ShadowMap::Disable();
+		ok &= !Engine::ShadowMap::IsRendering();
+		Engine::ShadowMap::Release();
+
+		Engine::Renderer::Uninit();
+		return ok;
+	}
+
+	bool TestSceneFadeWithoutDevice()
+	{
+		Engine::SceneFade fade;
+		// GPUが無いので作れず、半端な状態を残さずにfalseです。
+		const bool initialized = fade.Init();
+		for (const float alpha : { std::numeric_limits<float>::quiet_NaN(), std::numeric_limits<float>::infinity(),
+			-1.0f, 0.0f, 0.5f, 1.0f })
+		{
+			fade.Draw(alpha);
+		}
+		fade.Uninit();
+		fade.Draw(1.0f);
+		return !initialized;
+	}
+}
+
 namespace Engine
 {
 	// Managerのprivateな状態へ触れる、自己テスト専用の入口です(manager.hでfriend指定)。
@@ -2161,6 +2264,9 @@ bool RunEngineSelfTests()
 		{ "character mover rejects non-finite offset", TestCharacterMoverRejectsNonFiniteOffset },
 		{ "tuning int range accepts negative defaults", TestTuningIntRangeAcceptsNegativeDefaults },
 		{ "runtime config rejects line breaking keys", TestRuntimeConfigRejectsLineBreakingKeys },
+		{ "renderer without device keeps state", TestRendererWithoutDeviceKeepsState },
+		{ "shadow map without device and invalid light", TestShadowMapWithoutDeviceAndInvalidLight },
+		{ "scene fade without device", TestSceneFadeWithoutDevice },
 	};
 
 	// どの項目で落ちたか分かるよう、全項目を実行して結果をログへ残します。

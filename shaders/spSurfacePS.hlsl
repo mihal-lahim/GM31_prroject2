@@ -102,9 +102,15 @@ void main(in PS_IN input, out float4 output : SV_Target)
         if (Material.Dummy.x > 0.5f)
         {
             float3 mapNormal = Detail.Sample(TextureSampler, input.TexCoord).xyz * 2.0f - 1.0f;
-            float3 tangent = normalize(float3(1.0f, 0.0f, 0.0f) - N * N.x);
-            float3 bitangent = normalize(cross(tangent, N));
-            bump = normalize(mapNormal.x * tangent + mapNormal.y * bitangent + mapNormal.z * N);
+            // 接線は基準の軸から法線の成分を引いて作ります。ほぼX軸を向く面(壁・箱の側面)では
+            // X軸から引くと0になり normalize が NaN を返すので、そのときは基準をZ軸に替えます。
+            float3 reference = abs(N.x) > 0.999f ? float3(0.0f, 0.0f, 1.0f) : float3(1.0f, 0.0f, 0.0f);
+            float3 rawTangent = reference - N * dot(N, reference);
+            float3 tangent = dot(rawTangent, rawTangent) > 1e-30f ? normalize(rawTangent) : float3(0.0f, 0.0f, 1.0f);
+            float3 rawBitangent = cross(tangent, N);
+            float3 bitangent = dot(rawBitangent, rawBitangent) > 1e-30f ? normalize(rawBitangent) : float3(0.0f, 1.0f, 0.0f);
+            float3 rawBump = mapNormal.x * tangent + mapNormal.y * bitangent + mapNormal.z * N;
+            bump = dot(rawBump, rawBump) > 1e-30f ? normalize(rawBump) : N;
         }
         color = base * (Light.Ambient.rgb + Light.Diffuse.rgb * saturate(dot(bump, L)));
     }
