@@ -934,17 +934,30 @@ bool RunSlowActionRenderTest()
 		h.Input = SlowInputState{};
 		h.Step(30);
 
-		// パネルを開いた画面を撮ります(ImGuiの描画を直接通します)。
-		SceneEditor::InitializeUi();
-		SceneEditor::SetExtraDrawCallback(SlowTuningPanel::Draw);
+		// F3 の編集モードと F4 のパネルは、カーソルを自由にする条件を合わせて持ちます。
+		// 編集中にパネルを開閉しても編集の自由カーソルは壊れず、両方閉じたときだけゲーム用の捕捉へ戻ります。
+		SceneEditor::SetActive(true);
 		SlowTuningPanel::Toggle();
-		SceneEditor::BeginUiFrame();
-		h.Draw();
-		SceneEditor::DrawUi();
+		SlowTuningPanel::Toggle();
+		h.Check("closing the panel keeps the editor cursor free", SceneEditor::IsActive() && SceneEditor::IsCursorFree());
+		SlowTuningPanel::Toggle();
+		SceneEditor::SetActive(false);
+		h.Check("leaving the editor keeps the cursor free while the panel is open",
+			!SceneEditor::IsActive() && SceneEditor::IsCursorFree());
+		SlowTuningPanel::Reset();
+		h.Check("closing both returns the cursor to the game", !SceneEditor::IsCursorFree());
+
+		// パネルを開いた画面を撮ります。ImGuiの初期化・破棄と DrawUi は、アプリ本体(InitializeSlowUi と描画の後処理)が行います。
+		SlowTuningPanel::Toggle();
+		h.Check("panel frees the cursor", SceneEditor::IsCursorFree());
+		for (int i = 0; i < 2; ++i)
+		{
+			SceneEditor::BeginUiFrame();
+			h.Draw();
+		}
 		h.Check("capture tuning panel", Capture(L"slow-render-tuning.png"));
 		SlowTuningPanel::Reset();
-		SceneEditor::SetExtraDrawCallback(nullptr);
-		SceneEditor::ShutdownUi();
+		h.Check("panel closes after the capture", !SlowTuningPanel::IsOpen() && !SceneEditor::IsCursorFree());
 	}
 
 	SlowInput::SetOverride(nullptr);

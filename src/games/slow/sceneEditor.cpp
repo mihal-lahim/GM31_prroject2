@@ -19,6 +19,8 @@ namespace
 	bool g_Initialized = false;
 	bool g_FrameBegun = false;
 	bool g_Active = false;
+	// 編集モード以外(調整パネルなど)が、カーソルを自由にしてほしいと頼んでいる間はtrueです。
+	bool g_ExternalCursorFree = false;
 	void (*g_ExtraDraw)() = nullptr;
 	World* g_World = nullptr;
 	std::filesystem::path g_RuntimePath;
@@ -28,6 +30,44 @@ namespace
 	std::uint64_t g_SelectedId = 0;
 	bool g_ShowAll = false;
 	std::string g_Status;
+
+	bool CursorShouldBeFree()
+	{
+		return g_Active || g_ExternalCursorFree;
+	}
+
+	// カーソルの扱いを、編集モードと調整パネルの合成条件(どちらかが開いていれば自由)から決めます。
+	// 切り替わる前の状態を受け取り、変わったときだけマウスとImGuiの設定を変えます。
+	void ApplyCursorMode(bool wasFree, bool recapture)
+	{
+		const bool free = CursorShouldBeFree();
+		if (free == wasFree)
+		{
+			return;
+		}
+		if (ImGui::GetCurrentContext() != nullptr)
+		{
+			ImGuiIO& io = ImGui::GetIO();
+			// 自由な間はImGuiにカーソルの形と表示を任せ、ゲーム中はゲームが隠したカーソルを戻させません。
+			if (free) io.ConfigFlags &= ~ImGuiConfigFlags_NoMouseCursorChange;
+			else io.ConfigFlags |= ImGuiConfigFlags_NoMouseCursorChange;
+		}
+		if (free)
+		{
+			// 自動捕捉を止めると、捕捉中のカーソルも放して表示します。
+			Mouse_SetAutoCapture(false);
+			return;
+		}
+		Mouse_SetAutoCapture(true);
+		// 自由な間に溜まった移動量やボタンで、戻った瞬間に視点が飛んだり攻撃が出たりしないようにします。
+		Mouse_Reset();
+		// 自分のウィンドウが前面にあるときだけ捕捉します(非表示で動くテスト中に画面のカーソルを奪わないため)。
+		if (recapture && GetForegroundWindow() == GetWindow())
+		{
+			Mouse_SuppressUntilButtonsReleased();
+			Mouse_SetCursorCaptured(true);
+		}
+	}
 
 	constexpr float kNearClip = 0.1f;
 	constexpr float kFarClip = 200.0f;
@@ -397,9 +437,10 @@ bool InitializeUi()
 void ShutdownUi()
 {
 	// 終了処理の途中なので、カーソルを捕捉し直さずに状態だけ戻します。
-	if (g_Active)
+	if (CursorShouldBeFree())
 	{
 		g_Active = false;
+		g_ExternalCursorFree = false;
 		Mouse_SetAutoCapture(true);
 	}
 	g_World = nullptr;
@@ -511,35 +552,32 @@ void SetActive(bool active)
 	{
 		return;
 	}
+	const bool wasFree = CursorShouldBeFree();
 	g_Active = active;
 	g_Status.clear();
-	if (ImGui::GetCurrentContext() != nullptr)
-	{
-		ImGuiIO& io = ImGui::GetIO();
-		if (active) io.ConfigFlags &= ~ImGuiConfigFlags_NoMouseCursorChange;
-		else io.ConfigFlags |= ImGuiConfigFlags_NoMouseCursorChange;
-	}
-	// 編集中はカーソルを自由にし、戻るときはゲーム用の捕捉へ戻します。
-	if (active)
-	{
-		Mouse_SetAutoCapture(false);
-	}
-	else
-	{
-		Mouse_SetAutoCapture(true);
-		Mouse_Reset();
-		// 自分のウィンドウが前面にあるときだけ捕捉します(非表示で動くテスト中に画面のカーソルを奪わないため)。
-		if (GetForegroundWindow() == GetWindow())
-		{
-			Mouse_SuppressUntilButtonsReleased();
-			Mouse_SetCursorCaptured(true);
-		}
-	}
+	// 編集中はカーソルを自由にし、戻るときはゲーム用の捕捉へ戻します(調整パネルが開いていれば自由のまま)。
+	ApplyCursorMode(wasFree, true);
 }
 
 bool IsActive()
 {
 	return g_Active;
+}
+
+void SetExternalCursorFree(bool free)
+{
+	if (g_ExternalCursorFree == free)
+	{
+		return;
+	}
+	const bool wasFree = CursorShouldBeFree();
+	g_ExternalCursorFree = free;
+	ApplyCursorMode(wasFree, true);
+}
+
+bool IsCursorFree()
+{
+	return CursorShouldBeFree();
 }
 
 bool WantsKeyboard()

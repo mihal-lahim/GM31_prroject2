@@ -37,7 +37,11 @@ void SlowCamera::PreUpdate()
 	const SlowActionTuning& tuning = GetSlowActionTuning();
 	float mouseX = 0.0f;
 	float mouseY = 0.0f;
-	if (Mouse_ConsumeDelta(&mouseX, &mouseY) && (mouseX != 0.0f || mouseY != 0.0f))
+	// 調整パネル(F4)などでカーソルが自由な間は、マウスはウィンドウの操作に使うので視点を回しません。
+	// 移動量は毎フレーム読み捨て、閉じた瞬間に溜まった分で視点が飛ばないようにします(自動の向き補正は続けます)。
+	const bool moved = Mouse_ConsumeDelta(&mouseX, &mouseY) && (mouseX != 0.0f || mouseY != 0.0f)
+		&& !SceneEditor::IsCursorFree();
+	if (moved)
 	{
 		const float sensitivity = GameSettings::GetMouseSensitivity();
 		m_Yaw = WrapAngle(m_Yaw + mouseX * sensitivity);

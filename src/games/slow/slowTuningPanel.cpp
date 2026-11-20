@@ -4,7 +4,6 @@
 #include "third_party/imgui/imgui.h"
 #include "collider.h"
 #include "gameTime.h"
-#include "mouseInput.h"
 #include "runtimeConfig.h"
 #include "sceneEditor.h"
 #include "slowAction.h"
@@ -272,7 +271,12 @@ namespace
 			{
 				continue;
 			}
-			if (ImGui::CollapsingHeader(title, filter.empty() ? ImGuiTreeNodeFlags_DefaultOpen : ImGuiTreeNodeFlags_None))
+			// 絞り込み中は、合う項目のある見出しを必ず開きます(折りたたんだままだと結果が見えないため)。
+			if (!filter.empty())
+			{
+				ImGui::SetNextItemOpen(true, ImGuiCond_Always);
+			}
+			if (ImGui::CollapsingHeader(title, ImGuiTreeNodeFlags_DefaultOpen))
 			{
 				for (const SlowTuningEntry* entry : items)
 				{
@@ -292,7 +296,8 @@ void SlowTuningPanel::Toggle()
 	}
 	g_Open = true;
 	// 開いている間は、マウスを画面から離して自由に動かせるようにします。
-	Mouse_SetAutoCapture(false);
+	// カーソルの切り替えは編集モード(F3)と合わせて SceneEditor がまとめて行います。
+	SceneEditor::SetExternalCursorFree(true);
 }
 
 bool SlowTuningPanel::IsOpen()
@@ -302,11 +307,10 @@ bool SlowTuningPanel::IsOpen()
 
 void SlowTuningPanel::Reset()
 {
-	if (g_Open)
-	{
-		g_Open = false;
-		Mouse_SetAutoCapture(true);
-	}
+	// 閉じる経路はここだけです(F4・ウィンドウの「×」・やり直し・シーンの終了)。
+	// 編集モード中なら、カーソルは自由なまま残ります。
+	g_Open = false;
+	SceneEditor::SetExternalCursorFree(false);
 	// 時間の制御を通常へ戻します。止めたまま・速いままでシーンを終えないようにします。
 	Engine::GameTime::SetPaused(false);
 	Engine::GameTime::SetTimeScale(1.0f);
@@ -336,12 +340,18 @@ void SlowTuningPanel::Draw()
 	{
 		return;
 	}
-	ImGui::SetNextWindowPos({ 16.0f, 16.0f }, ImGuiCond_FirstUseEver);
-	ImGui::SetNextWindowSize({ 560.0f, 640.0f }, ImGuiCond_FirstUseEver);
-	if (!ImGui::Begin("調整 (F4)", &g_Open))
+	// 左上のHUD(体力・減速ゲージ・状態)と重ならないよう、右側へ置きます。
+	constexpr float kWidth = 470.0f;
+	ImGui::SetNextWindowPos({ static_cast<float>(SCREEN_WIDTH) - kWidth - 16.0f, 16.0f }, ImGuiCond_FirstUseEver);
+	ImGui::SetNextWindowSize({ kWidth, 640.0f }, ImGuiCond_FirstUseEver);
+	ImGui::SetNextWindowBgAlpha(0.92f);
+	// 「×」はImGuiが直接書き換えるので、ローカルの値で受けて、閉じる処理は Reset の1経路にまとめます。
+	bool open = true;
+	const bool visible = ImGui::Begin("調整 (F4)", &open);
+	if (!visible)
 	{
 		ImGui::End();
-		if (!g_Open)
+		if (!open)
 		{
 			Reset();
 		}
@@ -370,7 +380,7 @@ void SlowTuningPanel::Draw()
 	ImGui::Separator();
 	DrawTuningList();
 	ImGui::End();
-	if (!g_Open)
+	if (!open)
 	{
 		Reset();
 	}

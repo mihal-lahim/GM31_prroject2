@@ -47,6 +47,13 @@ namespace SceneEditor
 
 	void SetActive(bool active);
 	bool IsActive();
+
+	// 編集モード以外のウィンドウ(調整パネルなど)が、カーソルを自由にしてほしいときに呼びます。
+	// カーソルの捕捉・表示とImGuiのカーソル設定は、「編集中か、これが立っているか」の合成条件でここだけが切り替えます。
+	// 両方とも外れたときだけ、ゲーム用の捕捉へ戻します(前面のウィンドウのときだけ捕らえ直します)。
+	void SetExternalCursorFree(bool free);
+	// 編集中か、ほかのウィンドウがカーソルを自由にしている間はtrueです。
+	bool IsCursorFree();
 	// 文字入力中はtrueです。ゲーム側のキー操作(Rでやり直し等)を止める判定に使います。
 	bool WantsKeyboard();
 
