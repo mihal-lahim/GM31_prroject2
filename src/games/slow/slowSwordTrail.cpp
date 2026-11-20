@@ -137,27 +137,35 @@ void SlowSwordTrail::Draw()
 		const XMFLOAT3 color = arc.Style.Color;
 
 		// 帯の頂点です。ring 0=内縁(透明)、1=主の帯、2=外縁の白い縁。三日月になるよう、両端へ向かって細くします。
+		const float startRadians = XMConvertToRadians(arc.Style.StartDegrees);
 		const auto vertexAt = [&](float s, int ring)
 		{
 			const float u = std::clamp((s - tail) / (head - tail), 0.0f, 1.0f);
+			// 両端へ向かって細くし、尾が消えていく側・先端側ともに、アルファも同じ割合で下げます。
 			const float taper = sinf(XM_PI * u);
-			const float theta = direction * (-sweep * 0.5f + sweep * s);
+			const float fade = taper * std::clamp((head - tail) * 2.5f, 0.0f, 1.0f) * (1.0f - tail * 0.7f);
+			const float theta = direction * (startRadians + sweep * s);
 			const Vector3 along = arc.A * cosf(theta) + arc.B * sinf(theta);
 			float r = radius;
 			XMFLOAT4 rgba{};
 			if (ring == 0)
 			{
+				// 内縁: 透明にして、空間へ自然にとかします。
 				r = radius - thickness * 0.5f * taper;
 				rgba = XMFLOAT4(color.x * 0.35f, color.y * 0.35f, color.z * 0.35f, 0.0f);
 			}
 			else if (ring == 1)
 			{
-				rgba = XMFLOAT4(color.x * brightness, color.y * brightness, color.z * brightness, 1.0f);
+				// 主の帯: 一番太い、鮮やかな色の帯です。
+				rgba = XMFLOAT4(color.x * brightness, color.y * brightness, color.z * brightness, fade);
 			}
 			else
 			{
-				r = radius + thickness * 0.35f * taper;
-				rgba = XMFLOAT4(1.2f, 1.2f, 1.2f, 1.0f);
+				// 外縁: 細い白寄りの縁です。主の色を白へ半分ほど寄せて、白く潰れないようにします。
+				r = radius + thickness * 0.12f * taper;
+				const float white = 0.55f;
+				rgba = XMFLOAT4(color.x + (1.0f - color.x) * white, color.y + (1.0f - color.y) * white,
+					color.z + (1.0f - color.z) * white, fade);
 			}
 			return MakeVertex(arc.Center + along * r, rgba);
 		};

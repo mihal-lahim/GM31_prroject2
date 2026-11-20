@@ -329,6 +329,7 @@ SlowSwordTrail::ArcStyle SlowPlayer::ArcStyleForAttack() const
 	if (m_AttackType == AttackType::Strong)
 	{
 		style.SweepDegrees = 320.0f;
+		style.StartDegrees = -160.0f;
 		style.Radius = 2.6f;
 		style.Tilt = XM_PIDIV2;
 		style.Direction = 1.0f;
@@ -337,8 +338,10 @@ SlowSwordTrail::ArcStyle SlowPlayer::ArcStyleForAttack() const
 	else if (m_ComboStep == 3)
 	{
 		style.SweepDegrees = 200.0f;
+		// 正面から頭の上を通って背後へ回す弧です。胸を中心に、下へ回り込まないよう始まりを正面寄りにします。
+		style.StartDegrees = -20.0f;
 		style.Radius = 2.3f;
-		style.Tilt = 0.5f;
+		style.Tilt = 0.3f;
 		style.Direction = 1.0f;
 		style.Color = XMFLOAT3(1.0f, 0.7f, 0.3f);
 	}
