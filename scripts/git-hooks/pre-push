@@ -1,0 +1,57 @@
+#!/usr/bin/env bash
+# git の pre-push フック: Claude Code からのプッシュの前に、プッシュするコミットを scripts/verify.ps1 で検証する
+# (プロジェクト境界の検証、影響するアプリの Debug/Release ビルドと --self-test)。失敗したらプッシュを止める。
+#
+# 有効にする(クローンごとに1回): git config core.hooksPath scripts/git-hooks
+#
+# 人が GitHub Desktop やターミナルからプッシュするときは何もしない(毎回数分かかるため)。
+# Claude Code が実行するコマンドには環境変数 CLAUDECODE が付くので、それで見分ける。
+# git のフックなので、Claude がどんな書き方で git push を実行しても必ず通る。
+
+if [ -z "$CLAUDECODE" ]; then
+    exit 0
+fi
+
+cd "$(git rev-parse --show-toplevel)" || exit 1
+head=$(git rev-parse HEAD) || exit 1
+zero="0000000000000000000000000000000000000000"
+status=0
+checked=0
+
+# 標準入力: プッシュする参照ごとに「<ローカルの参照> <ローカルのSHA> <リモートの参照> <リモートのSHA>」
+while read -r local_ref local_sha remote_ref remote_sha; do
+    [ -z "$local_sha" ] && continue
+    # ブランチの削除は検証しない。
+    [ "$local_sha" = "$zero" ] && continue
+
+    # ビルドは作業ツリーで行うので、HEAD 以外のコミットは正しく検証できない。
+    if [ "$local_sha" != "$head" ]; then
+        echo "[pre-push] $local_ref ($local_sha) は HEAD ではないため検証できません。HEAD をプッシュしてください。" >&2
+        status=1
+        continue
+    fi
+    [ "$checked" = 1 ] && continue
+    checked=1
+
+    if [ "$remote_sha" = "$zero" ] || ! git cat-file -e "$remote_sha^{commit}" 2>/dev/null; then
+        # リモートに無い新しいブランチなど、比べる相手が無いときは全アプリを検証する
+        # (-All ではなく -Pushed all にして、未コミットのファイルの確認も通す)。
+        args="-Pushed all"
+    else
+        args="-Pushed $remote_sha"
+    fi
+
+    echo "[pre-push] プッシュするコミットを検証します: scripts/verify.ps1 $args" >&2
+    # PowerShell の出力を UTF-8 にしないと、日本語のメッセージが文字化けする。
+    # < /dev/null: powershell.exe が stdin を読むと、このループの2行目以降の参照が消えて検証されなくなる。
+    powershell.exe -NoProfile -ExecutionPolicy Bypass -Command \
+        "[Console]::OutputEncoding = [Text.Encoding]::UTF8; & ./scripts/verify.ps1 $args; exit \$LASTEXITCODE" < /dev/null >&2
+    code=$?
+    if [ "$code" -ne 0 ]; then
+        echo "[pre-push] 検証に失敗したのでプッシュを止めました(終了コード $code)。" >&2
+        echo "[pre-push] 原因を直して新しいコミットを作り、もう一度プッシュしてください(--no-verify や force push で回避しないこと)。" >&2
+        status=1
+    fi
+done
+
+exit $status

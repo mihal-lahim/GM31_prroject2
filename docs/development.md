@@ -25,11 +25,18 @@ msbuild GM31_prroject2.slnx /p:Configuration=Debug /p:Platform=x64 /m
 ログと画像は **起動したフォルダー** に出ます。`bin\x64\Debug\<App>\` から起動すると、
 ビルド出力と一緒に git の管理外になります。リポジトリ直下から起動するとそこに出るので避けてください。
 
-変更を確かめるときは `scripts\verify.ps1` が便利です。未コミットの変更から影響するアプリを判断し
-(Engine やシェーダーなら6アプリすべて、`src/games/wire/` なら WireAction だけ、文書だけなら無し)、
-それだけを CI と同じく Debug と Release の両方でビルドして `--self-test` を実行します
-(警告をエラーにしているため、片方の構成だけ失敗することがあります)。`-Since origin/master` でプッシュ前のコミットも含め、
-`-All` で全アプリ、`-DryRun` で対象の表示だけ、`-Configuration Debug` で片方の構成だけを行います。VS Code では「タスク: テスト タスクの実行」から使えます。
+変更を確かめるときは `scripts\verify.ps1` が便利です。未コミットの変更から影響するアプリを判断し、
+CI と同じ確認(プロジェクト境界の検証、Debug と Release のビルド、`--self-test`)をそのアプリについて行います
+(警告をエラーにしているため、片方の構成だけ失敗することがあります)。
+
+- 影響の判断: Engine・シェーダー・共通設定なら6アプリすべて、`src/games/wire/` なら WireAction だけ、
+  `.vcxproj` に `RuntimeAsset` として登録されたファイル(アセット・`THIRD_PARTY.md` など)は登録しているアプリ、
+  文書・`scripts/`・`.vscode/` などビルドに使わないものは無し。どれにも当たらない場所は安全側に倒して全アプリです。
+- `-Since origin/master` でプッシュ前のコミットも含め、`-All` で全アプリ、`-DryRun` で対象の表示だけ、
+  `-Configuration Debug` で片方の構成だけを行います。VS Code では「タスク: テスト タスクの実行」から使えます。
+- Claude Code からのプッシュでは、git の pre-push フック([scripts/git-hooks/pre-push](../scripts/git-hooks/pre-push))が
+  `verify.ps1 -Pushed <リモートのSHA>` でプッシュするコミットを検証し、失敗したら止めます。人のプッシュでは動きません。
+  有効にするのは `git config core.hooksPath scripts/git-hooks`(Claude Code はセッション開始時に自動で設定します)。
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File scripts\verify.ps1

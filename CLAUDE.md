@@ -30,8 +30,14 @@
   - コミット前に `powershell -NoProfile -ExecutionPolicy Bypass -File scripts\verify.ps1` を実行する。
     未コミットの変更から影響するアプリを判断し、CI と同じく Debug と Release の両方でビルドして `--self-test` を実行する
     (文書だけなら何もしない)。失敗したら直してから再実行し、直せなければコミットせずユーザーに報告する。
-  - `git push` の直前には、フック(`.claude/hooks/pre-push-verify.sh`)がプッシュする全コミットを同じ方法で検証し、
-    失敗したらプッシュを止める。止められたら原因を直して新しいコミットを作る(force push や `--no-verify` で回避しない)。
+  - `git push` すると、git の pre-push フック([scripts/git-hooks/pre-push](scripts/git-hooks/pre-push))が
+    プッシュするコミット(`<リモート>..HEAD`)を同じ方法で検証し、失敗したらプッシュを止める。
+    フックは Claude Code から実行したときだけ動く(環境変数 `CLAUDECODE`)。人のプッシュには影響しない。
+    `core.hooksPath` は SessionStart フック(`.claude/settings.json`)が毎回設定する。
+  - プッシュの前に作業ツリーをきれいにしておく。ビルドに影響する未コミット・未追跡のファイルがあると、
+    プッシュする内容と違うものを検証することになるので、フックはプッシュを止める。
+  - 検証には数分かかることがあるので、`git push` は Bash の `timeout` を 600000 にして実行する。
+  - 止められたら原因を直して新しいコミットを作る(force push や `--no-verify` で回避しない)。
 - **アプリの実行**: アプリは GUI の実行ファイルなので、PowerShell から `.\App.exe --self-test` と直接呼ぶと終了を待たず結果が取れない。
   `scripts\run-self-tests.ps1` か `Start-Process -Wait -PassThru` を使う。
 - **メッセージ**: 日本語で「対象: 内容」の形にする。対象はゲーム名・`Engine`・`文書`・`ビルド` など。
