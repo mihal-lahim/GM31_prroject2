@@ -4,6 +4,7 @@
 #include "gameObject.h"
 #include "cameraView.h"
 #include "collisionWorld.h"
+#include "slowSwordTrail.h"
 
 class AnimationModel;
 class Audio;
@@ -202,7 +203,7 @@ private:
 	// 最後に合わせた剣の握りの位置と、刃の向き(単位ベクトル)です。減速中の斬撃の軌跡に使います。
 	Vector3 m_SwordGrip{ 0.0f, 0.0f, 0.0f };
 	Vector3 m_SwordAxis{ 0.0f, 1.0f, 0.0f };
-	// 剣閃(剣が通った跡)です。シーンが生成し、ここから剣の位置を渡します。
+	// 斬り抜きの軌跡(スラッシュアーク)です。シーンが生成し、ここへ円弧を出します。
 	SlowSwordTrail* m_Trail = nullptr;
 	State m_State = State::Move;
 	AttackType m_AttackType = AttackType::None;
@@ -236,8 +237,8 @@ private:
 	float m_LeanPreviousYaw = 0.0f;
 	// 溜めに入ってからの実時間です。剣の震えの波に使います。
 	float m_ChargeTime = 0.0f;
-	// 攻撃を始めた直後に立ち、次に剣閃へ渡すとき新しい跡として始めます。
-	bool m_TrailStrokePending = false;
+	// 攻撃を始めた直後に立ち、斬り抜きの瞬間に円弧を1本出すための印です。
+	bool m_ArcPending = false;
 	// 当たる瞬間の位相(Start〜Endを0〜1)です。クリップの位相で当たりを出すときに使います。
 	float m_AttackHitPhase = 0.0f;
 	// trueなら当たりはクリップの位相(ActionPassed)で出し、falseなら秒数(クリップが読めないとき)で出します。
@@ -266,10 +267,10 @@ private:
 	void UpdateSword();
 	// 減速中だけ、ダッシュと攻撃に青白い軌跡を実時間で付けます。
 	void EmitSlowTrail();
-	// 攻撃の振りの間、剣閃に剣の根元と切っ先を渡します。
-	void UpdateSwordTrail();
-	// 剣閃の色です。段と強攻撃で色を変え、減速中は寒色へ寄せます。
-	XMFLOAT4 SwordTrailColor() const;
+	// 斬り抜きの瞬間に、三日月型の円弧(スラッシュアーク)を1本出します。
+	void UpdateSwordArc();
+	// 段と技ごとの円弧の形と色です。減速中は鮮やかなシアンへ寄せます。
+	SlowSwordTrail::ArcStyle ArcStyleForAttack() const;
 };
 
 // 効果音です。シーンが持つ音源の組から鳴らします。音源がなければ何もしません(テスト中など)。

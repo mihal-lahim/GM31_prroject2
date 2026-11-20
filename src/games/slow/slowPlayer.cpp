@@ -292,52 +292,77 @@ void SlowPlayer::Update()
 	{ Vector3 value = GetRotation(); value.y = m_Yaw; SetRotation(value); }
 	UpdateAnimation(deltaTime);
 	EmitSlowTrail();
-	UpdateSwordTrail();
+	UpdateSwordArc();
 }
 
-void SlowPlayer::UpdateSwordTrail()
+// 斬り抜きの軌跡: 振りの位相が当たる位置の少し手前に来たら、胸あたりを中心に大きな円弧を1本出します。
+// 段と技で形と色が変わります(ArcStyleForAttack)。出すのは1振りにつき1回で、ダッシュで止めたときは出しません。
+void SlowPlayer::UpdateSwordArc()
 {
 	if (m_Trail == nullptr)
 	{
 		m_Trail = GetWorld().FindFirst<SlowSwordTrail>();
 	}
-	if (m_Trail == nullptr || !m_SwordAttached)
+	if (m_Trail == nullptr || !m_ArcPending || m_State != State::Attack || m_Model == nullptr)
 	{
 		return;
 	}
-	// 攻撃が変わったら、前の振りの跡とは繋げず、新しい跡から始めます。
-	if (m_TrailStrokePending && m_State == State::Attack)
-	{
-		m_Trail->BeginStroke();
-		m_TrailStrokePending = false;
-	}
-	// 振りの途中だけ跡を残します。振りかぶりの後半から、振り抜いて残心の序盤まで。
-	// 攻撃を途中で止めたとき(ダッシュキャンセル)は、新しい跡を作らず、古い跡が薄れて消えます。
-	if (m_State != State::Attack || m_AttackDuration <= 0.0f)
+	const float phase = m_Model->GetActionTime();
+	if (phase < 0.0f)
 	{
 		return;
 	}
-	const float progress = m_AttackTime / m_AttackDuration;
-	if (progress < 0.2f || progress > 0.85f)
+	const float spawnPhase = m_AttackHitPhase - GetSlowActionTuning().ArcSpawnLeadPhase;
+	if (phase < spawnPhase)
 	{
 		return;
 	}
-	const SlowActionTuning& tuning = GetSlowActionTuning();
-	const float blade = kSwordBladeLength * tuning.SwordScale;
-	const Vector3 root = m_SwordGrip + m_SwordAxis * (blade * (1.0f - std::clamp(tuning.SwordTrailWidth, 0.0f, 1.0f)));
-	const Vector3 tip = m_SwordGrip + m_SwordAxis * (blade * tuning.SwordTrailTipExtend);
-	m_Trail->AddSample(root, tip, SwordTrailColor());
+	m_ArcPending = false;
+	m_Trail->SpawnArc(GetPosition() + Vector3(0.0f, 1.0f, 0.0f), m_Yaw, ArcStyleForAttack());
 }
 
-// 通常の1・2段目は白〜薄水色、3段目と強攻撃は黄金〜オレンジ。減速中は鮮やかなシアンへ寄せます。
-XMFLOAT4 SlowPlayer::SwordTrailColor() const
+// 1・2段目は斜めの横薙ぎ(逆の傾きと回り方向)、3段目は大きく縦寄りの弧、強攻撃は体ごと回る水平の大弧です。
+// 色は白〜水色、3段目と強攻撃は黄金です。減速中は鮮やかなシアンへ寄せます。
+SlowSwordTrail::ArcStyle SlowPlayer::ArcStyleForAttack() const
 {
-	const bool heavy = m_AttackType == AttackType::Strong || (m_AttackType == AttackType::Normal && m_ComboStep == 3);
-	const XMFLOAT4 base = heavy ? XMFLOAT4{ 1.0f, 0.78f, 0.35f, 1.0f } : XMFLOAT4{ 0.85f, 0.95f, 1.0f, 1.0f };
+	SlowSwordTrail::ArcStyle style;
+	if (m_AttackType == AttackType::Strong)
+	{
+		style.SweepDegrees = 320.0f;
+		style.Radius = 2.6f;
+		style.Tilt = XM_PIDIV2;
+		style.Direction = 1.0f;
+		style.Color = XMFLOAT3(1.0f, 0.78f, 0.35f);
+	}
+	else if (m_ComboStep == 3)
+	{
+		style.SweepDegrees = 200.0f;
+		style.Radius = 2.3f;
+		style.Tilt = 0.5f;
+		style.Direction = 1.0f;
+		style.Color = XMFLOAT3(1.0f, 0.7f, 0.3f);
+	}
+	else if (m_ComboStep == 2)
+	{
+		style.SweepDegrees = 165.0f;
+		style.Radius = 2.0f;
+		style.Tilt = 1.9f;
+		style.Direction = -1.0f;
+		style.Color = XMFLOAT3(0.85f, 0.95f, 1.0f);
+	}
+	else
+	{
+		style.SweepDegrees = 165.0f;
+		style.Radius = 2.0f;
+		style.Tilt = 1.2f;
+		style.Direction = 1.0f;
+		style.Color = XMFLOAT3(0.85f, 0.95f, 1.0f);
+	}
 	const float slow = SlowTimeFx::GetIntensity() > 0.05f ? SlowTimeFx::GetIntensity() : 0.0f;
-	const XMFLOAT4 cyan{ 0.35f, 0.95f, 1.0f, 1.0f };
-	return XMFLOAT4(base.x + (cyan.x - base.x) * slow, base.y + (cyan.y - base.y) * slow,
-		base.z + (cyan.z - base.z) * slow, 1.0f);
+	const XMFLOAT3 cyan{ 0.35f, 0.95f, 1.0f };
+	style.Color = XMFLOAT3(style.Color.x + (cyan.x - style.Color.x) * slow,
+		style.Color.y + (cyan.y - style.Color.y) * slow, style.Color.z + (cyan.z - style.Color.z) * slow);
+	return style;
 }
 
 // 止まった世界の中で自分だけ速く動いていることを見せる軌跡です。粒は実時間(チャンネル0)で消えるので、
@@ -578,7 +603,7 @@ void SlowPlayer::StartAttack(AttackType type, const SlowInputState& input)
 	m_BufferedAttack = AttackType::None;
 	m_AttackTime = 0.0f;
 	m_AttackHitDone = false;
-	m_TrailStrokePending = true;
+	m_ArcPending = true;
 	if (type == AttackType::Normal)
 	{
 		m_ComboStep = chained ? m_ComboStep % 3 + 1 : 1;

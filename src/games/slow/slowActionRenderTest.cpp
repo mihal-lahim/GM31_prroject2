@@ -300,6 +300,7 @@ bool RunSlowActionRenderTest()
 	{
 		// ヒットストップで攻撃の進みが遅れるので、フレーム数ではなく攻撃の経過時間で受付の時刻を合わせます。
 		const float duration = h.Player()->GetAttackDuration();
+		h.Log << "combo step " << h.Player()->GetComboStep() << " length " << duration << std::endl;
 		for (int i = 0; i < 600 && h.Player()->GetState() == State::Attack
 			&& h.Player()->GetAttackElapsed() < duration - tuning.AttackBufferSeconds + 0.01f; ++i) h.Step();
 		h.Input.Attack = true;
@@ -860,6 +861,8 @@ bool RunSlowActionRenderTest()
 		h.Step(2);
 		h.Input.Attack = false;
 		h.Step();
+		// 攻撃の後に移動入力が残ると、振りが終わってから体が入力の向きへ寄ってしまうので、ここで離します。
+		h.Input.MoveZ = 0.0f;
 		const float yawStart = h.Player()->GetYaw();
 		h.Step();
 		const float yawAfterOne = h.Player()->GetYaw();
@@ -875,35 +878,35 @@ bool RunSlowActionRenderTest()
 			fabsf(SlowUtil::WrapAngle(yawLater - yawEnd)));
 	}
 
-	// ---- 剣閃: 振りの途中だけ跡が出て、振り終わると実時間で消える ----
+	// ---- 斬り抜きの軌跡: 斬り抜きの瞬間に円弧が1本出て、先端が伸び、尾が消えて、なくなる ----
 	{
 		SlowSwordTrail* trail = h.GetWorld().FindFirst<SlowSwordTrail>();
-		h.Check("sword trail exists", trail != nullptr);
+		h.Check("sword arc trail exists", trail != nullptr);
 		h.Settle(openSpot, yawPlusX);
 		h.Input.Attack = true;
 		h.Step(2);
 		h.Input.Attack = false;
-		bool captured = false;
-		int peak = 0;
-		// 攻撃は左クリックを離した瞬間に始まるので、離したフレームを進めてから振りを追います。
+		// 攻撃は左クリックを離した瞬間に始まるので、離したフレームを進めてから斬り抜きを追います。
 		h.Step();
+		int peakArcs = 0;
+		bool captured = false;
 		for (int frame = 0; frame < 600 && h.Player()->GetState() == State::Attack; ++frame)
 		{
 			h.Step();
-			if (trail != nullptr) peak = (std::max)(peak, trail->GetSampleCount());
-			// 振りの真ん中(当たる瞬間の少し後)で画面を撮ります。
-			if (!captured && h.Player()->GetAttackElapsed() > h.Player()->GetAttackDuration() * 0.5f)
+			if (trail != nullptr) peakArcs = (std::max)(peakArcs, trail->GetArcCount());
+			// 斬り抜き(当たる瞬間)の直後で画面を撮ります。円弧が伸びきって、尾が追いかけ始めた頃です。
+			if (!captured && h.Player()->GetAttackElapsed() > h.Player()->GetAttackHitDelay() + 0.03f)
 			{
 				h.Draw();
-				h.Check("capture sword trail", Capture(L"slow-render-sword-trail.png"));
+				h.Check("capture sword arc", Capture(L"slow-render-sword-trail.png"));
 				captured = true;
 			}
 		}
-		h.Check("sword trail follows the swing", peak >= 4, static_cast<float>(peak));
-		// 振りが終わった後は、0.22秒で跡がすべて消えます(実時間)。
-		h.Step(20);
-		h.Check("sword trail fades out after the swing", trail != nullptr && trail->GetSampleCount() == 0,
-			trail != nullptr ? static_cast<float>(trail->GetSampleCount()) : -1.0f);
+		h.Check("sword arc appears on the slash", peakArcs == 1, static_cast<float>(peakArcs));
+		// 円弧は尾まで消え切ると外れます(先端0.10秒・尾0.07秒の遅れ+0.22秒)。
+		h.Step(40);
+		h.Check("sword arc is gone after its tail passes", trail != nullptr && trail->GetArcCount() == 0,
+			trail != nullptr ? static_cast<float>(trail->GetArcCount()) : -1.0f);
 	}
 
 	SlowInput::SetOverride(nullptr);

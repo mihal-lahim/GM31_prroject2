@@ -5,39 +5,52 @@
 
 #include <vector>
 
-// 剣が通った跡の光の帯(剣閃)です。プレイヤーが毎フレーム、剣の根元と切っ先を AddSample で渡し、
-// 60Hz の間は Catmull-Rom で滑らかにつないで描きます。古い跡は実時間で薄れて消えます。
-// 攻撃の振りの間だけ追加するので、振り終わると跡は自然に消えていきます。編集モードでは消します。
+// 斬り抜きの軌跡(スラッシュアーク)です。斬り抜きの瞬間に、プレイヤーの胸あたりを中心とした大きな三日月型の円弧を
+// 1本出します。先端(ヘッド)が素早く伸び切ったあと、尾(テール)が追いかけて細く消えていきます。
+// 手首の細かな動きには追従しないので、軌跡が折れ曲がらず、大きく派手に見えます。
+// 円弧は出た場所に残り、実時間で動きます(ヒットストップ中は止まります)。編集モード・シーンの終わりでは全部消します。
 class SlowSwordTrail final : public GameObject
 {
 public:
+	// 円弧の形と色です。段と技ごとに、プレイヤーが決めて渡します。
+	struct ArcStyle
+	{
+		// 展開角(度)。回り切る角度です。
+		float SweepDegrees = 165.0f;
+		// 中心からの半径(m)です。
+		float Radius = 2.0f;
+		// 弧の面の傾き(ラジアン)。0で縦(頭の上を通る)、π/2で水平です。
+		float Tilt = 1.57f;
+		// 回り方向です。+1と-1で、弧が左から右へ、右から左へ伸びます。
+		float Direction = 1.0f;
+		// 主の色です。中ほどの帯と、先端の白い縁の色に使います。
+		XMFLOAT3 Color{ 0.85f, 0.95f, 1.0f };
+	};
+
 	void Init() override;
 	void Update() override;
 	void Uninit() override;
 	void Draw() override;
 
-	// 1フレーム分の剣の根元と切っ先です。colorは根元側の基準の色で、切っ先側は明るく描きます。
-	void AddSample(const Vector3& root, const Vector3& tip, const XMFLOAT4& color);
-	// 次の振りの跡を始めます。前の振りの跡とは繋げず、振りごとに別々の帯にします。
-	void BeginStroke() { ++m_Stroke; }
-	// 跡をすべて消します。編集モードに入ったときや、シーンを終えるときに使います。
-	void Clear() { m_Samples.clear(); }
-	int GetSampleCount() const { return static_cast<int>(m_Samples.size()); }
+	// 斬り抜きの瞬間に、center(胸あたり)を中心に1本の円弧を出します。yawは出したときのプレイヤーの向きです。
+	void SpawnArc(const Vector3& center, float yaw, const ArcStyle& style);
+	// 全部の円弧を消します。編集モードに入ったとき、やり直し、シーンの終わりに使います。
+	void Clear() { m_Arcs.clear(); }
+	int GetArcCount() const { return static_cast<int>(m_Arcs.size()); }
 
 private:
-	struct Sample
+	struct Arc
 	{
-		Vector3 Root{ 0.0f, 0.0f, 0.0f };
-		Vector3 Tip{ 0.0f, 0.0f, 0.0f };
-		XMFLOAT4 Color{ 1.0f, 1.0f, 1.0f, 1.0f };
-		// 追加されてからの実時間(ヒットストップ中は止まります)です。
+		Vector3 Center{ 0.0f, 0.0f, 0.0f };
+		// 弧の面の2本の基底です。Aは正面、Bは面に直交する向きです。
+		Vector3 A{ 0.0f, 0.0f, 1.0f };
+		Vector3 B{ 1.0f, 0.0f, 0.0f };
+		ArcStyle Style;
+		// 出てからの実時間です。
 		float Age = 0.0f;
-		// 同じ振りの跡なら同じ番号です。番号が違う隣どうしは繋ぎません。
-		int Stroke = 0;
 	};
 
-	std::vector<Sample> m_Samples;
-	int m_Stroke = 0;
+	std::vector<Arc> m_Arcs;
 	std::vector<Engine::VERTEX_3D> m_Vertices;
 	ComPtr<ID3D11Buffer> m_VertexBuffer;
 	ComPtr<ID3D11InputLayout> m_VertexLayout;
