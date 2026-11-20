@@ -187,6 +187,11 @@ public:
 	// 再生中のベース層のクリップ名(Idle/Run/Dash)と腰の位置です。テストと確認用です。
 	const std::string& GetAnimationName() const;
 	bool GetHipsWorldPosition(Vector3& position) const;
+	// 移動のブレンドツリー(Locomotion)で、clip(Idle/Run/Dash)が占める割合です。テストと確認用です。
+	float GetLocomotionWeight(const char* clip) const;
+	// 旋回で体を傾けている角度と、ダッシュで前へ傾けている角度(度)です。テストと確認用です。
+	float GetBankDegrees() const { return m_BankDegrees; }
+	float GetLeanDegrees() const { return m_LeanDegrees; }
 
 private:
 	Collider* m_Collider = nullptr;
@@ -225,6 +230,10 @@ private:
 	// 踏み込む距離の全体と、今までに進んだ距離です(当たる瞬間に全体へ達するイーズアウトで進めます)。
 	float m_LungeTotal = 0.0f;
 	float m_LungeTravelled = 0.0f;
+	// 体の傾き(度)と、傾きを求めるための前の向きです。
+	float m_BankDegrees = 0.0f;
+	float m_LeanDegrees = 0.0f;
+	float m_LeanPreviousYaw = 0.0f;
 	// 当たる瞬間の位相(Start〜Endを0〜1)です。クリップの位相で当たりを出すときに使います。
 	float m_AttackHitPhase = 0.0f;
 	// trueなら当たりはクリップの位相(ActionPassed)で出し、falseなら秒数(クリップが読めないとき)で出します。
@@ -245,6 +254,8 @@ private:
 	bool TryMove(const Vector3& offset);
 	// 状態と速さに合わせてアニメーションを選び、実時間で進めます。
 	void UpdateAnimation(float deltaTime);
+	// 旋回の角速度から体を内側へ傾け、ダッシュでは前へ傾けます。攻撃・溜め・停止では0へ戻します。
+	void UpdateBodyLean(float deltaTime, bool planted, bool dashing, float speed);
 	// 剣を右手の骨に合わせます。アニメーションを進めた後に呼びます。
 	void UpdateSword();
 	// 減速中だけ、ダッシュと攻撃に青白い軌跡を実時間で付けます。

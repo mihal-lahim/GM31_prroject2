@@ -227,12 +227,13 @@ bool RunSlowActionRenderTest()
 	}
 	h.Check("walk clip stays in place", walkFarthest >= 0.0f && walkFarthest < 0.4f, walkFarthest);
 	h.Check("walk speed", fabsf(h.Player()->GetSpeed() - tuning.WalkSpeed) < 0.1f, h.Player()->GetSpeed());
-	h.Check("walk plays run clip", h.Player()->GetAnimationName() == "Run");
+	// 移動は1Dブレンドツリー(Locomotion)で、歩きの速さでは Run の割合が1になります。
+	h.Check("walk plays run clip", h.Player()->GetAnimationName() == "Locomotion"
+		&& h.Player()->GetLocomotionWeight("Run") > 0.9f, h.Player()->GetLocomotionWeight("Run"));
 	h.Input.Dash = true;
 	h.Step(1);
 	h.Check("dash starts at full speed", h.Player()->GetState() == State::Dash
 		&& fabsf(h.Player()->GetSpeed() - tuning.DashSpeed) < 0.1f, h.Player()->GetSpeed());
-	h.Check("dash plays dash clip", h.Player()->GetAnimationName() == "Dash");
 	{
 		// ダッシュのクリップは腰が前へ進むので、その場に固定できていないと体がカプセルから離れていきます。
 		float farthest = 0.0f;
@@ -242,6 +243,11 @@ bool RunSlowActionRenderTest()
 			farthest = (std::max)(farthest, hipsOffset());
 		}
 		h.Check("dash clip stays in place", farthest < 0.4f, farthest);
+		// 速さの変化は0.1秒かけて混ぜるので、上の30フレームの後には混ぜ終わっています。
+		h.Check("dash plays dash clip", h.Player()->GetAnimationName() == "Locomotion"
+			&& h.Player()->GetLocomotionWeight("Dash") > 0.9f, h.Player()->GetLocomotionWeight("Dash"));
+		// ダッシュの前傾が効いている(速さに合わせて少しずつ)。
+		h.Check("dash leans forward", h.Player()->GetLeanDegrees() > 3.0f, h.Player()->GetLeanDegrees());
 	}
 	// 真横へ切り返した直後は、まだ前向きの速度が残っています(慣性)。
 	h.Input.MoveZ = 0.0f;
@@ -816,6 +822,30 @@ bool RunSlowActionRenderTest()
 			&& target->GetHp() == hpLaunched - 1 - tuning.PursuitDamageBonus, static_cast<float>(target->GetHp()));
 		target->MarkForDestroy();
 		h.Step();
+	}
+
+	// ---- 旋回の傾き: 曲がっている間は内側へ傾き、止まると起き上がる ----
+	{
+		h.Settle(openSpot, 0.0f);
+		h.Input.MoveZ = 1.0f;
+		h.Step(20);
+		h.Input.MoveX = 1.0f;
+		float leaning = 0.0f;
+		for (int i = 0; i < 6; ++i)
+		{
+			h.Step();
+			leaning = (std::max)(leaning, fabsf(h.Player()->GetBankDegrees()));
+			if (i == 2)
+			{
+				h.Draw();
+				h.Check("capture turn lean", Capture(L"slow-render-turn.png"));
+			}
+		}
+		h.Input = SlowInputState{};
+		h.Step(90);
+		h.Check("body leans into a turn", leaning > 3.0f && leaning <= tuning.BankMaxDegrees + 0.01f, leaning);
+		h.Check("body stands up again when stopped", fabsf(h.Player()->GetBankDegrees()) < 0.5f
+			&& fabsf(h.Player()->GetLeanDegrees()) < 0.5f, fabsf(h.Player()->GetBankDegrees()));
 	}
 
 	// ---- 攻撃の出だし: 向き直りは一瞬ではなく、攻撃を出してから時間をかけて終わる ----

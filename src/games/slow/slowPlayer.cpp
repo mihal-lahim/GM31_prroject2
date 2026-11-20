@@ -135,7 +135,15 @@ void SlowPlayer::Init()
 		m_Model->SetShaderFloat("bump", 0.0f);
 		m_Model->SetShaderFloat("rim", 0.45f);
 	}
-	m_Model->PlayAnimation("Idle", 0.0f);
+	// 移動は速さで Idle→Run→Dash を滑らかに混ぜる1Dブレンドツリーです(止まる・歩く・走る切り替えのカクつきを消す)。
+	// RunとDashは足運びの位相をそろえ、Idleは自分の速さで再生します。
+	// Runは歩きの速さ(WalkSpeed)で、Dashはダッシュの速さ(DashSpeed)に合うように再生倍率を決めます。
+	Anim::BlendClip idle{ "Idle", 0.0f, { 1.0f, 0.0f, 1.0f, true }, false };
+	Anim::BlendClip run{ "Run", tuning.WalkSpeed, { 1.0f, 0.0f, 1.0f, true }, true };
+	Anim::BlendClip dash{ "Dash", tuning.DashSpeed, { tuning.DashSpeed / kDashClipSpeed, 0.0f, 1.0f, true }, true };
+	m_Model->AddBlendSpace1D("Locomotion", "Speed", { idle, run, dash }, 0.1f);
+	m_Model->SetParameter("Speed", 0.0f);
+	m_Model->PlayAnimation("Locomotion", 0.0f);
 	m_Model->TickAnimation(0.0f);
 	// 大剣(50Swords の Sword138、CC0)。握りが原点・刃が+Yのモデルを、右手の骨に合わせて描きます。
 	m_Sword = AddComponent<ModelRenderer>();
@@ -371,22 +379,11 @@ void SlowPlayer::UpdateAnimation(float deltaTime)
 	// 攻撃中は動かないのでベース層は待機にし、斬る動きはアクション層(StartAttackのPlayAction)で重ねます。
 	const bool planted = m_State == State::Attack || m_State == State::Charge;
 	const float speed = planted ? 0.0f : m_Velocity.length();
-	const bool running = speed > 0.5f;
-	const bool dashing = m_State == State::Dash && running;
-	// 走りは速さに合わせて再生を速め、足が滑って見えないようにします。
-	// ダッシュのクリップは元の速さ(kDashClipSpeed)を基準に、DashSpeedで再生倍率を決めます。
-	float playback = 1.0f;
-	if (dashing)
-	{
-		playback = std::clamp(speed / kDashClipSpeed, 0.8f, 2.5f);
-	}
-	else if (running)
-	{
-		playback = std::clamp(speed / tuning.WalkSpeed, 0.8f, 2.2f);
-	}
-	m_Model->SetPlayback(playback);
-	const char* clip = dashing ? "Dash" : (running ? "Run" : "Idle");
-	m_Model->PlayAnimation(clip, planted ? 0.08f : 0.15f);
+	const bool dashing = m_State == State::Dash && speed > 0.5f;
+	// 移動は速さ(Speed)で Idle→Run→Dash を混ぜる1Dブレンドツリーです。攻撃・溜めの間は速さを0にして待機側へ寄せます。
+	m_Model->SetParameter("Speed", speed);
+	m_Model->PlayAnimation("Locomotion", planted ? 0.08f : 0.15f);
+	UpdateBodyLean(deltaTime, planted, dashing, speed);
 	// 通常攻撃は振りの位相に合わせて再生倍率に緩急を付けます(振りかぶりはため、斬り抜きで一気に、振り終わりで緩める)。
 	if (m_State == State::Attack && m_AttackType == AttackType::Normal && m_Model->GetActionTime() >= 0.0f)
 	{
@@ -396,6 +393,32 @@ void SlowPlayer::UpdateAnimation(float deltaTime)
 	// ヒットストップ中はGameTimeが遅くなるので、体の動きも一緒に止まります。
 	m_Model->TickAnimation(deltaTime);
 	UpdateSword();
+}
+
+void SlowPlayer::UpdateBodyLean(float deltaTime, bool planted, bool dashing, float speed)
+{
+	const SlowActionTuning& tuning = GetSlowActionTuning();
+	// 向きが変わった分を実時間で割って、旋回の速さ(ラジアン/秒)にします。止まっている間は変化を見ません。
+	float yawRate = 0.0f;
+	if (deltaTime > 1e-4f)
+	{
+		yawRate = WrapAngle(m_Yaw - m_LeanPreviousYaw) / deltaTime;
+	}
+	m_LeanPreviousYaw = m_Yaw;
+	const bool turning = !planted && speed > 0.5f;
+	// 曲がるほど進行方向の内側へ傾けます。攻撃・溜め・停止では0へ戻します。
+	const float bankTarget = turning
+		? std::clamp(-yawRate * tuning.BankDegreesPerYawRate, -tuning.BankMaxDegrees, tuning.BankMaxDegrees) : 0.0f;
+	const float leanTarget = dashing ? tuning.DashLeanDegrees : 0.0f;
+	const float blend = std::clamp(deltaTime * tuning.BankSmoothing, 0.0f, 1.0f);
+	m_BankDegrees += (bankTarget - m_BankDegrees) * blend;
+	m_LeanDegrees += (leanTarget - m_LeanDegrees) * blend;
+	m_Model->SetBodyLean(XMConvertToRadians(m_BankDegrees), XMConvertToRadians(m_LeanDegrees));
+}
+
+float SlowPlayer::GetLocomotionWeight(const char* clip) const
+{
+	return m_Model != nullptr && clip != nullptr ? m_Model->GetAnimator().GetBlendSpaceWeight(clip) : 0.0f;
 }
 
 // 剣の向きは、握った手の指の骨から作ります。回転の調整値を持たないので、どのモーションでも手に沿います。

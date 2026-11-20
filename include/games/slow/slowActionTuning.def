@@ -267,3 +267,13 @@ SLOW_TUNING_FLOAT(ComboFollowScale, 0.28f)
 SLOW_TUNING_FLOAT(AttackTurnSeconds, 0.07f)
 // 攻撃が終わってから構えを解くまでの秒数です(ダッシュで打ち切るときは短く解きます)。
 SLOW_TUNING_FLOAT(AttackFadeOutSeconds, 0.28f)
+
+// ---- 体の傾き(旋回バンクとダッシュの前傾) ----
+// 旋回のとき、進行方向の内側へ傾ける最大の角度(度)です。攻撃・溜め・停止では0へ戻します。
+SLOW_TUNING_FLOAT(BankMaxDegrees, 12.0f)
+// 旋回の速さ(ラジアン/秒)1あたりの傾き(度)です。
+SLOW_TUNING_FLOAT(BankDegreesPerYawRate, 1.0f)
+// 傾きが目標へ近づく速さ(1/秒)です。
+SLOW_TUNING_FLOAT(BankSmoothing, 8.0f)
+// ダッシュ中に前へ傾ける角度(度)です。
+SLOW_TUNING_FLOAT(DashLeanDegrees, 6.0f)
