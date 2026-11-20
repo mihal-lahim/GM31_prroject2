@@ -148,7 +148,7 @@ void AnimationModel::Draw()
 		context->PSSetShader(m_PixelShader.Get(), nullptr, 0);
 	}
 
-	Engine::Renderer::SetWorldMatrix(GetWorldMatrix());
+	Engine::Renderer::SetWorldMatrix(GetDrawWorldMatrix());
 
 	// プリミティブトポロジ設定
 	context->IASetPrimitiveTopology(
@@ -224,7 +224,7 @@ void AnimationModel::DrawShadow()
 		return;
 	}
 	Engine::ShadowMap::BindCaster(false);
-	Engine::Renderer::SetWorldMatrix(GetWorldMatrix());
+	Engine::Renderer::SetWorldMatrix(GetDrawWorldMatrix());
 	context->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 	UINT stride = sizeof(Engine::VERTEX_3D);
 	UINT offset = 0;
@@ -1049,3 +1049,10 @@ void AnimationModel::UpdateBoneMatrix(aiNode* node, aiMatrix4x4 matrix)
 
 }
 
+
+XMMATRIX AnimationModel::GetDrawWorldMatrix() const
+{
+	if (m_GameObject == nullptr) return GetWorldMatrix();
+	const Vector3 offset = m_GameObject->GetDrawOffset();
+	return GetWorldMatrix() * XMMatrixTranslation(offset.x, offset.y, offset.z);
+}

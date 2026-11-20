@@ -543,6 +543,38 @@ namespace
 		return channelsOk && NearlyEqual(Engine::GameTime::GetChannelScale(1), 1.0f);
 	}
 
+	// ヒットストップの残りの割合は始めた直後が1で、止めている最後のフレームへ向けて減り、終われば0です。
+	// kHitStopFreeChannel はヒットストップを受けず、ポーズでは止まり、倍率も変えられません。
+	bool TestHitStopProgress()
+	{
+		Engine::GameTime::Init();
+		Engine::GameTime::Update(0.02f);
+		bool ok = Engine::GameTime::GetHitStopRemainingRatio() == 0.0f && !Engine::GameTime::IsHitStopActive();
+		Engine::GameTime::StartHitStop(4, 0.1f);
+		ok = ok && NearlyEqual(Engine::GameTime::GetHitStopRemainingRatio(), 1.0f) && Engine::GameTime::IsHitStopActive();
+		const float expected[] = { 1.0f, 0.75f, 0.5f, 0.25f };
+		for (float ratio : expected)
+		{
+			Engine::GameTime::Update(0.02f);
+			ok = ok && NearlyEqual(Engine::GameTime::GetHitStopRemainingRatio(), ratio)
+				&& NearlyEqual(Engine::GameTime::GetDeltaTime(), 0.002f)
+				&& NearlyEqual(Engine::GameTime::GetChannelDeltaTime(Engine::GameTime::kHitStopFreeChannel), 0.02f);
+		}
+		Engine::GameTime::Update(0.02f);
+		ok = ok && Engine::GameTime::GetHitStopRemainingRatio() == 0.0f && !Engine::GameTime::IsHitStopActive()
+			&& NearlyEqual(Engine::GameTime::GetDeltaTime(), 0.02f);
+
+		Engine::GameTime::SetChannelScale(Engine::GameTime::kHitStopFreeChannel, 0.25f);
+		Engine::GameTime::SetTimeScale(0.5f);
+		Engine::GameTime::Update(0.02f);
+		ok = ok && NearlyEqual(Engine::GameTime::GetChannelDeltaTime(Engine::GameTime::kHitStopFreeChannel), 0.01f);
+		Engine::GameTime::SetPaused(true);
+		Engine::GameTime::Update(0.02f);
+		ok = ok && Engine::GameTime::GetChannelDeltaTime(Engine::GameTime::kHitStopFreeChannel) == 0.0f;
+		Engine::GameTime::Init();
+		return ok;
+	}
+
 	// 時間チャンネル1の粒は、倍率に合わせて動き・寿命・縮小が遅くなります。チャンネル0は従来どおり
 	// 1フレームに寿命1・縮小1回ぶん進み、チャンネル1の倍率を変えても影響を受けません。
 	bool TestParticleTimeChannel()
@@ -1043,6 +1075,7 @@ bool RunEngineSelfTests()
 		{ "render ordering", TestRenderOrdering },
 		{ "render tie break keeps submission order", TestRenderTieBreakKeepsSubmissionOrder },
 		{ "game time", TestGameTime },
+		{ "hit stop progress", TestHitStopProgress },
 		{ "particle time channel", TestParticleTimeChannel },
 		{ "input action bindings", TestInputActionBindings },
 		{ "scene serialization", TestSceneSerialization },

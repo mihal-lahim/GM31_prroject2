@@ -170,6 +170,9 @@ Engineの型はすべて `Engine::` 名前空間にあります(`Engine::Rendere
   全チャンネルにかかります。チャンネルはSceneを切り替えるたびに元に戻ります。SlowActionのWorld時間は
   チャンネル1です。`ParticleSystem::Emit` の最後の引数 `timeChannel` でパーティクルもチャンネルに載せられ、
   動き・寿命・縮小がその時間で進み、ヒットストップとポーズでも止まります(既定の0は従来どおり1フレームごと)。
+  例外はチャンネル `GameTime::kHitStopFreeChannel`(7)で、ヒットストップを受けません(ポーズと `SetTimeScale` は効きます)。
+  止まった画面の中で火花だけを動かすような演出に使います。ヒットストップの残りは `GetHitStopRemainingRatio()`(1→0)で読めます。
+  パーティクルの重ね方は `ParticleSystem::Blend` で選べ、`Alpha`(暗い煙など)は `Additive`(光る火花)より先に描きます。
 - **キャラクターの移動** — `Engine::CharacterMover::TryMove` と `MoveAndSlide`(`characterMover.h`)は、
   オブジェクトを動かし、Colliderが指定したレイヤーと重なるなら移動を取り消します。軸ごとに動かすので
   壁に沿って滑ります。
@@ -229,6 +232,9 @@ Vector3 rotation = GetRotation();
 rotation.y += yawDelta;
 SetRotation(rotation);
 ```
+
+見た目だけをずらしたいとき(ヒットストップの震えなど)は `SetDrawOffset` を使います。持ち主の変換で描く
+`ModelRenderer` と `AnimationModel` が描く位置にだけ足すので、位置・当たり判定・骨の位置の問い合わせは動きません。
 
 向きを返す関数(`GetForward`、`GetRight`、`GetUp`、`GetLeft`)は、回転の値そのものをキーにして
 回転軸をキャッシュします。1フレームに何度読んでも行列は1回しか作りません。

@@ -69,7 +69,7 @@ void ModelRenderer::Draw()
 	{
 		Vector3 scaleValue = m_GameObject->GetScale();
 		Vector3 rotationValue = m_GameObject->GetRotation() + m_RotationOffset;
-		Vector3 positionValue = m_GameObject->GetPosition();
+		Vector3 positionValue = m_GameObject->GetPosition() + m_GameObject->GetDrawOffset();
 
 		XMMATRIX scale = XMMatrixScaling(scaleValue.x, scaleValue.y, scaleValue.z);
 		XMMATRIX rot = XMMatrixRotationRollPitchYaw(rotationValue.x, rotationValue.y, rotationValue.z);

@@ -95,17 +95,17 @@ void ParticleSystem::UnloadSharedResources()
 	s_Texture.reset();
 }
 
-void ParticleSystem::Emit(const Vector3& position, const Vector3& velocity, float scale, int life, const XMFLOAT4& color, float gravity, float shrink, int timeChannel)
+void ParticleSystem::Emit(const Vector3& position, const Vector3& velocity, float scale, int life, const XMFLOAT4& color, float gravity, float shrink, int timeChannel, Blend blend)
 {
 	if (s_Instance == nullptr)
 	{
 		return;
 	}
 
-	s_Instance->AddSpark(position, velocity, scale, life, color, gravity, shrink, timeChannel);
+	s_Instance->AddSpark(position, velocity, scale, life, color, gravity, shrink, timeChannel, blend);
 }
 
-void ParticleSystem::AddSpark(const Vector3& position, const Vector3& velocity, float scale, int life, const XMFLOAT4& color, float gravity, float shrink, int timeChannel)
+void ParticleSystem::AddSpark(const Vector3& position, const Vector3& velocity, float scale, int life, const XMFLOAT4& color, float gravity, float shrink, int timeChannel, Blend blend)
 {
 	if (life <= 0)
 	{
@@ -143,6 +143,7 @@ void ParticleSystem::AddSpark(const Vector3& position, const Vector3& velocity, 
 	slot->Gravity = gravity;
 	slot->Shrink = shrink;
 	slot->TimeChannel = timeChannel;
+	slot->BlendMode = blend;
 }
 
 bool ParticleSystem::AdvanceSpark(Spark& spark)
@@ -215,34 +216,41 @@ void ParticleSystem::Draw()
 	std::vector<Engine::VERTEX_3D>& vertices = m_VertexScratch;
 	vertices.clear();
 
-	for (const Spark& spark : m_Sparks)
+	// 暗い粒(Alpha)を先に、光る粒(Additive)を後に並べ、同じ頂点バッファの前後半として2回に分けて描きます。
+	const auto appendSparks = [&](Blend blend)
 	{
-		if (spark.Life <= 0.0f)
+		for (const Spark& spark : m_Sparks)
 		{
-			continue;
+			if (spark.Life <= 0.0f || spark.BlendMode != blend)
+			{
+				continue;
+			}
+			if (vertices.size() + kVerticesPerSpark > kMaxSparks * kVerticesPerSpark)
+			{
+				break;
+			}
+
+			const float alpha = spark.Life / spark.MaxLife;
+			XMFLOAT4 color = XMFLOAT4(spark.Color.x, spark.Color.y, spark.Color.z, spark.Color.w * alpha);
+			Vector3 halfRight = right * (spark.Scale * 0.5f);
+			Vector3 halfUp = up * (spark.Scale * 0.5f);
+
+			Vector3 p0 = spark.Position - halfRight + halfUp;
+			Vector3 p1 = spark.Position + halfRight + halfUp;
+			Vector3 p2 = spark.Position - halfRight - halfUp;
+			Vector3 p3 = spark.Position + halfRight - halfUp;
+
+			vertices.push_back(MakeVertex(p0, color, 0.0f, 0.0f));
+			vertices.push_back(MakeVertex(p1, color, 1.0f, 0.0f));
+			vertices.push_back(MakeVertex(p2, color, 0.0f, 1.0f));
+			vertices.push_back(MakeVertex(p2, color, 0.0f, 1.0f));
+			vertices.push_back(MakeVertex(p1, color, 1.0f, 0.0f));
+			vertices.push_back(MakeVertex(p3, color, 1.0f, 1.0f));
 		}
-		if (vertices.size() + kVerticesPerSpark > kMaxSparks * kVerticesPerSpark)
-		{
-			break;
-		}
-
-		const float alpha = spark.Life / spark.MaxLife;
-		XMFLOAT4 color = XMFLOAT4(spark.Color.x, spark.Color.y, spark.Color.z, spark.Color.w * alpha);
-		Vector3 halfRight = right * (spark.Scale * 0.5f);
-		Vector3 halfUp = up * (spark.Scale * 0.5f);
-
-		Vector3 p0 = spark.Position - halfRight + halfUp;
-		Vector3 p1 = spark.Position + halfRight + halfUp;
-		Vector3 p2 = spark.Position - halfRight - halfUp;
-		Vector3 p3 = spark.Position + halfRight - halfUp;
-
-		vertices.push_back(MakeVertex(p0, color, 0.0f, 0.0f));
-		vertices.push_back(MakeVertex(p1, color, 1.0f, 0.0f));
-		vertices.push_back(MakeVertex(p2, color, 0.0f, 1.0f));
-		vertices.push_back(MakeVertex(p2, color, 0.0f, 1.0f));
-		vertices.push_back(MakeVertex(p1, color, 1.0f, 0.0f));
-		vertices.push_back(MakeVertex(p3, color, 1.0f, 1.0f));
-	}
+	};
+	appendSparks(Blend::Alpha);
+	const std::size_t alphaVertexCount = vertices.size();
+	appendSparks(Blend::Additive);
 
 	if (vertices.empty())
 	{
@@ -267,7 +275,6 @@ void ParticleSystem::Draw()
 	material.TextureEnable = TRUE;
 	Engine::Renderer::SetMaterial(material);
 	Engine::Renderer::SetWorldMatrix(XMMatrixIdentity());
-	Engine::Renderer::SetAddBlendEnable(true);
 	Engine::Renderer::SetDepthMode(Engine::RenderDepthMode::TestOnly);
 	ID3D11ShaderResourceView* texture = s_Texture->Get();
 	Engine::Renderer::GetDeviceContext()->PSSetShaderResources(0, 1, &texture);
@@ -276,7 +283,17 @@ void ParticleSystem::Draw()
 	UINT offset = 0;
 	Engine::Renderer::GetDeviceContext()->IASetVertexBuffers(0, 1, s_VertexBuffer.GetAddressOf(), &stride, &offset);
 	Engine::Renderer::GetDeviceContext()->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-	Engine::Renderer::GetDeviceContext()->Draw(static_cast<UINT>(vertices.size()), 0);
+	if (alphaVertexCount > 0)
+	{
+		Engine::Renderer::SetBlendMode(Engine::RenderBlendMode::Alpha);
+		Engine::Renderer::GetDeviceContext()->Draw(static_cast<UINT>(alphaVertexCount), 0);
+	}
+	if (vertices.size() > alphaVertexCount)
+	{
+		Engine::Renderer::SetAddBlendEnable(true);
+		Engine::Renderer::GetDeviceContext()->Draw(static_cast<UINT>(vertices.size() - alphaVertexCount),
+			static_cast<UINT>(alphaVertexCount));
+	}
 
 	Engine::Renderer::SetDepthMode(Engine::RenderDepthMode::Enabled);
 	Engine::Renderer::SetAddBlendEnable(false);

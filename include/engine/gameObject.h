@@ -130,6 +130,11 @@ public:
 	Vector3 GetRotation() const { return m_Rotation; }
 	Vector3 GetScale() const { return m_Scale; }
 
+	// 見た目だけのずれです(ヒットストップの震えなど)。持ち主の変換で描く ModelRenderer / AnimationModel が
+	// 描く位置にだけ足します。ゲームの位置(GetPosition)・当たり判定・骨の位置の問い合わせは動きません。
+	void SetDrawOffset(const Vector3& offset) { m_DrawOffset = offset; }
+	Vector3 GetDrawOffset() const { return m_DrawOffset; }
+
 	std::uint64_t GetId() const { return m_Id; }
 	const std::string& GetName() const { return m_Name; }
 	void SetName(std::string name) { m_Name = std::move(name); }
@@ -259,6 +264,7 @@ private:
 	Vector3 m_Position{ 0.0f, 0.0f, 0.0f };
 	Vector3 m_Rotation{ 0.0f, 0.0f, 0.0f };
 	Vector3 m_Scale{ 1.0f, 1.0f, 1.0f };
+	Vector3 m_DrawOffset{ 0.0f, 0.0f, 0.0f };
 	mutable RotationAxes m_CachedAxes;
 
 	const RotationAxes& RefreshAxes() const

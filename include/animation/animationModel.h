@@ -93,6 +93,8 @@ private:
 	void SampleFootVertices();
 	void BuildSkinTransforms();
 	XMMATRIX GetWorldMatrix() const;
+	// 描くときの行列です。持ち主の見た目だけのずれ(GameObject::GetDrawOffset)を足します。
+	XMMATRIX GetDrawWorldMatrix() const;
 	void SolveLegIK(const char* upperName, const char* lowerName, const char* footName, int footIndex);
 
 public:

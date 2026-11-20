@@ -18,6 +18,9 @@ float GameTime::m_ElapsedTime = 0.0f;
 float GameTime::m_TimeScale = kDefaultTimeScale;
 int GameTime::m_HitStopFrames = 0;
 float GameTime::m_HitStopScale = kDefaultTimeScale;
+int GameTime::m_HitStopTotalFrames = 0;
+bool GameTime::m_HitStopThisFrame = false;
+float GameTime::m_DeltaTimeIgnoringHitStop = kDefaultDeltaTime;
 bool GameTime::m_Paused = false;
 bool GameTime::m_StepRequested = false;
 bool GameTime::m_SteppingThisFrame = false;
@@ -31,6 +34,9 @@ void GameTime::Init()
 	m_TimeScale = kDefaultTimeScale;
 	m_HitStopFrames = 0;
 	m_HitStopScale = kDefaultTimeScale;
+	m_HitStopTotalFrames = 0;
+	m_HitStopThisFrame = false;
+	m_DeltaTimeIgnoringHitStop = kDefaultDeltaTime;
 	m_Paused = false;
 	m_StepRequested = false;
 	m_SteppingThisFrame = false;
@@ -48,11 +54,14 @@ void GameTime::Update(float unscaledDeltaTime)
 	if (m_Paused && !m_SteppingThisFrame)
 	{
 		m_DeltaTime = kStoppedDeltaTime;
+		m_DeltaTimeIgnoringHitStop = kStoppedDeltaTime;
 	}
 	else
 	{
 		m_DeltaTime = std::max(0.0f, unscaledDeltaTime);
 		m_DeltaTime *= m_TimeScale;
+		m_DeltaTimeIgnoringHitStop = m_DeltaTime;
+		m_HitStopThisFrame = m_HitStopFrames > 0;
 		if (m_HitStopFrames > 0)
 		{
 			m_DeltaTime *= m_HitStopScale;
@@ -94,6 +103,7 @@ void GameTime::StartHitStop(int frames, float timeScale)
 	{
 		m_HitStopFrames = frames;
 		m_HitStopScale = timeScale;
+		m_HitStopTotalFrames = frames;
 	}
 }
 }
@@ -103,7 +113,7 @@ namespace Engine
 void GameTime::SetChannelScale(int channel, float scale)
 {
 	// チャンネル0は全体の時間そのものなので変えません。
-	if (channel <= 0 || channel >= kMaxTimeChannels)
+	if (channel <= 0 || channel >= kMaxTimeChannels || channel == kHitStopFreeChannel)
 	{
 		return;
 	}
@@ -112,7 +122,7 @@ void GameTime::SetChannelScale(int channel, float scale)
 
 float GameTime::GetChannelScale(int channel)
 {
-	if (channel <= 0 || channel >= kMaxTimeChannels)
+	if (channel <= 0 || channel >= kMaxTimeChannels || channel == kHitStopFreeChannel)
 	{
 		return 1.0f;
 	}
@@ -125,5 +135,20 @@ void GameTime::ResetChannels()
 	{
 		scale = 1.0f;
 	}
+}
+}
+
+namespace Engine
+{
+float GameTime::GetHitStopRemainingRatio()
+{
+	// StartHitStop を呼んだフレーム(まだ止めていない)では残り=全体なので1、止めているフレームは
+	// そのフレームの分も含めて数え、最後に止めたフレームで 1/全体、終われば0になります。
+	const int remaining = m_HitStopFrames + (m_HitStopThisFrame ? 1 : 0);
+	if (m_HitStopTotalFrames <= 0 || remaining <= 0)
+	{
+		return 0.0f;
+	}
+	return std::min(1.0f, static_cast<float>(remaining) / static_cast<float>(m_HitStopTotalFrames));
 }
 }
