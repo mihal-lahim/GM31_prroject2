@@ -335,6 +335,52 @@ namespace
 			&& hits[3]->GetOwner() == dynamicFirst;
 	}
 
+	// 弾や敵のような動的なColliderの出入りでは、静的な空間ハッシュを作り直さないこと。
+	// 静的なものの出入りでは作り直し、静的な問い合わせの結果が正しいままであること。
+	bool TestCollisionStaticIndexRebuild()
+	{
+		constexpr CollisionLayer layer = 1u << 10;
+		World world;
+		CollisionWorld& collisionWorld = world.GetCollisionWorld();
+
+		CollisionTestObject* wall = world.Spawn<CollisionTestObject>();
+		wall->SetPosition({ 0.0f, 0.0f, 0.0f });
+		wall->GetCollider().SetAABB({ 1.0f, 1.0f, 1.0f })->SetCollisionLayer(layer)->SetStatic();
+
+		const auto queryWall = [&collisionWorld]()
+		{
+			return collisionWorld.QueryCapsule({ -3.0f, 0.0f, 0.0f }, { 3.0f, 0.0f, 0.0f }, 0.25f, layer);
+		};
+
+		if (queryWall().size() != 1) return false;
+		const std::size_t builtOnce = collisionWorld.GetStaticIndexBuildCount();
+
+		// 動的なものを出して、問い合わせて、消す。どれも作り直さない。
+		CollisionTestObject* bullet = world.Spawn<CollisionTestObject>();
+		bullet->SetPosition({ 1.5f, 0.0f, 0.0f });
+		bullet->GetCollider().SetSphere(0.5f)->SetCollisionLayer(layer);
+		if (queryWall().size() != 2) return false;
+		collisionWorld.Unregister(bullet->GetCollider());
+		if (queryWall().size() != 1) return false;
+		collisionWorld.Register(bullet->GetCollider());
+		bullet->MarkForDestroy();
+		world.DestroyRequestedObjects();
+		const auto afterDynamic = queryWall();
+		if (afterDynamic.size() != 1 || afterDynamic[0]->GetOwner() != wall) return false;
+		if (collisionWorld.GetStaticIndexBuildCount() != builtOnce) return false;
+
+		// 静的なものが減ったら作り直し、もう当たらないこと。
+		collisionWorld.Unregister(wall->GetCollider());
+		if (!queryWall().empty()) return false;
+		if (collisionWorld.GetStaticIndexBuildCount() != builtOnce + 1) return false;
+
+		// 静的なものを戻したら作り直し、また当たること。
+		collisionWorld.Register(wall->GetCollider());
+		const auto afterStatic = queryWall();
+		return afterStatic.size() == 1 && afterStatic[0]->GetOwner() == wall
+			&& collisionWorld.GetStaticIndexBuildCount() == builtOnce + 2;
+	}
+
 	bool TestCollisionRaycast()
 	{
 		constexpr CollisionLayer boxLayer = 1u << 7;
@@ -991,6 +1037,7 @@ bool RunEngineSelfTests()
 		{ "world lifecycle", TestWorldLifecycle },
 		{ "guaranteed component lifecycle", TestGuaranteedComponentLifecycle },
 		{ "collision world isolation", TestCollisionWorldIsolation },
+		{ "collision static index rebuild", TestCollisionStaticIndexRebuild },
 		{ "collision query order", TestCollisionQueryOrder },
 		{ "collision raycast", TestCollisionRaycast },
 		{ "render ordering", TestRenderOrdering },

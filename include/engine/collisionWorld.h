@@ -62,6 +62,7 @@ private:
 	std::vector<Collider*> m_CandidateScratch;
 	std::uint64_t m_NextRegistrationSerial = 1;
 	bool m_StaticIndexDirty = true;
+	std::size_t m_StaticIndexBuildCount = 0;
 
 	static CellKey ToCell(const Vector3& position);
 	void EnsureStaticIndex();
@@ -107,4 +108,6 @@ public:
 		const Collider* ignore = nullptr);
 
 	std::size_t GetColliderCount() const { return m_StaticColliders.size() + m_DynamicColliders.size(); }
+	// 静的な空間ハッシュを作り直した回数です(動的なものの出入りで無駄に作り直していないかの確認用)。
+	std::size_t GetStaticIndexBuildCount() const { return m_StaticIndexBuildCount; }
 };

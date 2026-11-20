@@ -4,6 +4,7 @@
 #include "resourceManager.h"
 #include "shaderCatalog.h"
 #include <array>
+#include <vector>
 
 namespace Engine
 {
@@ -45,6 +46,7 @@ XMFLOAT4 Renderer::m_ClearColor = Renderer::DefaultClearColor;
 XMFLOAT4 Renderer::m_PostLook{};
 XMFLOAT4 Renderer::m_DepthProjection{};
 bool Renderer::m_PostResolved = false;
+bool Renderer::m_DebugLayerActive = false;
 
 
 ComPtr<ID3D11DepthStencilState> Renderer::m_DepthStateEnable{};
@@ -116,18 +118,31 @@ bool Renderer::Init()
 	swapChainDesc.SampleDesc.Quality = 0;
 	swapChainDesc.Windowed = TRUE;
 
-	hr = D3D11CreateDeviceAndSwapChain( NULL,
-										D3D_DRIVER_TYPE_HARDWARE,
-										NULL,
-										0,
-										NULL,
-										0,
-										D3D11_SDK_VERSION,
-										&swapChainDesc,
-										m_SwapChain.GetAddressOf(),
-										m_Device.GetAddressOf(),
-										&m_FeatureLevel,
-										m_DeviceContext.GetAddressOf() );
+	// Debug ビルドではまず D3D11 のデバッグレイヤー付きで作り、DSV/SRV の同時使用などの誤りを出力へ出します。
+	// Graphics Tools(デバッグレイヤー)が入っていない環境では作れないので、そのときは通常のデバイスで作り直します。
+	m_DebugLayerActive = false;
+#if defined(_DEBUG)
+	hr = D3D11CreateDeviceAndSwapChain(nullptr, D3D_DRIVER_TYPE_HARDWARE, nullptr, D3D11_CREATE_DEVICE_DEBUG,
+		nullptr, 0, D3D11_SDK_VERSION, &swapChainDesc, m_SwapChain.GetAddressOf(), m_Device.GetAddressOf(),
+		&m_FeatureLevel, m_DeviceContext.GetAddressOf());
+	if (SUCCEEDED(hr))
+	{
+		m_DebugLayerActive = true;
+	}
+	else
+	{
+		OutputDebugStringA("Renderer::Init: D3D11 debug layer is unavailable; retrying without it.\n");
+		m_SwapChain.Reset();
+		m_Device.Reset();
+		m_DeviceContext.Reset();
+	}
+	if (!m_DebugLayerActive)
+#endif
+	{
+		hr = D3D11CreateDeviceAndSwapChain(nullptr, D3D_DRIVER_TYPE_HARDWARE, nullptr, 0,
+			nullptr, 0, D3D11_SDK_VERSION, &swapChainDesc, m_SwapChain.GetAddressOf(), m_Device.GetAddressOf(),
+			&m_FeatureLevel, m_DeviceContext.GetAddressOf());
+	}
 	if (!CheckInitializationResult(hr, "D3D11CreateDeviceAndSwapChain"))
 	{
 		Uninit();
@@ -524,6 +539,48 @@ bool Renderer::Init()
 }
 
 
+
+std::size_t Renderer::TakeDebugLayerErrors(std::string* report)
+{
+	if (!m_DebugLayerActive || !m_Device)
+	{
+		return 0;
+	}
+	ComPtr<ID3D11InfoQueue> infoQueue;
+	if (FAILED(m_Device.As(&infoQueue)))
+	{
+		return 0;
+	}
+
+	std::size_t errors = 0;
+	const UINT64 count = infoQueue->GetNumStoredMessagesAllowedByRetrievalFilter();
+	for (UINT64 index = 0; index < count; ++index)
+	{
+		SIZE_T length = 0;
+		if (FAILED(infoQueue->GetMessage(index, nullptr, &length)) || length == 0)
+		{
+			continue;
+		}
+		std::vector<char> buffer(length);
+		auto* message = reinterpret_cast<D3D11_MESSAGE*>(buffer.data());
+		if (FAILED(infoQueue->GetMessage(index, message, &length)))
+		{
+			continue;
+		}
+		if (message->Severity != D3D11_MESSAGE_SEVERITY_ERROR && message->Severity != D3D11_MESSAGE_SEVERITY_CORRUPTION)
+		{
+			continue;
+		}
+		++errors;
+		if (report != nullptr)
+		{
+			report->append(message->pDescription, message->DescriptionByteLength > 0 ? message->DescriptionByteLength - 1 : 0);
+			report->push_back('\n');
+		}
+	}
+	infoQueue->ClearStoredMessages();
+	return errors;
+}
 
 void Renderer::Uninit()
 {

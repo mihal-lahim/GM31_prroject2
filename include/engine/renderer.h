@@ -123,6 +123,8 @@ private:
 	static XMFLOAT4 m_DepthProjection;
 	// このフレームのポスト効果を、もう画面へ解決したかどうかです(UIをポストの後に描くため)。
 	static bool m_PostResolved;
+	// D3D11 のデバッグレイヤー付きでデバイスを作れたかどうかです(Debug ビルドで、Graphics Tools がある環境だけ true)。
+	static bool m_DebugLayerActive;
 
 
 	static ComPtr<ID3D11DepthStencilState> m_DepthStateEnable;
@@ -200,6 +202,10 @@ public:
 	static RenderBlendMode GetBlendMode() { return m_BlendMode; }
 
 	static ID3D11Device* GetDevice( void ){ return m_Device.Get(); }
+	static bool IsDebugLayerActive() { return m_DebugLayerActive; }
+	// デバッグレイヤーがためたエラー(ERROR / CORRUPTION)の数を返し、ためた記録を消します。reportへは本文を1行ずつ足します。
+	// デバッグレイヤーが無ければ常に 0 です。--render-test の最後に呼んで、描画の誤りをテストの失敗にします。
+	static std::size_t TakeDebugLayerErrors(std::string* report = nullptr);
 	static ID3D11DeviceContext* GetDeviceContext( void ){ return m_DeviceContext.Get(); }
 	static ID3D11ShaderResourceView* GetPostSource() { return m_SceneResource.Get(); }
 	// 画面の深度(0〜1、R24_UNORM)です。描画先の深度として使っている間はシェーダーで読めません(ポストの間だけ t8 に繋ぎます)。

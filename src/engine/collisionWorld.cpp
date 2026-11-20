@@ -44,13 +44,18 @@ bool CollisionWorld::IsRegistered(const Collider& collider) const
 
 void CollisionWorld::Register(Collider& collider)
 {
-	if (m_Registered.insert(&collider).second)
+	if (!m_Registered.insert(&collider).second)
 	{
-		// 再登録は新しいシリアルを受け取り、従来のpush_backと同じく末尾扱いになります。
-		collider.m_RegistrationSerial = m_NextRegistrationSerial++;
-		(collider.IsStatic() ? m_StaticColliders : m_DynamicColliders).push_back(&collider);
+		return;
 	}
-	m_StaticIndexDirty = true;
+	// 再登録は新しいシリアルを受け取り、従来のpush_backと同じく末尾扱いになります。
+	collider.m_RegistrationSerial = m_NextRegistrationSerial++;
+	(collider.IsStatic() ? m_StaticColliders : m_DynamicColliders).push_back(&collider);
+	// 空間ハッシュは静的なものだけを持つので、弾や敵のような動的なものの出入りでは作り直しません。
+	if (collider.IsStatic())
+	{
+		m_StaticIndexDirty = true;
+	}
 }
 
 void CollisionWorld::Unregister(Collider& collider)
@@ -60,6 +65,7 @@ void CollisionWorld::Unregister(Collider& collider)
 		return;
 	}
 
+	const std::size_t staticCountBefore = m_StaticColliders.size();
 	// 登録されていた側のリストからだけ取り除きます。
 	std::vector<Collider*>& owner = collider.IsStatic() ? m_StaticColliders : m_DynamicColliders;
 	const auto found = std::find(owner.begin(), owner.end(), &collider);
@@ -75,7 +81,11 @@ void CollisionWorld::Unregister(Collider& collider)
 		m_DynamicColliders.erase(
 			std::remove(m_DynamicColliders.begin(), m_DynamicColliders.end(), &collider), m_DynamicColliders.end());
 	}
-	m_StaticIndexDirty = true;
+	// 静的なものが実際に減ったときだけ、空間ハッシュを作り直します。
+	if (m_StaticColliders.size() != staticCountBefore)
+	{
+		m_StaticIndexDirty = true;
+	}
 }
 
 void CollisionWorld::NotifyStaticStateChanged(Collider& collider)
@@ -121,6 +131,7 @@ void CollisionWorld::EnsureStaticIndex()
 		}
 	}
 	m_StaticIndexDirty = false;
+	++m_StaticIndexBuildCount;
 }
 
 void CollisionWorld::AddStaticColliderToIndex(Collider& collider)

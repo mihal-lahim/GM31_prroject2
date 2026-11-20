@@ -22,8 +22,12 @@ msbuild GM31_prroject2.slnx /p:Configuration=Debug /p:Platform=x64 /m
 | `<App>.exe --self-test` | エンジン共通のテスト + そのゲームの数値テスト。結果は `self-test-*.log` |
 | `<App>.exe --render-test` | 非表示ウィンドウで実際に描画・画面遷移し、`*.png` と `render-test-*.log` を残す(GPU が必要) |
 
-ログと画像は **起動したフォルダー** に出ます。`bin\x64\Debug\<App>\` から起動すると、
-ビルド出力と一緒に git の管理外になります。リポジトリ直下から起動するとそこに出るので避けてください。
+どちらのモードも最初に作業フォルダーを実行ファイルのフォルダーへ移すので、どこから起動しても
+ログと画像は **実行ファイルの隣**(`bin\x64\<構成>\<App>\`)に出て、ビルド出力と一緒に git の管理外になります。
+
+Debug ビルドは D3D11 のデバッグレイヤー付きでデバイスを作ります(Graphics Tools が無い環境では通常のデバイスに戻ります)。
+`--render-test` の最後にデバッグレイヤーのエラー(ERROR / CORRUPTION)が1件でもあればテストを失敗にし、
+結果を `render-test-d3d-debug.log` に残します(`debug layer: active / unavailable` と件数・本文)。
 
 変更を確かめるときは `scripts\verify.ps1` が便利です。未コミットの変更から影響するアプリを判断し、
 CI と同じ確認(プロジェクト境界の検証、Debug と Release のビルド、`--self-test`)をそのアプリについて行います

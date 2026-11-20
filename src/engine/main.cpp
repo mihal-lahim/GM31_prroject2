@@ -18,6 +18,8 @@
 #include <cmath>
 #include <cwchar>
 #include <cstring>
+#include <cstdio>
+#include <string>
 
 const char* CLASS_NAME = "AppClass";
 const char* WINDOW_NAME = "DX11 Game";
@@ -100,7 +102,21 @@ int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLi
 	(void)hPrevInstance;
 	// 落ちたときに原因を後から追えるよう、最初に例外の記録先を用意します。
 	Engine::CrashReporter::Install();
-	if (lpCmdLine != nullptr && strstr(lpCmdLine, "--self-test") != nullptr)
+	// 素材や設定は実行ファイル基準の相対パスで読むので、自己テストも含めて最初にそろえます。
+	// どのフォルダーから起動しても(CI やスクリプトからでも)同じファイルを読むようにするためです。
+	const bool selfTest = lpCmdLine != nullptr && strstr(lpCmdLine, "--self-test") != nullptr;
+	if (!SetWorkingDirectoryToExecutable())
+	{
+		if (selfTest)
+		{
+			// 自己テストは画面を出さずに終わるので、ダイアログで止めず失敗の終了コードだけ返します。
+			OutputDebugStringW(L"[self-test] 実行ファイルのフォルダーを取得できませんでした。\n");
+			return 1;
+		}
+		MessageBoxW(nullptr, L"実行ファイルのフォルダーを取得できませんでした。", L"DX11 Game", MB_OK | MB_ICONERROR);
+		return -1;
+	}
+	if (selfTest)
 	{
 		const auto& definition = GetGameDefinition();
 		return RunEngineSelfTests() && (definition.RunSelfTests == nullptr || definition.RunSelfTests()) ? 0 : 1;
@@ -160,11 +176,6 @@ int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLi
 		UnregisterClass(CLASS_NAME, wcex.hInstance);
 		return -1;
 	}
-	if (!SetWorkingDirectoryToExecutable())
-	{
-		MessageBoxW(nullptr, L"実行ファイルのフォルダーを取得できませんでした。", L"DX11 Game", MB_OK | MB_ICONERROR);
-		return -1;
-	}
 
 	const bool renderTest = lpCmdLine != nullptr && strstr(lpCmdLine, "--render-test") != nullptr;
 	ShowWindow(g_Window, renderTest ? SW_HIDE : nCmdShow);
@@ -191,7 +202,24 @@ int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLi
 
 	if (renderTest)
 	{
-		const bool passed = gameDefinition.RunRenderTests != nullptr && gameDefinition.RunRenderTests();
+		bool passed = gameDefinition.RunRenderTests != nullptr && gameDefinition.RunRenderTests();
+		// Debug ビルドでデバッグレイヤーが使えたなら、描画の誤り(DSV/SRV の同時使用など)もテストの失敗にします。
+		// 結果は実行ファイルの隣の render-test-d3d-debug.log に残します(レイヤーが無い環境ではそう書きます)。
+		{
+			std::string report;
+			const std::size_t errors = Engine::Renderer::TakeDebugLayerErrors(&report);
+			if (FILE* file = nullptr; fopen_s(&file, "render-test-d3d-debug.log", "w") == 0 && file != nullptr)
+			{
+				fprintf(file, "debug layer: %s\nerrors: %zu\n%s",
+					Engine::Renderer::IsDebugLayerActive() ? "active" : "unavailable", errors, report.c_str());
+				fclose(file);
+			}
+			if (errors > 0)
+			{
+				OutputDebugStringA(report.c_str());
+				passed = false;
+			}
+		}
 		Engine::Renderer::SetOverlayCallback(nullptr);
 		if (gameDefinition.ShutdownUi != nullptr) gameDefinition.ShutdownUi();
 		Engine::Manager::Uninit();
@@ -283,8 +311,10 @@ int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLi
 LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
 	const auto& definition = GetGameDefinition();
+	// 戻り値はわざと使いません。UI が使った入力でもゲームの入力処理へ流し、キーを離した通知などを落とさないためです。
+	// UI を触っている間のゲーム操作の止め方は各ゲームが決めます(契約は GameDefinition::HandleWindowMessage のコメント)。
 	if (definition.HandleWindowMessage != nullptr)
-		definition.HandleWindowMessage(uMsg, static_cast<std::uintptr_t>(wParam), static_cast<std::intptr_t>(lParam));
+		(void)definition.HandleWindowMessage(uMsg, static_cast<std::uintptr_t>(wParam), static_cast<std::intptr_t>(lParam));
 	if (uMsg == WM_MOUSEACTIVATE)
 	{
 		Mouse_SuppressUntilButtonsReleased();
