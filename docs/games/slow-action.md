@@ -88,6 +88,18 @@ WireAction(`wireGameplayTuning.def`)と BattingCenter(`battingGameplayTuning.def
 - **溜め**: 溜めの間は剣が微かに震え(`ChargeShakeMeters`)、周囲の光の粒が剣の握りへ吸い込まれます(`ChargeGatherPerFrame`、`ChargeGatherRadius`)。
   強攻撃が出せるようになった瞬間、剣先がキラッと光ります。
 
+## 闘技場の質感
+
+床・壁・障害物は `realistic-arena`(`shaders/surfaces/realisticArenaPS.hlsl`)で描きます。テクスチャは使わず、ワールド座標から石材の模様を作ります。
+
+- **模様**: 床は2mの敷石、壁は横長のブロックを段ごとに半分ずらして積みます。目地は面取りした溝で、法線を傾けて凹凸に見せます。
+  ブロックごとに色と粗さを少し変え、細かなノイズで表面のざらつきと汚れを足します。
+- **接地の陰**: 壁や柱の根元(高さ1mほどまで)ほど暗く汚れ、環境光も届きにくくなります。
+- **材質の差**: 素地の色はモデルの材質色(`scripts/generate-slow-action-models.sh`)で、床は暖かい灰色の石、壁は風化したコンクリート、
+  障害物は暗い鉄混じりの石です。粗さ・金属度・ブロックの大きさ・風化の強さは `SetShaderFloat`(`roughness`、`metallic`、`tileScale`、`weathering`)で変えます。
+  障害物は金属度があるので、空や太陽を鈍く映し、汚れた所は錆びて、角は磨かれて光ります。
+- 照明はキャラや剣と同じ `RealisticLighting.hlsli`(GGX の鏡面反射、手続きの空の映り込み、ポアソンディスクの柔らかい影)です。
+
 ## 調整パネル (F4)
 
 F4 で開閉する調整パネルです。ゲームを動かしたまま、手触りを詰められます。

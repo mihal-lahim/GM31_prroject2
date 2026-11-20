@@ -26,16 +26,16 @@ bin\x64\Debug\ClassroomWalk\ClassroomWalk.exe
 
 | 登録名 | 使っている SP31 の機能 | 対象 |
 |---|---|---|
-| `realistic` | Disney拡散、Cook-Torrance鏡面反射(Beckmann・Schlick・幾何減衰)、半球ライト、リムライト、バンプ | 地面、プレイヤー、のれん、柱 |
+| `realistic` | Disney拡散、GGX鏡面反射(GGX・Smith高さ相関・Schlick)、半球ライト、手続きの空の映り込み、リムライト、バンプ | 地面、プレイヤー、のれん、柱 |
 | `realistic-water` | Schlickフレネルによる空の映り込み、Cook-Torranceの太陽のきらめき、半球ライト | 湖 |
 | `realistic-foliage` | ハーフランバート、半球ライト、リムライト(葉を透ける逆光) | 木、草 |
 
-共通の部品は `shaders/surfaces/RealisticCore.hlsli` にまとめ、どれも線形空間で光を計算して、
+共通の部品は `shaders/surfaces/RealisticCore.hlsli`、`realistic` の照明は `RealisticLighting.hlsli` にまとめ、どれも線形空間で光を計算して、
 トーンマップ（ACES近似）で表示用の色へ戻し、遠景ほど空の色へ霞ませています（空気遠近）。
 材質は `SetShaderFloat` で粗さ・金属度・凹凸・リムを渡します。例えば地面は粗さ 0.92 で、
 草の模様の明るさから凹凸を作っています。プレイヤーは粗さ 0.62・リム 0.45 です。
 
-太陽の影は Engine の `ShadowMap`（2048×2048 のシャドウマップ、3×3 のPCFで縁をぼかす）で描きます。
+太陽の影は Engine の `ShadowMap`（2048×2048 のシャドウマップ、16点のポアソンディスクPCFを場所ごとに回して縁をなめらかにぼかす）で描きます。
 影を落とすのは地形（丘）、プレイヤー、のれん、門、木です。木は見た目の板がカメラを向いているので、
 影だけは太陽へ向けた板で落とし、葉の形に抜いています。影を受けるのは上の3つのシェーダーで、
 遮られるのは太陽の光だけです（空からの光は影の中にも届くので、影は真っ黒になりません）。
@@ -50,7 +50,8 @@ void MyObject::DrawShadow()
 }
 ```
 
-テクスチャにミップマップが無いため、遠景の草のちらつきはシェーダー内で複数点を平均して抑えています。
+ファイルとモデル埋め込みのテクスチャは、読み込むときにミップマップを作ります（`GraphicsResourceFactory::CreateTextureViewWithMips`、異方性フィルタ8倍）。
+ミップの無いテクスチャ（手続き生成など）だけは、遠景のちらつきをシェーダー内で複数点を平均して抑えています。
 
 共通の `Engine::SurfaceMaterial` は描画対象ごとにシェーダーを選択でき、
 `ModelRenderer::SetShaderMode` からモデルにも適用できます。
