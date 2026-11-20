@@ -98,6 +98,12 @@ namespace SlowTimeFx
 	bool IsPostEffectActive();
 	// 仕上げのポストエフェクト(post-realistic)を掛けているか。遊んでいる間は常に true です。
 	bool IsRealisticPostActive();
+	// 調整パネル(F4)で接地の陰(SSAO)・ブルームを一時的に切って見比べます。調整値の強さは書き換えず、
+	// ポストエフェクトへ渡すときだけ0にします。パネルを閉じると両方とも有効へ戻ります(SlowTuningPanel::Reset)。
+	void SetSsaoEnabled(bool enabled);
+	bool IsSsaoEnabled();
+	void SetBloomEnabled(bool enabled);
+	bool IsBloomEnabled();
 }
 
 // ヒットストップの間だけ、キャラを見た目だけ震わせます(桜井流のヒットストップの揺れ)。

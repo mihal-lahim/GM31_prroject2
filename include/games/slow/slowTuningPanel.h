@@ -3,7 +3,9 @@
 // SlowAction の「ライブ調整パネル(F4)」です。Unity の Inspector に近い形で、ゲームを動かしながら
 // 調整値を書き換え、設定ファイルへ保存できます。
 //
-// 上の段は時間の制御(一時停止・1フレーム送り・時間の速さ)と、よく使う切り替え(当たり判定・敵無敵・やり直し)です。
+// 上の段は時間の制御(一時停止・1フレーム送り・時間の速さ)と、よく使う切り替え(当たり判定・敵無敵・やり直し)、
+// テスト用の操作(HP全回復・時間ゲージ満タン)、画面の効果の見比べ(SSAO・ブルームの一時オフ)です。
+// 「ライトと画面の見た目」の見出しには、昼・夕暮れ・寒色シネマティックのプリセットボタンがあります。
 // 下の段は、slowActionTuning.def の全項目を見出しごとに並べたものです。項目を動かすと、すぐ次のフレームから反映されます。
 //
 // 開いている間はマウスを自由にし、ImGui の上にマウスがあるとき・文字入力中は、ゲームの操作を止めます。
@@ -21,6 +23,23 @@ namespace SlowTuningPanel
 	bool BlocksGameInput();
 	// パネルの「やり直す」ボタンが押されていれば、一度だけtrueを返して取り消します。
 	bool TakeRetryRequest();
+	// Play Mode の「HP全回復」「時間ゲージ満タン」です。Request はボタン(とテスト)が呼び、Take はシーンが次の更新で
+	// 一度だけtrueを受け取って実行します。
+	void RequestRefillHp();
+	void RequestFillGauge();
+	bool TakeRefillHpRequest();
+	bool TakeFillGaugeRequest();
+
+	// ライトと画面の見た目のプリセットです。押すと「ライトと画面の見た目」の調整値をまとめて書き換えます
+	// (保存は従来どおり「保存」ボタン)。Standard は既定値(昼)です。
+	enum class LightingPreset
+	{
+		Standard,
+		Sunset,
+		CoolCinematic
+	};
+	void ApplyLightingPreset(LightingPreset preset);
+
 	// SceneEditor::DrawUi の中から呼ばれ、パネルを描きます。開いていなければ何もしません。
 	void Draw();
 }

@@ -454,6 +454,18 @@ void SlowActionScene::Update()
 	{
 		SlowEnemy::SetInvincible(!SlowEnemy::IsInvincible());
 	}
+	// 調整パネルのテスト用の近道です(HP全回復・時間ゲージ満タン)。
+	if (SlowTuningPanel::TakeRefillHpRequest())
+	{
+		if (SlowPlayer* player = GetWorld().FindFirst<SlowPlayer>())
+		{
+			player->SetHp(GetSlowActionTuning().PlayerMaxHp);
+		}
+	}
+	if (SlowTuningPanel::TakeFillGaugeRequest())
+	{
+		SlowClock::AddGaugeNow(GetSlowActionTuning().GaugeMax);
+	}
 
 	// 入力と時計はオブジェクトより先に確定させ、同じステップの全員が同じ値を見るようにします。
 	const float realDeltaTime = Engine::GameTime::GetDeltaTime();

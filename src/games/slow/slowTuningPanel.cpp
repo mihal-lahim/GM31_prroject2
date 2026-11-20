@@ -27,6 +27,32 @@ namespace
 
 	bool g_Open = false;
 	bool g_RetryRequested = false;
+	bool g_RefillHpRequested = false;
+	bool g_FillGaugeRequested = false;
+	// 「ライトと画面の見た目」の見出しの名前です(.def の SLOW_TUNING_SECTION と同じ)。
+	constexpr const char* kLightingSection = "ライトと画面の見た目";
+
+	struct PresetValue
+	{
+		const char* Key;
+		float Value;
+	};
+	// 夕暮れ: 低い太陽・暖色・長い影。ブルームを少し強め、外周を締めます。
+	constexpr PresetValue kSunsetPreset[] = {
+		{ "slow.SunAzimuthDegrees", 250.0f }, { "slow.SunElevationDegrees", 14.0f },
+		{ "slow.SunIntensity", 1.15f }, { "slow.SunWarmth", 0.95f },
+		{ "slow.SkyIntensity", 0.7f }, { "slow.GroundBounceIntensity", 1.2f },
+		{ "slow.PostAoStrength", 0.6f }, { "slow.PostAoRadius", 0.7f },
+		{ "slow.PostBloomIntensity", 0.5f }, { "slow.PostBloomThreshold", 0.85f }, { "slow.PostVignette", 0.22f },
+	};
+	// 寒色シネマティック: 青白い光と強めの空の光、深い陰と濃いビネットで、締まった映画調にします。
+	constexpr PresetValue kCoolCinematicPreset[] = {
+		{ "slow.SunAzimuthDegrees", 110.0f }, { "slow.SunElevationDegrees", 32.0f },
+		{ "slow.SunIntensity", 0.85f }, { "slow.SunWarmth", 0.08f },
+		{ "slow.SkyIntensity", 1.15f }, { "slow.GroundBounceIntensity", 0.7f },
+		{ "slow.PostAoStrength", 0.7f }, { "slow.PostAoRadius", 0.7f },
+		{ "slow.PostBloomIntensity", 0.42f }, { "slow.PostBloomThreshold", 0.9f }, { "slow.PostVignette", 0.26f },
+	};
 	// 保存・読み直しの結果を表示する一文です。
 	std::string g_Status;
 	char g_FilterText[64] = "";
@@ -192,6 +218,50 @@ namespace
 		{
 			g_RetryRequested = true;
 		}
+
+		// 試す回数を増やすための近道です。シーンが次の更新で実行します。
+		if (ImGui::SmallButton("HP全回復"))
+		{
+			SlowTuningPanel::RequestRefillHp();
+		}
+		ImGui::SameLine();
+		if (ImGui::SmallButton("時間ゲージ満タン"))
+		{
+			SlowTuningPanel::RequestFillGauge();
+		}
+
+		// 画面の効果の見比べです。調整値の強さは書き換えないので、戻すと元の見た目に戻ります。
+		bool ssao = SlowTimeFx::IsSsaoEnabled();
+		if (ImGui::Checkbox("SSAO(接地の陰)", &ssao))
+		{
+			SlowTimeFx::SetSsaoEnabled(ssao);
+		}
+		ImGui::SameLine();
+		bool bloom = SlowTimeFx::IsBloomEnabled();
+		if (ImGui::Checkbox("ブルーム", &bloom))
+		{
+			SlowTimeFx::SetBloomEnabled(bloom);
+		}
+	}
+
+	void DrawLightingPresets()
+	{
+		ImGui::TextUnformatted("プリセット:");
+		ImGui::SameLine();
+		if (ImGui::SmallButton("標準(昼)"))
+		{
+			SlowTuningPanel::ApplyLightingPreset(SlowTuningPanel::LightingPreset::Standard);
+		}
+		ImGui::SameLine();
+		if (ImGui::SmallButton("夕暮れ"))
+		{
+			SlowTuningPanel::ApplyLightingPreset(SlowTuningPanel::LightingPreset::Sunset);
+		}
+		ImGui::SameLine();
+		if (ImGui::SmallButton("寒色シネマティック"))
+		{
+			SlowTuningPanel::ApplyLightingPreset(SlowTuningPanel::LightingPreset::CoolCinematic);
+		}
 	}
 
 	void DrawItem(const SlowTuningEntry& entry, SlowActionTuning& values)
@@ -278,6 +348,10 @@ namespace
 			}
 			if (ImGui::CollapsingHeader(title, ImGuiTreeNodeFlags_DefaultOpen))
 			{
+				if (std::string(title) == kLightingSection)
+				{
+					DrawLightingPresets();
+				}
 				for (const SlowTuningEntry* entry : items)
 				{
 					DrawItem(*entry, editable);
@@ -315,6 +389,68 @@ void SlowTuningPanel::Reset()
 	Engine::GameTime::SetPaused(false);
 	Engine::GameTime::SetTimeScale(1.0f);
 	g_RetryRequested = false;
+	g_RefillHpRequested = false;
+	g_FillGaugeRequested = false;
+	// 見比べのために切った画面の効果も戻します(切ったままシーンを終えないように)。
+	SlowTimeFx::SetSsaoEnabled(true);
+	SlowTimeFx::SetBloomEnabled(true);
+}
+
+void SlowTuningPanel::RequestRefillHp() { g_RefillHpRequested = true; }
+void SlowTuningPanel::RequestFillGauge() { g_FillGaugeRequested = true; }
+
+bool SlowTuningPanel::TakeRefillHpRequest()
+{
+	const bool requested = g_RefillHpRequested;
+	g_RefillHpRequested = false;
+	return requested;
+}
+
+bool SlowTuningPanel::TakeFillGaugeRequest()
+{
+	const bool requested = g_FillGaugeRequested;
+	g_FillGaugeRequested = false;
+	return requested;
+}
+
+void SlowTuningPanel::ApplyLightingPreset(LightingPreset preset)
+{
+	if (preset == LightingPreset::Standard)
+	{
+		// 標準は「ライトと画面の見た目」の全項目を既定値へ戻します(項目が増えてもそのまま効きます)。
+		bool inSection = false;
+		for (const SlowTuningEntry& entry : GetSlowActionTuningEntries())
+		{
+			if (entry.Type == SlowTuningEntry::Kind::Section)
+			{
+				inSection = std::string(entry.Key) == kLightingSection;
+			}
+			else if (inSection && entry.Type == SlowTuningEntry::Kind::Float)
+			{
+				Engine::RuntimeConfig::SetFloat(entry.Key, entry.DefaultValue);
+			}
+		}
+		g_Status = "プリセット「標準(昼)」にしました(保存するまで設定ファイルは変わりません)。";
+		return;
+	}
+	const bool sunset = preset == LightingPreset::Sunset;
+	const auto apply = [](const auto& values)
+	{
+		for (const PresetValue& value : values)
+		{
+			Engine::RuntimeConfig::SetFloat(value.Key, value.Value);
+		}
+	};
+	if (sunset)
+	{
+		apply(kSunsetPreset);
+	}
+	else
+	{
+		apply(kCoolCinematicPreset);
+	}
+	g_Status = sunset ? "プリセット「夕暮れ」にしました(保存するまで設定ファイルは変わりません)。"
+		: "プリセット「寒色シネマティック」にしました(保存するまで設定ファイルは変わりません)。";
 }
 
 bool SlowTuningPanel::BlocksGameInput()

@@ -35,6 +35,9 @@ namespace
 	bool g_PostUnavailable = false;
 	// 時間減速の画面演出(彩度・寒色・衝撃波・フラッシュ)を、いま画面へ出しているかです。
 	bool g_TimeSlowShown = false;
+	// 調整パネルでの一時的な切り替えです。調整値(強さ)は書き換えず、渡すときだけ0にします。
+	bool g_SsaoEnabled = true;
+	bool g_BloomEnabled = true;
 	// ほかの演出の火花と乱数を分け、既存の火花の出方を変えないようにします。
 	std::mt19937 g_Random{ 20261120u };
 
@@ -101,9 +104,9 @@ namespace
 			}
 		}
 		const SlowActionTuning& tuning = GetSlowActionTuning();
-		Engine::Renderer::SetPostEffectFloat("aoStrength", tuning.PostAoStrength);
+		Engine::Renderer::SetPostEffectFloat("aoStrength", g_SsaoEnabled ? tuning.PostAoStrength : 0.0f);
 		Engine::Renderer::SetPostEffectFloat("aoRadius", tuning.PostAoRadius);
-		Engine::Renderer::SetPostEffectFloat("bloomIntensity", tuning.PostBloomIntensity);
+		Engine::Renderer::SetPostEffectFloat("bloomIntensity", g_BloomEnabled ? tuning.PostBloomIntensity : 0.0f);
 		Engine::Renderer::SetPostEffectFloat("bloomThreshold", tuning.PostBloomThreshold);
 		// 時間減速の動的な値と見た目です。extra.z は Renderer が書く印なので空けておきます
 		// (shaders/post/realisticCompositePS.hlsl)。
@@ -214,3 +217,8 @@ bool SlowTimeFx::IsRealisticPostActive()
 {
 	return Engine::Renderer::GetPostEffectDefinitionId() == kPostEffectId;
 }
+
+void SlowTimeFx::SetSsaoEnabled(bool enabled) { g_SsaoEnabled = enabled; }
+bool SlowTimeFx::IsSsaoEnabled() { return g_SsaoEnabled; }
+void SlowTimeFx::SetBloomEnabled(bool enabled) { g_BloomEnabled = enabled; }
+bool SlowTimeFx::IsBloomEnabled() { return g_BloomEnabled; }

@@ -1125,6 +1125,55 @@ bool RunSlowActionRenderTest()
 		SlowEnemy::SetInvincible(false);
 	}
 
+	// ---- F4 のデバッグ補助: ライトのプリセット、SSAO・ブルームの一時オフ、HP全回復・時間ゲージ満タン ----
+	{
+		h.Settle(openSpot, 0.0f);
+		// Settle はプレイヤーを瞬間移動させるので、撮る前にカメラが追いつくまで進めます。
+		h.Step(60);
+		SlowTuningPanel::ApplyLightingPreset(SlowTuningPanel::LightingPreset::Sunset);
+		h.Check("sunset preset warms and lowers the sun", fabsf(GetSlowActionTuning().SunWarmth - 0.95f) < 0.0001f
+			&& GetSlowActionTuning().SunElevationDegrees < 20.0f, GetSlowActionTuning().SunWarmth);
+		SlowTuningPanel::ApplyLightingPreset(SlowTuningPanel::LightingPreset::CoolCinematic);
+		h.Check("cool cinematic preset cools the sun", GetSlowActionTuning().SunWarmth < 0.2f
+			&& GetSlowActionTuning().PostVignette > 0.2f, GetSlowActionTuning().SunWarmth);
+		h.Step();
+		h.Draw();
+		h.Check("capture cool cinematic preset", Capture(L"slow-render-cool.png"));
+		SlowTuningPanel::ApplyLightingPreset(SlowTuningPanel::LightingPreset::Standard);
+		h.Check("standard preset restores the defaults", fabsf(GetSlowActionTuning().SunWarmth - 0.5f) < 0.0001f
+			&& fabsf(GetSlowActionTuning().SunAzimuthDegrees - 133.7f) < 0.0001f
+			&& fabsf(GetSlowActionTuning().PostAoStrength - 0.55f) < 0.0001f, GetSlowActionTuning().SunAzimuthDegrees);
+
+		const float aoStrength = GetSlowActionTuning().PostAoStrength;
+		const float bloomIntensity = GetSlowActionTuning().PostBloomIntensity;
+		SlowTimeFx::SetSsaoEnabled(false);
+		SlowTimeFx::SetBloomEnabled(false);
+		h.Step();
+		h.Draw();
+		h.Check("capture without ssao and bloom", Capture(L"slow-render-no-post.png"));
+		h.Check("turning ssao and bloom off keeps their strengths", !SlowTimeFx::IsSsaoEnabled() && !SlowTimeFx::IsBloomEnabled()
+			&& GetSlowActionTuning().PostAoStrength == aoStrength && GetSlowActionTuning().PostBloomIntensity == bloomIntensity);
+		SlowTuningPanel::Reset();
+		h.Check("closing the panel turns ssao and bloom back on", SlowTimeFx::IsSsaoEnabled() && SlowTimeFx::IsBloomEnabled());
+
+		h.Player()->TakeDamage(30);
+		SlowClock::Reset();
+		h.Input.Slow = true;
+		h.Step(30);
+		h.Input = SlowInputState{};
+		h.Step();
+		const int hpBeforeRefill = h.Player()->GetHp();
+		const float gaugeBefore = SlowClock::GetGauge();
+		SlowTuningPanel::RequestRefillHp();
+		SlowTuningPanel::RequestFillGauge();
+		h.Step();
+		h.Check("refill hp button restores full hp", hpBeforeRefill < tuning.PlayerMaxHp && h.Player()->GetHp() == tuning.PlayerMaxHp,
+			static_cast<float>(hpBeforeRefill));
+		h.Check("fill gauge button fills the time gauge", gaugeBefore < tuning.GaugeMax && SlowClock::GetGauge() == tuning.GaugeMax,
+			gaugeBefore);
+		h.Check("quick actions run only once", !SlowTuningPanel::TakeRefillHpRequest() && !SlowTuningPanel::TakeFillGaugeRequest());
+	}
+
 	SlowInput::SetOverride(nullptr);
 	// 減速中にシーンを終えても(やり直し・倒れたときと同じ経路)、ポストエフェクトは残りません。
 	h.Input.Slow = true;
