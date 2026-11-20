@@ -266,7 +266,9 @@ bool RunSlowActionRenderTest()
 	h.Check("dash locked while shift held", h.Player()->IsDashLocked());
 	h.Step(1);
 	h.Check("held shift does not cancel attack", h.Player()->GetState() == State::Attack);
-	h.Step(30);
+	// 振りが終わるまで待ってから、Shiftを押したままにします。
+	for (int i = 0; i < 300 && h.Player()->GetState() == State::Attack; ++i) h.Step();
+	h.Step(10);
 	h.Check("no re-dash until shift released", h.Player()->GetState() == State::Move
 		&& fabsf(h.Player()->GetSpeed() - tuning.WalkSpeed) < 0.1f, h.Player()->GetSpeed());
 	h.Input.Dash = false;
@@ -288,9 +290,10 @@ bool RunSlowActionRenderTest()
 	// 攻撃の終わりAttackBufferSeconds以内に短押しを離して予約し、今の攻撃が終わるまで進めます。
 	auto bufferNextAttack = [&]()
 	{
+		// ヒットストップで攻撃の進みが遅れるので、フレーム数ではなく攻撃の経過時間で受付の時刻を合わせます。
 		const float duration = h.Player()->GetAttackDuration();
-		const int before = (std::max)(0, static_cast<int>(ceilf((duration - tuning.AttackBufferSeconds) * 60.0f)) - 1);
-		h.Step(before);
+		for (int i = 0; i < 600 && h.Player()->GetState() == State::Attack
+			&& h.Player()->GetAttackElapsed() < duration - tuning.AttackBufferSeconds + 0.01f; ++i) h.Step();
 		h.Input.Attack = true;
 		h.Step(2);
 		h.Input.Attack = false;
@@ -815,6 +818,31 @@ bool RunSlowActionRenderTest()
 		h.Step();
 	}
 
+	// ---- 攻撃の出だし: 向き直りは一瞬ではなく、攻撃を出してから時間をかけて終わる ----
+	// 歩いている間にも体は入力の向きへ向き直るので、攻撃を出した瞬間の向きを基準に測ります。
+	{
+		h.Settle(openSpot, 0.0f);
+		h.Enemy()->SetPosition(farAway);
+		h.Input.MoveZ = 1.0f;
+		h.Input.Attack = true;
+		h.Step(2);
+		h.Input.Attack = false;
+		h.Step();
+		const float yawStart = h.Player()->GetYaw();
+		h.Step();
+		const float yawAfterOne = h.Player()->GetYaw();
+		for (int i = 0; i < 12; ++i) h.Step();
+		const float yawEnd = h.Player()->GetYaw();
+		h.Step(3);
+		const float yawLater = h.Player()->GetYaw();
+		const float movedOne = fabsf(SlowUtil::WrapAngle(yawAfterOne - yawStart));
+		const float movedTotal = fabsf(SlowUtil::WrapAngle(yawEnd - yawStart));
+		h.Check("attack turns in steps, not at once", movedTotal > 0.1f && movedOne > 0.005f
+			&& movedOne < movedTotal * 0.5f, movedOne);
+		h.Check("attack stops turning after the turn time", fabsf(SlowUtil::WrapAngle(yawLater - yawEnd)) < 0.001f,
+			fabsf(SlowUtil::WrapAngle(yawLater - yawEnd)));
+	}
+
 	// ---- 剣閃: 振りの途中だけ跡が出て、振り終わると実時間で消える ----
 	{
 		SlowSwordTrail* trail = h.GetWorld().FindFirst<SlowSwordTrail>();
@@ -823,20 +851,25 @@ bool RunSlowActionRenderTest()
 		h.Input.Attack = true;
 		h.Step(2);
 		h.Input.Attack = false;
+		bool captured = false;
 		int peak = 0;
-		for (int frame = 0; frame < 8; ++frame)
+		// 攻撃は左クリックを離した瞬間に始まるので、離したフレームを進めてから振りを追います。
+		h.Step();
+		for (int frame = 0; frame < 600 && h.Player()->GetState() == State::Attack; ++frame)
 		{
 			h.Step();
 			if (trail != nullptr) peak = (std::max)(peak, trail->GetSampleCount());
-			if (frame == 5)
+			// 振りの真ん中(当たる瞬間の少し後)で画面を撮ります。
+			if (!captured && h.Player()->GetAttackElapsed() > h.Player()->GetAttackDuration() * 0.5f)
 			{
 				h.Draw();
 				h.Check("capture sword trail", Capture(L"slow-render-sword-trail.png"));
+				captured = true;
 			}
 		}
 		h.Check("sword trail follows the swing", peak >= 4, static_cast<float>(peak));
-		// 0.22秒(約13フレーム)を過ぎれば、振りが終わった後の跡はすべて消えています。
-		h.Step(30);
+		// 振りが終わった後は、0.22秒で跡がすべて消えます(実時間)。
+		h.Step(20);
 		h.Check("sword trail fades out after the swing", trail != nullptr && trail->GetSampleCount() == 0,
 			trail != nullptr ? static_cast<float>(trail->GetSampleCount()) : -1.0f);
 	}

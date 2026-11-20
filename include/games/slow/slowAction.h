@@ -180,6 +180,8 @@ public:
 	// 今の攻撃の長さ(秒)です。通常攻撃は段ごとにクリップの区間から決まります。
 	float GetAttackDuration() const { return m_AttackDuration; }
 	float GetAttackHitDelay() const { return m_AttackHitDelay; }
+	// 今の攻撃が始まってからの実時間(ヒットストップで遅れます)です。テストが先行入力の時刻を合わせるのに使います。
+	float GetAttackElapsed() const { return m_AttackTime; }
 	// 剣が右手の骨に付いて描かれているか(骨が見つからなければfalseで、剣は隠れます)。
 	bool IsSwordAttached() const { return m_SwordAttached; }
 	// 再生中のベース層のクリップ名(Idle/Run/Dash)と腰の位置です。テストと確認用です。
@@ -220,14 +222,24 @@ private:
 	int m_PursuitCount = 0;
 	// 通常攻撃でロックした敵と、当たる瞬間までに残っている踏み込み距離です。
 	SlowEnemy* m_AttackTarget = nullptr;
-	float m_LungeRemaining = 0.0f;
-	float m_LungeSpeed = 0.0f;
+	// 踏み込む距離の全体と、今までに進んだ距離です(当たる瞬間に全体へ達するイーズアウトで進めます)。
+	float m_LungeTotal = 0.0f;
+	float m_LungeTravelled = 0.0f;
+	// 当たる瞬間の位相(Start〜Endを0〜1)です。クリップの位相で当たりを出すときに使います。
+	float m_AttackHitPhase = 0.0f;
+	// trueなら当たりはクリップの位相(ActionPassed)で出し、falseなら秒数(クリップが読めないとき)で出します。
+	bool m_AttackHitByClip = false;
+	// 攻撃の開始で敵の方へ向き直る途中の目標の向きと、残りの秒数です。
+	float m_AttackYawTarget = 0.0f;
+	float m_AttackTurnRemaining = 0.0f;
 
 	void StartCharge(const SlowInputState& input);
 	void UpdateCharge(const SlowInputState& input, float deltaTime);
 	void StartAttack(AttackType type, const SlowInputState& input);
 	// 通常攻撃のロック先へ向きを追わせ、踏み込みます。当たる瞬間までだけ動きます。
 	void UpdateAttackLunge(float deltaTime);
+	// 攻撃の開始で向き直る途中の向きを、目標へ近づけます。
+	void UpdateAttackTurn(float deltaTime);
 	void PerformAttackHit();
 	void UpdateMovement(const SlowInputState& input, float deltaTime);
 	bool TryMove(const Vector3& offset);

@@ -256,3 +256,14 @@ SLOW_TUNING_FLOAT(SwordTrailBrightness, 1.6f)
 SLOW_TUNING_FLOAT(SwordTrailRootAlpha, 0.2f)
 // 1フレームの間を何分割して滑らかにつなぐかです。
 SLOW_TUNING_INT(SwordTrailSubdivisions, 3)
+
+// ---- 攻撃の緩急・向き直り・残心 ----
+// 通常攻撃の再生倍率を、ComboPlaybackSpeed に掛ける割合です。振りかぶり(ためる)、
+// 当たる瞬間の前後(一気に斬り抜く)、振り終わり(緩めて残心を見せる)の3つで決まります。
+SLOW_TUNING_FLOAT(ComboWindupScale, 0.4f)
+SLOW_TUNING_FLOAT(ComboSlashScale, 1.0f)
+SLOW_TUNING_FLOAT(ComboFollowScale, 0.28f)
+// 攻撃を出した瞬間に、敵や入力した方向へ向き直るのにかける秒数です(瞬間ワープさせません)。
+SLOW_TUNING_FLOAT(AttackTurnSeconds, 0.07f)
+// 攻撃が終わってから構えを解くまでの秒数です(ダッシュで打ち切るときは短く解きます)。
+SLOW_TUNING_FLOAT(AttackFadeOutSeconds, 0.28f)

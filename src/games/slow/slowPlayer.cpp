@@ -42,6 +42,58 @@ namespace
 		}
 	}
 
+	// 通常攻撃の再生倍率の緩急です。位相(Start〜Endを0〜1)と当たる瞬間の位相から、ComboPlaybackSpeedに
+	// 掛ける割合を決めます。振りかぶりはためて、当たる瞬間の前後で一気に振り、振り終わりで緩めて残心を見せます。
+	// 区間の端は滑らかにつなぎ、位相が飛ばないようにします。
+	float ComboSpeedScaleAt(const SlowActionTuning& tuning, float phase, float hitPhase)
+	{
+		constexpr int kKeys = 6;
+		float phases[kKeys] = { 0.0f, hitPhase - 0.12f, hitPhase, hitPhase + 0.08f, hitPhase + 0.3f, 1.0f };
+		const float scales[kKeys] = { tuning.ComboWindupScale, tuning.ComboWindupScale, tuning.ComboSlashScale,
+			tuning.ComboSlashScale, tuning.ComboFollowScale, tuning.ComboFollowScale };
+		for (float& key : phases) key = std::clamp(key, 0.0f, 1.0f);
+		for (int i = 1; i < kKeys; ++i) phases[i] = (std::max)(phases[i], phases[i - 1]);
+
+		const float p = std::clamp(phase, 0.0f, 1.0f);
+		float scale = scales[kKeys - 1];
+		for (int i = 0; i + 1 < kKeys; ++i)
+		{
+			if (p > phases[i + 1]) continue;
+			const float span = phases[i + 1] - phases[i];
+			if (span > 1e-4f)
+			{
+				const float t = std::clamp((p - phases[i]) / span, 0.0f, 1.0f);
+				const float smooth = t * t * (3.0f - 2.0f * t);
+				scale = scales[i] + (scales[i + 1] - scales[i]) * smooth;
+			}
+			else
+			{
+				scale = scales[i + 1];
+			}
+			break;
+		}
+		// 割り算に使うので、0にはしません。
+		return (std::max)(scale, 0.05f);
+	}
+
+	// 通常攻撃の位相0からtoまで進むのにかかる秒数です。再生倍率が位相で変わるので、細かく分けて足します。
+	// 進みの計算(再生倍率 = ComboPlaybackSpeed × 割合)と同じ式を使うので、見た目と当たりの時間が一致します。
+	float ComboSecondsUntil(const SlowActionTuning& tuning, float clipSeconds, float start, float end,
+		float hitPhase, float to)
+	{
+		constexpr int kSteps = 64;
+		const float base = (std::max)(tuning.ComboPlaybackSpeed, 0.01f);
+		// 倍率1で位相0から1まで進むのにかかる秒数です。
+		const double secondsPerPhase = static_cast<double>(clipSeconds) * static_cast<double>(end - start);
+		double total = 0.0;
+		for (int i = 0; i < kSteps; ++i)
+		{
+			const float phase = (static_cast<float>(i) + 0.5f) / static_cast<float>(kSteps) * to;
+			total += static_cast<double>(to) / kSteps / (base * ComboSpeedScaleAt(tuning, phase, hitPhase));
+		}
+		return static_cast<float>(total * secondsPerPhase);
+	}
+
 	// currentをtargetへ、最大でmaxStepだけ近づけます。
 	Vector3 MoveTowards(const Vector3& current, const Vector3& target, float maxStep)
 	{
@@ -176,9 +228,13 @@ void SlowPlayer::Update()
 			m_AttackTime += deltaTime;
 			if (!m_AttackHitDone)
 			{
+				UpdateAttackTurn(deltaTime);
 				UpdateAttackLunge(deltaTime);
 			}
-			if (!m_AttackHitDone && m_AttackTime >= m_AttackHitDelay)
+			// 当たりはクリップの当たる位置を通過した瞬間に出します(見た目と判定を一致させます)。
+			// クリップが無いときだけ、秒数で出します。
+			const bool hitNow = m_AttackHitByClip ? m_Model->ActionPassed(m_AttackHitPhase) : m_AttackTime >= m_AttackHitDelay;
+			if (!m_AttackHitDone && hitNow)
 			{
 				m_AttackHitDone = true;
 				PerformAttackHit();
@@ -331,6 +387,12 @@ void SlowPlayer::UpdateAnimation(float deltaTime)
 	m_Model->SetPlayback(playback);
 	const char* clip = dashing ? "Dash" : (running ? "Run" : "Idle");
 	m_Model->PlayAnimation(clip, planted ? 0.08f : 0.15f);
+	// 通常攻撃は振りの位相に合わせて再生倍率に緩急を付けます(振りかぶりはため、斬り抜きで一気に、振り終わりで緩める)。
+	if (m_State == State::Attack && m_AttackType == AttackType::Normal && m_Model->GetActionTime() >= 0.0f)
+	{
+		const float scale = ComboSpeedScaleAt(tuning, m_Model->GetActionTime(), m_AttackHitPhase);
+		m_Model->SetActionSpeed(tuning.ComboPlaybackSpeed * scale);
+	}
 	// ヒットストップ中はGameTimeが遅くなるので、体の動きも一緒に止まります。
 	m_Model->TickAnimation(deltaTime);
 	UpdateSword();
@@ -449,18 +511,22 @@ void SlowPlayer::StartAttack(AttackType type, const SlowInputState& input)
 		const ComboSegment segment = GetComboSegment(tuning, m_ComboStep);
 		const float clipSeconds = m_Model->GetAnimationSeconds("Slash") > 0.0f
 			? m_Model->GetAnimationSeconds("Slash") : kSlashClipFallbackSeconds;
-		const float secondsPerFraction = clipSeconds / tuning.ComboPlaybackSpeed;
-		m_AttackDuration = (std::max)(segment.End - segment.Start, 0.01f) * secondsPerFraction;
-		m_AttackHitDelay = std::clamp(segment.Hit - segment.Start, 0.0f, segment.End - segment.Start) * secondsPerFraction;
+		// 再生倍率は位相で変わるので、長さと当たる瞬間は区間の積分で決めます。進みの計算と同じ式です。
+		const float span = (std::max)(segment.End - segment.Start, 0.01f);
+		m_AttackHitPhase = std::clamp((segment.Hit - segment.Start) / span, 0.0f, 1.0f);
+		m_AttackDuration = ComboSecondsUntil(tuning, clipSeconds, segment.Start, segment.End, m_AttackHitPhase, 1.0f);
+		m_AttackHitDelay = ComboSecondsUntil(tuning, clipSeconds, segment.Start, segment.End, m_AttackHitPhase, m_AttackHitPhase);
 
 		Anim::ActionOptions options;
 		options.Playback = { tuning.ComboPlaybackSpeed, segment.Start, segment.End, false };
 		// 1段目は待機から素早く構え、2段目以降は前の段の終わりの姿勢からつなぎます。
 		options.FadeIn = m_ComboStep == 1 ? 0.06f : 0.08f;
-		options.FadeOut = 0.12f;
+		// 振り終わりの残心。構えをすぐ解かず、やや長くかけて自然に戻します。
+		options.FadeOut = tuning.AttackFadeOutSeconds;
 		// クリップは踏み込みで前へ進みますが、攻撃中はその場に立つ仕様なので腰の移動は打ち消します。
 		options.RootMotionMode = Anim::RootMotion::Lock;
-		m_Model->PlayAction("Slash", options);
+		// クリップが無いときは、当たりを秒数で出します。
+		m_AttackHitByClip = m_Model->PlayAction("Slash", options);
 	}
 	else
 	{
@@ -474,20 +540,23 @@ void SlowPlayer::StartAttack(AttackType type, const SlowInputState& input)
 			const float span = (std::max)(tuning.StrongClipEnd - tuning.StrongClipStart, 0.01f);
 			m_AttackDuration = span * secondsPerFraction;
 			m_AttackHitDelay = std::clamp(tuning.StrongClipHit - tuning.StrongClipStart, 0.0f, span) * secondsPerFraction;
+			m_AttackHitPhase = std::clamp((tuning.StrongClipHit - tuning.StrongClipStart) / span, 0.0f, 1.0f);
 
 			Anim::ActionOptions options;
 			options.Playback = { tuning.StrongPlaybackSpeed, tuning.StrongClipStart, tuning.StrongClipStart + span, false };
 			// 押した直後に構えが見えるよう、入りは短くします。
 			options.FadeIn = 0.05f;
-			options.FadeOut = 0.15f;
+			// 振り終わりの残心は通常攻撃と同じく、やや長くかけます。
+			options.FadeOut = tuning.AttackFadeOutSeconds;
 			options.RootMotionMode = Anim::RootMotion::Lock;
-			m_Model->PlayAction("Strong", options);
+			m_AttackHitByClip = m_Model->PlayAction("Strong", options);
 		}
 		else
 		{
 			// クリップが読めなかったときは、動きなしで秒数の調整値だけを使います。
 			m_AttackDuration = tuning.StrongDuration;
 			m_AttackHitDelay = tuning.StrongHitDelay;
+			m_AttackHitByClip = false;
 			m_Model->StopAction(0, 0.08f);
 		}
 	}
@@ -532,27 +601,59 @@ void SlowPlayer::StartAttack(AttackType type, const SlowInputState& input)
 			targetDistance = distance;
 		}
 	}
+	// 向きは一瞬で変えず、AttackTurnSecondsかけて目標の方へ向き直します(攻撃の出だしを滑らかに)。
+	const float yawBeforeAttack = m_Yaw;
+	float targetYaw = yawBeforeAttack;
 	if (target != nullptr)
 	{
-		m_Yaw = YawFromDirection(Flatten(target->GetPosition() - GetPosition()));
+		targetYaw = YawFromDirection(Flatten(target->GetPosition() - GetPosition()));
 	}
 	else if (input.MoveX != 0.0f || input.MoveZ != 0.0f)
 	{
 		// 敵がいなくても、入力した方向へ振ります。
-		m_Yaw = YawFromDirection(forward);
+		targetYaw = YawFromDirection(forward);
 	}
+	m_AttackYawTarget = targetYaw;
+	m_AttackTurnRemaining = (std::max)(tuning.AttackTurnSeconds, 0.0f);
+	m_Yaw = m_AttackTurnRemaining > 0.0f ? yawBeforeAttack : targetYaw;
 	m_AttackDirection = ForwardFromYaw(m_Yaw);
 
 	// 通常攻撃はロックした敵へ踏み込み、当たる瞬間に剣が届く距離まで詰めます。
 	m_AttackTarget = type == AttackType::Normal ? target : nullptr;
-	m_LungeRemaining = 0.0f;
-	m_LungeSpeed = 0.0f;
+	m_LungeTotal = 0.0f;
+	m_LungeTravelled = 0.0f;
 	if (m_AttackTarget != nullptr)
 	{
 		const float stand = tuning.PlayerRadius + m_AttackTarget->GetRadius() + tuning.NormalLungeGap;
-		m_LungeRemaining = std::clamp(targetDistance - stand, 0.0f, tuning.NormalLungeMaxDistance);
-		m_LungeSpeed = m_LungeRemaining / (std::max)(m_AttackHitDelay, 0.05f);
+		m_LungeTotal = std::clamp(targetDistance - stand, 0.0f, tuning.NormalLungeMaxDistance);
+		if (m_LungeTotal > 0.3f)
+		{
+			// 踏み込みの足元で、小さな砂ぼこりを上げます。
+			EmitBurst(GetPosition() + Vector3(0.0f, 0.1f, 0.0f), 6, 1.2f, 0.25f, 18, { 0.8f, 0.76f, 0.68f, 0.6f });
+		}
 	}
+}
+
+// 攻撃の出だしで、目標の向きへ滑らかに向き直ります。残りの時間で近づけ、最後は目標に合わせます。
+void SlowPlayer::UpdateAttackTurn(float deltaTime)
+{
+	if (m_AttackTurnRemaining <= 0.0f)
+	{
+		return;
+	}
+	const float remainingBefore = m_AttackTurnRemaining;
+	m_AttackTurnRemaining = (std::max)(m_AttackTurnRemaining - deltaTime, 0.0f);
+	if (m_AttackTurnRemaining <= 0.0f)
+	{
+		m_Yaw = m_AttackYawTarget;
+	}
+	else
+	{
+		// 残り時間に対する割合だけ近づけるので、速く始まって最後まで同じ時間で着きます。
+		const float fraction = std::clamp(deltaTime / remainingBefore, 0.0f, 1.0f);
+		m_Yaw = WrapAngle(m_Yaw + WrapAngle(m_AttackYawTarget - m_Yaw) * fraction);
+	}
+	m_AttackDirection = ForwardFromYaw(m_Yaw);
 }
 
 void SlowPlayer::UpdateAttackLunge(float deltaTime)
@@ -585,12 +686,17 @@ void SlowPlayer::UpdateAttackLunge(float deltaTime)
 
 	// 敵が近づいてきたら、その分だけ踏み込みを減らします。
 	const float stand = tuning.PlayerRadius + m_AttackTarget->GetRadius() + tuning.NormalLungeGap;
-	const float move = (std::min)({ m_LungeSpeed * deltaTime, m_LungeRemaining, (std::max)(distance - stand, 0.0f) });
+	// 踏み込みは速く出て、当たる瞬間にキュッと止まるイーズアウトです。今の時刻までに進むべき距離から、
+	// 既に進んだ分を引きます。
+	const float hitSeconds = (std::max)(m_AttackHitDelay, 0.05f);
+	const float x = std::clamp(m_AttackTime / hitSeconds, 0.0f, 1.0f);
+	const float wanted = m_LungeTotal * (1.0f - (1.0f - x) * (1.0f - x)) - m_LungeTravelled;
+	const float move = (std::min)((std::max)(wanted, 0.0f), (std::max)(distance - stand, 0.0f));
 	if (move <= 0.0f)
 	{
 		return;
 	}
-	m_LungeRemaining -= move;
+	m_LungeTravelled += move;
 	// 軸ごとに動かして、壁沿いに滑らせます。
 	Engine::CharacterMover::MoveAndSlide(*this, *m_Collider, toTarget * move, SlowCollisionLayers::World);
 }
