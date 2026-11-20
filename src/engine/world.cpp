@@ -68,8 +68,11 @@ bool World::SetObjectId(GameObject& gameObject, std::uint64_t id)
 	{
 		return true;
 	}
-	// 破棄待ちのオブジェクトもIDを使っています(AllocateObjectId と同じ判定にします)。
-	if (IsObjectIdInUse(id))
+	// 生きているオブジェクトのIDだけを使用中とみなします(FindById と同じ判定)。破棄待ちのIDは付け直せます。
+	// 編集モードの切り替えのように、全部を破棄待ちにしてから同じIDで読み直して「置き換える」ためです
+	// (破棄待ちは FindById から見えないので、置き換えた後も同じIDで新しいオブジェクトを引けます)。
+	// 新しく振るID(AllocateObjectId)だけは、破棄待ちとも重ならないように IsObjectIdInUse で選びます。
+	if (FindById(id) != nullptr)
 	{
 		return false;
 	}

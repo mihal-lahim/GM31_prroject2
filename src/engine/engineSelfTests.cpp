@@ -2188,17 +2188,29 @@ namespace
 		return ok;
 	}
 
-	bool TestSetObjectIdKeepsPendingDestroyId()
+	bool TestSetObjectIdReplacesPendingDestroyId()
 	{
 		World world;
+		TestGameObject* alive = world.Spawn<TestGameObject>();
 		TestGameObject* doomed = world.Spawn<TestGameObject>();
-		TestGameObject* other = world.Spawn<TestGameObject>();
+		TestGameObject* replacement = world.Spawn<TestGameObject>();
+		// 生きているオブジェクトのIDは、ほかのオブジェクトへ付けられません。
+		bool ok = !world.SetObjectId(*replacement, alive->GetId()) && replacement->GetId() != alive->GetId();
+
+		// 破棄待ちのIDは付け直せます(全部を破棄待ちにして同じIDで読み直す「置き換え」のため)。
+		// 置き換えた後は、同じIDで新しいオブジェクトを引けます。
 		const std::uint64_t doomedId = doomed->GetId();
 		doomed->MarkForDestroy();
-		// 破棄待ちでもまだIDを持っているので、ほかのオブジェクトへ同じIDは付けられません。
-		bool ok = !world.SetObjectId(*other, doomedId) && other->GetId() != doomedId;
-		const std::uint64_t freeId = doomedId + 100;
-		ok &= world.SetObjectId(*other, freeId) && other->GetId() == freeId;
+		ok &= world.SetObjectId(*replacement, doomedId) && replacement->GetId() == doomedId
+			&& world.FindById(doomedId) == replacement;
+		world.DestroyRequestedObjects();
+		ok &= world.FindById(doomedId) == replacement;
+
+		// 新しく振るIDは、破棄待ちのIDとも重なりません。
+		TestGameObject* pending = world.Spawn<TestGameObject>();
+		const std::uint64_t pendingId = pending->GetId();
+		pending->MarkForDestroy();
+		ok &= world.Spawn<TestGameObject>()->GetId() != pendingId;
 		return ok;
 	}
 
@@ -2851,7 +2863,7 @@ bool RunEngineSelfTests()
 		{ "shadow map without device and invalid light", TestShadowMapWithoutDeviceAndInvalidLight },
 		{ "scene fade without device", TestSceneFadeWithoutDevice },
 		{ "scene serializer boundaries", TestSceneSerializerBoundaries },
-		{ "set object id keeps pending destroy id", TestSetObjectIdKeepsPendingDestroyId },
+		{ "set object id replaces pending destroy id", TestSetObjectIdReplacesPendingDestroyId },
 		{ "instant transition and invalid delta time", TestInstantTransitionAndInvalidDeltaTime },
 		{ "vector3 normalize extreme values", TestVector3NormalizeExtremeValues },
 		{ "dynamic text uninit then draw", TestDynamicTextUninitThenDraw },
