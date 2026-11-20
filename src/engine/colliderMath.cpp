@@ -35,6 +35,31 @@ namespace
 		return value;
 	}
 
+	bool IsFinite(const Vector3& value)
+	{
+		return std::isfinite(value.x) && std::isfinite(value.y) && std::isfinite(value.z);
+	}
+
+	// 中心と、形に応じた半径・寸法がすべて有限かです。NaN は比較をすべて素通りして
+	// 「当たり」と判定されることがあるので、判定の前に弾きます。
+	bool HasFiniteShape(const Collider& collider)
+	{
+		if (!IsFinite(collider.GetCenter()))
+		{
+			return false;
+		}
+		switch (collider.GetShape())
+		{
+		case Collider::Shape::Sphere:
+			return std::isfinite(collider.GetRadius());
+		case Collider::Shape::Capsule:
+			return std::isfinite(collider.GetRadius()) && std::isfinite(collider.GetCapsuleHalfHeight());
+		case Collider::Shape::AABB:
+			return IsFinite(collider.GetHalfSize());
+		}
+		return false;
+	}
+
 	float DistanceSquared(const Vector3& a, const Vector3& b)
 	{
 		Vector3 d = a - b;
@@ -112,6 +137,11 @@ namespace
 
 	bool SegmentIntersectsAABB(const Vector3& start, const Vector3& end, const Vector3& boxCenter, const Vector3& halfSize)
 	{
+		// NaN があると下の比較がすべて false になり、最後の「当たり」まで素通りします。
+		if (!IsFinite(start) || !IsFinite(end) || !IsFinite(boxCenter) || !IsFinite(halfSize))
+		{
+			return false;
+		}
 		Vector3 direction = end - start;
 		float tMin = 0.0f;
 		float tMax = 1.0f;
@@ -374,7 +404,15 @@ namespace
 bool Collider::Raycast(const Vector3& origin, const Vector3& direction, float maxDistance,
 	float& distance, Vector3& normal) const
 {
-	if (m_GameObject == nullptr || maxDistance < 0.0f)
+	// CollisionWorld を通さず直接呼ばれても、不正なレイや形では当たりにしません
+	// (NaN は「maxDistance < 0」をすり抜け、長さ0の向きは法線や距離を NaN にします)。
+	if (m_GameObject == nullptr || !IsFinite(origin) || !IsFinite(direction)
+		|| !std::isfinite(maxDistance) || maxDistance < 0.0f)
+	{
+		return false;
+	}
+	const float directionLength = sqrtf(Vector3::dot(direction, direction));
+	if (!std::isfinite(directionLength) || directionLength <= 1e-5f || !HasFiniteShape(*this))
 	{
 		return false;
 	}
@@ -406,6 +444,11 @@ bool Collider::Raycast(const Vector3& origin, const Vector3& direction, float ma
 bool Collider::Intersects(const Collider& other) const
 {
 	if (m_GameObject == nullptr || other.m_GameObject == nullptr)
+	{
+		return false;
+	}
+	// 位置や寸法が NaN・無限大の相手とは当たりません(NaN の比較で偽の当たりになるのを防ぐ)。
+	if (!HasFiniteShape(*this) || !HasFiniteShape(other))
 	{
 		return false;
 	}
@@ -480,7 +523,8 @@ bool Collider::IntersectsCapsule(
 	const Vector3& end,
 	float radius) const
 {
-	if (!std::isfinite(radius) || radius < 0.0f || m_GameObject == nullptr)
+	if (!std::isfinite(radius) || radius < 0.0f || m_GameObject == nullptr
+		|| !IsFinite(start) || !IsFinite(end) || !HasFiniteShape(*this))
 	{
 		return false;
 	}

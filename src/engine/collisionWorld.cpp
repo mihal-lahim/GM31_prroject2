@@ -365,6 +365,12 @@ void CollisionWorld::QueryBounds(
 		Vector3 otherMinimum;
 		Vector3 otherMaximum;
 		other->GetBounds(otherMinimum, otherMaximum);
+		// 動的な Collider は空間インデックスの検査を通らないので、NaN の範囲をここで弾きます
+		// (NaN は下の比較をすべて素通りして、どの範囲検索にも混ざってしまいます)。
+		if (!IsValidBounds(otherMinimum, otherMaximum))
+		{
+			continue;
+		}
 		if (otherMaximum.x < minimum.x || otherMinimum.x > maximum.x
 			|| otherMaximum.y < minimum.y || otherMinimum.y > maximum.y
 			|| otherMaximum.z < minimum.z || otherMinimum.z > maximum.z)

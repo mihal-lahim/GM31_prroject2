@@ -56,6 +56,9 @@ void GameTime::Update(float unscaledDeltaTime)
 	{
 		m_DeltaTime = kStoppedDeltaTime;
 		m_DeltaTimeIgnoringHitStop = kStoppedDeltaTime;
+		// このフレームはヒットストップで止めていません。直前に最後の1フレームを消化していても、
+		// ポーズ中に「ヒットストップ中」が残り続けないようにします(残りフレームはポーズ解除後に再開します)。
+		m_HitStopThisFrame = false;
 	}
 	else
 	{

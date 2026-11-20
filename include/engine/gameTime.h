@@ -1,5 +1,7 @@
 #pragma once
 
+#include <cmath>
+
 namespace Engine
 {
 class GameTime
@@ -56,7 +58,13 @@ public:
 	static float GetChannelScale(int channel);
 	static float GetChannelDeltaTime(int channel)
 	{
-		return channel == kHitStopFreeChannel ? m_DeltaTimeIgnoringHitStop : m_DeltaTime * GetChannelScale(channel);
+		if (channel == kHitStopFreeChannel)
+		{
+			return m_DeltaTimeIgnoringHitStop;
+		}
+		// 大きな有限値どうしの積は無限大になり得るので、そのときは止まっている(0)として扱います。
+		const float deltaTime = m_DeltaTime * GetChannelScale(channel);
+		return std::isfinite(deltaTime) ? deltaTime : 0.0f;
 	}
 	static void ResetChannels();
 };

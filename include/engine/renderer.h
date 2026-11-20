@@ -2,6 +2,7 @@
 
 #include "engineCommon.h"
 #include <array>
+#include <cmath>
 #include <string>
 #include <string_view>
 namespace Engine
@@ -69,10 +70,15 @@ enum class RenderDepthMode
 	Disabled   // 深度を使わない。画面座標のUIとデバッグ表示
 };
 
-// XMFLOAT4 の index 番目(0=x, 1=y, 2=z, 3=w)へ書きます。範囲外なら何もせず false です。
+// XMFLOAT4 の index 番目(0=x, 1=y, 2=z, 3=w)へ書きます。範囲外や NaN・無限大なら何もせず false です
+// (シェーダーの定数へそのまま渡り、画面を壊すため)。
 // &value.x からのポインタ演算は別々のメンバーをまたぐので使いません。
 inline bool SetXMFloat4Component(XMFLOAT4& value, std::size_t index, float component)
 {
+	if (!std::isfinite(component))
+	{
+		return false;
+	}
 	switch (index)
 	{
 	case 0: value.x = component; return true;

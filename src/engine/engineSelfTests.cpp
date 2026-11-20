@@ -4,6 +4,7 @@
 #include "gameSettings.h"
 #include "gameTime.h"
 #include "inputActions.h"
+#include "keyboard_utf8.h"
 #include "objModelLoader.h"
 #include "manager.h"
 #include "scene.h"
@@ -1563,6 +1564,11 @@ namespace
 			&& Engine::SetXMFloat4Component(value, 2, 3.0f) && Engine::SetXMFloat4Component(value, 3, 4.0f)
 			&& !Engine::SetXMFloat4Component(value, 4, 5.0f);
 		ok &= value.x == 1.0f && value.y == 2.0f && value.z == 3.0f && value.w == 4.0f;
+		// NaN・無限大は書かず、元の成分を保ちます(シェーダーの定数を壊さない)。
+		ok &= !Engine::SetXMFloat4Component(value, 0, std::numeric_limits<float>::quiet_NaN())
+			&& !Engine::SetXMFloat4Component(value, 1, std::numeric_limits<float>::infinity())
+			&& !Engine::SetXMFloat4Component(value, 3, -std::numeric_limits<float>::infinity());
+		ok &= value.x == 1.0f && value.y == 2.0f && value.z == 3.0f && value.w == 4.0f;
 
 		Engine::SurfaceMaterial material;
 		// 何も読み込んでいない状態では描けません。
@@ -2365,6 +2371,107 @@ namespace
 		return ok;
 	}
 
+	bool TestCollisionRejectsNonFiniteInput()
+	{
+		constexpr float nan = std::numeric_limits<float>::quiet_NaN();
+		constexpr float inf = std::numeric_limits<float>::infinity();
+		World world;
+		TestGameObject* boxOwner = world.Spawn<TestGameObject>();
+		Collider* box = boxOwner->AddComponent<Collider>()->SetAABB({ 1.0f, 1.0f, 1.0f });
+		TestGameObject* sphereOwner = world.Spawn<TestGameObject>();
+		Collider* sphere = sphereOwner->AddComponent<Collider>()->SetSphere(1.0f);
+		TestGameObject* capsuleOwner = world.Spawn<TestGameObject>();
+		Collider* capsule = capsuleOwner->AddComponent<Collider>()->SetCapsule(0.5f, 2.0f);
+
+		// NaN の端点を持つカプセルはどの形にも当たりません。正しい端点なら当たります(比較の前提)。
+		bool ok = true;
+		for (const Collider* target : { box, sphere, capsule })
+		{
+			ok &= !target->IntersectsCapsule({ nan, 0.0f, 0.0f }, { 0.0f, 0.0f, 0.0f }, 0.5f)
+				&& !target->IntersectsCapsule({ 0.0f, 0.0f, 0.0f }, { 0.0f, inf, 0.0f }, 0.5f)
+				&& target->IntersectsCapsule({ -0.1f, 0.0f, 0.0f }, { 0.1f, 0.0f, 0.0f }, 0.5f);
+		}
+
+		// 持ち主の位置が NaN の動的なカプセルは、箱と重なって見えても当たらず、範囲検索にも入りません。
+		ok &= capsule->Intersects(*box);
+		capsuleOwner->SetPosition({ nan, 0.0f, 0.0f });
+		ok &= !capsule->Intersects(*box) && !box->Intersects(*capsule)
+			&& !capsule->Intersects(*sphere) && !capsule->Intersects(*capsule);
+		std::vector<Collider*> found;
+		world.GetCollisionWorld().QueryBounds({ -5.0f, -5.0f, -5.0f }, { 5.0f, 5.0f, 5.0f }, CollisionLayers::All, found);
+		ok &= std::find(found.begin(), found.end(), capsule) == found.end()
+			&& std::find(found.begin(), found.end(), box) != found.end()
+			&& std::find(found.begin(), found.end(), sphere) != found.end();
+		sphereOwner->SetScale({ inf, 1.0f, 1.0f });
+		ok &= !sphere->Intersects(*box) && !box->Intersects(*sphere);
+
+		// 直接の Raycast も、不正なレイでは当たりにしません。
+		float distance = -1.0f;
+		Vector3 normal;
+		const Vector3 origin{ -5.0f, 0.0f, 0.0f };
+		const Vector3 right{ 1.0f, 0.0f, 0.0f };
+		ok &= box->Raycast(origin, right, 10.0f, distance, normal) && NearlyEqual(distance, 4.0f);
+		ok &= !box->Raycast(origin, right, nan, distance, normal)
+			&& !box->Raycast(origin, right, -1.0f, distance, normal)
+			&& !box->Raycast({ nan, 0.0f, 0.0f }, right, 10.0f, distance, normal)
+			&& !box->Raycast(origin, { inf, 0.0f, 0.0f }, 10.0f, distance, normal)
+			&& !box->Raycast(origin, { 0.0f, 0.0f, 0.0f }, 10.0f, distance, normal)
+			&& !box->Raycast({ 0.0f, 0.0f, 0.0f }, { 0.0f, 0.0f, 0.0f }, 10.0f, distance, normal)
+			&& !capsule->Raycast(origin, right, 10.0f, distance, normal)
+			&& !sphere->Raycast(origin, right, 10.0f, distance, normal);
+		return ok;
+	}
+
+	bool TestGameTimePauseClearsFinishedHitStop()
+	{
+		using Engine::GameTime;
+		constexpr float step = 1.0f / 60.0f;
+
+		// 最後の1フレームを消化した直後にポーズしても、ヒットストップ中のままになりません。
+		GameTime::Init();
+		GameTime::StartHitStop(1, 0.0f);
+		GameTime::Update(step);
+		bool ok = GameTime::IsHitStopActive();
+		GameTime::SetPaused(true);
+		GameTime::Update(step);
+		ok &= !GameTime::IsHitStopActive() && GameTime::GetHitStopRemainingRatio() == 0.0f;
+
+		// 残りがあるときは、ポーズ中も残り(1/2)を保ち、解除後に続きから消化します。
+		GameTime::Init();
+		GameTime::StartHitStop(2, 0.0f);
+		GameTime::Update(step);
+		GameTime::SetPaused(true);
+		GameTime::Update(step);
+		ok &= GameTime::IsHitStopActive() && NearlyEqual(GameTime::GetHitStopRemainingRatio(), 0.5f);
+		GameTime::SetPaused(false);
+		GameTime::Update(step);
+		ok &= GameTime::IsHitStopActive() && NearlyEqual(GameTime::GetHitStopRemainingRatio(), 0.5f);
+		GameTime::Update(step);
+		ok &= !GameTime::IsHitStopActive() && GameTime::GetHitStopRemainingRatio() == 0.0f;
+
+		// 全体の時間とチャンネルの倍率の積が無限大になっても、0 を返します。
+		GameTime::Init();
+		GameTime::SetTimeScale(1e19f);
+		GameTime::Update(1e19f);
+		GameTime::SetChannelScale(1, 1e30f);
+		ok &= std::isfinite(GameTime::GetDeltaTime()) && GameTime::GetDeltaTime() > 0.0f
+			&& GameTime::GetChannelDeltaTime(1) == 0.0f;
+		GameTime::Init();
+		return ok;
+	}
+
+	bool TestKeyboardKillFocusReleasesKeys()
+	{
+		Keyboard_Reset();
+		Keyboard_ProcessMessage(WM_KEYDOWN, 'A', 0);
+		bool ok = Keyboard_IsKeyDown(KK_A) && Keyboard_IsKeyDownTrigger(KK_A);
+		// 同じアプリの別ウィンドウへフォーカスが移ったら、押したままに見えないよう捨てます。
+		Keyboard_ProcessMessage(WM_KILLFOCUS, 0, 0);
+		ok &= !Keyboard_IsKeyDown(KK_A) && !Keyboard_IsKeyDownTrigger(KK_A);
+		Keyboard_Reset();
+		return ok;
+	}
+
 	bool TestDynamicTextUninitThenDraw()
 	{
 		World world;
@@ -2607,6 +2714,9 @@ bool RunEngineSelfTests()
 		{ "particle system rejects invalid sparks", TestParticleSystemRejectsInvalidSparks },
 		{ "collider non-finite shape and no owner", TestColliderNonFiniteShapeAndNoOwner },
 		{ "input actions look delta and binding typos", TestInputActionsLookDeltaAndBindingTypos },
+		{ "collision rejects non-finite input", TestCollisionRejectsNonFiniteInput },
+		{ "game time pause clears finished hit stop", TestGameTimePauseClearsFinishedHitStop },
+		{ "keyboard kill focus releases keys", TestKeyboardKillFocusReleasesKeys },
 	};
 
 	// どの項目で落ちたか分かるよう、全項目を実行して結果をログへ残します。

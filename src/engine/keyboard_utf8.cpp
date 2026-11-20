@@ -143,6 +143,9 @@ void Keyboard_ProcessMessage(UINT message, WPARAM wParam, LPARAM lParam)
     switch (message)
     {
     case WM_ACTIVATEAPP:
+    // 同じアプリの別のウィンドウやダイアログへフォーカスが移ると WM_ACTIVATEAPP は来ず、
+    // 離したキーの WM_KEYUP も届かないので、押したままに見えないよう同じく捨てます。
+    case WM_KILLFOCUS:
         Keyboard_Reset();
         return;
 
