@@ -4,7 +4,9 @@
 
 #include <charconv>
 #include <climits>
+#include <cmath>
 #include <fstream>
+#include <limits>
 #include <sstream>
 
 namespace Engine
@@ -43,8 +45,13 @@ namespace
 	}
 
 	// 書いた値をそのまま読み戻せる桁数で出します。
+	// NaN・無限大は読み込みで弾かれてファイル全体が読めなくなるので、0として書きます。
 	std::string FormatFloat(float value)
 	{
+		if (!std::isfinite(value))
+		{
+			value = 0.0f;
+		}
 		char buffer[32]{};
 		snprintf(buffer, sizeof(buffer), "%.9g", static_cast<double>(value));
 		return buffer;
@@ -117,6 +124,11 @@ namespace
 
 		void Line(const char* kind, const char* name, const std::string& value)
 		{
+			// 名前の無いプロパティは読み戻せない行になるので書きません。
+			if (name == nullptr || name[0] == '\0')
+			{
+				return;
+			}
 			m_Out += kind;
 			m_Out += ' ';
 			m_Out += name;
@@ -196,8 +208,13 @@ namespace
 		const std::vector<StoredProperty>& m_Properties;
 		bool m_HadError = false;
 
-		const StoredProperty* Find(std::string_view kind, std::string_view name) const
+		const StoredProperty* Find(std::string_view kind, const char* name) const
 		{
+			// 名前の無いプロパティは書き出さないので、読み込む値もありません(nullptr から string_view も作りません)。
+			if (name == nullptr || name[0] == '\0')
+			{
+				return nullptr;
+			}
 			for (const StoredProperty& property : m_Properties)
 			{
 				if (property.Kind == kind && property.Name == name)
@@ -229,6 +246,11 @@ namespace
 
 void ObjectTypeRegistry::Add(const char* name, std::type_index type, Factory factory)
 {
+	// 名前や生成関数の無い登録は、保存も生成もできないので受け付けません。
+	if (name == nullptr || name[0] == '\0' || factory == nullptr)
+	{
+		return;
+	}
 	for (const RegisteredType& registered : Types())
 	{
 		if (registered.Name == name)
@@ -385,10 +407,15 @@ bool SceneSerializer::Read(World& world, std::string_view text,
 		}
 		else if (key == "id")
 		{
-			long long id = 0;
-			if (ParseInt(line, id) && id > 0)
+			// IDは std::uint64_t で書くので、符号なしで読みます(long long の上限を超えるIDもあります)。
+			// 0(未割り当て)と最大値(World::SetObjectId が受け付けない)は壊れた行として扱います。
+			const std::string_view idText = Trim(line);
+			std::uint64_t id = 0;
+			const auto result = std::from_chars(idText.data(), idText.data() + idText.size(), id);
+			if (result.ec == std::errc{} && result.ptr == idText.data() + idText.size()
+				&& id > 0 && id < (std::numeric_limits<std::uint64_t>::max)())
 			{
-				stored.Id = static_cast<std::uint64_t>(id);
+				stored.Id = id;
 			}
 			else
 			{

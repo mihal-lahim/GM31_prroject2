@@ -68,7 +68,8 @@ bool World::SetObjectId(GameObject& gameObject, std::uint64_t id)
 	{
 		return true;
 	}
-	if (FindById(id) != nullptr)
+	// 破棄待ちのオブジェクトもIDを使っています(AllocateObjectId と同じ判定にします)。
+	if (IsObjectIdInUse(id))
 	{
 		return false;
 	}

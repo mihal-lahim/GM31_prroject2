@@ -10,6 +10,7 @@
 #include "characterMover.h"
 #include "cloth.h"
 #include "collider.h"
+#include "dynamicText.h"
 #include "tuningFields.h"
 #include "glyphRenderer2D.h"
 #include "modelRenderer.h"
@@ -2113,6 +2114,129 @@ namespace
 		fade.Draw(1.0f);
 		return !initialized;
 	}
+
+	// 名前の無いプロパティと NaN の値を持つ、保存の境界を確かめるための型です。
+	class OddPropertyTestObject final : public GameObject
+	{
+	public:
+		float Value = 1.0f;
+		float Unnamed = 2.0f;
+
+		void Reflect(Engine::PropertyVisitor& visitor) override
+		{
+			visitor.Visit(nullptr, Unnamed);
+			visitor.Visit("", Unnamed);
+			visitor.Visit("Value", Value);
+		}
+	};
+
+	bool TestSceneSerializerBoundaries()
+	{
+		using Engine::ObjectTypeRegistry;
+		using Engine::SceneSerializer;
+		constexpr float nan = std::numeric_limits<float>::quiet_NaN();
+		constexpr std::uint64_t maxId = (std::numeric_limits<std::uint64_t>::max)();
+
+		// nullptr・空の名前は登録しません(落ちず、名前の一覧も増えません)。
+		const std::size_t namesBefore = ObjectTypeRegistry::GetNames().size();
+		ObjectTypeRegistry::Register<TestGameObject>(nullptr);
+		ObjectTypeRegistry::Register<TestGameObject>("");
+		const std::vector<std::string> names = ObjectTypeRegistry::GetNames();
+		bool ok = names.size() == namesBefore
+			&& std::none_of(names.begin(), names.end(), [](const std::string& name) { return name.empty(); });
+
+		ObjectTypeRegistry::Register<OddPropertyTestObject>("OddPropertyTestObject");
+		ObjectTypeRegistry::Register<SerializableTestObject>("SerializableTestObject");
+
+		// long long の上限を超えるIDと NaN の値を書いて、読み戻せることを確かめます。
+		World source;
+		OddPropertyTestObject* odd = source.Spawn<OddPropertyTestObject>();
+		odd->Value = nan;
+		const std::uint64_t bigId = maxId - 1;
+		ok &= bigId > static_cast<std::uint64_t>((std::numeric_limits<long long>::max)())
+			&& source.SetObjectId(*odd, bigId);
+		const std::string text = SceneSerializer::Write(source);
+		// 名前の無い行と、読めない nan は書きません。
+		ok &= text.find("float  ") == std::string::npos && text.find("nan") == std::string::npos
+			&& text.find("float Value 0\n") != std::string::npos;
+
+		World loaded;
+		std::vector<GameObject*> created;
+		ok &= SceneSerializer::Read(loaded, text, &created) && created.size() == 1;
+		if (ok)
+		{
+			const auto* copy = dynamic_cast<OddPropertyTestObject*>(created[0]);
+			ok &= copy != nullptr && copy->GetId() == bigId && copy->Value == 0.0f && copy->Unnamed == 2.0f;
+		}
+
+		// 0 と最大値のIDは壊れた行です(オブジェクトは作り、IDは新しく振ります)。
+		for (const char* idText : { "0", "18446744073709551615", "18446744073709551616", "-1" })
+		{
+			World broken;
+			created.clear();
+			const std::string brokenText = std::string("object SerializableTestObject\nid ") + idText + "\nend\n";
+			ok &= !SceneSerializer::Read(broken, brokenText, &created) && created.size() == 1
+				&& created[0]->GetId() != 0 && created[0]->GetId() != maxId;
+		}
+		return ok;
+	}
+
+	bool TestSetObjectIdKeepsPendingDestroyId()
+	{
+		World world;
+		TestGameObject* doomed = world.Spawn<TestGameObject>();
+		TestGameObject* other = world.Spawn<TestGameObject>();
+		const std::uint64_t doomedId = doomed->GetId();
+		doomed->MarkForDestroy();
+		// 破棄待ちでもまだIDを持っているので、ほかのオブジェクトへ同じIDは付けられません。
+		bool ok = !world.SetObjectId(*other, doomedId) && other->GetId() != doomedId;
+		const std::uint64_t freeId = doomedId + 100;
+		ok &= world.SetObjectId(*other, freeId) && other->GetId() == freeId;
+		return ok;
+	}
+
+	bool TestVector3NormalizeExtremeValues()
+	{
+		constexpr float nan = std::numeric_limits<float>::quiet_NaN();
+		constexpr float inf = std::numeric_limits<float>::infinity();
+
+		// 2乗の和が float を超える大きな値でも、0へ潰れず向きを保ちます。
+		Vector3 large{ 3e20f, 4e20f, 0.0f };
+		large.normalize();
+		bool ok = NearlyEqual(large.x, 0.6f) && NearlyEqual(large.y, 0.8f) && large.z == 0.0f;
+		Vector3 largeNegative{ -3e30f, 0.0f, 4e30f };
+		largeNegative.normalize();
+		ok &= NearlyEqual(largeNegative.x, -0.6f) && largeNegative.y == 0.0f && NearlyEqual(largeNegative.z, 0.8f);
+
+		// 通常の値は従来どおりです。0 は 0 のままです。
+		Vector3 regular{ 0.0f, 3.0f, 4.0f };
+		regular.normalize();
+		ok &= regular.x == 0.0f && NearlyEqual(regular.y, 0.6f) && NearlyEqual(regular.z, 0.8f);
+		Vector3 zero{ 0.0f, 0.0f, 0.0f };
+		zero.normalize();
+		ok &= zero.x == 0.0f && zero.y == 0.0f && zero.z == 0.0f;
+
+		// NaN・無限大の成分があるときは変えません(新たな NaN を生みません)。
+		Vector3 infinite{ inf, 1.0f, 0.0f };
+		infinite.normalize();
+		ok &= infinite.x == inf && infinite.y == 1.0f && infinite.z == 0.0f;
+		Vector3 withNan{ nan, 1.0f, 2.0f };
+		withNan.normalize();
+		ok &= std::isnan(withNan.x) && withNan.y == 1.0f && withNan.z == 2.0f;
+		return ok;
+	}
+
+	bool TestDynamicTextUninitThenDraw()
+	{
+		World world;
+		DynamicText* text = world.Spawn<DynamicText>();
+		text->SetText(L"テスト");
+		text->Draw();
+		text->Uninit();
+		// 終了後に描いてもテクスチャを作り直さず、大きさは 0 のままです。
+		text->Draw();
+		return text->GetWidth() == 0 && text->GetHeight() == 0;
+	}
 }
 
 namespace Engine
@@ -2199,6 +2323,70 @@ namespace Engine
 			GameTime::ResetChannels();
 			return ok;
 		}
+
+		// 即時の切替で暗転が1フレーム残らないこと、不正な経過時間・秒数でフェードが壊れないことを確かめます。
+		static bool InstantTransitionAndInvalidDeltaTime()
+		{
+			class EmptyScene final : public Scene
+			{
+			public:
+				void Init() override {}
+				void Uninit() override {}
+				void Update() override {}
+				void Draw() override {}
+			};
+			if (Manager::m_Scene != nullptr || Manager::m_NextScene != nullptr)
+			{
+				return false;
+			}
+			constexpr float nan = std::numeric_limits<float>::quiet_NaN();
+			constexpr float inf = std::numeric_limits<float>::infinity();
+			constexpr float step = 1.0f / 60.0f;
+
+			Manager::m_FadeAlpha = 0.0f;
+			Manager::m_FadingOut = false;
+			Manager::AttachScene(std::make_unique<EmptyScene>());
+
+			// Instant: 切り替えたその更新で暗転が消えています(次の Draw で黒い画面を出しません)。
+			Manager::ChangeScene(std::make_unique<EmptyScene>(), SceneTransition::Instant());
+			Manager::UpdateSceneTransition(step);
+			bool ok = !Manager::m_FadingOut && Manager::m_NextScene == nullptr && Manager::m_FadeAlpha == 0.0f;
+
+			// 暗転中: NaN・無限大・負の経過時間ではフェードを進めず、戻しもしません。
+			Manager::ChangeScene(std::make_unique<EmptyScene>(), SceneTransition{});
+			Manager::m_FadeAlpha = 0.25f;
+			for (const float deltaTime : { nan, inf, -inf, -1.0f, 0.0f })
+			{
+				Manager::UpdateSceneTransition(deltaTime);
+				ok &= Manager::m_FadeAlpha == 0.25f && Manager::m_FadingOut && Manager::m_NextScene != nullptr;
+			}
+			// 明転中も同じです。
+			Manager::m_NextScene.reset();
+			Manager::m_FadingOut = false;
+			Manager::m_FadeAlpha = 0.5f;
+			for (const float deltaTime : { nan, inf, -inf, -1.0f, 0.0f })
+			{
+				Manager::UpdateSceneTransition(deltaTime);
+				ok &= Manager::m_FadeAlpha == 0.5f;
+			}
+			// 秒数が NaN なら即時として扱い、NaN を広げません。
+			Manager::m_Transition = SceneTransition{ nan, nan };
+			Manager::UpdateSceneTransition(step);
+			ok &= Manager::m_FadeAlpha == 0.0f;
+
+			if (Manager::m_Scene != nullptr)
+			{
+				Manager::m_Scene->Uninit();
+				Manager::m_Scene->GetWorld().Clear();
+				Manager::m_Scene.reset();
+			}
+			Manager::m_NextScene.reset();
+			Manager::m_FadeAlpha = 1.0f;
+			Manager::m_FadingOut = false;
+			Manager::m_Transition = SceneTransition{};
+			GameTime::ResetChannels();
+			return ok;
+		}
 	};
 }
 
@@ -2207,6 +2395,11 @@ namespace
 	bool TestSceneChangeDuringInitIsKept()
 	{
 		return Engine::ManagerSelfTestAccess::SceneChangeDuringInitIsKept();
+	}
+
+	bool TestInstantTransitionAndInvalidDeltaTime()
+	{
+		return Engine::ManagerSelfTestAccess::InstantTransitionAndInvalidDeltaTime();
 	}
 }
 
@@ -2267,6 +2460,11 @@ bool RunEngineSelfTests()
 		{ "renderer without device keeps state", TestRendererWithoutDeviceKeepsState },
 		{ "shadow map without device and invalid light", TestShadowMapWithoutDeviceAndInvalidLight },
 		{ "scene fade without device", TestSceneFadeWithoutDevice },
+		{ "scene serializer boundaries", TestSceneSerializerBoundaries },
+		{ "set object id keeps pending destroy id", TestSetObjectIdKeepsPendingDestroyId },
+		{ "instant transition and invalid delta time", TestInstantTransitionAndInvalidDeltaTime },
+		{ "vector3 normalize extreme values", TestVector3NormalizeExtremeValues },
+		{ "dynamic text uninit then draw", TestDynamicTextUninitThenDraw },
 	};
 
 	// どの項目で落ちたか分かるよう、全項目を実行して結果をログへ残します。

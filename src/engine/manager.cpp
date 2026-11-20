@@ -17,6 +17,7 @@
 #include "sceneFade.h"
 #include "shadowMap.h"
 
+#include <cmath>
 #include <functional>
 #include <utility>
 
@@ -188,10 +189,24 @@ bool Manager::IsQuitRequested()
 
 namespace
 {
-	// 秒数0は即時に端まで進めます。
+	// 秒数0は即時に端まで進めます。NaN・無限大・負の経過時間では進めず(逆行や NaN を防ぐ)、
+	// 秒数が NaN・無限大・0以下なら即時として扱います。
 	float FadeStep(float fixedDeltaTime, float seconds)
 	{
-		return seconds > 0.0f ? fixedDeltaTime / seconds : 1.0f;
+		if (!std::isfinite(fixedDeltaTime) || fixedDeltaTime <= 0.0f)
+		{
+			return 0.0f;
+		}
+		if (!std::isfinite(seconds) || seconds <= 0.0f)
+		{
+			return 1.0f;
+		}
+		return fixedDeltaTime / seconds;
+	}
+
+	bool IsInstantFade(float seconds)
+	{
+		return !std::isfinite(seconds) || seconds <= 0.0f;
 	}
 }
 
@@ -210,6 +225,12 @@ void Manager::UpdateSceneTransition(float fixedDeltaTime)
 			std::unique_ptr<Scene> nextScene = std::move(m_NextScene);
 			m_FadingOut = false;
 			AttachScene(std::move(nextScene));
+			// 即時の切替(SceneTransition::Instant など)は暗転を挟まないので、このフレームの描画から
+			// 新しい画面を見せます。新SceneのInitが次の遷移を積んだときは暗転したまま続けます。
+			if (!m_FadingOut && IsInstantFade(m_Transition.FadeInSeconds))
+			{
+				m_FadeAlpha = 0.0f;
+			}
 			// 新Sceneが読み込んだ後に回収します。共有しているアセットは参照が残るため落ちません。
 			ResourceManager::CollectUnused();
 		}

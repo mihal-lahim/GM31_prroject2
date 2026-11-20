@@ -38,6 +38,12 @@ void DynamicText::Uninit()
 	m_VertexLayout.Reset();
 	m_VertexShader.Reset();
 	m_PixelShader.Reset();
+	// 終了後に Draw が呼ばれてもテクスチャを作り直さないよう、描画の状態も初期値へ戻します。
+	m_RenderingAvailable = false;
+	m_BuiltText.clear();
+	m_BuiltFontSize = 0;
+	m_TextureWidth = 0;
+	m_TextureHeight = 0;
 	GameObject::Uninit();
 }
 
@@ -76,6 +82,14 @@ bool DynamicText::RebuildTexture()
 	DrawTextW(memory, m_Text.c_str(), -1, &measure, DT_CALCRECT | DT_NOPREFIX | DT_LEFT);
 	const int width = (measure.right - measure.left) + kPadding * 2;
 	const int height = (measure.bottom - measure.top) + kPadding * 2;
+	// 測れなかった(DrawTextW の失敗など)ときは、ビットマップも配列も作りません。
+	if (width <= 0 || height <= 0)
+	{
+		SelectObject(memory, previousFont);
+		DeleteObject(font);
+		DeleteDC(memory);
+		return false;
+	}
 
 	BITMAPINFO info{};
 	info.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
@@ -153,7 +167,9 @@ bool DynamicText::RebuildTexture()
 
 void DynamicText::Draw()
 {
-	if (!m_RenderingAvailable || !m_Visible)
+	if (!m_RenderingAvailable || !m_Visible || Engine::Renderer::GetDeviceContext() == nullptr
+		|| m_VertexBuffer == nullptr || m_VertexLayout == nullptr
+		|| m_VertexShader == nullptr || m_PixelShader == nullptr)
 	{
 		return;
 	}

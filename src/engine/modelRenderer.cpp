@@ -161,10 +161,12 @@ ModelRenderer* ModelRenderer::SetRotationOffset(const Vector3& offset)
 
 ModelRenderer* ModelRenderer::SetShaderMode(Engine::SurfaceShader shader, XMFLOAT4 parameter)
 {
-	m_UseSurfaceShader = true;
-	m_Surface.Shader = shader;
-	(void)m_Surface.Load(shader);
-	m_Surface.Parameter = parameter;
+	// 読み込みに失敗したら何も変えません(直前のマテリアルと、既定のシェーダーでの描画をそのまま使います)。
+	if (m_Surface.Load(shader))
+	{
+		m_UseSurfaceShader = true;
+		m_Surface.Parameter = parameter;
+	}
 	return this;
 }
 

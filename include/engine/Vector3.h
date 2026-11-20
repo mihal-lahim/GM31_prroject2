@@ -111,7 +111,22 @@ public:
 	// 正規化
 	void normalize()
 	{
+		// NaN・無限大の成分があれば変えません(正規化しても NaN になるだけです)。
+		if (!isfinite(x) || !isfinite(y) || !isfinite(z))
+		{
+			return;
+		}
 		float magSq = x * x + y * y + z * z;
+		if (!isfinite(magSq))
+		{
+			// 大きな有限値では2乗の和が無限大になり、0へ潰れてしまいます。
+			// 最大の成分で割って範囲を収めてから正規化します(方向は変わりません)。
+			const float maxAbs = fmaxf(fabsf(x), fmaxf(fabsf(y), fabsf(z)));
+			x /= maxAbs;
+			y /= maxAbs;
+			z /= maxAbs;
+			magSq = x * x + y * y + z * z;
+		}
 		if (magSq > 0.0f)
 		{
 			// ゼロ確認
