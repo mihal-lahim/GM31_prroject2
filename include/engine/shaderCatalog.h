@@ -87,6 +87,28 @@ inline constexpr std::array<ShaderPass, 16> BloomPostPasses{{
 }};
 #undef GM31_BLOOM_LEVEL
 
+// 写実ポスト: 深度からの接地の陰(SSAO)、HDR のブルーム、時間減速の演出とふだんのビネットを1つにまとめたもの。
+// 深度(t8)と投影の値(b10)、時間減速などの動的な値(b9)は Renderer が渡す。
+//   0     接地の陰を求める(1/2 → 枠0)
+//   1, 2  奥行きの境目を守ってぼかす(横 → 枠1、縦 → 枠0)
+//   3     光っている所を取り出す(元画面のミップ2 = 1/4 → 枠2)
+//   4, 5  1/4 で横・縦にぼかす(→ 枠3 → 枠2)
+//   6〜9  1/8 へ縮めながら横・縦に2回ずつぼかす(→ 枠5 → 枠4 → 枠5 → 枠4)
+//   10    合成して画面へ(枠0=陰、枠2=中くらいの光、枠4=広い光)
+inline constexpr std::array<ShaderPass, 11> RealisticPostPasses{{
+	{ "spPostVS.cso", "ssaoPS.cso", ShaderCull::Back, false, { 0.0f, 0.0f, 0.0f, 0.0f }, 0 },
+	{ "spPostVS.cso", "ssaoBlurPS.cso", ShaderCull::Back, false, { 1.0f, 0.0f, 0.0f, 0.0f }, 1 },
+	{ "spPostVS.cso", "ssaoBlurPS.cso", ShaderCull::Back, false, { 0.0f, 1.0f, 0.0f, 0.0f }, 0 },
+	{ "spPostVS.cso", "realisticBloomExtractPS.cso", ShaderCull::Back, false, { 2.0f, 0.0f, 0.0f, 0.0f }, 2 },
+	{ "spPostVS.cso", "bloomBlurPS.cso", ShaderCull::Back, false, { 1.5f, 0.0f, 0.0f, 0.0f }, 3 },
+	{ "spPostVS.cso", "bloomBlurPS.cso", ShaderCull::Back, false, { 0.0f, 1.5f, 0.0f, 0.0f }, 2 },
+	{ "spPostVS.cso", "bloomBlurPS.cso", ShaderCull::Back, false, { 1.5f, 0.0f, 0.0f, 0.0f }, 5 },
+	{ "spPostVS.cso", "bloomBlurPS.cso", ShaderCull::Back, false, { 0.0f, 1.5f, 0.0f, 0.0f }, 4 },
+	{ "spPostVS.cso", "bloomBlurPS.cso", ShaderCull::Back, false, { 1.5f, 0.0f, 0.0f, 0.0f }, 5 },
+	{ "spPostVS.cso", "bloomBlurPS.cso", ShaderCull::Back, false, { 0.0f, 1.5f, 0.0f, 0.0f }, 4 },
+	{ "spPostVS.cso", "realisticCompositePS.cso" }
+}};
+
 // SP31 のギャラリー用シェーダーをそのまま移植したもの(shaders/surfaces/Sp31*.hlsl)。
 // spSurfacePS の近似版と違い、SP31 と同じ式で描きます。
 inline constexpr std::array<ShaderPass, 1> Sp31UnlitPasses{{ { "Sp31PixelLitVS.cso", "Sp31UnlitTexturePS.cso" } }};
@@ -110,7 +132,7 @@ inline constexpr std::array<ShaderPass, 2> Sp31ToonBackfacePasses{{
 inline constexpr std::array<ShaderPass, 1> Sp31SpotFieldPasses{{ { "Sp31PixelLitVS.cso", "Sp31SpotLightingPS.cso" } }};
 inline constexpr std::array<ShaderPass, 1> Sp31BumpFieldPasses{{ { "Sp31PixelLitVS.cso", "Sp31BumpPS.cso" } }};
 
-inline constexpr std::array<ShaderDefinition, 25> ShaderCatalog{{
+inline constexpr std::array<ShaderDefinition, 26> ShaderCatalog{{
 	{ "sample-stripes", L"Sample Stripes", ShaderUsage::Surface,
 		SampleStripesPasses,
 		{ "stripeCount", "contrast", "lightMix", "phase" }, { 12.0f, 0.75f, 0.7f, 0.0f } },
@@ -152,6 +174,11 @@ inline constexpr std::array<ShaderDefinition, 25> ShaderCatalog{{
 	{ "post-bloom", L"Bloom", ShaderUsage::Post,
 		BloomPostPasses,
 		{ "luminance", "blendFine", "blendMiddle", "blendWide" }, { 0.55f, 1.22f, 1.21f, 2.0f }, -1, true,
+		{ "scene", {} } },
+	// SlowAction が遊んでいる間ずっと使う写実ポスト。名前付き値は陰の強さ・半径[m]・ブルームの強さ・しきい値。
+	{ "post-realistic", L"Realistic Post", ShaderUsage::Post,
+		RealisticPostPasses,
+		{ "aoStrength", "aoRadius", "bloomIntensity", "bloomThreshold" }, { 0.55f, 0.65f, 0.35f, 0.95f }, -1, true,
 		{ "scene", {} } },
 	// 以下は SP31 のギャラリー既定値。ライトは Renderer::SetLight の値をそのまま使う。
 	{ "sp31-unlit", L"SP31 Unlit", ShaderUsage::Surface, Sp31UnlitPasses, {}, {} },
