@@ -12,11 +12,13 @@ const SlowActionTuning& GetSlowActionTuning()
 	if (loadedGeneration != currentGeneration)
 	{
 		SlowActionTuning value{};
+#define SLOW_TUNING_SECTION(title)
 #define SLOW_TUNING_FLOAT(name, defaultValue) value.name = Engine::TuningFields::Read("slow." #name, value.name);
 #define SLOW_TUNING_INT(name, defaultValue) value.name = Engine::TuningFields::Read("slow." #name, value.name);
 #include "slowActionTuning.def"
 #undef SLOW_TUNING_FLOAT
 #undef SLOW_TUNING_INT
+#undef SLOW_TUNING_SECTION
 		// 0除算になる値だけは設定に関係なく避けます。
 		value.LaunchSeconds = (std::max)(value.LaunchSeconds, 0.1f);
 		value.LaunchHeight = (std::max)(value.LaunchHeight, 0.1f);
@@ -36,13 +38,32 @@ const SlowActionTuning& GetSlowActionTuning()
 	return tuning;
 }
 
+const std::vector<SlowTuningEntry>& GetSlowActionTuningEntries()
+{
+	// 調整パネルのための一覧です。項目の並びと既定値は .def から作るので、二重に書く必要はありません。
+	static const std::vector<SlowTuningEntry> entries = {
+#define SLOW_TUNING_SECTION(title) SlowTuningEntry{ SlowTuningEntry::Kind::Section, title, 0.0f, nullptr, nullptr },
+#define SLOW_TUNING_FLOAT(name, defaultValue) SlowTuningEntry{ SlowTuningEntry::Kind::Float, "slow." #name, \
+	static_cast<float>(defaultValue), [](SlowActionTuning& t) -> float* { return &t.name; }, nullptr },
+#define SLOW_TUNING_INT(name, defaultValue) SlowTuningEntry{ SlowTuningEntry::Kind::Int, "slow." #name, \
+	static_cast<float>(defaultValue), nullptr, [](SlowActionTuning& t) -> int* { return &t.name; } },
+#include "slowActionTuning.def"
+#undef SLOW_TUNING_SECTION
+#undef SLOW_TUNING_FLOAT
+#undef SLOW_TUNING_INT
+	};
+	return entries;
+}
+
 std::vector<std::string> FindUnknownSlowActionTuningKeys()
 {
 	// 一覧の名前から、設定ファイルで使えるキーの集合を作ります。
 	static const std::vector<std::string> knownKeys = {
+#define SLOW_TUNING_SECTION(title)
 #define SLOW_TUNING_FLOAT(name, defaultValue) "slow." #name,
 #define SLOW_TUNING_INT(name, defaultValue) "slow." #name,
 #include "slowActionTuning.def"
+#undef SLOW_TUNING_SECTION
 #undef SLOW_TUNING_FLOAT
 #undef SLOW_TUNING_INT
 	};
