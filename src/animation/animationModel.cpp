@@ -97,9 +97,9 @@ namespace
 				aitexture->pcData, aitexture->mWidth, WIC_FLAGS_NONE, &metadata, image);
 			if (SUCCEEDED(loadResult))
 			{
-				CreateShaderResourceView(
-					Engine::Renderer::GetDevice(), image.GetImages(), image.GetImageCount(), metadata,
-					texture.GetAddressOf());
+				// 遠くの敵やキャラの模様がちらつかないよう、ミップを付けて作ります。
+				(void)Engine::GraphicsResourceFactory::CreateTextureViewWithMips(
+					texture, image.GetImages(), image.GetImageCount(), metadata, "AnimationModel");
 			}
 			if (texture != nullptr)
 			{

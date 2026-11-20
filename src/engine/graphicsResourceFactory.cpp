@@ -1,5 +1,7 @@
 #include "graphicsResourceFactory.h"
 
+#include "DirectXTex.h"
+
 #include <cstdio>
 
 namespace
@@ -114,6 +116,52 @@ bool Engine::GraphicsResourceFactory::CreateTextureFromPixels(
 	{
 		view.Reset();
 		LogGpuCreationFailure(ownerName, "pixel texture view", result);
+		return false;
+	}
+	return true;
+}
+
+bool Engine::GraphicsResourceFactory::CreateTextureViewWithMips(
+	ComPtr<ID3D11ShaderResourceView>& view,
+	const DirectX::Image* images,
+	size_t imageCount,
+	const DirectX::TexMetadata& metadata,
+	const char* ownerName)
+{
+	view.Reset();
+	ID3D11Device* device = Engine::Renderer::GetDevice();
+	if (device == nullptr || images == nullptr || imageCount == 0)
+	{
+		LogGpuCreationFailure(ownerName, "texture", E_POINTER);
+		return false;
+	}
+
+	// ミップが1段だけの普通の2D画像なら、縮小版を全段作ります。遠景で異方性フィルタとミップが効き、ちらつきが消えます。
+	// 圧縮形式・1画素幅の画像・配列や立方体のテクスチャは、そのまま使います。
+	const bool canGenerate = metadata.mipLevels <= 1
+		&& metadata.dimension == DirectX::TEX_DIMENSION_TEXTURE2D
+		&& metadata.arraySize == 1
+		&& metadata.width > 1 && metadata.height > 1
+		&& !DirectX::IsCompressed(metadata.format);
+	HRESULT result = E_FAIL;
+	if (canGenerate)
+	{
+		DirectX::ScratchImage mipChain;
+		if (SUCCEEDED(DirectX::GenerateMipMaps(images, imageCount, metadata, DirectX::TEX_FILTER_DEFAULT, 0, mipChain)))
+		{
+			result = DirectX::CreateShaderResourceView(device, mipChain.GetImages(), mipChain.GetImageCount(),
+				mipChain.GetMetadata(), view.ReleaseAndGetAddressOf());
+		}
+	}
+	// ミップを作れなかったときは、元の画像のまま作ります(見た目は以前と同じ)。
+	if (FAILED(result) || view == nullptr)
+	{
+		result = DirectX::CreateShaderResourceView(device, images, imageCount, metadata, view.ReleaseAndGetAddressOf());
+	}
+	if (FAILED(result) || view == nullptr)
+	{
+		view.Reset();
+		LogGpuCreationFailure(ownerName, "texture", result);
 		return false;
 	}
 	return true;

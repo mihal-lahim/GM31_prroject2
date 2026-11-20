@@ -114,7 +114,7 @@ void main(in PS_IN input, out float4 output : SV_Target)
         float bands = max(Parameter.x, 2.0f);
         ramp = floor(ramp * bands) / bands;
         float3 rampColor = Material.Dummy.x > 0.5f
-            ? Detail.Sample(TextureSampler, float2(ramp, saturate(Parameter.y))).rgb : ramp.xxx;
+            ? Detail.SampleLevel(TextureSampler, float2(ramp, saturate(Parameter.y)), 0.0f).rgb : ramp.xxx; // 参照表なのでミップは使わない
         color = base * (Light.Ambient.rgb + Light.Diffuse.rgb * rampColor * attenuation);
         if (dot(N, V) < Parameter.y) color *= max(Parameter.z, 0.0f);
     }

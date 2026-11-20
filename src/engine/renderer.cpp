@@ -299,7 +299,8 @@ bool Renderer::Init()
 	samplerDesc.AddressU = D3D11_TEXTURE_ADDRESS_WRAP;
 	samplerDesc.AddressV = D3D11_TEXTURE_ADDRESS_WRAP;
 	samplerDesc.AddressW = D3D11_TEXTURE_ADDRESS_WRAP;
-	samplerDesc.MaxAnisotropy = 4;
+	// テクスチャはミップ付きで読み込むので、斜めに見る床や壁も8倍の異方性でくっきり見せます。
+	samplerDesc.MaxAnisotropy = 8;
 	samplerDesc.MaxLOD = D3D11_FLOAT32_MAX;
 
 	ComPtr<ID3D11SamplerState> samplerState{};

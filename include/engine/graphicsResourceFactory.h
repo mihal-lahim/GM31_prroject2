@@ -2,6 +2,12 @@
 
 #include "renderer.h"
 
+namespace DirectX
+{
+	struct Image;
+	struct TexMetadata;
+}
+
 // Engine名前空間は、新規のEngine APIで使用する正式な名前空間です。
 // 既存のグローバル型は段階移行中の互換APIとして残しています。
 namespace Engine
@@ -39,6 +45,15 @@ namespace Engine
 			UINT width,
 			UINT height,
 			const std::uint32_t* pixels,
+			const char* ownerName);
+
+		// 読み込んだ画像からシェーダーリソースを作ります。ミップが無い普通の2D画像なら、ミップを全段作って付けます
+		// (遠景のちらつき防止。作れなければ元の画像のまま)。ファイルとモデル埋め込みのテクスチャで共通に使います。
+		[[nodiscard]] static bool CreateTextureViewWithMips(
+			ComPtr<ID3D11ShaderResourceView>& view,
+			const DirectX::Image* images,
+			size_t imageCount,
+			const DirectX::TexMetadata& metadata,
 			const char* ownerName);
 
 		// 動的バッファのMap処理を一元化し、デバイス・バッファ・Map失敗を安全に扱います。

@@ -15,7 +15,8 @@ void main(in PS_IN In, out float4 outDiffuse : SV_Target)
     float light = 0.5f + 0.5f * dot(normal, toLight);
     light = clamp(light, 0.01f, 0.99f);
     float texv = clamp(Parameter.x, 0.01f, 0.99f);
-    float4 toon = g_TextureRamp.Sample(g_SampleState, float2(light, texv));
+    // ランプは参照表なので、ミップ(帯を平均した色)を使わず常に元の解像度で読みます。
+    float4 toon = g_TextureRamp.SampleLevel(g_SampleState, float2(light, texv), 0.0f);
     toon *= ofs;
 
     outDiffuse = g_Texture.Sample(g_SampleState, In.TexCoord);

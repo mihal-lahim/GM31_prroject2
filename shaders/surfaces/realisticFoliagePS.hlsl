@@ -20,6 +20,9 @@ static const float HAZE_DENSITY = 0.011f;
 void main(in PS_IN input, out float4 output : SV_Target)
 {
     float4 texel = Albedo.Sample(TextureSampler, input.TexCoord) * input.Diffuse;
+    // テクスチャはミップ付きなので、遠景では透明な画素と平均されてアルファが下がり、葉が痩せます。
+    // 縮小した段ほどアルファを持ち上げて、切り抜きの面積を保ちます。
+    texel.a *= 1.0f + max(Albedo.CalculateLevelOfDetail(TextureSampler, input.TexCoord), 0.0f) * 0.25f;
     clip(texel.a - 0.45f);
     float3 albedo = RealisticToLinear(texel.rgb);
 

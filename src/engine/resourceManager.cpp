@@ -1,6 +1,7 @@
 #include "resourceManager.h"
 
 #include "renderer.h"
+#include "graphicsResourceFactory.h"
 #include "DirectXTex.h"
 
 // WIN32_LEAN_AND_MEANによりwindows.hがmmsystem.hを引かないため、明示的に読み込みます。
@@ -142,13 +143,8 @@ TextureHandle ResourceManager::LoadTexture(const std::filesystem::path& path)
 	}
 
 	auto resource = std::make_shared<TextureResource>();
-	result = CreateShaderResourceView(
-		Renderer::GetDevice(),
-		image.GetImages(),
-		image.GetImageCount(),
-		metadata,
-		resource->View.GetAddressOf());
-	if (FAILED(result) || resource->View == nullptr)
+	if (!GraphicsResourceFactory::CreateTextureViewWithMips(
+		resource->View, image.GetImages(), image.GetImageCount(), metadata, "ResourceManager"))
 	{
 		DebugResourceError("texture", path, "GPU resource creation failed");
 		return {};
