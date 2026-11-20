@@ -18,6 +18,9 @@
 #include <cmath>
 #include <filesystem>
 #include <fstream>
+#include <iterator>
+#include <limits>
+#include <system_error>
 #include <array>
 #include <string>
 #include <unordered_set>
@@ -544,6 +547,46 @@ namespace
 		return ok;
 	}
 
+	// ライブ調整: SetFloat/SetInt は値と世代を更新し、不正な入力は何もしません。
+	// SavePreservingComments はコメント・空行・並び順を保ったまま値だけを書き換え、Load で読み戻せます。
+	bool TestRuntimeConfigLiveEdit()
+	{
+		Engine::RuntimeConfig::Reset();
+		const std::uint64_t before = Engine::RuntimeConfig::GetGeneration();
+		const bool set = Engine::RuntimeConfig::SetFloat("test.live", 1.5f);
+		const bool setInt = Engine::RuntimeConfig::SetInt("test.count", 3);
+		const bool valuesOk = set && setInt && NearlyEqual(Engine::RuntimeConfig::GetFloat("test.live", 0.0f), 1.5f)
+			&& Engine::RuntimeConfig::GetInt("test.count", 0) == 3;
+		const bool generationOk = Engine::RuntimeConfig::GetGeneration() > before;
+		const bool rejected = !Engine::RuntimeConfig::SetFloat("", 1.0f)
+			&& !Engine::RuntimeConfig::SetFloat("test.nan", std::numeric_limits<float>::quiet_NaN())
+			&& !Engine::RuntimeConfig::SetFloat("test.inf", std::numeric_limits<float>::infinity());
+		const bool notStored = Engine::RuntimeConfig::GetFloat("test.nan", -1.0f) == -1.0f;
+
+		const std::filesystem::path path = std::filesystem::temp_directory_path() / "gm31-live-tuning-test.cfg";
+		{
+			std::ofstream out(path);
+			out << "# 先頭のコメント\n\ntest.b=2\n   test.a = 1   \n# 末尾のコメント\n";
+		}
+		const bool saved = Engine::RuntimeConfig::SavePreservingComments(path,
+			{ { "test.a", "1.5" }, { "test.c", "7" } });
+		std::string text;
+		{
+			std::ifstream in(path);
+			text.assign(std::istreambuf_iterator<char>(in), std::istreambuf_iterator<char>());
+		}
+		const std::string expected = "# 先頭のコメント\n\ntest.b=2\ntest.a=1.5\n# 末尾のコメント\ntest.c=7\n";
+		Engine::RuntimeConfig::Reset();
+		const bool loaded = Engine::RuntimeConfig::Load(path);
+		const bool readBack = loaded && NearlyEqual(Engine::RuntimeConfig::GetFloat("test.a", 0.0f), 1.5f)
+			&& Engine::RuntimeConfig::GetInt("test.c", 0) == 7
+			&& NearlyEqual(Engine::RuntimeConfig::GetFloat("test.b", 0.0f), 2.0f);
+		std::error_code removeError;
+		std::filesystem::remove(path, removeError);
+		Engine::RuntimeConfig::Reset();
+		return valuesOk && generationOk && rejected && notStored && saved && text == expected && readBack;
+	}
+
 	bool TestWaveResourceCache()
 	{
 		Engine::ResourceManager::Clear();
@@ -958,6 +1001,7 @@ bool RunEngineSelfTests()
 		{ "scene serialization", TestSceneSerialization },
 		{ "runtime config validation and reload", TestRuntimeConfigValidationAndReload },
 		{ "shader catalog", TestShaderCatalog },
+		{ "runtime config live edit", TestRuntimeConfigLiveEdit },
 		{ "wave resource cache", TestWaveResourceCache },
 		{ "collect unused keeps referenced resources", TestCollectUnusedKeepsReferencedResources },
 		{ "model resource cache", TestModelResourceCache },

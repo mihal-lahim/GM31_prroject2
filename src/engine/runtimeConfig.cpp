@@ -8,6 +8,7 @@
 #include <fstream>
 #include <limits>
 #include <unordered_map>
+#include <unordered_set>
 #include <utility>
 
 namespace
@@ -184,4 +185,84 @@ std::vector<std::string> Engine::RuntimeConfig::GetKeysWithPrefix(const std::str
 	// 内部の表は順序を持たないので、結果が毎回同じになるよう並べます。
 	std::sort(keys.begin(), keys.end());
 	return keys;
+}
+
+bool Engine::RuntimeConfig::SetFloat(const std::string& key, float value)
+{
+	if (key.empty() || !std::isfinite(value))
+	{
+		return false;
+	}
+	g_Values[key] = value;
+	g_Generation++;
+	return true;
+}
+
+bool Engine::RuntimeConfig::SetInt(const std::string& key, int value)
+{
+	return SetFloat(key, static_cast<float>(value));
+}
+
+bool Engine::RuntimeConfig::SavePreservingComments(
+	const std::filesystem::path& path,
+	const std::vector<std::pair<std::string, std::string>>& entries)
+{
+	std::unordered_map<std::string, std::string> values;
+	for (const auto& [key, text] : entries)
+	{
+		if (key.empty())
+		{
+			return false;
+		}
+		values[key] = text;
+	}
+
+	// 既存の行は、コメント・空行・無関係な行をそのまま残し、一致する key= の行だけ値を書き換えます。
+	std::vector<std::string> lines;
+	std::unordered_set<std::string> written;
+	{
+		std::ifstream in(path);
+		std::string line;
+		while (in && std::getline(in, line))
+		{
+			if (!line.empty() && line.back() == '\r')
+			{
+				line.pop_back();
+			}
+			const std::string trimmed = Trim(line);
+			const std::size_t separator = trimmed.find('=');
+			if (!trimmed.empty() && trimmed.front() != '#' && separator != std::string::npos)
+			{
+				const std::string key = Trim(trimmed.substr(0, separator));
+				if (const auto found = values.find(key); found != values.end())
+				{
+					lines.push_back(key + "=" + found->second);
+					written.insert(key);
+					continue;
+				}
+			}
+			lines.push_back(line);
+		}
+	}
+
+	// 無かったキーは末尾へ追記します(新規ファイルなら、ここで全キーが並びます)。
+	for (const auto& [key, text] : entries)
+	{
+		if (written.insert(key).second)
+		{
+			lines.push_back(key + "=" + text);
+		}
+	}
+
+	std::ofstream out(path, std::ios::trunc);
+	if (!out)
+	{
+		LogConfigWarning("could not write '" + path.string() + "'.");
+		return false;
+	}
+	for (const std::string& line : lines)
+	{
+		out << line << '\n';
+	}
+	return static_cast<bool>(out);
 }
