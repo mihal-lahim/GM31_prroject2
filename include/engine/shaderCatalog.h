@@ -61,6 +61,9 @@ inline constexpr std::array<ShaderPass, 1> RealisticFoliagePasses{{
 inline constexpr std::array<ShaderPass, 1> InvertPostPasses{{
 	{ "spPostVS.cso", "invertPostPS.cso" }
 }};
+inline constexpr std::array<ShaderPass, 1> TimeSlowPostPasses{{
+	{ "spPostVS.cso", "timeSlowPS.cso" }
+}};
 
 // 複数パスのポスト効果は最後のパスだけ画面へ描き、それ以前は作業バッファの枠
 // (PostOutput)へ描く。各パスは t0=元画面、t1=直前の出力、t2〜t7=作業枠0〜5、
@@ -104,7 +107,7 @@ inline constexpr std::array<ShaderPass, 2> Sp31ToonBackfacePasses{{
 inline constexpr std::array<ShaderPass, 1> Sp31SpotFieldPasses{{ { "Sp31PixelLitVS.cso", "Sp31SpotLightingPS.cso" } }};
 inline constexpr std::array<ShaderPass, 1> Sp31BumpFieldPasses{{ { "Sp31PixelLitVS.cso", "Sp31BumpPS.cso" } }};
 
-inline constexpr std::array<ShaderDefinition, 23> ShaderCatalog{{
+inline constexpr std::array<ShaderDefinition, 24> ShaderCatalog{{
 	{ "sample-stripes", L"Sample Stripes", ShaderUsage::Surface,
 		SampleStripesPasses,
 		{ "stripeCount", "contrast", "lightMix", "phase" }, { 12.0f, 0.75f, 0.7f, 0.0f } },
@@ -129,6 +132,13 @@ inline constexpr std::array<ShaderDefinition, 23> ShaderCatalog{{
 	{ "post-invert", L"Invert", ShaderUsage::Post,
 		InvertPostPasses,
 		{ "strength", {}, {}, {} }, { 1.0f, 0.0f, 0.0f, 0.0f }, -1, false,
+		{ "scene", {} } },
+	// SlowAction の時間減速(彩度低下・寒色・ビネット・外周の色ずれ・衝撃波・ジャスト減速のフラッシュ)。
+	// 見た目の強さ(彩度・寒色・ビネット)は SetPostEffectParameters の extra(x, y, w)で渡す
+	// (渡さなければシェーダーの標準値)。既定値は減速しきった状態の見た目。
+	{ "post-time-slow", L"Time Slow", ShaderUsage::Post,
+		TimeSlowPostPasses,
+		{ "intensity", "waveProgress", "flash", "waveSign" }, { 1.0f, 0.0f, 0.0f, 1.0f }, -1, false,
 		{ "scene", {} } },
 	// SP31 と同じ3段階ブルーム。既定値は SP31 課題06の参考画像の設定(Luminance / Blend 1〜3)。
 	{ "post-bloom", L"Bloom", ShaderUsage::Post,
