@@ -665,6 +665,7 @@ XMMATRIX AnimationModel::GetWorldMatrix() const
 	const Vector3 rotation = m_GameObject->GetRotation();
 	const Vector3 scale = m_GameObject->GetScale();
 	return XMMatrixScaling(scale.x * m_ModelScale, scale.y * m_ModelScale, scale.z * m_ModelScale)
+		* XMMatrixRotationX(m_LeanPitch) * XMMatrixRotationZ(m_LeanRoll)
 		* XMMatrixRotationRollPitchYaw(rotation.x, rotation.y + m_ModelYawOffset, rotation.z)
 		* XMMatrixTranslation(position.x, position.y + m_VerticalOffset, position.z);
 }

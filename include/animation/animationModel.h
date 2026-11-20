@@ -65,6 +65,9 @@ private:
 	std::unordered_map<std::string, BONE> m_Bone;//ボーンデータ（名前で参照）
 	float m_ModelScale = 1.0f;
 	float m_ModelYawOffset = 0.0f;
+	// モデルの中での傾き(ラジアン)です。向きより先に掛けるので、進行方向に対する左右(ロール)と前後(ピッチ)になります。
+	float m_LeanRoll = 0.0f;
+	float m_LeanPitch = 0.0f;
 	float m_VerticalOffset = 0.0f;
 	bool m_Visible = true;
 	XMFLOAT4 m_Tint{ 1.0f, 1.0f, 1.0f, 1.0f };
@@ -111,6 +114,10 @@ public:
 	void DrawShadow() override;
 	void SetModelScale(float Scale) { m_ModelScale = Scale; }
 	void SetModelYawOffset(float YawOffset) { m_ModelYawOffset = YawOffset; }
+	// 体を進行方向に対して傾けます(ラジアン)。roll=左右、pitch=前後。足元(原点)を中心に傾き、コライダーは変わりません。
+	void SetBodyLean(float roll, float pitch) { m_LeanRoll = roll; m_LeanPitch = pitch; }
+	float GetBodyRoll() const { return m_LeanRoll; }
+	float GetBodyPitch() const { return m_LeanPitch; }
 	void SetVerticalOffset(float offset) { m_VerticalOffset = offset; }
 	bool GetBoneWorldPosition(const char* name, Vector3& position) const;
 	bool SetShaderDefinition(std::string_view id);
