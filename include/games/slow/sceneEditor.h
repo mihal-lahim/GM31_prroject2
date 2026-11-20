@@ -36,6 +36,9 @@ namespace SceneEditor
 	void DrawUi();
 	bool HandleWindowMessage(unsigned int message, std::uintptr_t wParam, std::intptr_t lParam);
 
+	// DrawUiの中で、エディタの後・ImGuiの描画の前に呼ばれる、アプリ独自のImGuiウィンドウ用の入口です。nullptrで解除します。
+	void SetExtraDrawCallback(void (*callback)());
+
 	// 編集対象のWorldです。Sceneが破棄される前に必ずnullptrへ戻してください。
 	void SetWorld(World* world);
 	// runtimePathは実行フォルダ基準の保存先です。sourcePathが空でなければ、そこへも同じ内容を書きます。

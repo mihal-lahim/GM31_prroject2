@@ -19,6 +19,7 @@ namespace
 	bool g_Initialized = false;
 	bool g_FrameBegun = false;
 	bool g_Active = false;
+	void (*g_ExtraDraw)() = nullptr;
 	World* g_World = nullptr;
 	std::filesystem::path g_RuntimePath;
 	std::filesystem::path g_SourcePath;
@@ -454,8 +455,18 @@ void DrawUi()
 		DrawHierarchy();
 		DrawInspector();
 	}
+	// アプリ独自のウィンドウ(調整パネルなど)は、編集の有無に関係なくここで描きます。
+	if (g_ExtraDraw != nullptr)
+	{
+		g_ExtraDraw();
+	}
 	ImGui::Render();
 	ImGui_ImplDX11_RenderDrawData(ImGui::GetDrawData());
+}
+
+void SetExtraDrawCallback(void (*callback)())
+{
+	g_ExtraDraw = callback;
 }
 
 bool HandleWindowMessage(unsigned int message, std::uintptr_t wParam, std::intptr_t lParam)

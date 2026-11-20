@@ -3,6 +3,7 @@
 #include "slowActionTuning.h"
 #include "sceneEditor.h"
 #include "runtimeConfig.h"
+#include "slowTuningPanel.h"
 
 #include <fstream>
 
@@ -13,6 +14,23 @@ namespace
 	std::unique_ptr<Scene> CreateInitialScene()
 	{
 		return std::make_unique<SlowActionScene>();
+	}
+
+	// 編集用のエディタUIに、調整パネル(F4)を同じImGuiの枠組みで並べます。
+	bool InitializeSlowUi()
+	{
+		if (!SceneEditor::InitializeUi())
+		{
+			return false;
+		}
+		SceneEditor::SetExtraDrawCallback(SlowTuningPanel::Draw);
+		return true;
+	}
+
+	void ShutdownSlowUi()
+	{
+		SceneEditor::SetExtraDrawCallback(nullptr);
+		SceneEditor::ShutdownUi();
 	}
 
 	// 設定ファイルのキーは、調整値の一覧(slowActionTuning.def)にあるものだけです。
@@ -41,8 +59,8 @@ const GameDefinition& GetGameDefinition()
 		RunSlowActionSelfTests,
 		RunSlowActionRenderTest,
 		// F3の編集モードで使うエディタUIです。
-		SceneEditor::InitializeUi,
-		SceneEditor::ShutdownUi,
+		InitializeSlowUi,
+		ShutdownSlowUi,
 		SceneEditor::BeginUiFrame,
 		SceneEditor::DrawUi,
 		SceneEditor::HandleWindowMessage,

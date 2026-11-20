@@ -7,6 +7,8 @@
 #include "slowActionTuning.h"
 #include "slowActionUtil.h"
 #include "slowSwordTrail.h"
+#include "slowTuningPanel.h"
+#include "runtimeConfig.h"
 #include "gameTime.h"
 #include "renderQueue.h"
 #include "renderer.h"
@@ -907,6 +909,42 @@ bool RunSlowActionRenderTest()
 		h.Step(40);
 		h.Check("sword arc is gone after its tail passes", trail != nullptr && trail->GetArcCount() == 0,
 			trail != nullptr ? static_cast<float>(trail->GetArcCount()) : -1.0f);
+	}
+
+	// ---- ライブ調整パネル(F4): 開閉で時間の制御とマウスの捕捉が戻る。設定の値は再読込なしで即座に効く ----
+	{
+		h.Settle(openSpot, 0.0f);
+		SlowTuningPanel::Reset();
+		Engine::GameTime::SetTimeScale(0.5f);
+		SlowTuningPanel::Toggle();
+		h.Check("tuning panel opens", SlowTuningPanel::IsOpen());
+		h.Check("panel keeps the game controls from firing while the mouse is free", !SlowTuningPanel::BlocksGameInput());
+		SlowTuningPanel::Toggle();
+		h.Check("tuning panel closes", !SlowTuningPanel::IsOpen());
+		h.Check("closing the panel restores the time scale", fabsf(Engine::GameTime::GetTimeScale() - 1.0f) < 0.0001f
+			&& !Engine::GameTime::IsPaused());
+
+		// 値を変えると、次のフレームから SlowPlayer が新しい歩く速さで動きます(再読込はしません)。
+		const float defaultWalk = GetSlowActionTuning().WalkSpeed;
+		Engine::RuntimeConfig::SetFloat("slow.WalkSpeed", 3.0f);
+		h.Input.MoveZ = 1.0f;
+		h.Step(60);
+		h.Check("live edit changes the walk speed at once", fabsf(h.Player()->GetSpeed() - 3.0f) < 0.1f, h.Player()->GetSpeed());
+		Engine::RuntimeConfig::SetFloat("slow.WalkSpeed", defaultWalk);
+		h.Input = SlowInputState{};
+		h.Step(30);
+
+		// パネルを開いた画面を撮ります(ImGuiの描画を直接通します)。
+		SceneEditor::InitializeUi();
+		SceneEditor::SetExtraDrawCallback(SlowTuningPanel::Draw);
+		SlowTuningPanel::Toggle();
+		SceneEditor::BeginUiFrame();
+		h.Draw();
+		SceneEditor::DrawUi();
+		h.Check("capture tuning panel", Capture(L"slow-render-tuning.png"));
+		SlowTuningPanel::Reset();
+		SceneEditor::SetExtraDrawCallback(nullptr);
+		SceneEditor::ShutdownUi();
 	}
 
 	SlowInput::SetOverride(nullptr);

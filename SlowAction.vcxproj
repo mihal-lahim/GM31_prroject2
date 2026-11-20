@@ -76,6 +76,7 @@
     <ClInclude Include="include\games\slow\slowActionUtil.h" />
     <ClInclude Include="include\games\slow\sceneEditor.h" />
     <ClInclude Include="include\games\slow\slowSwordTrail.h" />
+    <ClInclude Include="include\games\slow\slowTuningPanel.h" />
     <ClInclude Include="include\shared\sky.h" />
   </ItemGroup>
   <ItemGroup>
@@ -91,6 +92,7 @@
     <ClCompile Include="src\games\slow\slowPlayer.cpp" />
     <ClCompile Include="src\games\slow\slowTimeFx.cpp" />
     <ClCompile Include="src\games\slow\slowSwordTrail.cpp" />
+    <ClCompile Include="src\games\slow\slowTuningPanel.cpp" />
     <ClCompile Include="src\games\slow\sceneEditor.cpp" />
     <ClCompile Include="src\shared\sky.cpp" />
     <ClCompile Include="src\engine\enginePch.cpp">

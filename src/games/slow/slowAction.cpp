@@ -2,6 +2,7 @@
 #include "inputActions.h"
 
 #include "slowActionTuning.h"
+#include "slowTuningPanel.h"
 #include "slowActionUtil.h"
 #include "collider.h"
 #include "modelRenderer.h"
@@ -23,7 +24,7 @@ namespace
 	constexpr const char* kStagePath = "assets/scene/slow-stage.scene";
 	constexpr const wchar_t* kPlayHelp =
 		L"WASD:移動  マウス:視点  Shift:ダッシュ  左クリック:短押し=通常 / 長押し=溜め(動けない)→離して強攻撃  "
-		L"右クリック:時間減速  R:やり直し  F1:当たり判定  F2:敵無敵  F3:編集モード  Esc:終了";
+		L"右クリック:時間減速  R:やり直し  F1:当たり判定  F2:敵無敵  F3:編集モード  F4:調整  Esc:終了";
 	// 現在のステージの記述(シーンファイルと同じ書式)です。最初はファイルから読み、
 	// 編集モードを抜けるたびにその時点の配置で置き換えます。Sceneを作り直しても残るよう、ここで持ちます。
 	std::string g_StageText;
@@ -99,6 +100,12 @@ void SlowInput::Poll()
 	if (g_InputOverride != nullptr)
 	{
 		g_Input = *g_InputOverride;
+		return;
+	}
+	// 調整パネルの上にマウスがあるとき・文字入力中は、攻撃や視点の操作を止めます。
+	if (SlowTuningPanel::BlocksGameInput())
+	{
+		g_Input = SlowInputState{};
 		return;
 	}
 	SlowInputState state;
@@ -328,6 +335,8 @@ void SlowActionScene::Uninit()
 {
 	// やり直し・倒れたとき・アプリの終了のどれでも、減速の画面演出を残さないようにします。
 	SlowTimeFx::Reset();
+	// 調整パネルを閉じ、マウスの捕捉と時間の制御(停止・速さ)を通常へ戻します。
+	SlowTuningPanel::Reset();
 	SceneEditor::SetActive(false);
 	SceneEditor::SetWorld(nullptr);
 }
@@ -390,13 +399,19 @@ void SlowActionScene::ToggleEditMode()
 void SlowActionScene::Update()
 {
 	// 名前の入力中は、文字がゲームのキー操作として効かないようにします。
+	// 調整パネルの上にマウスがあるとき・パネルで文字を入力しているときも、ゲームのキー操作を止めます。
+	const bool panelBlocks = SlowTuningPanel::BlocksGameInput();
 	if (!SceneEditor::WantsKeyboard())
 	{
+		if (Keyboard_IsKeyDownTrigger(KK_F4))
+		{
+			SlowTuningPanel::Toggle();
+		}
 		if (Keyboard_IsKeyDownTrigger(KK_F3))
 		{
 			ToggleEditMode();
 		}
-		if (Keyboard_IsKeyDownTrigger(KK_F1))
+		if (!panelBlocks && Keyboard_IsKeyDownTrigger(KK_F1))
 		{
 			Collider::SetDebugDrawEnabled(!Collider::GetDebugDrawEnabled());
 		}
@@ -411,19 +426,23 @@ void SlowActionScene::Update()
 		m_ComboText->SetText(L"");
 		m_PopupText->SetText(L"");
 		m_Help->SetText(L"編集モード  F3:再生に戻る  右ドラッグ:見回す  WASD/QE:移動(Shiftで加速)  ホイール:前後  "
-			L"左クリック:選択  F1:当たり判定表示");
+			L"左クリック:選択  F1:当たり判定表示  F4:調整");
 		return;
 	}
 	m_Help->SetText(kPlayHelp);
 
-	if (Engine::InputActions::IsTriggered("retry"))
+	// やり直しは、R キーかパネルの「やり直す」ボタンで行います。
+	const bool retryRequested = SlowTuningPanel::TakeRetryRequest()
+		|| (!panelBlocks && Engine::InputActions::IsTriggered("retry"));
+	if (retryRequested)
 	{
-		// 遷移の間も前のシーンが描かれるので、減速の演出はここで消しておきます。
+		// 遷移の間も前のシーンが描かれるので、減速の演出とパネルの状態はここで戻しておきます。
 		SlowTimeFx::Reset();
+		SlowTuningPanel::Reset();
 		ChangeSceneWith<SlowActionScene>(SceneTransition::Instant());
 		return;
 	}
-	if (Keyboard_IsKeyDownTrigger(KK_F2))
+	if (!panelBlocks && Keyboard_IsKeyDownTrigger(KK_F2))
 	{
 		SlowEnemy::SetInvincible(!SlowEnemy::IsInvincible());
 	}
