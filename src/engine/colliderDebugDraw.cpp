@@ -177,11 +177,13 @@ void Collider::DrawWire(const std::vector<Engine::VERTEX_3D>& vertices)
 	material.TextureEnable = FALSE;
 	Engine::Renderer::SetMaterial(material);
 	Engine::Renderer::SetWorldMatrix(XMMatrixIdentity());
-	Engine::Renderer::SetDepthEnable(false);
+	// 呼び出し元の深度の設定(読むだけ・書くだけなど)を壊さないよう、描き終えたら元へ戻します。
+	const Engine::RenderDepthMode previousDepthMode = Engine::Renderer::GetDepthMode();
+	Engine::Renderer::SetDepthMode(Engine::RenderDepthMode::Disabled);
 
 	Engine::Renderer::GetDeviceContext()->Draw(static_cast<UINT>(vertices.size()), 0);
 
-	Engine::Renderer::SetDepthEnable(true);
+	Engine::Renderer::SetDepthMode(previousDepthMode);
 }
 
 void Collider::Draw()

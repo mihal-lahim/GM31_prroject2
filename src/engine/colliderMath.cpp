@@ -156,6 +156,67 @@ namespace
 		return true;
 	}
 
+	float DistancePointAABBSquared(const Vector3& point, const Vector3& boxCenter, const Vector3& halfSize)
+	{
+		const Vector3 closest
+		{
+			ClampFloat(point.x, boxCenter.x - halfSize.x, boxCenter.x + halfSize.x),
+			ClampFloat(point.y, boxCenter.y - halfSize.y, boxCenter.y + halfSize.y),
+			ClampFloat(point.z, boxCenter.z - halfSize.z, boxCenter.z + halfSize.z)
+		};
+		return DistanceSquared(point, closest);
+	}
+
+	// 線分とAABBの最短距離の2乗です。交わっていれば0です。
+	// 交わらない場合、最も近い2点は「線分の端点と箱」か「線分と箱の12本の辺」のどちらかに現れます
+	// (箱の面の内側で最も近くなるのは、線分が面と平行なときだけで、そのときは端点か辺でも同じ距離になります)。
+	float DistanceSegmentAABBSquared(const Vector3& start, const Vector3& end, const Vector3& boxCenter, const Vector3& halfSize)
+	{
+		if (SegmentIntersectsAABB(start, end, boxCenter, halfSize))
+		{
+			return 0.0f;
+		}
+
+		float best = MinFloat(
+			DistancePointAABBSquared(start, boxCenter, halfSize),
+			DistancePointAABBSquared(end, boxCenter, halfSize));
+
+		const Vector3 minimum = boxCenter - halfSize;
+		const Vector3 maximum = boxCenter + halfSize;
+		const auto corner = [&](int index)
+		{
+			return Vector3(
+				(index & 1) ? maximum.x : minimum.x,
+				(index & 2) ? maximum.y : minimum.y,
+				(index & 4) ? maximum.z : minimum.z);
+		};
+		// 8つの角を3ビットで表し、1ビットだけ違う角どうしを結ぶと12本の辺になります。
+		for (int from = 0; from < 8; from++)
+		{
+			for (int bit = 1; bit < 8; bit <<= 1)
+			{
+				if ((from & bit) != 0)
+				{
+					continue;
+				}
+				best = MinFloat(best, DistanceSegmentSegmentSquared(start, end, corner(from), corner(from | bit)));
+			}
+		}
+		return best;
+	}
+
+	// カプセル(線分＋半径)とAABBの交差です。角を尖らせて広げた箱で先に棄却し、残りだけ厳密な距離で判定します。
+	// 広げた箱だけだと、角の近くで実際の距離が半径より遠い(最大で半径の√3倍)のに当たりになります。
+	bool CapsuleIntersectsAABB(const Vector3& start, const Vector3& end, float radius, const Vector3& boxCenter, const Vector3& halfSize)
+	{
+		const Vector3 expandedHalfSize{ halfSize.x + radius, halfSize.y + radius, halfSize.z + radius };
+		if (!SegmentIntersectsAABB(start, end, boxCenter, expandedHalfSize))
+		{
+			return false;
+		}
+		return DistanceSegmentAABBSquared(start, end, boxCenter, halfSize) <= radius * radius;
+	}
+
 	// originが球の外側にある前提で、手前側の交点を求めます。
 	bool RaySphereFromOutside(const Vector3& origin, const Vector3& direction, const Vector3& center,
 		float radius, float maxDistance, float& distance, Vector3& normal)
@@ -264,8 +325,10 @@ namespace
 
 		bool found = false;
 		float best = maxDistance;
+		// 水平成分がごく小さい(ほぼ真上・真下の)レイでも側面に当たり得るので、閾値は0除算を避けるだけの小ささにします。
+		// 1e-5のような大きな値だと、例えば水平成分0.002のレイ(a = 4e-6)が側面を素通りします。
 		const float a = direction.x * direction.x + direction.z * direction.z;
-		if (a > 0.00001f)
+		if (a > 1e-10f)
 		{
 			const float offsetX = origin.x - start.x;
 			const float offsetZ = origin.z - start.z;
@@ -392,12 +455,7 @@ bool Collider::Intersects(const Collider& other) const
 		const Collider& box = (m_Shape == Shape::AABB) ? *this : other;
 		Vector3 start, end;
 		capsule.GetCapsuleSegment(start, end);
-		Vector3 half = box.GetHalfSize();
-		float radius = capsule.GetRadius();
-		half.x += radius;
-		half.y += radius;
-		half.z += radius;
-		return SegmentIntersectsAABB(start, end, box.GetCenter(), half);
+		return CapsuleIntersectsAABB(start, end, capsule.GetRadius(), box.GetCenter(), box.GetHalfSize());
 	}
 
 	const Collider& sphere = (m_Shape == Shape::Sphere) ? *this : other;
@@ -422,7 +480,7 @@ bool Collider::IntersectsCapsule(
 	const Vector3& end,
 	float radius) const
 {
-	if (radius < 0.0f || m_GameObject == nullptr)
+	if (!std::isfinite(radius) || radius < 0.0f || m_GameObject == nullptr)
 	{
 		return false;
 	}
@@ -444,9 +502,5 @@ bool Collider::IntersectsCapsule(
 			<= combinedRadius * combinedRadius;
 	}
 
-	Vector3 expandedHalfSize = GetHalfSize();
-	expandedHalfSize.x += radius;
-	expandedHalfSize.y += radius;
-	expandedHalfSize.z += radius;
-	return SegmentIntersectsAABB(start, end, GetCenter(), expandedHalfSize);
+	return CapsuleIntersectsAABB(start, end, radius, GetCenter(), GetHalfSize());
 }

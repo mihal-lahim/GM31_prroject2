@@ -31,12 +31,24 @@ namespace
 
 void Collider::Init()
 {
+	if (m_Initialized)
+	{
+		return;
+	}
+	m_Initialized = true;
 	s_RefCount++;
 	m_GameObject->GetWorld().GetCollisionWorld().Register(*this);
 }
 
 void Collider::Uninit()
 {
+	// Initで増やした分だけを1対1で返します。
+	if (!m_Initialized)
+	{
+		return;
+	}
+	m_Initialized = false;
+
 	if (m_GameObject != nullptr)
 	{
 		m_GameObject->GetWorld().GetCollisionWorld().Unregister(*this);

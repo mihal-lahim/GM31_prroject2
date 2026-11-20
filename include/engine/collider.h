@@ -37,6 +37,9 @@ private:
 	bool m_DebugDraw = true;
 	bool m_UseOwnerScale = true;
 	bool m_IsStatic = false;
+	// このインスタンスがInitでs_RefCountを1つ増やし、まだUninitで返していないかどうかです。
+	// 二重のUninitや、Initしていないインスタンスが共有の描画リソースを誤って解放しないようにします。
+	bool m_Initialized = false;
 	// CollisionWorldが登録時に発番します。クエリ結果を登録順で返すためのキーです。
 	friend class CollisionWorld;
 	std::uint64_t m_RegistrationSerial = 0;
@@ -66,6 +69,9 @@ public:
 	Collider* SetDebugColor(const XMFLOAT4& color);
 	Collider* SetDebugDraw(bool enabled);
 	Collider* SetUseOwnerScale(bool enabled);
+
+	// 共有のデバッグ描画リソースを使っている(Init済みでUninitしていない)Colliderの数です。自己テスト用です。
+	static int GetSharedResourceUserCount() { return s_RefCount; }
 
 	Shape GetShape() const { return m_Shape; }
 	std::uint64_t GetRegistrationSerial() const { return m_RegistrationSerial; }

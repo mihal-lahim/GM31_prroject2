@@ -5,6 +5,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <utility>
 
 namespace
 {
@@ -14,6 +15,52 @@ namespace
 			&& collider->GetOwner() != nullptr
 			&& !collider->GetOwner()->IsPendingDestroy()
 			&& (collider->GetCollisionLayer() & layerMask) != 0;
+	}
+
+	bool IsFinite(const Vector3& value)
+	{
+		return std::isfinite(value.x) && std::isfinite(value.y) && std::isfinite(value.z);
+	}
+
+	// NaN・無限大を含まず、最小側が最大側を超えていない範囲だけを受け付けます。
+	bool IsValidBounds(const Vector3& minimum, const Vector3& maximum)
+	{
+		return IsFinite(minimum) && IsFinite(maximum)
+			&& minimum.x <= maximum.x && minimum.y <= maximum.y && minimum.z <= maximum.z;
+	}
+
+	// レイ(origin + direction * t)が範囲と重なるtの区間を[tStart, tEnd]へ絞ります。重ならなければfalseです。
+	bool ClipRayToBounds(const Vector3& origin, const Vector3& direction,
+		const Vector3& minimum, const Vector3& maximum, float& tStart, float& tEnd)
+	{
+		const float originValues[3] = { origin.x, origin.y, origin.z };
+		const float directionValues[3] = { direction.x, direction.y, direction.z };
+		const float minValues[3] = { minimum.x, minimum.y, minimum.z };
+		const float maxValues[3] = { maximum.x, maximum.y, maximum.z };
+		for (int axis = 0; axis < 3; axis++)
+		{
+			if (std::abs(directionValues[axis]) < 1e-12f)
+			{
+				if (originValues[axis] < minValues[axis] || originValues[axis] > maxValues[axis])
+				{
+					return false;
+				}
+				continue;
+			}
+			float t1 = (minValues[axis] - originValues[axis]) / directionValues[axis];
+			float t2 = (maxValues[axis] - originValues[axis]) / directionValues[axis];
+			if (t1 > t2)
+			{
+				std::swap(t1, t2);
+			}
+			tStart = (std::max)(tStart, t1);
+			tEnd = (std::min)(tEnd, t2);
+			if (tStart > tEnd)
+			{
+				return false;
+			}
+		}
+		return true;
 	}
 }
 
@@ -29,12 +76,67 @@ std::size_t CollisionWorld::CellKeyHash::operator()(const CellKey& key) const
 
 CollisionWorld::CellKey CollisionWorld::ToCell(const Vector3& position)
 {
-	return
+	// 範囲外のfloatをintへ変換すると未定義動作なので、先に上限へ丸めます。
+	// NaNは呼び出し元で弾きますが、念のため最小側へ寄せます。
+	const auto toCoordinate = [](float value)
 	{
-		static_cast<int>(std::floor(position.x / kCellSize)),
-		static_cast<int>(std::floor(position.y / kCellSize)),
-		static_cast<int>(std::floor(position.z / kCellSize))
+		const float cell = std::floor(value / kCellSize);
+		constexpr float limit = static_cast<float>(kMaxCellCoordinate);
+		if (!(cell >= -limit))
+		{
+			return -kMaxCellCoordinate;
+		}
+		if (cell > limit)
+		{
+			return kMaxCellCoordinate;
+		}
+		return static_cast<int>(cell);
 	};
+	return { toCoordinate(position.x), toCoordinate(position.y), toCoordinate(position.z) };
+}
+
+template<typename Visit>
+void CollisionWorld::ForEachStaticCell(const CellKey& minimumCell, const CellKey& maximumCell, Visit&& visit) const
+{
+	if (minimumCell.X > maximumCell.X || minimumCell.Y > maximumCell.Y || minimumCell.Z > maximumCell.Z)
+	{
+		return;
+	}
+
+	const double cellCount =
+		(static_cast<double>(maximumCell.X) - minimumCell.X + 1.0)
+		* (static_cast<double>(maximumCell.Y) - minimumCell.Y + 1.0)
+		* (static_cast<double>(maximumCell.Z) - minimumCell.Z + 1.0);
+	if (cellCount > static_cast<double>(m_StaticCells.size()))
+	{
+		// 範囲の方が広いので、登録済みのセルを1つずつ範囲と比べます。順番はハッシュ順になりますが、
+		// 呼び出し元は登録順へ並べ直す(候補収集)か、距離で選ぶ(レイ)ので結果は変わりません。
+		for (const auto& [key, colliders] : m_StaticCells)
+		{
+			if (key.X >= minimumCell.X && key.X <= maximumCell.X
+				&& key.Y >= minimumCell.Y && key.Y <= maximumCell.Y
+				&& key.Z >= minimumCell.Z && key.Z <= maximumCell.Z)
+			{
+				visit(colliders);
+			}
+		}
+		return;
+	}
+
+	for (int z = minimumCell.Z; z <= maximumCell.Z; z++)
+	{
+		for (int y = minimumCell.Y; y <= maximumCell.Y; y++)
+		{
+			for (int x = minimumCell.X; x <= maximumCell.X; x++)
+			{
+				const auto found = m_StaticCells.find({ x, y, z });
+				if (found != m_StaticCells.end())
+				{
+					visit(found->second);
+				}
+			}
+		}
+	}
 }
 
 bool CollisionWorld::IsRegistered(const Collider& collider) const
@@ -110,6 +212,8 @@ void CollisionWorld::Clear()
 	m_DynamicColliders.clear();
 	m_Registered.clear();
 	m_StaticCells.clear();
+	m_LargeStaticColliders.clear();
+	m_HasStaticBounds = false;
 	m_CandidateScratch.clear();
 	m_NextRegistrationSerial = 1;
 	m_StaticIndexDirty = false;
@@ -123,6 +227,8 @@ void CollisionWorld::EnsureStaticIndex()
 	}
 
 	m_StaticCells.clear();
+	m_LargeStaticColliders.clear();
+	m_HasStaticBounds = false;
 	for (Collider* collider : m_StaticColliders)
 	{
 		if (collider != nullptr)
@@ -139,8 +245,34 @@ void CollisionWorld::AddStaticColliderToIndex(Collider& collider)
 	Vector3 minimum;
 	Vector3 maximum;
 	collider.GetBounds(minimum, maximum);
+	// NaN・無限大の位置や大きさを持つものは、どの範囲とも正しく比べられないので登録しません。
+	if (!IsValidBounds(minimum, maximum))
+	{
+		return;
+	}
 	const CellKey minimumCell = ToCell(minimum);
 	const CellKey maximumCell = ToCell(maximum);
+	const double cellCount =
+		(static_cast<double>(maximumCell.X) - minimumCell.X + 1.0)
+		* (static_cast<double>(maximumCell.Y) - minimumCell.Y + 1.0)
+		* (static_cast<double>(maximumCell.Z) - minimumCell.Z + 1.0);
+	if (cellCount > kMaxIndexedCellsPerCollider)
+	{
+		m_LargeStaticColliders.push_back(&collider);
+		return;
+	}
+
+	if (m_HasStaticBounds)
+	{
+		m_StaticBoundsMin = { (std::min)(m_StaticBoundsMin.x, minimum.x), (std::min)(m_StaticBoundsMin.y, minimum.y), (std::min)(m_StaticBoundsMin.z, minimum.z) };
+		m_StaticBoundsMax = { (std::max)(m_StaticBoundsMax.x, maximum.x), (std::max)(m_StaticBoundsMax.y, maximum.y), (std::max)(m_StaticBoundsMax.z, maximum.z) };
+	}
+	else
+	{
+		m_StaticBoundsMin = minimum;
+		m_StaticBoundsMax = maximum;
+		m_HasStaticBounds = true;
+	}
 
 	for (int z = minimumCell.Z; z <= maximumCell.Z; z++)
 	{
@@ -158,26 +290,19 @@ const std::vector<Collider*>& CollisionWorld::CollectCandidates(const Vector3& m
 {
 	EnsureStaticIndex();
 	m_CandidateScratch.clear();
-
-	const CellKey minimumCell = ToCell(minimum);
-	const CellKey maximumCell = ToCell(maximum);
-	for (int z = minimumCell.Z; z <= maximumCell.Z; z++)
+	// 不正な範囲は何とも重ならない扱いにします(動的なものも含めて候補なし)。
+	if (!IsValidBounds(minimum, maximum))
 	{
-		for (int y = minimumCell.Y; y <= maximumCell.Y; y++)
-		{
-			for (int x = minimumCell.X; x <= maximumCell.X; x++)
-			{
-				const auto found = m_StaticCells.find({ x, y, z });
-				if (found == m_StaticCells.end())
-				{
-					continue;
-				}
-				m_CandidateScratch.insert(
-					m_CandidateScratch.end(), found->second.begin(), found->second.end());
-			}
-		}
+		return m_CandidateScratch;
 	}
 
+	ForEachStaticCell(ToCell(minimum), ToCell(maximum), [this](const std::vector<Collider*>& colliders)
+	{
+		m_CandidateScratch.insert(m_CandidateScratch.end(), colliders.begin(), colliders.end());
+	});
+
+	m_CandidateScratch.insert(
+		m_CandidateScratch.end(), m_LargeStaticColliders.begin(), m_LargeStaticColliders.end());
 	m_CandidateScratch.insert(
 		m_CandidateScratch.end(), m_DynamicColliders.begin(), m_DynamicColliders.end());
 
@@ -226,6 +351,11 @@ void CollisionWorld::QueryBounds(
 	CollisionLayer layerMask,
 	std::vector<Collider*>& out)
 {
+	if (!IsValidBounds(minimum, maximum))
+	{
+		return;
+	}
+
 	for (Collider* other : CollectCandidates(minimum, maximum))
 	{
 		if (!IsQueryable(other, layerMask))
@@ -253,8 +383,13 @@ bool CollisionWorld::Raycast(
 	CollisionLayer layerMask,
 	const Collider* ignore)
 {
+	// NaN・無限大が混ざると、下の区間の走査が終わらなくなります。
+	if (!IsFinite(origin) || !IsFinite(direction) || !std::isfinite(maxDistance))
+	{
+		return false;
+	}
 	const float directionLength = direction.length();
-	if (directionLength <= 0.00001f || maxDistance < 0.0f)
+	if (!std::isfinite(directionLength) || directionLength <= 0.00001f || maxDistance < 0.0f)
 	{
 		return false;
 	}
@@ -286,48 +421,52 @@ bool CollisionWorld::Raycast(
 		hit.Normal = normal;
 		hit.Distance = distance;
 	};
-
-	for (Collider* collider : m_DynamicColliders)
+	const auto considerAll = [&consider](const std::vector<Collider*>& colliders)
 	{
-		consider(collider);
-	}
+		for (Collider* collider : colliders)
+		{
+			consider(collider);
+		}
+	};
+
+	considerAll(m_DynamicColliders);
+
+	EnsureStaticIndex();
+	considerAll(m_LargeStaticColliders);
 
 	// 静的Colliderはレイをセル幅ずつ区切って手前から調べます。当たり点を含むセルには
 	// そのColliderが必ず登録されているので、当たりが区間内に入った時点で奥は見なくて済みます。
-	EnsureStaticIndex();
-	for (float segmentStart = 0.0f; ; )
+	// 走査するのは、静的Collider全体の範囲とレイが重なる区間だけです(何も無い遠くのセルを延々と見ないため)。
+	float tStart = 0.0f;
+	float tEnd = bestDistance;
+	// 範囲の端ちょうどの当たりを丸め誤差で落とさないよう、少しだけ広げて比べます。
+	const Vector3 margin{ 0.01f, 0.01f, 0.01f };
+	if (m_HasStaticBounds
+		&& ClipRayToBounds(origin, unitDirection, m_StaticBoundsMin - margin, m_StaticBoundsMax + margin, tStart, tEnd))
 	{
-		const float segmentEnd = (std::min)(segmentStart + kCellSize, maxDistance);
-		const Vector3 from = origin + unitDirection * segmentStart;
-		const Vector3 to = origin + unitDirection * segmentEnd;
-		const CellKey minimumCell = ToCell({
-			(std::min)(from.x, to.x), (std::min)(from.y, to.y), (std::min)(from.z, to.z) });
-		const CellKey maximumCell = ToCell({
-			(std::max)(from.x, to.x), (std::max)(from.y, to.y), (std::max)(from.z, to.z) });
-		for (int z = minimumCell.Z; z <= maximumCell.Z; z++)
+		for (float segmentStart = tStart; ; )
 		{
-			for (int y = minimumCell.Y; y <= maximumCell.Y; y++)
+			float segmentEnd = (std::min)(segmentStart + kCellSize, tEnd);
+			// 遠すぎてセル幅を足しても値が変わらない(floatの精度切れ)ときは、残りをまとめて1区間で見ます。
+			// ForEachStaticCellは登録済みセルの数より重くならないので、広い区間でも止まりません。
+			if (!(segmentEnd > segmentStart))
 			{
-				for (int x = minimumCell.X; x <= maximumCell.X; x++)
-				{
-					const auto cell = m_StaticCells.find({ x, y, z });
-					if (cell == m_StaticCells.end())
-					{
-						continue;
-					}
-					for (Collider* collider : cell->second)
-					{
-						consider(collider);
-					}
-				}
+				segmentEnd = tEnd;
 			}
-		}
+			const Vector3 from = origin + unitDirection * segmentStart;
+			const Vector3 to = origin + unitDirection * segmentEnd;
+			const CellKey minimumCell = ToCell({
+				(std::min)(from.x, to.x), (std::min)(from.y, to.y), (std::min)(from.z, to.z) });
+			const CellKey maximumCell = ToCell({
+				(std::max)(from.x, to.x), (std::max)(from.y, to.y), (std::max)(from.z, to.z) });
+			ForEachStaticCell(minimumCell, maximumCell, considerAll);
 
-		if (segmentEnd >= bestDistance)
-		{
-			break;
+			if (segmentEnd >= bestDistance || segmentEnd >= tEnd)
+			{
+				break;
+			}
+			segmentStart = segmentEnd;
 		}
-		segmentStart = segmentEnd;
 	}
 
 	if (found)
@@ -344,7 +483,7 @@ std::vector<Collider*> CollisionWorld::QueryCapsule(
 	CollisionLayer layerMask)
 {
 	std::vector<Collider*> overlaps;
-	if (radius < 0.0f)
+	if (!IsFinite(start) || !IsFinite(end) || !std::isfinite(radius) || radius < 0.0f)
 	{
 		return overlaps;
 	}

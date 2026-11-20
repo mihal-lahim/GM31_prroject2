@@ -50,6 +50,11 @@ private:
 	};
 
 	static constexpr float kCellSize = 8.0f;
+	// 格子座標の上限です。極端に遠い座標でもintへの変換が溢れず、ループの++も溢れません(約840万m)。
+	static constexpr int kMaxCellCoordinate = 1 << 20;
+	// 1つの静的Colliderを登録するセル数の上限です。これより大きいものは空間ハッシュへ入れず、
+	// 毎回の候補に直接含めます(巨大な床などでセルを大量に作ってメモリを使い切らないため)。
+	static constexpr double kMaxIndexedCellsPerCollider = 4096.0;
 
 	// 静的・動的を分けて保持します。クエリ結果の決定的順序は登録シリアルで再現します。
 	std::vector<Collider*> m_StaticColliders;
@@ -58,6 +63,12 @@ private:
 	// ステージ生成時のColliderが増えるほど二乗で効いてきます。
 	std::unordered_set<const Collider*> m_Registered;
 	std::unordered_map<CellKey, std::vector<Collider*>, CellKeyHash> m_StaticCells;
+	// 大きすぎて空間ハッシュへ入れない静的Colliderです(kMaxIndexedCellsPerCollider)。
+	std::vector<Collider*> m_LargeStaticColliders;
+	// 空間ハッシュへ入れた静的Collider全体の範囲です。レイはこの範囲と交わる区間だけを走査します。
+	Vector3 m_StaticBoundsMin{ 0.0f, 0.0f, 0.0f };
+	Vector3 m_StaticBoundsMax{ 0.0f, 0.0f, 0.0f };
+	bool m_HasStaticBounds = false;
 	// クエリごとのヒープ確保を避けるための候補収集用スクラッチです。
 	std::vector<Collider*> m_CandidateScratch;
 	std::uint64_t m_NextRegistrationSerial = 1;
@@ -65,6 +76,10 @@ private:
 	std::size_t m_StaticIndexBuildCount = 0;
 
 	static CellKey ToCell(const Vector3& position);
+	// 範囲内の、静的Colliderが登録されたセルの中身をvisitへ渡します。範囲のセル数が登録済みセルより
+	// 多いときは登録済みセルの方を走査するので、広い範囲を渡されても登録済みセルの数より重くなりません。
+	template<typename Visit>
+	void ForEachStaticCell(const CellKey& minimumCell, const CellKey& maximumCell, Visit&& visit) const;
 	void EnsureStaticIndex();
 	void AddStaticColliderToIndex(Collider& collider);
 	const std::vector<Collider*>& CollectCandidates(const Vector3& minimum, const Vector3& maximum);
@@ -82,6 +97,8 @@ public:
 	std::vector<Collider*> GetOverlaps(
 		const Collider& collider,
 		CollisionLayer layerMask = CollisionLayers::All);
+	// 以下の問い合わせは、NaN・無限大を含む座標や半径、最小側が最大側を超える範囲を受け取ると
+	// 何にも当たらない(空・false)を返します。
 	// 攻撃判定など、Colliderを作らずカプセル形状で検索したい場合に使います。
 	std::vector<Collider*> QueryCapsule(
 		const Vector3& start,

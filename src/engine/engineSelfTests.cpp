@@ -1282,6 +1282,208 @@ namespace
 	}
 }
 
+namespace
+{
+	bool TestCollisionRaycastRejectsInvalidInputAndFarDistance()
+	{
+		constexpr float nan = std::numeric_limits<float>::quiet_NaN();
+		constexpr float inf = std::numeric_limits<float>::infinity();
+		constexpr float longestRange = (std::numeric_limits<float>::max)();
+		RaycastHit hit;
+
+		// 静的Colliderが1つも無いWorldでも、最大の射程で止まらずにfalseを返します。
+		{
+			World empty;
+			if (empty.GetCollisionWorld().Raycast({ 0.0f, 0.0f, 0.0f }, { 1.0f, 0.0f, 0.0f }, longestRange, hit))
+			{
+				return false;
+			}
+		}
+
+		World world;
+		CollisionWorld& collisionWorld = world.GetCollisionWorld();
+		CollisionTestObject* box = world.Spawn<CollisionTestObject>();
+		box->SetPosition({ 10.0f, 0.0f, 0.0f });
+		box->GetCollider().SetAABB({ 1.0f, 1.0f, 1.0f })->SetStatic();
+
+		// NaN・無限大はどこへ入っても、走査せずにfalseです。
+		const Vector3 origin{ 0.0f, 0.0f, 0.0f };
+		const Vector3 forward{ 1.0f, 0.0f, 0.0f };
+		if (collisionWorld.Raycast({ nan, 0.0f, 0.0f }, forward, 100.0f, hit)
+			|| collisionWorld.Raycast({ 0.0f, inf, 0.0f }, forward, 100.0f, hit)
+			|| collisionWorld.Raycast(origin, { nan, 0.0f, 0.0f }, 100.0f, hit)
+			|| collisionWorld.Raycast(origin, { inf, 0.0f, 0.0f }, 100.0f, hit)
+			|| collisionWorld.Raycast(origin, forward, nan, hit)
+			|| collisionWorld.Raycast(origin, forward, inf, hit))
+		{
+			return false;
+		}
+
+		// 射程がfloatの最大値でも、静的Colliderの範囲だけを走査して正しく当たります。
+		if (!collisionWorld.Raycast(origin, forward, longestRange, hit)
+			|| hit.HitCollider->GetOwner() != box
+			|| std::abs(hit.Distance - 9.0f) > 0.0005f)
+		{
+			return false;
+		}
+		// 反対向きは何もない方向へ延々と進まずにfalseです。
+		if (collisionWorld.Raycast(origin, { -1.0f, 0.0f, 0.0f }, longestRange, hit))
+		{
+			return false;
+		}
+		// 非常に遠い起点(セル幅を足しても値が変わらない距離)でも止まります。当たるかどうかは精度次第なので問いません。
+		collisionWorld.Raycast({ -1.0e30f, 0.0f, 0.0f }, forward, longestRange, hit);
+
+		// セルに入れない巨大な静的Collider(広い床)も、レイと範囲検索の両方で見つかります。
+		CollisionTestObject* ground = world.Spawn<CollisionTestObject>();
+		ground->SetPosition({ 0.0f, -100.0f, 0.0f });
+		ground->GetCollider().SetAABB({ 1.0e6f, 1.0f, 1.0e6f })->SetStatic();
+		if (!collisionWorld.Raycast({ 5000.0f, 0.0f, -7000.0f }, { 0.0f, -1.0f, 0.0f }, longestRange, hit)
+			|| hit.HitCollider->GetOwner() != ground
+			|| std::abs(hit.Distance - 99.0f) > 0.0005f)
+		{
+			return false;
+		}
+		std::vector<Collider*> found;
+		collisionWorld.QueryBounds({ 4999.0f, -102.0f, 4999.0f }, { 5001.0f, -98.0f, 5001.0f }, CollisionLayers::All, found);
+		return found.size() == 1 && found[0]->GetOwner() == ground;
+	}
+
+	bool TestCollisionQueriesRejectInvalidInput()
+	{
+		constexpr float nan = std::numeric_limits<float>::quiet_NaN();
+		constexpr float inf = std::numeric_limits<float>::infinity();
+		World world;
+		CollisionWorld& collisionWorld = world.GetCollisionWorld();
+		CollisionTestObject* wall = world.Spawn<CollisionTestObject>();
+		wall->GetCollider().SetAABB({ 1.0f, 1.0f, 1.0f })->SetStatic();
+		CollisionTestObject* mover = world.Spawn<CollisionTestObject>();
+		mover->GetCollider().SetSphere(0.5f);
+
+		// 正しい範囲なら両方が見つかります(この後の「空」が、もともと何も無いせいではないことの確認)。
+		std::vector<Collider*> found;
+		collisionWorld.QueryBounds({ -2.0f, -2.0f, -2.0f }, { 2.0f, 2.0f, 2.0f }, CollisionLayers::All, found);
+		if (found.size() != 2 || collisionWorld.QueryCapsule({ 0.0f, -1.0f, 0.0f }, { 0.0f, 1.0f, 0.0f }, 0.5f).size() != 2)
+		{
+			return false;
+		}
+
+		found.clear();
+		collisionWorld.QueryBounds({ nan, -2.0f, -2.0f }, { 2.0f, 2.0f, 2.0f }, CollisionLayers::All, found);
+		collisionWorld.QueryBounds({ -2.0f, -2.0f, -2.0f }, { 2.0f, inf, 2.0f }, CollisionLayers::All, found);
+		collisionWorld.QueryBounds({ -inf, -inf, -inf }, { inf, inf, inf }, CollisionLayers::All, found);
+		// 最小側と最大側が逆転した範囲です。
+		collisionWorld.QueryBounds({ 2.0f, 2.0f, 2.0f }, { -2.0f, -2.0f, -2.0f }, CollisionLayers::All, found);
+		if (!found.empty())
+		{
+			return false;
+		}
+
+		return collisionWorld.QueryCapsule({ nan, 0.0f, 0.0f }, { 0.0f, 1.0f, 0.0f }, 0.5f).empty()
+			&& collisionWorld.QueryCapsule({ 0.0f, 0.0f, 0.0f }, { 0.0f, inf, 0.0f }, 0.5f).empty()
+			&& collisionWorld.QueryCapsule({ 0.0f, -1.0f, 0.0f }, { 0.0f, 1.0f, 0.0f }, nan).empty()
+			&& collisionWorld.QueryCapsule({ 0.0f, -1.0f, 0.0f }, { 0.0f, 1.0f, 0.0f }, inf).empty()
+			&& collisionWorld.QueryCapsule({ 0.0f, -1.0f, 0.0f }, { 0.0f, 1.0f, 0.0f }, -1.0f).empty()
+			// 極端に遠いが有限の範囲でも、セルを延々と回らずに終わります。
+			&& [&collisionWorld]()
+			{
+				std::vector<Collider*> wide;
+				collisionWorld.QueryBounds({ -1.0e30f, -1.0e30f, -1.0e30f }, { 1.0e30f, 1.0e30f, 1.0e30f },
+					CollisionLayers::All, wide);
+				return wide.size() == 2;
+			}();
+	}
+
+	bool TestCapsuleAABBUsesExactDistance()
+	{
+		World world;
+		// 原点にある半辺1の箱です。
+		CollisionTestObject* box = world.Spawn<CollisionTestObject>();
+		box->GetCollider().SetAABB({ 1.0f, 1.0f, 1.0f });
+		const Collider& boxCollider = box->GetCollider();
+
+		bool ok = true;
+		// 縦の辺(x=z=1)の斜め外側。線分は x=z=1.6 なので実際の距離は 0.6*√2 ≈ 0.849 です。
+		// 広げた箱(半辺1+半径)には入りますが、半径0.7では届きません。
+		ok &= !boxCollider.IntersectsCapsule({ 1.6f, -0.5f, 1.6f }, { 1.6f, 0.5f, 1.6f }, 0.7f);
+		ok &= boxCollider.IntersectsCapsule({ 1.6f, -0.5f, 1.6f }, { 1.6f, 0.5f, 1.6f }, 0.9f);
+		// 角(1,1,1)の外側の点(長さ0の線分)。距離は √(3*0.25) ≈ 0.866 です。
+		ok &= !boxCollider.IntersectsCapsule({ 1.5f, 1.5f, 1.5f }, { 1.5f, 1.5f, 1.5f }, 0.8f);
+		ok &= boxCollider.IntersectsCapsule({ 1.5f, 1.5f, 1.5f }, { 1.5f, 1.5f, 1.5f }, 0.9f);
+		// 面の正面。距離は0.5です。
+		ok &= boxCollider.IntersectsCapsule({ 1.5f, -0.5f, 0.0f }, { 1.5f, 0.5f, 0.0f }, 0.6f);
+		ok &= !boxCollider.IntersectsCapsule({ 1.5f, -0.5f, 0.0f }, { 1.5f, 0.5f, 0.0f }, 0.4f);
+		// 箱を貫く線分は半径0でも当たりです。
+		ok &= boxCollider.IntersectsCapsule({ -3.0f, 0.0f, 0.0f }, { 3.0f, 0.0f, 0.0f }, 0.0f);
+		// 縦の辺の外を斜めに横切る線分(x+z=3)。辺との距離は 1/√2 ≈ 0.707 で、最も近い点は線分の途中です。
+		ok &= !boxCollider.IntersectsCapsule({ 2.5f, 0.0f, 0.5f }, { 0.5f, 0.0f, 2.5f }, 0.65f);
+		ok &= boxCollider.IntersectsCapsule({ 2.5f, 0.0f, 0.5f }, { 0.5f, 0.0f, 2.5f }, 0.75f);
+		// 3軸すべてに傾いた線分 (2,2,1) → (1,1,2) が角(1,1,1)の外を通る場合です。
+		// 線分上の点 (2-t, 2-t, 1+t) と角の距離の2乗は 2(1-t)^2 + t^2 で、t=2/3 のとき最小の √(2/3) ≈ 0.816 です。
+		ok &= !boxCollider.IntersectsCapsule({ 2.0f, 2.0f, 1.0f }, { 1.0f, 1.0f, 2.0f }, 0.78f);
+		ok &= boxCollider.IntersectsCapsule({ 2.0f, 2.0f, 1.0f }, { 1.0f, 1.0f, 2.0f }, 0.85f);
+
+		// Collider同士(Capsule対AABB)も同じ厳密な判定です。
+		// 半径0.7・全高2のカプセルは線分が y=-0.3..0.3 で、x=z=1.6 に置くと辺との距離は約0.849です。
+		CollisionTestObject* capsule = world.Spawn<CollisionTestObject>();
+		capsule->SetPosition({ 1.6f, 0.0f, 1.6f });
+		capsule->GetCollider().SetCapsule(0.7f, 2.0f);
+		ok &= !capsule->GetCollider().Intersects(boxCollider) && !boxCollider.Intersects(capsule->GetCollider());
+		capsule->GetCollider().SetCapsule(0.9f, 2.0f);
+		ok &= capsule->GetCollider().Intersects(boxCollider) && boxCollider.Intersects(capsule->GetCollider());
+		// 面の正面で接している場合です(距離0.5、半径0.6)。
+		capsule->SetPosition({ 1.5f, 0.0f, 0.0f });
+		capsule->GetCollider().SetCapsule(0.6f, 2.0f);
+		ok &= capsule->GetCollider().Intersects(boxCollider);
+		return ok;
+	}
+
+	bool TestRayHitsCapsuleSideWhenNearlyVertical()
+	{
+		World world;
+		CollisionTestObject* capsule = world.Spawn<CollisionTestObject>();
+		// 半径0.5、全高3なので線分は y=-1..1 です。
+		capsule->GetCollider().SetCapsule(0.5f, 3.0f);
+
+		// 水平成分0.002のほぼ真下へのレイ(水平成分の2乗は約4e-6)。y=-0.5 の高さで側面(x=-0.5)に当たります。
+		// 以前は側面の判定を飛ばし、奥の下端の球に当たっていました(距離約2.95)。
+		RaycastHit hit;
+		if (!world.GetCollisionWorld().Raycast({ -0.505f, 2.0f, 0.0f }, { 0.002f, -1.0f, 0.0f }, 100.0f, hit)
+			|| hit.HitCollider->GetOwner() != capsule)
+		{
+			return false;
+		}
+		return std::abs(hit.Distance - 2.5f) < 0.01f
+			&& std::abs(hit.Point.y + 0.5f) < 0.01f
+			&& hit.Normal.x < -0.99f;
+	}
+
+	bool TestColliderDoubleUninitKeepsOthers()
+	{
+		const int before = Collider::GetSharedResourceUserCount();
+		bool ok = true;
+		{
+			World world;
+			CollisionWorld& collisionWorld = world.GetCollisionWorld();
+			CollisionTestObject* first = world.Spawn<CollisionTestObject>();
+			CollisionTestObject* second = world.Spawn<CollisionTestObject>();
+			ok &= Collider::GetSharedResourceUserCount() == before + 2 && collisionWorld.GetColliderCount() == 2;
+
+			// 同じColliderを2回Uninitしても、返すのは自分が増やした1つ分だけです。
+			first->GetCollider().Uninit();
+			first->GetCollider().Uninit();
+			ok &= Collider::GetSharedResourceUserCount() == before + 1 && collisionWorld.GetColliderCount() == 1;
+			const std::vector<Collider*> found = collisionWorld.QueryCapsule({ 0.0f, -1.0f, 0.0f }, { 0.0f, 1.0f, 0.0f }, 0.5f);
+			ok &= found.size() == 1 && found[0] == &second->GetCollider();
+
+			// 持ち主の破棄でもう一度Uninitが来ても、数はずれません。
+			world.Clear();
+			ok &= Collider::GetSharedResourceUserCount() == before && collisionWorld.GetColliderCount() == 0;
+		}
+		return ok && Collider::GetSharedResourceUserCount() == before;
+	}
+}
+
 namespace Engine
 {
 	// Managerのprivateな状態へ触れる、自己テスト専用の入口です(manager.hでfriend指定)。
@@ -1413,6 +1615,11 @@ bool RunEngineSelfTests()
 		{ "destroy requested objects chain", TestDestroyRequestedObjectsChain },
 		{ "set object id bounds", TestSetObjectIdBounds },
 		{ "scene change during init is kept", TestSceneChangeDuringInitIsKept },
+		{ "collision raycast rejects invalid input and far distance", TestCollisionRaycastRejectsInvalidInputAndFarDistance },
+		{ "collision queries reject invalid input", TestCollisionQueriesRejectInvalidInput },
+		{ "capsule aabb uses exact distance", TestCapsuleAABBUsesExactDistance },
+		{ "ray hits capsule side when nearly vertical", TestRayHitsCapsuleSideWhenNearlyVertical },
+		{ "collider double uninit keeps others", TestColliderDoubleUninitKeepsOthers },
 	};
 
 	// どの項目で落ちたか分かるよう、全項目を実行して結果をログへ残します。
