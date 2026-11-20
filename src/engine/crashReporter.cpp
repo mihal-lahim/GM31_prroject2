@@ -6,6 +6,7 @@
 #include <cstddef>
 #include <cstdio>
 #include <ctime>
+#include <cwchar>
 
 #pragma comment(lib, "dbghelp.lib")
 
@@ -15,8 +16,17 @@ namespace
 {
 	// 例外発生時はヒープが壊れている可能性があるため、動的確保を避けて
 	// 固定バッファとWin32 APIだけで書き出します。
-	char g_LogPath[MAX_PATH] = {};
-	char g_DumpPath[MAX_PATH] = {};
+	// パスはワイド文字で持ちます。ANSI(A)版の API では、システムのロケールで表せない文字
+	// (英語版 Windows での日本語のフォルダー名など)を含むパスを開けないためです。
+	wchar_t g_LogPath[MAX_PATH] = {};
+	wchar_t g_DumpPath[MAX_PATH] = {};
+	// ログに書くダンプのパス(UTF-8)です。Install で一度だけ変換し、例外の処理中には変換しません。
+	char g_DumpPathUtf8[MAX_PATH * 3] = {};
+	// 例外の処理中に使う作業領域です。スタックオーバーフローの処理でも残りのスタックを使い切らないよう、
+	// 大きなバッファは静的領域に置きます(ヒープも使いません)。
+	wchar_t g_ModuleNameWide[MAX_PATH] = {};
+	char g_ModuleNameUtf8[MAX_PATH * 3] = {};
+	char g_LogBuffer[2048] = {};
 
 	const char* DescribeException(DWORD code)
 	{
@@ -69,48 +79,60 @@ namespace
 	}
 
 	// 実行ファイルのフォルダーにfileNameを付けたパスをoutへ書きます。収まらなければ空のままにします。
-	void BuildPathNextToExecutable(const char* directory, const char* fileName, char (&out)[MAX_PATH])
+	void BuildPathNextToExecutable(const wchar_t* directory, const wchar_t* fileName, wchar_t (&out)[MAX_PATH])
 	{
-		out[0] = '\0';
+		out[0] = L'\0';
 		// 実行ファイルの場所が分からないときは、作業フォルダーへ書かずに空のままにします。
-		if (directory[0] == '\0')
+		if (directory[0] == L'\0')
 		{
 			return;
 		}
-		const int length = std::snprintf(out, MAX_PATH, "%s%s", directory, fileName);
+		// swprintf は収まらないとき負の値を返すので、そのときは空にします。
+		const int length = std::swprintf(out, MAX_PATH, L"%ls%ls", directory, fileName);
 		if (length < 0 || length >= MAX_PATH)
 		{
-			out[0] = '\0';
+			out[0] = L'\0';
 		}
 	}
 
 	void WriteLog(EXCEPTION_POINTERS* pointers)
 	{
-		if (g_LogPath[0] == '\0')
+		if (g_LogPath[0] == L'\0')
 		{
 			return;
 		}
-		HANDLE file = CreateFileA(g_LogPath, GENERIC_WRITE, 0, nullptr,
+		HANDLE file = CreateFileW(g_LogPath, GENERIC_WRITE, 0, nullptr,
 			CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
 		if (file == INVALID_HANDLE_VALUE)
 		{
 			return;
 		}
 
-		char buffer[1024];
+		char* buffer = g_LogBuffer;
+		constexpr std::size_t bufferSize = sizeof(g_LogBuffer);
 		const EXCEPTION_RECORD* record = pointers != nullptr ? pointers->ExceptionRecord : nullptr;
 		const DWORD code = record != nullptr ? record->ExceptionCode : 0;
 		const void* address = record != nullptr ? record->ExceptionAddress : nullptr;
 
 		// 発生アドレスが属するモジュールと、その先頭からのオフセットを出します。
 		// マップファイルや逆アセンブルと突き合わせれば関数を特定できます。
+		// モジュール名もワイド文字で取り、ログ全体と同じ UTF-8 へ固定バッファ上で変換します。
 		HMODULE module = nullptr;
-		char moduleName[MAX_PATH] = "?";
-		if (address != nullptr && GetModuleHandleExA(
+		char* moduleName = g_ModuleNameUtf8;
+		moduleName[0] = '?';
+		moduleName[1] = '\0';
+		if (address != nullptr && GetModuleHandleExW(
 			GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
-			static_cast<LPCSTR>(address), &module))
+			static_cast<LPCWSTR>(address), &module))
 		{
-			GetModuleFileNameA(module, moduleName, MAX_PATH);
+			const DWORD moduleLength = GetModuleFileNameW(module, g_ModuleNameWide, MAX_PATH);
+			if (moduleLength == 0 || moduleLength >= MAX_PATH
+				|| WideCharToMultiByte(CP_UTF8, 0, g_ModuleNameWide, -1, moduleName,
+					static_cast<int>(sizeof(g_ModuleNameUtf8)), nullptr, nullptr) == 0)
+			{
+				moduleName[0] = '?';
+				moduleName[1] = '\0';
+			}
 		}
 		const uintptr_t offset = module != nullptr
 			? reinterpret_cast<uintptr_t>(address) - reinterpret_cast<uintptr_t>(module)
@@ -124,7 +146,7 @@ namespace
 
 		buffer[0] = '\0';
 		std::size_t length = 0;
-		AppendFormat(buffer, sizeof(buffer), length,
+		AppendFormat(buffer, bufferSize, length,
 			"time: %s\r\n"
 			"exception: 0x%08X (%s)\r\n"
 			"address: %p\r\n"
@@ -134,12 +156,13 @@ namespace
 			address, moduleName, static_cast<unsigned long long>(offset));
 		if (code == EXCEPTION_ACCESS_VIOLATION && record != nullptr && record->NumberParameters >= 2)
 		{
-			AppendFormat(buffer, sizeof(buffer), length,
+			AppendFormat(buffer, bufferSize, length,
 				"access: %s at %p\r\n",
 				DescribeAccess(record->ExceptionInformation[0]),
 				reinterpret_cast<void*>(record->ExceptionInformation[1]));
 		}
-		AppendFormat(buffer, sizeof(buffer), length, "dump: %s\r\n", g_DumpPath);
+		// ログは UTF-8 で書きます(ダンプのパスは Install で変換済み)。
+		AppendFormat(buffer, bufferSize, length, "dump: %s\r\n", g_DumpPathUtf8);
 
 		DWORD written = 0;
 		WriteFile(file, buffer, static_cast<DWORD>(length), &written, nullptr);
@@ -148,11 +171,11 @@ namespace
 
 	void WriteDump(EXCEPTION_POINTERS* pointers)
 	{
-		if (g_DumpPath[0] == '\0')
+		if (g_DumpPath[0] == L'\0')
 		{
 			return;
 		}
-		HANDLE file = CreateFileA(g_DumpPath, GENERIC_WRITE, 0, nullptr,
+		HANDLE file = CreateFileW(g_DumpPath, GENERIC_WRITE, 0, nullptr,
 			CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
 		if (file == INVALID_HANDLE_VALUE)
 		{
@@ -186,19 +209,33 @@ void CrashReporter::Install()
 	// 実行ファイルの隣に置きます。作業ディレクトリに依存させません。
 	// パスが長すぎて収まらないときは書き出し先を空にし、記録だけ諦めます
 	// (sprintf_sで溢れると、無効パラメータのハンドラで起動直後に落ちるため)。
-	char exePath[MAX_PATH] = {};
-	const DWORD exeLength = GetModuleFileNameA(nullptr, exePath, MAX_PATH);
+	wchar_t exePath[MAX_PATH] = {};
+	const DWORD exeLength = GetModuleFileNameW(nullptr, exePath, MAX_PATH);
 	if (exeLength == 0 || exeLength >= MAX_PATH)
 	{
-		exePath[0] = '\0';
+		exePath[0] = L'\0';
 	}
-	char* lastSeparator = strrchr(exePath, '\\');
+	wchar_t* lastSeparator = wcsrchr(exePath, L'\\');
 	if (lastSeparator != nullptr)
 	{
-		*(lastSeparator + 1) = '\0';
+		*(lastSeparator + 1) = L'\0';
 	}
-	BuildPathNextToExecutable(exePath, "crash.log", g_LogPath);
-	BuildPathNextToExecutable(exePath, "crash.dmp", g_DumpPath);
+	else
+	{
+		// 区切りの無いおかしなパスでは、実行ファイル名に "crash.log" を続けた名前にならないよう、
+		// フォルダーが分からない扱い(書き出し先は空)にします。
+		exePath[0] = L'\0';
+	}
+	BuildPathNextToExecutable(exePath, L"crash.log", g_LogPath);
+	BuildPathNextToExecutable(exePath, L"crash.dmp", g_DumpPath);
+	// ログに書くダンプのパスは、ここで UTF-8 にしておきます。変換できなければ空のまま出します。
+	g_DumpPathUtf8[0] = '\0';
+	if (g_DumpPath[0] != L'\0'
+		&& WideCharToMultiByte(CP_UTF8, 0, g_DumpPath, -1, g_DumpPathUtf8,
+			static_cast<int>(sizeof(g_DumpPathUtf8)), nullptr, nullptr) == 0)
+	{
+		g_DumpPathUtf8[0] = '\0';
+	}
 
 	SetUnhandledExceptionFilter(HandleUnhandledException);
 }

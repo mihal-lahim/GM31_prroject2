@@ -63,6 +63,10 @@ public:
 	static WaveHandle LoadWave(const std::filesystem::path& path);
 	static VertexShaderHandle LoadVertexShader(const std::filesystem::path& path);
 	static PixelShaderHandle LoadPixelShader(const std::filesystem::path& path);
+	// Load*Shader と同じ順(実行ファイルの隣 → そのまま → shaders/compiled)で探し、見つかった .cso の
+	// 絶対パス(lexically_normal 済み)を返します。見つからない・空のパスなら空のパスです。
+	// シェーダーのキャッシュは、このパスから作ったキーで共有します。
+	static std::filesystem::path ResolveShaderPath(const std::filesystem::path& path);
 	static ModelHandle LoadModel(const std::filesystem::path& path, const ModelFactory& factory);
 	static void Clear();
 	// どのハンドルからも参照されなくなったモデル・テクスチャ・WAVを解放し、解放件数を返します。

@@ -55,9 +55,16 @@ foreach ($projectPath in @('WireAction.vcxproj', 'BattingCenter.vcxproj', 'Class
 }
 
 $violations = @()
-foreach ($relativeSource in Read-ProjectItems 'Engine.vcxproj' 'ClCompile') {
+# ゲームに依存してはいけないライブラリ(Engine と AnimationLib)の .cpp と .h のどれも、
+# ゲームのヘッダーを #include していないことを確かめます(ヘッダー経由の依存も見逃さないため)。
+$libraryFiles = foreach ($projectPath in @('Engine.vcxproj', 'AnimationLib.vcxproj')) {
+    foreach ($itemName in @('ClCompile', 'ClInclude')) {
+        Read-ProjectItems $projectPath $itemName
+    }
+}
+foreach ($relativeSource in $libraryFiles) {
     $sourcePath = Join-Path $root $relativeSource
-    foreach ($line in Get-Content $sourcePath) {
+    foreach ($line in Get-Content -LiteralPath $sourcePath) {
         if ($line -match '^\s*#include\s+"([^"]+)"') {
             $includedFile = Split-Path $Matches[1] -Leaf
             if ($gameHeaders.Contains($includedFile)) {

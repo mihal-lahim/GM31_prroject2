@@ -66,7 +66,8 @@ namespace
 		return file.read(reinterpret_cast<char*>(buffer.data()), size).good();
 	}
 
-	std::vector<unsigned char> LoadShaderBinary(const std::filesystem::path& path)
+	// コンパイル済みシェーダーを探す順番です: 実行ファイルの隣 → そのままのパス → shaders/compiled。
+	std::vector<std::filesystem::path> ShaderPathCandidates(const std::filesystem::path& path)
 	{
 		std::vector<std::filesystem::path> candidates;
 		wchar_t modulePath[MAX_PATH]{};
@@ -77,17 +78,7 @@ namespace
 		}
 		candidates.push_back(path);
 		candidates.push_back(std::filesystem::path("shaders") / "compiled" / path);
-
-		for (const std::filesystem::path& candidate : candidates)
-		{
-			std::vector<unsigned char> buffer;
-			if (ReadBinaryFile(candidate, buffer))
-			{
-				return buffer;
-			}
-		}
-
-		return {};
+		return candidates;
 	}
 
 	class MmioFile
@@ -266,6 +257,28 @@ WaveHandle ResourceManager::LoadWave(const std::filesystem::path& path)
 	return resource;
 }
 
+std::filesystem::path ResourceManager::ResolveShaderPath(const std::filesystem::path& path)
+{
+	if (path.empty())
+	{
+		return {};
+	}
+	for (const std::filesystem::path& candidate : ShaderPathCandidates(path))
+	{
+		// 以前の読み込み(ReadBinaryFile)と同じく、中身の無いファイルは見つからなかった扱いで次を探します。
+		std::error_code error;
+		if (!std::filesystem::is_regular_file(candidate, error) || error
+			|| std::filesystem::file_size(candidate, error) == 0 || error)
+		{
+			continue;
+		}
+		// 同じファイルを別の書き方(相対・絶対・".." を含む)で指しても同じパスになるよう、絶対パスへ揃えます。
+		std::filesystem::path resolved = std::filesystem::absolute(candidate, error);
+		return (error ? candidate : resolved).lexically_normal();
+	}
+	return {};
+}
+
 VertexShaderHandle ResourceManager::LoadVertexShader(const std::filesystem::path& path)
 {
 	if (path.empty())
@@ -273,8 +286,11 @@ VertexShaderHandle ResourceManager::LoadVertexShader(const std::filesystem::path
 		return {};
 	}
 
-	const std::string key = MakeCacheKey(path);
-	if (const auto found = g_VertexShaderCache.find(key); found != g_VertexShaderCache.end())
+	// キャッシュのキーは、探して見つかった実際のファイルから作ります。呼び出し側の書き方
+	// ("xxVS.cso" と "shaders/compiled/xxVS.cso" など)が違っても、同じファイルなら1つを共有します。
+	const std::filesystem::path resolvedPath = ResolveShaderPath(path);
+	const std::string key = resolvedPath.empty() ? std::string() : MakeCacheKey(resolvedPath);
+	if (const auto found = g_VertexShaderCache.find(key); !key.empty() && found != g_VertexShaderCache.end())
 	{
 		return found->second;
 	}
@@ -284,8 +300,8 @@ VertexShaderHandle ResourceManager::LoadVertexShader(const std::filesystem::path
 		return {};
 	}
 
-	const std::vector<unsigned char> buffer = LoadShaderBinary(path);
-	if (buffer.empty())
+	std::vector<unsigned char> buffer;
+	if (resolvedPath.empty() || !ReadBinaryFile(resolvedPath, buffer))
 	{
 		DebugResourceError("vertex shader", path, "compiled shader file was not found");
 		return {};
@@ -330,8 +346,10 @@ PixelShaderHandle ResourceManager::LoadPixelShader(const std::filesystem::path& 
 		return {};
 	}
 
-	const std::string key = MakeCacheKey(path);
-	if (const auto found = g_PixelShaderCache.find(key); found != g_PixelShaderCache.end())
+	// 頂点シェーダーと同じく、見つかった実際のファイルからキャッシュのキーを作ります。
+	const std::filesystem::path resolvedPath = ResolveShaderPath(path);
+	const std::string key = resolvedPath.empty() ? std::string() : MakeCacheKey(resolvedPath);
+	if (const auto found = g_PixelShaderCache.find(key); !key.empty() && found != g_PixelShaderCache.end())
 	{
 		return found->second;
 	}
@@ -341,8 +359,8 @@ PixelShaderHandle ResourceManager::LoadPixelShader(const std::filesystem::path& 
 		return {};
 	}
 
-	const std::vector<unsigned char> buffer = LoadShaderBinary(path);
-	if (buffer.empty())
+	std::vector<unsigned char> buffer;
+	if (resolvedPath.empty() || !ReadBinaryFile(resolvedPath, buffer))
 	{
 		DebugResourceError("pixel shader", path, "compiled shader file was not found");
 		return {};

@@ -2628,6 +2628,44 @@ namespace
 		return ok && cloth->GetSimulation().IsFinite();
 	}
 
+	bool TestResolveShaderPathNormalizesSpellings()
+	{
+		using Engine::ResourceManager;
+		namespace fs = std::filesystem;
+		// 自己テストの作業フォルダーは実行ファイルのフォルダーなので、相対パスは「実行ファイルの隣」で見つかります。
+		const fs::path fileName = "engine-self-test-resolve-shader.cso";
+		const fs::path emptyName = "engine-self-test-resolve-empty.cso";
+		std::error_code error;
+		fs::create_directories("engine-self-test-resolve-sub", error);
+		{
+			std::ofstream file(fileName, std::ios::binary | std::ios::trunc);
+			file << "DXBC";
+		}
+		{
+			std::ofstream file(emptyName, std::ios::binary | std::ios::trunc);
+		}
+
+		const fs::path relative = ResourceManager::ResolveShaderPath(fileName);
+		const fs::path dotted = ResourceManager::ResolveShaderPath(fs::path("engine-self-test-resolve-sub") / ".." / fileName);
+		const fs::path absolute = ResourceManager::ResolveShaderPath(fs::absolute(fileName));
+		// 同じファイルをどう書いても、同じ絶対パスになります。
+		bool ok = !relative.empty() && relative.is_absolute() && relative == dotted && relative == absolute
+			&& fs::equivalent(relative, fileName, error);
+		// 無いファイル・空のパス・中身の無いファイルは空です(見つからない扱い)。
+		ok &= ResourceManager::ResolveShaderPath("engine-self-test-no-such-shader.cso").empty()
+			&& ResourceManager::ResolveShaderPath(fs::path()).empty()
+			&& ResourceManager::ResolveShaderPath(emptyName).empty();
+		// GPU が無いときは、従来どおり空のハンドルです(見つかったファイルでも作りません)。
+		ok &= ResourceManager::LoadVertexShader(fileName) == nullptr
+			&& ResourceManager::LoadPixelShader(fs::absolute(fileName)) == nullptr
+			&& ResourceManager::GetVertexShaderCount() == 0 && ResourceManager::GetPixelShaderCount() == 0;
+
+		fs::remove(fileName, error);
+		fs::remove(emptyName, error);
+		fs::remove("engine-self-test-resolve-sub", error);
+		return ok;
+	}
+
 	bool TestDynamicTextUninitThenDraw()
 	{
 		World world;
@@ -2876,6 +2914,7 @@ bool RunEngineSelfTests()
 		{ "runtime config defaults and duplicate save keys", TestRuntimeConfigDefaultsAndDuplicateSaveKeys },
 		{ "obj loader rejects non-finite and keeps spaced material names", TestObjLoaderRejectsNonFiniteAndKeepsSpacedMaterialNames },
 		{ "cloth rejects non-finite wind and skips headless draw", TestClothRejectsNonFiniteWindAndSkipsHeadlessDraw },
+		{ "resolve shader path normalizes spellings", TestResolveShaderPathNormalizesSpellings },
 	};
 
 	// どの項目で落ちたか分かるよう、全項目を実行して結果をログへ残します。
