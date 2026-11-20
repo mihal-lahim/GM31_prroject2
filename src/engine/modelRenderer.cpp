@@ -41,21 +41,22 @@ void ModelRenderer::Draw()
 		return;
 	}
 
-	// 共有シェーダーは最初のモデル描画時に遅延生成する。
-	// 準備済み判定より前に呼ばないと、初回描画が永久にスキップされてしまう。
-	EnsureDefaultShader();
-	if (m_DefaultVertexLayout == nullptr
-		|| m_DefaultVertexShader == nullptr
-		|| m_DefaultPixelShader == nullptr)
-	{
-		return;
-	}
 	if (m_UseSurfaceShader)
 	{
+		// 表面シェーダーは自前のシェーダーで描くので、既定のシェーダーが無くても描けます。
 		if (!m_Surface.Ready()) return;
 	}
 	else
 	{
+		// 共有シェーダーは最初のモデル描画時に遅延生成する。
+		// 準備済み判定より前に呼ばないと、初回描画が永久にスキップされてしまう。
+		EnsureDefaultShader();
+		if (m_DefaultVertexLayout == nullptr
+			|| m_DefaultVertexShader == nullptr
+			|| m_DefaultPixelShader == nullptr)
+		{
+			return;
+		}
 		Engine::Renderer::GetDeviceContext()->IASetInputLayout(m_DefaultVertexLayout.Get());
 		Engine::Renderer::GetDeviceContext()->VSSetShader(m_DefaultVertexShader.Get(), nullptr, 0);
 		Engine::Renderer::GetDeviceContext()->PSSetShader(m_DefaultPixelShader.Get(), nullptr, 0);

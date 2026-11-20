@@ -92,6 +92,20 @@ namespace
 		OutputDebugStringA(message);
 		return false;
 	}
+
+	// 今のビューポートを返します。1つも設定されていなければ画面全体を返します
+	// (幅・高さ0のまま描いたり戻したりすると、何も映らなくなるため)。
+	D3D11_VIEWPORT GetFullViewport(ID3D11DeviceContext* context)
+	{
+		UINT viewportCount = 1;
+		D3D11_VIEWPORT viewport{};
+		context->RSGetViewports(&viewportCount, &viewport);
+		if (viewportCount == 0)
+		{
+			viewport = { 0.0f, 0.0f, static_cast<FLOAT>(SCREEN_WIDTH), static_cast<FLOAT>(SCREEN_HEIGHT), 0.0f, 1.0f };
+		}
+		return viewport;
+	}
 }
 
 
@@ -385,7 +399,7 @@ bool Renderer::Init()
 	bufferDesc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
 	bufferDesc.CPUAccessFlags = 0;
 	bufferDesc.MiscFlags = 0;
-	bufferDesc.StructureByteStride = sizeof(float);
+	// 構造化バッファ以外(定数バッファ)では0でなければなりません。
 
 	hr = m_Device->CreateBuffer(&bufferDesc, nullptr, m_WorldBuffer.ReleaseAndGetAddressOf());
 	if (!CheckInitializationResult(hr, "ID3D11Device::CreateBuffer(world)"))
@@ -609,6 +623,14 @@ void Renderer::Uninit()
 	m_ParameterBuffer.Reset();
 	m_PostOptionsBuffer.Reset();
 	m_CustomPostOptions = false;
+	// 作り直したときに前回の値が残らないよう、描画の状態も起動時の値へ戻します。
+	m_PostOptions = {};
+	m_PostExtraOptions = {};
+	m_PostDefinitionParameters = {};
+	m_ClearColor = DefaultClearColor;
+	m_DepthMode = RenderDepthMode::Enabled;
+	m_BlendMode = RenderBlendMode::Alpha;
+	m_Light = {};
 	m_CameraBuffer.Reset();
 	m_MaterialBuffer.Reset();
 	m_ProjectionBuffer.Reset();
@@ -700,9 +722,7 @@ void Renderer::ResolvePostEffects()
 	}
 	m_PostResolved = true;
 	ID3D11RenderTargetView* backBuffer = m_RenderTargetView.Get();
-	UINT viewportCount = 1;
-	D3D11_VIEWPORT fullViewport{};
-	m_DeviceContext->RSGetViewports(&viewportCount, &fullViewport);
+	const D3D11_VIEWPORT fullViewport = GetFullViewport(m_DeviceContext.Get());
 	// 深度を描画先から外してから、ポスト効果が読めるよう t8 へ繋ぎます(同時に繋ぐと D3D11 が片方を外します)。
 	m_DeviceContext->OMSetRenderTargets(1, &backBuffer, nullptr);
 	ID3D11ShaderResourceView* depth = m_DepthResource.Get();
@@ -795,6 +815,8 @@ bool Renderer::SetPostEffectDefinition(std::string_view id)
 	m_PostDefinitionId = id;
 	m_PostDefinitionParameters = definition->Defaults;
 	m_PostEffectMode = PostEffectMode::None;
+	// 前のポスト効果の動的な値と見た目を、別の効果へ持ち越しません。呼び出し元は切り替えた後に設定し直します。
+	ResetPostEffectValues();
 	return true;
 }
 
@@ -815,9 +837,7 @@ void Renderer::DrawPostDefinition(const ShaderDefinition& definition)
 		}
 	}
 
-	UINT viewportCount = 1;
-	D3D11_VIEWPORT fullViewport{};
-	m_DeviceContext->RSGetViewports(&viewportCount, &fullViewport);
+	const D3D11_VIEWPORT fullViewport = GetFullViewport(m_DeviceContext.Get());
 
 	SetDepthMode(RenderDepthMode::Disabled);
 	SetParameter(m_PostDefinitionParameters);
@@ -869,13 +889,9 @@ bool Renderer::SetPostEffectFloat(std::string_view name, float value)
 {
 	const ShaderDefinition* definition = FindShaderDefinition(m_PostDefinitionId);
 	if (!definition || definition->Usage != ShaderUsage::Post || name.empty()) return false;
-	float* parameters = &m_PostDefinitionParameters.x;
 	for (std::size_t i = 0; i < definition->ParameterNames.size(); ++i)
 		if (definition->ParameterNames[i] == name)
-		{
-			parameters[i] = value;
-			return true;
-		}
+			return SetXMFloat4Component(m_PostDefinitionParameters, i, value);
 	return false;
 }
 

@@ -48,7 +48,7 @@ bool DynamicText::RebuildTexture()
 	m_TextureView.Reset();
 	m_TextureWidth = 0;
 	m_TextureHeight = 0;
-	if (m_Text.empty() || m_FontSize <= 0)
+	if (m_Text.empty() || m_FontSize <= 0 || Engine::Renderer::GetDevice() == nullptr)
 	{
 		return false;
 	}
@@ -65,6 +65,11 @@ bool DynamicText::RebuildTexture()
 	HFONT font = CreateFontW(-m_FontSize, 0, 0, 0, FW_BOLD, FALSE, FALSE, FALSE,
 		DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, ANTIALIASED_QUALITY,
 		DEFAULT_PITCH | FF_DONTCARE, kFontFace);
+	if (font == nullptr)
+	{
+		DeleteDC(memory);
+		return false;
+	}
 	HGDIOBJ previousFont = SelectObject(memory, font);
 
 	RECT measure{ 0, 0, 0, 0 };
@@ -194,12 +199,13 @@ void DynamicText::Draw()
 	ID3D11ShaderResourceView* view = m_TextureView.Get();
 	Engine::Renderer::GetDeviceContext()->PSSetShaderResources(0, 1, &view);
 
-	// 画面座標のUIなので深度は見ません。
+	// 画面座標のUIなので深度は見ません。描き終えたら呼び出し元の深度の設定へ戻します。
+	const Engine::RenderDepthMode previousDepthMode = Engine::Renderer::GetDepthMode();
 	Engine::Renderer::SetDepthMode(Engine::RenderDepthMode::Disabled);
 	UINT stride = sizeof(Engine::VERTEX_3D);
 	UINT offset = 0;
 	Engine::Renderer::GetDeviceContext()->IASetVertexBuffers(0, 1, m_VertexBuffer.GetAddressOf(), &stride, &offset);
 	Engine::Renderer::GetDeviceContext()->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
 	Engine::Renderer::GetDeviceContext()->Draw(4, 0);
-	Engine::Renderer::SetDepthMode(Engine::RenderDepthMode::Enabled);
+	Engine::Renderer::SetDepthMode(previousDepthMode);
 }

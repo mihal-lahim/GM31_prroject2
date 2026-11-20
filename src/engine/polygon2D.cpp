@@ -47,14 +47,24 @@ void Polygon2D::Init(float x, float y, float width, float height,const WCHAR* te
 		m_VertexShader, m_VertexLayout, m_PixelShader, "Polygon2D")
 		&& m_RenderingAvailable;
 
-	// テクスチャを読み込む。
-	m_Texture = Engine::ResourceManager::LoadTexture(texturePath);
+	// テクスチャを読み込む。パスが無ければ読み込まず、描画しない扱いにする(nullptrからパスは作れない)。
+	m_Texture.reset();
+	if (texturePath != nullptr && texturePath[0] != L'\0')
+	{
+		m_Texture = Engine::ResourceManager::LoadTexture(texturePath);
+	}
 	m_RenderingAvailable = m_Texture != nullptr && m_RenderingAvailable;
 
 }
 
 void Polygon2D::Uninit()
 {
+	m_VertexBuffer.Reset();
+	m_VertexLayout.Reset();
+	m_VertexShader.Reset();
+	m_PixelShader.Reset();
+	m_Texture.reset();
+	m_RenderingAvailable = false;
 	GameObject::Uninit();
 }
 
@@ -65,6 +75,13 @@ void Polygon2D::Update()
 
 void Polygon2D::Draw()
 {
+	if (!m_RenderingAvailable || Engine::Renderer::GetDeviceContext() == nullptr
+		|| m_VertexBuffer == nullptr || m_VertexLayout == nullptr
+		|| m_VertexShader == nullptr || m_PixelShader == nullptr)
+	{
+		return;
+	}
+
 	// 入力レイアウトを設定する。
 	Engine::Renderer::GetDeviceContext()->IASetInputLayout(m_VertexLayout.Get());
 

@@ -6,6 +6,7 @@
 #include "world.h"
 
 #include <algorithm>
+#include <cmath>
 
 void RenderQueue::Build(World& world, const ICameraView* camera)
 {
@@ -62,15 +63,23 @@ void RenderQueue::Sort()
 		}
 		// 深度が同値のときは投入順へ落とします。std::sortは非安定なので、
 		// ここで順序を決めないと同一平面のポリゴンがフレームごとに入れ替わります。
-		if (left.CameraDepth != right.CameraDepth)
+		const bool depthSorted = left.Category == RenderCategory::Transparent
+			|| left.Category == RenderCategory::Opaque;
+		if (depthSorted)
 		{
-			if (left.Category == RenderCategory::Transparent)
+			// NaNはどの値とも比べられず、std::sortの前提(狭義の弱順序)が崩れて落ちます。
+			// NaNの深度は有限の深度の後ろへまとめ、NaNどうしは投入順にします。
+			const bool leftNaN = std::isnan(left.CameraDepth);
+			const bool rightNaN = std::isnan(right.CameraDepth);
+			if (leftNaN != rightNaN)
 			{
-				return left.CameraDepth > right.CameraDepth;
+				return rightNaN;
 			}
-			if (left.Category == RenderCategory::Opaque)
+			if (!leftNaN && left.CameraDepth != right.CameraDepth)
 			{
-				return left.CameraDepth < right.CameraDepth;
+				return left.Category == RenderCategory::Transparent
+					? left.CameraDepth > right.CameraDepth
+					: left.CameraDepth < right.CameraDepth;
 			}
 		}
 		return left.SubmissionOrder < right.SubmissionOrder;

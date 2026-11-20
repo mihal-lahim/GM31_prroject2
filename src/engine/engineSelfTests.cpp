@@ -6,7 +6,10 @@
 #include "scene.h"
 #include "cloth.h"
 #include "collider.h"
+#include "glyphRenderer2D.h"
 #include "modelRenderer.h"
+#include "polygon2D.h"
+#include "surfaceMaterial.h"
 #include "particleSystem.h"
 #include "renderQueue.h"
 #include "renderer.h"
@@ -1484,6 +1487,173 @@ namespace
 	}
 }
 
+namespace
+{
+	bool TestRenderQueueSortToleratesNaNDepth()
+	{
+		constexpr float nan = std::numeric_limits<float>::quiet_NaN();
+		// std::sortが挿入ソートで済ませない件数(32超)にして、NaNを混ぜます。
+		std::vector<std::unique_ptr<TestGameObject>> objects;
+		RenderQueue queue;
+		for (int i = 0; i < 48; ++i)
+		{
+			const bool transparent = i % 4 == 3;
+			const float depth = i % 3 == 0 ? nan : static_cast<float>((i * 7) % 23);
+			objects.push_back(std::make_unique<TestGameObject>(
+				transparent ? Layer::Effect : Layer::World,
+				transparent ? RenderCategory::Transparent : RenderCategory::Opaque, depth));
+			queue.Submit(*objects.back());
+		}
+		queue.Sort();
+
+		const auto& items = queue.GetItems();
+		if (items.size() != objects.size())
+		{
+			return false;
+		}
+		for (std::size_t i = 1; i < items.size(); ++i)
+		{
+			const RenderItem& previous = items[i - 1];
+			const RenderItem& current = items[i];
+			if (previous.ObjectLayer != current.ObjectLayer || previous.Category != current.Category)
+			{
+				continue;
+			}
+			const bool previousNaN = std::isnan(previous.CameraDepth);
+			const bool currentNaN = std::isnan(current.CameraDepth);
+			// NaNは有限の深度の後ろにまとまり、NaNどうしは投入順です。
+			if (previousNaN && !currentNaN)
+			{
+				return false;
+			}
+			if (previousNaN && currentNaN && previous.SubmissionOrder > current.SubmissionOrder)
+			{
+				return false;
+			}
+			if (!previousNaN && !currentNaN)
+			{
+				const bool ordered = current.Category == RenderCategory::Transparent
+					? previous.CameraDepth >= current.CameraDepth
+					: previous.CameraDepth <= current.CameraDepth;
+				if (!ordered || (previous.CameraDepth == current.CameraDepth
+					&& previous.SubmissionOrder > current.SubmissionOrder))
+				{
+					return false;
+				}
+			}
+		}
+		return true;
+	}
+
+	bool TestSurfaceMaterialLoadFailureKeepsState()
+	{
+		bool ok = true;
+		// XMFLOAT4の成分を番号で書く共通処理です(SurfaceMaterial::SetFloat と Renderer::SetPostEffectFloat が使います)。
+		XMFLOAT4 value{ 0.0f, 0.0f, 0.0f, 0.0f };
+		ok &= Engine::SetXMFloat4Component(value, 0, 1.0f) && Engine::SetXMFloat4Component(value, 1, 2.0f)
+			&& Engine::SetXMFloat4Component(value, 2, 3.0f) && Engine::SetXMFloat4Component(value, 3, 4.0f)
+			&& !Engine::SetXMFloat4Component(value, 4, 5.0f);
+		ok &= value.x == 1.0f && value.y == 2.0f && value.z == 3.0f && value.w == 4.0f;
+
+		Engine::SurfaceMaterial material;
+		// 何も読み込んでいない状態では描けません。
+		ok &= !material.Ready() && !material.BindPass(0) && !material.BindPass(5);
+		ok &= !material.SetFloat("strength", 1.0f);
+
+		// GPUが無いので読み込みは失敗します。失敗しても、直前の状態(シェーダーの種類・値・テクスチャ)は変わりません。
+		material.Shader = Engine::SurfaceShader::Rim;
+		material.Parameter = { 0.1f, 0.2f, 0.3f, 0.4f };
+		material.Properties.Shininess = 77.0f;
+		for (const Engine::SurfaceShader shader : { Engine::SurfaceShader::Directional,
+			Engine::SurfaceShader::VertexDirectional, Engine::SurfaceShader::Water, Engine::SurfaceShader::ToonOutline })
+		{
+			ok &= !material.Load(shader);
+		}
+		ok &= !material.Load("toon-outline") && !material.Load("no-such-shader");
+		ok &= material.Shader == Engine::SurfaceShader::Rim
+			&& material.Parameter.x == 0.1f && material.Parameter.w == 0.4f
+			&& material.Properties.Shininess == 77.0f
+			&& material.Definition() == nullptr
+			&& !material.Ready() && !material.BindPass(0);
+
+		// ポスト効果も、GPUが無ければ定義へ切り替わらず、名前付き値も書けません。
+		Engine::Renderer::SetPostEffect(Engine::PostEffectMode::None);
+		ok &= !Engine::Renderer::SetPostEffectDefinition("post-invert")
+			&& Engine::Renderer::GetPostEffectDefinitionId().empty()
+			&& !Engine::Renderer::SetPostEffectFloat("strength", 0.5f);
+		return ok;
+	}
+
+	// 描画できるかどうかを外から見るための派生です。
+	class ProbePolygon2D final : public Polygon2D
+	{
+	public:
+		bool CanRender() const { return m_RenderingAvailable; }
+	};
+
+	class ProbeGlyphRenderer final : public GlyphRenderer2D
+	{
+	public:
+		void Setup(const wchar_t* texturePath, int columns, int rows)
+		{
+			InitCommon(texturePath, columns, rows, "ProbeGlyphRenderer");
+			m_Indices = { 0, 1, -1, 7 };
+		}
+		bool CanRender() const { return m_RenderingAvailable; }
+		// GPUの有無に関係なく、Draw本体の安全確認を通ることを確かめるため、描画可能の印を立てて直接呼びます。
+		void ForceDraw()
+		{
+			m_RenderingAvailable = true;
+			Draw();
+		}
+	};
+
+	bool TestTwoDimensionalRenderersRejectInvalidSetup()
+	{
+		bool ok = true;
+		World world;
+
+		// テクスチャのパスがnullptrや空でも落ちず、描画しない扱いになります。
+		ProbePolygon2D* nullPath = world.Spawn<ProbePolygon2D>();
+		nullPath->Init(0.0f, 0.0f, 10.0f, 10.0f, nullptr);
+		ok &= !nullPath->CanRender();
+		nullPath->RunDraw();
+		ProbePolygon2D* emptyPath = world.Spawn<ProbePolygon2D>();
+		emptyPath->Init(0.0f, 0.0f, 10.0f, 10.0f, L"");
+		ok &= !emptyPath->CanRender();
+		emptyPath->Draw();
+
+		// 列数・行数が0以下、パスがnullptrのアトラスは描画しない扱いで、Drawを直接呼んでも0除算になりません。
+		const struct
+		{
+			const wchar_t* Path;
+			int Columns;
+			int Rows;
+		} invalidSetups[] = {
+			{ L"assets/texture/number.png", 0, 5 },
+			{ L"assets/texture/number.png", 5, 0 },
+			{ L"assets/texture/number.png", -1, -1 },
+			{ nullptr, 5, 5 },
+		};
+		for (const auto& setup : invalidSetups)
+		{
+			ProbeGlyphRenderer* glyphs = world.Spawn<ProbeGlyphRenderer>();
+			glyphs->Setup(setup.Path, setup.Columns, setup.Rows);
+			ok &= !glyphs->CanRender();
+			glyphs->RunDraw();
+			glyphs->ForceDraw();
+		}
+		// 正しい設定でも、GPUが無ければ描かずに戻ります(デバイスコンテキストの確認)。
+		ProbeGlyphRenderer* valid = world.Spawn<ProbeGlyphRenderer>();
+		valid->Setup(L"assets/texture/number.png", 5, 5);
+		valid->ForceDraw();
+
+		// Shutdownで資源を放したあとに描こうとしても何もしません。
+		world.Clear();
+		return ok;
+	}
+}
+
 namespace Engine
 {
 	// Managerのprivateな状態へ触れる、自己テスト専用の入口です(manager.hでfriend指定)。
@@ -1620,6 +1790,9 @@ bool RunEngineSelfTests()
 		{ "capsule aabb uses exact distance", TestCapsuleAABBUsesExactDistance },
 		{ "ray hits capsule side when nearly vertical", TestRayHitsCapsuleSideWhenNearlyVertical },
 		{ "collider double uninit keeps others", TestColliderDoubleUninitKeepsOthers },
+		{ "render queue sort tolerates nan depth", TestRenderQueueSortToleratesNaNDepth },
+		{ "surface material load failure keeps state", TestSurfaceMaterialLoadFailureKeepsState },
+		{ "2d renderers reject invalid setup", TestTwoDimensionalRenderersRejectInvalidSetup },
 	};
 
 	// どの項目で落ちたか分かるよう、全項目を実行して結果をログへ残します。

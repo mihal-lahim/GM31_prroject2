@@ -53,13 +53,9 @@ public:
     bool SetFloat(std::string_view name, float value)
     {
         if (!m_Definition || name.empty()) return false;
-        float* values = &Parameter.x;
         for (std::size_t i = 0; i < m_Definition->ParameterNames.size(); ++i)
             if (m_Definition->ParameterNames[i] == name)
-            {
-                values[i] = value;
-                return true;
-            }
+                return SetXMFloat4Component(Parameter, i, value);
         return false;
     }
 
@@ -83,31 +79,47 @@ public:
 
     const ShaderDefinition* Definition() const { return m_Definition; }
 
+    // 失敗したときは何も変えずにfalseを返します(直前まで使えていたマテリアルを壊しません)。
     bool Load(SurfaceShader shader, TextureHandle texture = {})
     {
-        Shader = shader;
         if (shader == SurfaceShader::Water || shader == SurfaceShader::ToonOutline)
-            return Load(shader == SurfaceShader::Water ? "water" : "toon-outline", std::move(texture));
+        {
+            if (!Load(shader == SurfaceShader::Water ? "water" : "toon-outline", std::move(texture)))
+                return false;
+            Shader = shader;
+            return true;
+        }
+        PassResources pass;
+        pass.Vertex = ResourceManager::LoadVertexShader(shader == SurfaceShader::VertexDirectional
+            ? "spVertexLitVS.cso" : "classroomLitVS.cso");
+        pass.Pixel = ResourceManager::LoadPixelShader("spSurfacePS.cso");
+        if (!pass.Vertex || !pass.Pixel) return false;
+        Shader = shader;
         m_Definition = nullptr;
         Texture = std::move(texture);
         DetailTexture.reset();
-        m_Passes.resize(1);
-        m_Passes[0].Vertex = ResourceManager::LoadVertexShader(shader == SurfaceShader::VertexDirectional
-            ? "spVertexLitVS.cso" : "classroomLitVS.cso");
-        m_Passes[0].Pixel = ResourceManager::LoadPixelShader("spSurfacePS.cso");
+        m_Passes.assign(1, std::move(pass));
         ResetProperties();
-        return Ready();
+        return true;
     }
 
-    bool Ready() const { return m_Passes[0].Vertex && m_Passes[0].Pixel; }
+    // すべてのパスのシェーダーが揃っているときだけtrueです(2パス目以降の欠けも見逃しません)。
+    bool Ready() const
+    {
+        if (m_Passes.empty()) return false;
+        for (const PassResources& pass : m_Passes)
+            if (!pass.Vertex || !pass.Pixel) return false;
+        return true;
+    }
 
     std::size_t PassCount() const { return m_Definition ? m_Definition->Passes.size() : 1; }
 
     bool BindPass(std::size_t index) const
     {
-        if (!Ready() || index >= PassCount()) return false;
-        const PassResources& pass = m_Passes[index];
+        if (!Ready() || index >= PassCount() || index >= m_Passes.size()) return false;
         auto* context = Renderer::GetDeviceContext();
+        if (context == nullptr) return false;
+        const PassResources& pass = m_Passes[index];
         Renderer::SetCullFront(m_Definition
             && m_Definition->Passes[index].Cull == ShaderCull::Front);
         context->IASetInputLayout(pass.Vertex->InputLayout.Get());
@@ -139,8 +151,11 @@ private:
         Properties.Diffuse = { 1.0f, 1.0f, 1.0f, 1.0f };
         Properties.Ambient = Properties.Diffuse;
         Properties.Specular = { 0.18f, 0.18f, 0.18f, 1.0f };
+        Properties.Emission = {};
         Properties.Shininess = 30.0f;
         Properties.TextureEnable = Texture != nullptr;
+        Properties.Dummy[0] = 0.0f;
+        Properties.Dummy[1] = 0.0f;
     }
 
     struct PassResources

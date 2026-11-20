@@ -269,6 +269,9 @@ void ParticleSystem::Draw()
 	material.TextureEnable = TRUE;
 	Engine::Renderer::SetMaterial(material);
 	Engine::Renderer::SetWorldMatrix(XMMatrixIdentity());
+	// 描き終えたら、呼び出し元の深度と合成の設定へ戻します。
+	const Engine::RenderDepthMode previousDepthMode = Engine::Renderer::GetDepthMode();
+	const Engine::RenderBlendMode previousBlendMode = Engine::Renderer::GetBlendMode();
 	Engine::Renderer::SetDepthMode(Engine::RenderDepthMode::TestOnly);
 	ID3D11ShaderResourceView* texture = s_Texture->Get();
 	Engine::Renderer::GetDeviceContext()->PSSetShaderResources(0, 1, &texture);
@@ -289,6 +292,6 @@ void ParticleSystem::Draw()
 			static_cast<UINT>(alphaVertexCount));
 	}
 
-	Engine::Renderer::SetDepthMode(Engine::RenderDepthMode::Enabled);
-	Engine::Renderer::SetAddBlendEnable(false);
+	Engine::Renderer::SetDepthMode(previousDepthMode);
+	Engine::Renderer::SetBlendMode(previousBlendMode);
 }

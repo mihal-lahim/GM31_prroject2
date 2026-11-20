@@ -10,6 +10,13 @@ void GlyphRenderer2D::InitCommon(const wchar_t* texturePath, int atlasColumns, i
 	m_Layer = Layer::UI;
 	m_AtlasColumns = atlasColumns;
 	m_AtlasRows = atlasRows;
+	// アトラスの列数・行数が0以下だと Draw のUV計算が0除算になり、パスが無ければテクスチャを作れません。
+	// どちらも描画しない扱いにして、GPUリソースは作りません。
+	if (atlasColumns <= 0 || atlasRows <= 0 || texturePath == nullptr || texturePath[0] == L'\0')
+	{
+		m_RenderingAvailable = false;
+		return;
+	}
 
 	Engine::VERTEX_3D vertex[4]{};
 	for (auto& v : vertex)
@@ -43,12 +50,20 @@ void GlyphRenderer2D::InitCommon(const wchar_t* texturePath, int atlasColumns, i
 
 void GlyphRenderer2D::Uninit()
 {
+	m_VertexBuffer.Reset();
+	m_VertexLayout.Reset();
+	m_VertexShader.Reset();
+	m_PixelShader.Reset();
+	m_Texture.reset();
+	m_RenderingAvailable = false;
 	GameObject::Uninit();
 }
 
 void GlyphRenderer2D::Draw()
 {
-	if (!m_RenderingAvailable || !m_Visible || m_Indices.empty())
+	if (!m_RenderingAvailable || !m_Visible || m_Indices.empty()
+		|| m_AtlasColumns <= 0 || m_AtlasRows <= 0
+		|| Engine::Renderer::GetDeviceContext() == nullptr || m_VertexBuffer == nullptr)
 	{
 		return;
 	}

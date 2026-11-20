@@ -69,6 +69,20 @@ enum class RenderDepthMode
 	Disabled   // 深度を使わない。画面座標のUIとデバッグ表示
 };
 
+// XMFLOAT4 の index 番目(0=x, 1=y, 2=z, 3=w)へ書きます。範囲外なら何もせず false です。
+// &value.x からのポインタ演算は別々のメンバーをまたぐので使いません。
+inline bool SetXMFloat4Component(XMFLOAT4& value, std::size_t index, float component)
+{
+	switch (index)
+	{
+	case 0: value.x = component; return true;
+	case 1: value.y = component; return true;
+	case 2: value.z = component; return true;
+	case 3: value.w = component; return true;
+	default: return false;
+	}
+}
+
 
 
 // Direct3D 11のデバイスとフレーム開始/終了を一元管理します。
@@ -180,7 +194,15 @@ public:
 	static const LIGHT& GetLight() { return m_Light; }
 	static void SetCameraPosition(XMFLOAT3 CameraPosition);
 	static void SetParameter(XMFLOAT4 Parameter);
-	static void SetPostEffect(PostEffectMode mode) { m_PostEffectMode = mode; m_PostDefinitionId.clear(); m_CustomPostOptions = false; m_PostLook = {}; }
+	static void SetPostEffect(PostEffectMode mode) { m_PostEffectMode = mode; m_PostDefinitionId.clear(); ResetPostEffectValues(); }
+	// ポスト効果の動的な値(SetPostEffectParameters)と見た目(SetPostEffectLook)を空に戻します。
+	// 効果を切り替えるたびに呼び、前の効果の値が次の効果へ漏れないようにします。
+	static void ResetPostEffectValues()
+	{
+		m_CustomPostOptions = false; m_PostOptions = {}; m_PostExtraOptions = {}; m_PostLook = {};
+	}
+	// 今のポスト定義の名前付き値(b6)です。SetPostEffectFloat の結果を自己テストで確かめるために使います。
+	static XMFLOAT4 GetPostEffectDefinitionParameters() { return m_PostDefinitionParameters; }
 	static void SetPostEffectParameters(XMFLOAT4 options, XMFLOAT4 extra = {})
 	{
 		m_PostOptions = options; m_PostExtraOptions = extra; m_CustomPostOptions = true;
