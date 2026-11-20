@@ -664,9 +664,12 @@ XMMATRIX AnimationModel::GetWorldMatrix() const
 	const Vector3 position = m_GameObject->GetPosition();
 	const Vector3 rotation = m_GameObject->GetRotation();
 	const Vector3 scale = m_GameObject->GetScale();
+	// 傾きは、モデルの正面を向き(m_ModelYawOffset)へ直してから、向きの回転より前に掛けます。
+	// こうすると、前傾は進行方向へ、ロールは進行方向の軸まわりになります。
 	return XMMatrixScaling(scale.x * m_ModelScale, scale.y * m_ModelScale, scale.z * m_ModelScale)
+		* XMMatrixRotationY(m_ModelYawOffset)
 		* XMMatrixRotationX(m_LeanPitch) * XMMatrixRotationZ(m_LeanRoll)
-		* XMMatrixRotationRollPitchYaw(rotation.x, rotation.y + m_ModelYawOffset, rotation.z)
+		* XMMatrixRotationRollPitchYaw(rotation.x, rotation.y, rotation.z)
 		* XMMatrixTranslation(position.x, position.y + m_VerticalOffset, position.z);
 }
 
