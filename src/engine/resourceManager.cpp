@@ -208,6 +208,14 @@ WaveHandle ResourceManager::LoadWave(const std::filesystem::path& path)
 	{
 		reinterpret_cast<WAVEFORMATEX*>(resource->FormatData.data())->cbSize = 0;
 	}
+	// cbSizeは後ろに続く拡張部分の長さです。読んだ大きさを超えていると、
+	// XAudio2がCreateSourceVoiceで範囲外を読むので受け付けません。
+	if (sizeof(WAVEFORMATEX) + reinterpret_cast<const WAVEFORMATEX*>(resource->FormatData.data())->cbSize
+		> resource->FormatData.size())
+	{
+		DebugResourceError("wave", path, "format extension (cbSize) exceeds the format chunk");
+		return {};
+	}
 
 	mmioAscend(file.Get(), &formatChunk, 0);
 	const WAVEFORMATEX* format = resource->GetFormat();
@@ -237,13 +245,22 @@ WaveHandle ResourceManager::LoadWave(const std::filesystem::path& path)
 		DebugResourceError("wave", path, "audio data read failed");
 		return {};
 	}
-	resource->AudioData.resize(static_cast<std::size_t>(dataRead));
-	resource->PlayLength = static_cast<UINT32>(resource->AudioData.size() / format->nBlockAlign);
-	if (resource->PlayLength == 0)
+	// XAudio2はブロック単位の長さしか受け付けないので、端数のバイトは切り捨てます。
+	// (端数を残したままAudioBytesに渡すと、SubmitSourceBufferが失敗します。)
+	const std::size_t blockCount = static_cast<std::size_t>(dataRead) / format->nBlockAlign;
+	if (blockCount == 0)
 	{
 		DebugResourceError("wave", path, "audio data is too short");
 		return {};
 	}
+	const std::size_t alignedBytes = blockCount * format->nBlockAlign;
+	if (alignedBytes > (std::numeric_limits<UINT32>::max)())
+	{
+		DebugResourceError("wave", path, "audio data is too large");
+		return {};
+	}
+	resource->AudioData.resize(alignedBytes);
+	resource->PlayLength = static_cast<UINT32>(blockCount);
 
 	g_WaveCache.emplace(key, resource);
 	return resource;

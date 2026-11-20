@@ -2,6 +2,7 @@
 #include "gameSettings.h"
 #include "audio.h"
 
+#include <cmath>
 #include <fstream>
 #include <string>
 
@@ -38,7 +39,8 @@ namespace
 	{
 		char* end = nullptr;
 		const float parsed = std::strtof(text.c_str(), &end);
-		if (end == text.c_str() || *end != '\0')
+		// strtofは"nan"や"inf"も数として読むので、有限の値だけを受け付けます。
+		if (end == text.c_str() || *end != '\0' || !std::isfinite(parsed))
 		{
 			return false;
 		}
@@ -97,13 +99,22 @@ bool GameSettings::Load(const std::filesystem::path& path)
 	return true;
 }
 
+// NaN・無限大は範囲へ丸められない(比較がすべてfalseになる)ので、無視して直前の値を保ちます。
 void GameSettings::SetMasterVolume(float volume)
 {
+	if (!std::isfinite(volume))
+	{
+		return;
+	}
 	s_MasterVolume = ClampFloat(volume, 0.0f, 1.0f);
 	Audio::SetMasterVolume(s_MasterVolume);
 }
 
 void GameSettings::SetMouseSensitivity(float sensitivity)
 {
+	if (!std::isfinite(sensitivity))
+	{
+		return;
+	}
 	s_MouseSensitivity = ClampFloat(sensitivity, 0.0010f, 0.0100f);
 }

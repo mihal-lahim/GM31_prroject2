@@ -188,6 +188,11 @@ void InputActions::Define(const std::string& action, std::initializer_list<Input
 
 bool InputActions::LoadBindings(const char* path, std::vector<std::string>* unknownNames)
 {
+	// nullptrからはファイルを開けません(std::ifstreamに渡すと落ちます)。
+	if (path == nullptr || path[0] == '\0')
+	{
+		return false;
+	}
 	std::ifstream file(path);
 	if (!file)
 	{

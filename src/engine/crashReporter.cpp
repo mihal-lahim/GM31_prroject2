@@ -2,6 +2,8 @@
 #include "crashReporter.h"
 
 #include <DbgHelp.h>
+#include <cstdarg>
+#include <cstddef>
 #include <cstdio>
 #include <ctime>
 
@@ -33,8 +35,61 @@ namespace
 		}
 	}
 
+	// bufferの末尾へ書式付きで追記し、lengthを進めます。収まらない分は切り捨て、書式の失敗(負の戻り値)では何もしません。
+	// sprintf_sの戻り値をそのまま足すと、失敗時の-1でlengthが戻ってバッファの手前を指してしまうためです。
+	void AppendFormat(char* buffer, std::size_t capacity, std::size_t& length, const char* format, ...)
+	{
+		if (capacity == 0 || length + 1 >= capacity)
+		{
+			return;
+		}
+		va_list arguments;
+		va_start(arguments, format);
+		const int written = std::vsnprintf(buffer + length, capacity - length, format, arguments);
+		va_end(arguments);
+		if (written < 0)
+		{
+			buffer[length] = '\0';
+			return;
+		}
+		const std::size_t room = capacity - length - 1;
+		length += static_cast<std::size_t>(written) < room ? static_cast<std::size_t>(written) : room;
+	}
+
+	// アクセス違反の種類です(EXCEPTION_RECORD::ExceptionInformation[0])。8はDEPによる実行の違反です。
+	const char* DescribeAccess(ULONG_PTR kind)
+	{
+		switch (kind)
+		{
+		case 0:  return "read";
+		case 1:  return "write";
+		case 8:  return "execute";
+		default: return "unknown";
+		}
+	}
+
+	// 実行ファイルのフォルダーにfileNameを付けたパスをoutへ書きます。収まらなければ空のままにします。
+	void BuildPathNextToExecutable(const char* directory, const char* fileName, char (&out)[MAX_PATH])
+	{
+		out[0] = '\0';
+		// 実行ファイルの場所が分からないときは、作業フォルダーへ書かずに空のままにします。
+		if (directory[0] == '\0')
+		{
+			return;
+		}
+		const int length = std::snprintf(out, MAX_PATH, "%s%s", directory, fileName);
+		if (length < 0 || length >= MAX_PATH)
+		{
+			out[0] = '\0';
+		}
+	}
+
 	void WriteLog(EXCEPTION_POINTERS* pointers)
 	{
+		if (g_LogPath[0] == '\0')
+		{
+			return;
+		}
 		HANDLE file = CreateFileA(g_LogPath, GENERIC_WRITE, 0, nullptr,
 			CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
 		if (file == INVALID_HANDLE_VALUE)
@@ -67,7 +122,9 @@ namespace
 		localtime_s(&local, &now);
 		std::strftime(timeText, sizeof(timeText), "%Y-%m-%d %H:%M:%S", &local);
 
-		int length = sprintf_s(buffer,
+		buffer[0] = '\0';
+		std::size_t length = 0;
+		AppendFormat(buffer, sizeof(buffer), length,
 			"time: %s\r\n"
 			"exception: 0x%08X (%s)\r\n"
 			"address: %p\r\n"
@@ -77,13 +134,12 @@ namespace
 			address, moduleName, static_cast<unsigned long long>(offset));
 		if (code == EXCEPTION_ACCESS_VIOLATION && record != nullptr && record->NumberParameters >= 2)
 		{
-			length += sprintf_s(buffer + length, sizeof(buffer) - length,
+			AppendFormat(buffer, sizeof(buffer), length,
 				"access: %s at %p\r\n",
-				record->ExceptionInformation[0] == 0 ? "read" : "write",
+				DescribeAccess(record->ExceptionInformation[0]),
 				reinterpret_cast<void*>(record->ExceptionInformation[1]));
 		}
-		length += sprintf_s(buffer + length, sizeof(buffer) - length,
-			"dump: %s\r\n", g_DumpPath);
+		AppendFormat(buffer, sizeof(buffer), length, "dump: %s\r\n", g_DumpPath);
 
 		DWORD written = 0;
 		WriteFile(file, buffer, static_cast<DWORD>(length), &written, nullptr);
@@ -92,6 +148,10 @@ namespace
 
 	void WriteDump(EXCEPTION_POINTERS* pointers)
 	{
+		if (g_DumpPath[0] == '\0')
+		{
+			return;
+		}
 		HANDLE file = CreateFileA(g_DumpPath, GENERIC_WRITE, 0, nullptr,
 			CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
 		if (file == INVALID_HANDLE_VALUE)
@@ -124,15 +184,21 @@ namespace
 void CrashReporter::Install()
 {
 	// 実行ファイルの隣に置きます。作業ディレクトリに依存させません。
+	// パスが長すぎて収まらないときは書き出し先を空にし、記録だけ諦めます
+	// (sprintf_sで溢れると、無効パラメータのハンドラで起動直後に落ちるため)。
 	char exePath[MAX_PATH] = {};
-	GetModuleFileNameA(nullptr, exePath, MAX_PATH);
+	const DWORD exeLength = GetModuleFileNameA(nullptr, exePath, MAX_PATH);
+	if (exeLength == 0 || exeLength >= MAX_PATH)
+	{
+		exePath[0] = '\0';
+	}
 	char* lastSeparator = strrchr(exePath, '\\');
 	if (lastSeparator != nullptr)
 	{
 		*(lastSeparator + 1) = '\0';
 	}
-	sprintf_s(g_LogPath, "%scrash.log", exePath);
-	sprintf_s(g_DumpPath, "%scrash.dmp", exePath);
+	BuildPathNextToExecutable(exePath, "crash.log", g_LogPath);
+	BuildPathNextToExecutable(exePath, "crash.dmp", g_DumpPath);
 
 	SetUnhandledExceptionFilter(HandleUnhandledException);
 }

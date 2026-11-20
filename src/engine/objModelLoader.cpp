@@ -4,7 +4,10 @@
 #include "modelRenderer.h"
 
 #include <algorithm>
+#include <cerrno>
+#include <cstdint>
 #include <cstdlib>
+#include <limits>
 #include <filesystem>
 #include <fstream>
 #include <sstream>
@@ -67,9 +70,12 @@ namespace
 			return false;
 		}
 
+		// intに収まらない数は、切り捨てると別の頂点を指してしまうので受け付けません。
 		char* end = nullptr;
-		long parsed = strtol(value.c_str(), &end, 10);
-		if (end == value.c_str() || *end != '\0')
+		errno = 0;
+		const long long parsed = std::strtoll(value.c_str(), &end, 10);
+		if (end == value.c_str() || *end != '\0' || errno == ERANGE
+			|| parsed < (std::numeric_limits<int>::min)() || parsed > (std::numeric_limits<int>::max)())
 		{
 			return false;
 		}
@@ -91,26 +97,34 @@ namespace
 		return parts;
 	}
 
+	// OBJの番号(1始まり、負は末尾から)を0始まりの添字にします。範囲外は-1です。
+	// 要素数とintの足し算が溢れないよう、64bitで計算します。
 	int ResolveObjIndex(int objIndex, size_t elementCount)
 	{
+		std::int64_t resolved = -1;
 		if (objIndex > 0)
 		{
-			int resolved = objIndex - 1;
-			if (resolved >= 0 && static_cast<size_t>(resolved) < elementCount)
-			{
-				return resolved;
-			}
+			resolved = static_cast<std::int64_t>(objIndex) - 1;
 		}
 		else if (objIndex < 0)
 		{
-			int resolved = static_cast<int>(elementCount) + objIndex;
-			if (resolved >= 0 && static_cast<size_t>(resolved) < elementCount)
-			{
-				return resolved;
-			}
+			resolved = static_cast<std::int64_t>(elementCount) + static_cast<std::int64_t>(objIndex);
 		}
 
+		if (resolved >= 0 && static_cast<std::uint64_t>(resolved) < elementCount
+			&& resolved <= (std::numeric_limits<int>::max)())
+		{
+			return static_cast<int>(resolved);
+		}
 		return -1;
+	}
+
+	// 「キーワード 残り全部」の行から、残り全部を前後の空白を除いて返します。空白を含むファイル名に使います。
+	std::string RestOfLine(std::stringstream& stream)
+	{
+		std::string rest;
+		std::getline(stream, rest);
+		return Trim(rest);
 	}
 
 	struct ObjVertexRef
@@ -273,8 +287,8 @@ void ObjModelLoader::LoadObj(const char* FileName, MODEL_OBJ* ModelObj)
 
 		if (token == "mtllib")
 		{
-			std::string materialFileName;
-			stream >> materialFileName;
+			// 空白を含むファイル名も読めるよう、行の残りをまとめて取ります。
+			const std::string materialFileName = RestOfLine(stream);
 			if (!materialFileName.empty())
 			{
 				std::filesystem::path materialPath = ResolveSiblingPath(objPath, materialFileName);
@@ -429,8 +443,8 @@ void ObjModelLoader::LoadMaterial(const char* FileName, std::unordered_map<std::
 		}
 		else if (token == "map_Kd")
 		{
-			std::string textureFileName;
-			stream >> textureFileName;
+			// 空白を含むファイル名も読めるよう、行の残りをまとめて取ります。
+			const std::string textureFileName = RestOfLine(stream);
 			if (!textureFileName.empty())
 			{
 				currentMaterial->TextureName = ResolveSiblingPath(materialPath, textureFileName).string();

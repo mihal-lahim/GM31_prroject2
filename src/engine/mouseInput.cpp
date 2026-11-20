@@ -138,6 +138,8 @@ void Mouse_EndFrame()
 void Mouse_Initialize(HWND hWnd)
 {
 	g_MouseWindow = hWnd;
+	// 作り直したときに、前回 Mouse_SetAutoCapture(false) にした状態を持ち越しません。
+	g_MouseAutoCapture = true;
 	RAWINPUTDEVICE rid{};
 	rid.usUsagePage = 0x01;
 	rid.usUsage = 0x02;
@@ -329,10 +331,12 @@ bool Mouse_ProcessMessage(UINT message, WPARAM wParam, LPARAM lParam)
 		break;
 
 	case WM_INPUT:
+		// WM_INPUT は読んだ後も DefWindowProc へ渡す決まりです(システムが入力の後片付けをするため)。
+		// ここでは移動量を足すだけにして false を返し、WndProc に DefWindowProc を呼ばせます。
 		{
 			if (!CanAcceptMouseInput())
 			{
-				return true;
+				break;
 			}
 
 			RAWINPUT rawInput = {};
@@ -340,7 +344,7 @@ bool Mouse_ProcessMessage(UINT message, WPARAM wParam, LPARAM lParam)
 
 			if (GetRawInputData((HRAWINPUT)lParam, RID_INPUT, &rawInput, &size, sizeof(RAWINPUTHEADER)) == (UINT)-1)
 			{
-				return true;
+				break;
 			}
 
 			if (rawInput.header.dwType == RIM_TYPEMOUSE)
@@ -348,9 +352,8 @@ bool Mouse_ProcessMessage(UINT message, WPARAM wParam, LPARAM lParam)
 				g_MouseDeltaX += rawInput.data.mouse.lLastX;
 				g_MouseDeltaY += rawInput.data.mouse.lLastY;
 			}
-
-			return true;
 		}
+		break;
 
 	case WM_LBUTTONDOWN:
 		if (!CanAcceptMouseInput() || !IsClientPointInside(g_MouseWindow, lParam))

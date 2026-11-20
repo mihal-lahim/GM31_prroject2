@@ -201,8 +201,6 @@ public:
 	{
 		m_CustomPostOptions = false; m_PostOptions = {}; m_PostExtraOptions = {}; m_PostLook = {};
 	}
-	// 今のポスト定義の名前付き値(b6)です。SetPostEffectFloat の結果を自己テストで確かめるために使います。
-	static XMFLOAT4 GetPostEffectDefinitionParameters() { return m_PostDefinitionParameters; }
 	static void SetPostEffectParameters(XMFLOAT4 options, XMFLOAT4 extra = {})
 	{
 		m_PostOptions = options; m_PostExtraOptions = extra; m_CustomPostOptions = true;

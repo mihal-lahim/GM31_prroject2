@@ -1,6 +1,8 @@
 #include "main.h"
 #include "audio.h"
 
+#include <cmath>
+
 namespace
 {
 	void DebugLog(const char* message)
@@ -51,6 +53,10 @@ void Audio::UninitMaster()
 
 void Audio::SetMasterVolume(float volume)
 {
+	if (!std::isfinite(volume))
+	{
+		return;
+	}
 	if (volume < 0.0f)
 	{
 		volume = 0.0f;

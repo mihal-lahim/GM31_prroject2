@@ -164,6 +164,11 @@ void Keyboard_ProcessMessage(UINT message, WPARAM wParam, LPARAM lParam)
     {
     case VK_SHIFT:
         vk = static_cast<int>(MapVirtualKey((static_cast<unsigned int>(lParam) & 0x00ff0000) >> 16u, MAPVK_VSC_TO_VK_EX));
+        // スキャンコード0の合成イベントなどでは0が返ります。0のキーを押した扱いにせず左Shiftとみなします。
+        if (vk == 0)
+        {
+            vk = VK_LSHIFT;
+        }
         if (!down)
         {
             // 左Shiftと右Shiftの両方が同時に押された場合にクリアされるようにするための回避策

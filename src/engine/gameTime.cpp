@@ -1,6 +1,7 @@
 #include "gameTime.h"
 
 #include <algorithm>
+#include <cmath>
 
 namespace Engine
 {
@@ -58,8 +59,14 @@ void GameTime::Update(float unscaledDeltaTime)
 	}
 	else
 	{
-		m_DeltaTime = std::max(0.0f, unscaledDeltaTime);
+		// NaN・無限大の経過時間は0として扱います。一度でも入ると経過時間の合計が戻らなくなるためです。
+		m_DeltaTime = std::isfinite(unscaledDeltaTime) ? std::max(0.0f, unscaledDeltaTime) : 0.0f;
 		m_DeltaTime *= m_TimeScale;
+		// 有限どうしの掛け算でも、大きすぎると無限大になります。
+		if (!std::isfinite(m_DeltaTime))
+		{
+			m_DeltaTime = 0.0f;
+		}
 		m_DeltaTimeIgnoringHitStop = m_DeltaTime;
 		m_HitStopThisFrame = m_HitStopFrames > 0;
 		if (m_HitStopFrames > 0)
@@ -75,6 +82,11 @@ void GameTime::Update(float unscaledDeltaTime)
 
 void GameTime::SetTimeScale(float timeScale)
 {
+	// NaN・無限大は無視し、直前の倍率を保ちます。
+	if (!std::isfinite(timeScale))
+	{
+		return;
+	}
 	if (timeScale < kMinimumTimeScale)
 	{
 		timeScale = kMinimumTimeScale;
@@ -85,7 +97,7 @@ void GameTime::SetTimeScale(float timeScale)
 
 void GameTime::StartHitStop(int frames, float timeScale)
 {
-	if (frames <= 0)
+	if (frames <= 0 || !std::isfinite(timeScale))
 	{
 		return;
 	}
@@ -113,7 +125,8 @@ namespace Engine
 void GameTime::SetChannelScale(int channel, float scale)
 {
 	// チャンネル0は全体の時間そのものなので変えません。
-	if (channel <= 0 || channel >= kMaxTimeChannels || channel == kHitStopFreeChannel)
+	if (channel <= 0 || channel >= kMaxTimeChannels || channel == kHitStopFreeChannel
+		|| !std::isfinite(scale))
 	{
 		return;
 	}

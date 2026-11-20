@@ -410,7 +410,15 @@ bool SceneSerializer::Read(World& world, std::string_view text,
 		else if (IsPropertyKind(key))
 		{
 			const std::string_view name = TakeWord(line);
-			stored.Properties.push_back({ key, name, line });
+			// 名前の無いプロパティ行("float"だけ等)は、どの値にも結び付けられないので壊れた行として扱います。
+			if (name.empty())
+			{
+				clean = false;
+			}
+			else
+			{
+				stored.Properties.push_back({ key, name, line });
+			}
 		}
 		else
 		{

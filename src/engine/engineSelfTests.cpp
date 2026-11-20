@@ -1,7 +1,10 @@
 #include "engineSelfTests.h"
 
+#include "audio.h"
+#include "gameSettings.h"
 #include "gameTime.h"
 #include "inputActions.h"
+#include "objModelLoader.h"
 #include "manager.h"
 #include "scene.h"
 #include "cloth.h"
@@ -1654,6 +1657,211 @@ namespace
 	}
 }
 
+namespace
+{
+	bool TestGameTimeRejectsNonFiniteValues()
+	{
+		constexpr float nan = std::numeric_limits<float>::quiet_NaN();
+		constexpr float inf = std::numeric_limits<float>::infinity();
+		Engine::GameTime::Init();
+		Engine::GameTime::SetTimeScale(0.5f);
+		Engine::GameTime::SetChannelScale(1, 0.25f);
+
+		// NaN・無限大は無視され、直前の値が残ります。
+		Engine::GameTime::SetTimeScale(nan);
+		Engine::GameTime::SetTimeScale(inf);
+		Engine::GameTime::SetChannelScale(1, nan);
+		Engine::GameTime::SetChannelScale(1, -inf);
+		Engine::GameTime::StartHitStop(5, nan);
+		Engine::GameTime::StartHitStop(5, inf);
+		bool ok = Engine::GameTime::GetTimeScale() == 0.5f
+			&& Engine::GameTime::GetChannelScale(1) == 0.25f
+			&& !Engine::GameTime::IsHitStopActive();
+
+		// NaN・無限大の経過時間は0として扱い、経過時間の合計を壊しません。
+		Engine::GameTime::Update(0.02f);
+		const float elapsed = Engine::GameTime::GetElapsedTime();
+		Engine::GameTime::Update(nan);
+		ok &= Engine::GameTime::GetDeltaTime() == 0.0f;
+		Engine::GameTime::Update(inf);
+		ok &= Engine::GameTime::GetDeltaTime() == 0.0f;
+		Engine::GameTime::Update(0.02f);
+		ok &= std::isfinite(Engine::GameTime::GetElapsedTime())
+			&& NearlyEqual(Engine::GameTime::GetElapsedTime(), elapsed + 0.01f)
+			&& std::isfinite(Engine::GameTime::GetChannelDeltaTime(1));
+
+		// 有限でも、倍率との掛け算で無限大になる経過時間は0にします。
+		Engine::GameTime::SetTimeScale(3.0e38f);
+		Engine::GameTime::Update(3.0e38f);
+		ok &= Engine::GameTime::GetDeltaTime() == 0.0f && std::isfinite(Engine::GameTime::GetElapsedTime());
+
+		Engine::GameTime::Init();
+		return ok;
+	}
+
+	bool TestSettingsRejectNonFiniteValues()
+	{
+		constexpr float nan = std::numeric_limits<float>::quiet_NaN();
+		constexpr float inf = std::numeric_limits<float>::infinity();
+		const float savedVolume = GameSettings::GetMasterVolume();
+		const float savedSensitivity = GameSettings::GetMouseSensitivity();
+		const float savedAudioVolume = Audio::GetMasterVolume();
+
+		bool ok = true;
+		GameSettings::SetMasterVolume(0.3f);
+		GameSettings::SetMouseSensitivity(0.005f);
+		GameSettings::SetMasterVolume(nan);
+		GameSettings::SetMasterVolume(inf);
+		GameSettings::SetMouseSensitivity(nan);
+		GameSettings::SetMouseSensitivity(-inf);
+		Audio::SetMasterVolume(nan);
+		ok &= GameSettings::GetMasterVolume() == 0.3f && GameSettings::GetMouseSensitivity() == 0.005f
+			&& Audio::GetMasterVolume() == 0.3f;
+
+		// 設定ファイルの"nan"や"inf"は読み飛ばし、その項目は既定値になります。
+		const std::filesystem::path path = std::filesystem::temp_directory_path() / "gm31_selftest_settings.txt";
+		{
+			std::ofstream file(path, std::ios::trunc);
+			file << "master_volume = nan\nmouse_sensitivity = inf\n";
+		}
+		ok &= GameSettings::Load(path);
+		ok &= GameSettings::GetMasterVolume() == 0.8f && GameSettings::GetMouseSensitivity() == 0.0035f
+			&& std::isfinite(Audio::GetMasterVolume());
+		std::error_code removeError;
+		std::filesystem::remove(path, removeError);
+
+		GameSettings::SetMasterVolume(savedVolume);
+		GameSettings::SetMouseSensitivity(savedSensitivity);
+		Audio::SetMasterVolume(savedAudioVolume);
+		return ok;
+	}
+
+	// 最小のRIFF WAVEを作ります。fmtチャンクはWAVEFORMATEX(18バイト)で、cbSizeとデータの長さを指定できます。
+	std::vector<char> MakeTestWave(std::uint16_t cbSize, std::size_t dataBytes)
+	{
+		std::vector<char> bytes;
+		const auto put = [&bytes](const void* data, std::size_t size)
+		{
+			const char* begin = static_cast<const char*>(data);
+			bytes.insert(bytes.end(), begin, begin + size);
+		};
+		const auto put32 = [&put](std::uint32_t value) { put(&value, 4); };
+		const auto put16 = [&put](std::uint16_t value) { put(&value, 2); };
+
+		const std::uint32_t formatSize = 18;
+		const std::size_t paddedData = dataBytes + (dataBytes % 2);
+		put("RIFF", 4);
+		put32(static_cast<std::uint32_t>(4 + 8 + formatSize + 8 + paddedData));
+		put("WAVE", 4);
+		put("fmt ", 4);
+		put32(formatSize);
+		put16(1);         // PCM
+		put16(1);         // モノラル
+		put32(8000);      // 標本化周波数
+		put32(16000);     // 1秒あたりのバイト数
+		put16(2);         // nBlockAlign: 16bitモノラルで2バイト
+		put16(16);        // 量子化ビット数
+		put16(cbSize);
+		put("data", 4);
+		put32(static_cast<std::uint32_t>(dataBytes));
+		for (std::size_t i = 0; i < paddedData; ++i)
+		{
+			bytes.push_back(static_cast<char>(i));
+		}
+		return bytes;
+	}
+
+	bool TestWaveValidationAndAlignment()
+	{
+		const std::filesystem::path directory = std::filesystem::temp_directory_path() / "gm31_selftest_wave";
+		std::error_code error;
+		std::filesystem::create_directories(directory, error);
+		const auto write = [&directory](const char* name, const std::vector<char>& bytes)
+		{
+			const std::filesystem::path path = directory / name;
+			std::ofstream file(path, std::ios::binary | std::ios::trunc);
+			file.write(bytes.data(), static_cast<std::streamsize>(bytes.size()));
+			return path;
+		};
+
+		Engine::ResourceManager::Clear();
+		bool ok = true;
+		// cbSizeが読んだfmtチャンクの大きさを超える不正なWAVEは拒否します。
+		ok &= Engine::ResourceManager::LoadWave(write("oversized_cbsize.wav", MakeTestWave(100, 8))) == nullptr;
+		// 7バイトのデータはブロック(2バイト)3つ分の6バイトへ切り揃えます。
+		const Engine::WaveHandle aligned = Engine::ResourceManager::LoadWave(write("odd_bytes.wav", MakeTestWave(0, 7)));
+		ok &= aligned != nullptr && aligned->PlayLength == 3 && aligned->AudioData.size() == 6
+			&& aligned->AudioData.size() == static_cast<std::size_t>(aligned->PlayLength) * aligned->GetFormat()->nBlockAlign;
+		// 1ブロックに満たないデータは短すぎるので拒否します。
+		ok &= Engine::ResourceManager::LoadWave(write("too_short.wav", MakeTestWave(0, 1))) == nullptr;
+
+		Engine::ResourceManager::Clear();
+		std::filesystem::remove_all(directory, error);
+		return ok;
+	}
+
+	bool TestInputBindingsRejectMissingPath()
+	{
+		return !Engine::InputActions::LoadBindings(nullptr) && !Engine::InputActions::LoadBindings("");
+	}
+
+	bool TestSceneReadRejectsNamelessProperty()
+	{
+		using Engine::ObjectTypeRegistry;
+		using Engine::SceneSerializer;
+		ObjectTypeRegistry::Register<SerializableTestObject>("SerializableTestObject");
+		World world;
+		std::vector<GameObject*> created;
+		// プロパティの種類だけで名前が無い行は壊れた行です(オブジェクト自体は作り、ほかの値は読みます)。
+		const bool clean = SceneSerializer::Read(world,
+			"object SerializableTestObject\n"
+			"float\n"
+			"int Count 4\n"
+			"end\n", &created);
+		const auto* object = created.size() == 1 ? dynamic_cast<SerializableTestObject*>(created[0]) : nullptr;
+		return !clean && object != nullptr && object->Count == 4;
+	}
+
+	bool TestObjLoaderHandlesExtremeIndicesAndSpacedNames()
+	{
+		const std::filesystem::path directory = std::filesystem::temp_directory_path() / "gm31 selftest obj";
+		std::error_code error;
+		std::filesystem::create_directories(directory, error);
+		{
+			std::ofstream material(directory / "my materials.mtl", std::ios::trunc);
+			material << "newmtl Painted\n"
+				"Kd 1 0 0\n"
+				"map_Kd  painted texture.png  \n";
+		}
+		{
+			std::ofstream model(directory / "model.obj", std::ios::trunc);
+			model << "mtllib my materials.mtl\n"
+				"v 0 0 0\nv 1 0 0\nv 0 1 0\n"
+				"usemtl Painted\n"
+				"f 1 2 3\n"
+				// intに収まらない番号、intの最小値、intの最大値は、どれも頂点として扱いません(面にならない)。
+				"f 1 2 99999999999\n"
+				"f -2147483648 1 2\n"
+				"f 2147483647 1 2\n"
+				"f 1 2 -99999999999\n"
+				// 負の番号は末尾からの位置です(-1が最後の頂点)。
+				"f -3 -2 -1\n";
+		}
+
+		MODEL_OBJ model;
+		ObjModelLoader::LoadObj((directory / "model.obj").string().c_str(), &model);
+		std::filesystem::remove_all(directory, error);
+
+		// 面になるのは "f 1 2 3" と "f -3 -2 -1" の2枚(添字6つ)だけです。
+		const bool facesOk = model.IndexNum == 6;
+		const bool materialOk = model.SubsetNum == 1
+			&& model.SubsetArray[0].Material.Name == "Painted"
+			&& model.SubsetArray[0].Material.Material.Diffuse.x == 1.0f
+			&& std::filesystem::path(model.SubsetArray[0].Material.TextureName).filename() == "painted texture.png";
+		return facesOk && materialOk;
+	}
+}
+
 namespace Engine
 {
 	// Managerのprivateな状態へ触れる、自己テスト専用の入口です(manager.hでfriend指定)。
@@ -1793,6 +2001,12 @@ bool RunEngineSelfTests()
 		{ "render queue sort tolerates nan depth", TestRenderQueueSortToleratesNaNDepth },
 		{ "surface material load failure keeps state", TestSurfaceMaterialLoadFailureKeepsState },
 		{ "2d renderers reject invalid setup", TestTwoDimensionalRenderersRejectInvalidSetup },
+		{ "game time rejects non-finite values", TestGameTimeRejectsNonFiniteValues },
+		{ "settings reject non-finite values", TestSettingsRejectNonFiniteValues },
+		{ "wave validation and alignment", TestWaveValidationAndAlignment },
+		{ "input bindings reject missing path", TestInputBindingsRejectMissingPath },
+		{ "scene read rejects nameless property", TestSceneReadRejectsNamelessProperty },
+		{ "obj loader handles extreme indices and spaced names", TestObjLoaderHandlesExtremeIndicesAndSpacedNames },
 	};
 
 	// どの項目で落ちたか分かるよう、全項目を実行して結果をログへ残します。
