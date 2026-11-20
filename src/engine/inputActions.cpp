@@ -178,10 +178,18 @@ bool InputBinding::Parse(const std::string& name, InputBinding& binding)
 void InputActions::Clear()
 {
 	g_Actions.clear();
+	// 前回読んだパッドの状態も捨てます(作り直した直後に古い入力が見えないように)。
+	g_PadConnected = false;
+	g_Pad = {};
 }
 
 void InputActions::Define(const std::string& action, std::initializer_list<InputBinding> bindings)
 {
+	// 名前の無い操作は設定ファイルからも指定できないので登録しません。
+	if (action.empty())
+	{
+		return;
+	}
 	ActionState& state = g_Actions[action];
 	state.Bindings.assign(bindings.begin(), bindings.end());
 }
@@ -225,6 +233,7 @@ bool InputActions::LoadBindings(const char* path, std::vector<std::string>* unkn
 		}
 
 		std::vector<InputBinding> bindings;
+		std::size_t invalidCount = 0;
 		std::stringstream list(line.substr(equals + 1));
 		std::string name;
 		while (std::getline(list, name, ','))
@@ -238,10 +247,20 @@ bool InputActions::LoadBindings(const char* path, std::vector<std::string>* unkn
 			{
 				bindings.push_back(binding);
 			}
-			else if (unknownNames != nullptr)
+			else
 			{
-				unknownNames->push_back(action + "=" + Trim(name));
+				++invalidCount;
+				if (unknownNames != nullptr)
+				{
+					unknownNames->push_back(action + "=" + Trim(name));
+				}
 			}
+		}
+		// 書いたキー名がすべて書き間違いだったときは、今の割り当てを残します(操作できなくなるのを防ぐ)。
+		// 「jump =」のように何も書いていないときは、意図して外したものとして空にします。
+		if (bindings.empty() && invalidCount > 0)
+		{
+			continue;
 		}
 		g_Actions[action].Bindings = std::move(bindings);
 	}
@@ -323,6 +342,13 @@ void InputActions::DefineLookStick()
 
 void InputActions::GetLookDelta(float deltaTime, float& yaw, float& pitch)
 {
+	// NaN・無限大・0以下の経過時間では回しません(NaN や逆回転でカメラを壊さないように)。
+	if (!std::isfinite(deltaTime) || deltaTime <= 0.0f)
+	{
+		yaw = 0.0f;
+		pitch = 0.0f;
+		return;
+	}
 	yaw = GetAxis("look_left", "look_right") * kLookStickRadiansPerSecond * deltaTime;
 	pitch = GetAxis("look_down", "look_up") * kLookStickRadiansPerSecond * deltaTime;
 }

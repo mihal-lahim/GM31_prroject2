@@ -512,7 +512,8 @@ namespace
 			&& (*jump)[0].Type == InputBinding::Kind::Key && (*jump)[0].Value == 'J'
 			&& (*jump)[1].Type == InputBinding::Kind::PadButton && (*jump)[1].Value == Engine::PadButtons::A
 			&& (*jump)[2].Type == InputBinding::Kind::PadAxis && (*jump)[2].Sign == -1
-			&& attack != nullptr && attack->empty()
+			// 書いたキー名がすべて書き間違いの行(attack=NOPE)は、既定の割り当てを残します。
+			&& attack != nullptr && attack->size() == 1 && (*attack)[0].Type == InputBinding::Kind::MouseLeft
 			&& unknown == std::vector<std::string>{ "attack=NOPE", "unknown_action" }
 			&& !InputActions::IsDown("not defined")
 			&& InputActions::GetAxis("x", "y") == 0.0f;
@@ -2226,6 +2227,144 @@ namespace
 		return ok;
 	}
 
+	bool TestParticleSystemRejectsInvalidSparks()
+	{
+		constexpr float nan = std::numeric_limits<float>::quiet_NaN();
+		constexpr float inf = std::numeric_limits<float>::infinity();
+		const Vector3 origin{ 0.0f, 0.0f, 0.0f };
+		const Vector3 up{ 0.0f, 1.0f, 0.0f };
+		const XMFLOAT4 white{ 1.0f, 1.0f, 1.0f, 1.0f };
+
+		ParticleSystem::UnloadSharedResources();
+		World world;
+		ParticleSystem* particles = world.Spawn<ParticleSystem>();
+		// GPUが無いので共有資源は作れず、半端に残りもしません。
+		bool ok = !ParticleSystem::HasSharedResources();
+
+		// 不正な値の粒は作りません。
+		ParticleSystem::Emit({ nan, 0.0f, 0.0f }, up, 0.1f, 10, white);
+		ParticleSystem::Emit(origin, { 0.0f, inf, 0.0f }, 0.1f, 10, white);
+		ParticleSystem::Emit(origin, up, nan, 10, white);
+		ParticleSystem::Emit(origin, up, inf, 10, white);
+		ParticleSystem::Emit(origin, up, 0.0f, 10, white);
+		ParticleSystem::Emit(origin, up, -0.1f, 10, white);
+		ParticleSystem::Emit(origin, up, 0.1f, 0, white);
+		ParticleSystem::Emit(origin, up, 0.1f, -5, white);
+		ParticleSystem::Emit(origin, up, 0.1f, 10, white, nan);
+		ParticleSystem::Emit(origin, up, 0.1f, 10, white, -8.5f, inf);
+		ParticleSystem::Emit(origin, up, 0.1f, 10, { 1.0f, nan, 1.0f, 1.0f });
+		ParticleSystem::Emit(origin, up, 0.1f, 10, { 1.0f, 1.0f, 1.0f, -inf });
+		ok &= particles->GetLiveSparkCount() == 0;
+
+		// 正しい値の粒は作ります。
+		ParticleSystem::Emit(origin, up, 0.1f, 10, white);
+		ok &= particles->GetLiveSparkCount() == 1;
+
+		// 終了後は粒も消え、描いても落ちません。
+		particles->Draw();
+		particles->Uninit();
+		particles->Draw();
+		ok &= particles->GetLiveSparkCount() == 0 && !ParticleSystem::HasActiveInstance();
+		ParticleSystem::UnloadSharedResources();
+		return ok;
+	}
+
+	bool TestColliderNonFiniteShapeAndNoOwner()
+	{
+		constexpr float nan = std::numeric_limits<float>::quiet_NaN();
+		constexpr float inf = std::numeric_limits<float>::infinity();
+		const auto finiteBounds = [](const Collider& collider)
+		{
+			Vector3 minimum;
+			Vector3 maximum;
+			collider.GetBounds(minimum, maximum);
+			return std::isfinite(minimum.x) && std::isfinite(minimum.y) && std::isfinite(minimum.z)
+				&& std::isfinite(maximum.x) && std::isfinite(maximum.y) && std::isfinite(maximum.z)
+				&& minimum.x <= maximum.x && minimum.y <= maximum.y && minimum.z <= maximum.z;
+		};
+
+		World world;
+		TestGameObject* owner = world.Spawn<TestGameObject>();
+		Collider* collider = owner->AddComponent<Collider>();
+		bool ok = finiteBounds(*collider->SetSphere(nan)) && collider->GetRadius() == 0.0f;
+		ok &= finiteBounds(*collider->SetSphere(inf)) && collider->GetRadius() == 0.0f;
+		ok &= finiteBounds(*collider->SetAABB({ nan, inf, -2.0f }));
+		const Vector3 half = collider->GetHalfSize();
+		ok &= half.x == 0.0f && half.y == 0.0f && half.z == 2.0f;
+		ok &= finiteBounds(*collider->SetCapsule(nan, inf))
+			&& collider->GetRadius() == 0.0f && collider->GetCapsuleHalfHeight() == 0.0f;
+		ok &= finiteBounds(*collider->SetCapsule(0.5f, nan)) && collider->GetRadius() == 0.5f;
+		ok &= finiteBounds(*collider->SetOffset({ nan, 1.0f, -inf }));
+		const Vector3 center = collider->GetCenter();
+		ok &= center.x == 0.0f && center.y == 1.0f && center.z == 0.0f;
+
+		// 持ち主の無い Collider も落ちません(原点・1倍として扱い、World へは登録しません)。
+		const int usersBefore = Collider::GetSharedResourceUserCount();
+		{
+			Collider orphan(nullptr);
+			orphan.SetOffset({ 1.0f, 2.0f, 3.0f })->SetSphere(0.5f)->SetStatic(true);
+			orphan.Init();
+			const Vector3 orphanCenter = orphan.GetCenter();
+			ok &= orphanCenter.x == 1.0f && orphanCenter.y == 2.0f && orphanCenter.z == 3.0f
+				&& orphan.GetRadius() == 0.5f && finiteBounds(orphan) && orphan.GetOverlaps().empty();
+			orphan.SetAABB({ 1.0f, 1.0f, 1.0f });
+			ok &= orphan.GetHalfSize().x == 1.0f;
+			orphan.SetCapsule(0.25f, 2.0f);
+			ok &= collider->GetOwner() == owner && NearlyEqual(orphan.GetCapsuleHalfHeight(), 0.75f);
+			orphan.Uninit();
+			orphan.Uninit();
+		}
+		ok &= Collider::GetSharedResourceUserCount() == usersBefore;
+		return ok;
+	}
+
+	bool TestInputActionsLookDeltaAndBindingTypos()
+	{
+		using Engine::InputActions;
+		using Engine::InputBinding;
+		constexpr float nan = std::numeric_limits<float>::quiet_NaN();
+		constexpr float inf = std::numeric_limits<float>::infinity();
+
+		InputActions::Clear();
+		InputActions::DefineLookStick();
+		bool ok = true;
+		for (const float deltaTime : { nan, inf, -inf, -1.0f, 0.0f })
+		{
+			float yaw = 123.0f;
+			float pitch = 456.0f;
+			InputActions::GetLookDelta(deltaTime, yaw, pitch);
+			ok &= yaw == 0.0f && pitch == 0.0f;
+		}
+
+		// 名前の無い操作は登録しません。
+		InputActions::Define("", { InputBinding::Key(VK_SPACE) });
+		ok &= !InputActions::IsDefined("");
+
+		InputActions::Define("jump", { InputBinding::Key(VK_SPACE) });
+		InputActions::Define("dash", { InputBinding::Key(VK_LSHIFT) });
+		InputActions::Define("crouch", { InputBinding::Key('C') });
+		const std::filesystem::path path = std::filesystem::temp_directory_path() / "engine-self-test-input-typo.cfg";
+		{
+			std::ofstream file(path);
+			// jump: すべて書き間違い → 既定を残す。dash: 右辺が空 → 外す。crouch: 正しい名前と書き間違いが混在 → 正しい分だけ。
+			file << "jump = NO_SUCH_KEY, ALSO_WRONG\ndash =\ncrouch = X, NOPE\n";
+		}
+		std::vector<std::string> unknown;
+		const bool loaded = InputActions::LoadBindings(path.string().c_str(), &unknown);
+		std::filesystem::remove(path);
+
+		const auto* jump = InputActions::GetBindings("jump");
+		const auto* dash = InputActions::GetBindings("dash");
+		const auto* crouch = InputActions::GetBindings("crouch");
+		ok &= loaded
+			&& jump != nullptr && jump->size() == 1 && (*jump)[0].Value == VK_SPACE
+			&& dash != nullptr && dash->empty()
+			&& crouch != nullptr && crouch->size() == 1 && (*crouch)[0].Value == 'X'
+			&& unknown == std::vector<std::string>{ "jump=NO_SUCH_KEY", "jump=ALSO_WRONG", "crouch=NOPE" };
+		InputActions::Clear();
+		return ok;
+	}
+
 	bool TestDynamicTextUninitThenDraw()
 	{
 		World world;
@@ -2465,6 +2604,9 @@ bool RunEngineSelfTests()
 		{ "instant transition and invalid delta time", TestInstantTransitionAndInvalidDeltaTime },
 		{ "vector3 normalize extreme values", TestVector3NormalizeExtremeValues },
 		{ "dynamic text uninit then draw", TestDynamicTextUninitThenDraw },
+		{ "particle system rejects invalid sparks", TestParticleSystemRejectsInvalidSparks },
+		{ "collider non-finite shape and no owner", TestColliderNonFiniteShapeAndNoOwner },
+		{ "input actions look delta and binding typos", TestInputActionsLookDeltaAndBindingTypos },
 	};
 
 	// どの項目で落ちたか分かるよう、全項目を実行して結果をログへ残します。

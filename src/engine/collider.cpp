@@ -5,6 +5,7 @@
 #include "world.h"
 
 #include <algorithm>
+#include <cmath>
 
 ComPtr<ID3D11Buffer> Collider::s_VertexBuffer = nullptr;
 ComPtr<ID3D11InputLayout> Collider::s_VertexLayout = nullptr;
@@ -27,6 +28,22 @@ namespace
 		return a > b ? a : b;
 	}
 
+	// NaN・無限大の形状は境界を永久に NaN にして一切当たらなくなるので、0として扱います。
+	float FiniteOrZero(float value)
+	{
+		return std::isfinite(value) ? value : 0.0f;
+	}
+
+	Vector3 FiniteOrZero(const Vector3& value)
+	{
+		return { FiniteOrZero(value.x), FiniteOrZero(value.y), FiniteOrZero(value.z) };
+	}
+
+	// 持ち主が無いときは拡大縮小なし(1倍)として扱います。
+	Vector3 OwnerScale(const GameObject* owner, bool useOwnerScale)
+	{
+		return useOwnerScale && owner != nullptr ? owner->GetScale() : Vector3(1.0f, 1.0f, 1.0f);
+	}
 }
 
 void Collider::Init()
@@ -37,7 +54,11 @@ void Collider::Init()
 	}
 	m_Initialized = true;
 	s_RefCount++;
-	m_GameObject->GetWorld().GetCollisionWorld().Register(*this);
+	// 持ち主が無い(単体で作った)Colliderは、登録先のWorldが無いので登録しません。
+	if (m_GameObject != nullptr)
+	{
+		m_GameObject->GetWorld().GetCollisionWorld().Register(*this);
+	}
 }
 
 void Collider::Uninit()
@@ -82,16 +103,24 @@ bool Collider::EnsureDebugResources()
 	bd.ByteWidth = sizeof(Engine::VERTEX_3D) * MAX_COLLIDER_VERTICES;
 	bd.BindFlags = D3D11_BIND_VERTEX_BUFFER;
 	bd.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
-	return Engine::GraphicsResourceFactory::CreateBuffer(
-		s_VertexBuffer, bd, nullptr, "Collider")
+	if (Engine::GraphicsResourceFactory::CreateBuffer(s_VertexBuffer, bd, nullptr, "Collider")
 		&& Engine::GraphicsResourceFactory::CreateUnlitShaderPair(
-			s_VertexShader, s_VertexLayout, s_PixelShader, "Collider");
+			s_VertexShader, s_VertexLayout, s_PixelShader, "Collider"))
+	{
+		return true;
+	}
+	// 片方だけ作れた半端な状態を残しません(次の呼び出しで全部作り直します)。
+	s_VertexBuffer.Reset();
+	s_VertexLayout.Reset();
+	s_VertexShader.Reset();
+	s_PixelShader.Reset();
+	return false;
 }
 
 Collider* Collider::SetSphere(float radius)
 {
 	m_Shape = Shape::Sphere;
-	m_Radius = MaxFloat(0.0f, radius);
+	m_Radius = MaxFloat(0.0f, FiniteOrZero(radius));
 	NotifyBoundsChanged();
 	return this;
 }
@@ -99,7 +128,8 @@ Collider* Collider::SetSphere(float radius)
 Collider* Collider::SetAABB(const Vector3& halfSize)
 {
 	m_Shape = Shape::AABB;
-	m_HalfSize = { AbsFloat(halfSize.x), AbsFloat(halfSize.y), AbsFloat(halfSize.z) };
+	const Vector3 finite = FiniteOrZero(halfSize);
+	m_HalfSize = { AbsFloat(finite.x), AbsFloat(finite.y), AbsFloat(finite.z) };
 	NotifyBoundsChanged();
 	return this;
 }
@@ -107,15 +137,15 @@ Collider* Collider::SetAABB(const Vector3& halfSize)
 Collider* Collider::SetCapsule(float radius, float height)
 {
 	m_Shape = Shape::Capsule;
-	m_Radius = MaxFloat(0.0f, radius);
-	m_CapsuleHalfHeight = MaxFloat(0.0f, height * 0.5f - m_Radius);
+	m_Radius = MaxFloat(0.0f, FiniteOrZero(radius));
+	m_CapsuleHalfHeight = MaxFloat(0.0f, FiniteOrZero(FiniteOrZero(height) * 0.5f - m_Radius));
 	NotifyBoundsChanged();
 	return this;
 }
 
 Collider* Collider::SetOffset(const Vector3& offset)
 {
-	m_Offset = offset;
+	m_Offset = FiniteOrZero(offset);
 	NotifyBoundsChanged();
 	return this;
 }
@@ -176,26 +206,28 @@ Collider* Collider::SetUseOwnerScale(bool enabled)
 
 Vector3 Collider::GetCenter() const
 {
-	Vector3 scale = m_UseOwnerScale ? m_GameObject->GetScale() : Vector3(1.0f, 1.0f, 1.0f);
-	return m_GameObject->GetPosition() + Vector3(m_Offset.x * scale.x, m_Offset.y * scale.y, m_Offset.z * scale.z);
+	// 持ち主が無いときは原点に置いたものとして、オフセットだけを返します。
+	const Vector3 scale = OwnerScale(m_GameObject, m_UseOwnerScale);
+	const Vector3 position = m_GameObject != nullptr ? m_GameObject->GetPosition() : Vector3(0.0f, 0.0f, 0.0f);
+	return position + Vector3(m_Offset.x * scale.x, m_Offset.y * scale.y, m_Offset.z * scale.z);
 }
 
 Vector3 Collider::GetHalfSize() const
 {
-	Vector3 scale = m_UseOwnerScale ? m_GameObject->GetScale() : Vector3(1.0f, 1.0f, 1.0f);
+	const Vector3 scale = OwnerScale(m_GameObject, m_UseOwnerScale);
 	return Vector3(m_HalfSize.x * AbsFloat(scale.x), m_HalfSize.y * AbsFloat(scale.y), m_HalfSize.z * AbsFloat(scale.z));
 }
 
 float Collider::GetRadius() const
 {
-	Vector3 scale = m_UseOwnerScale ? m_GameObject->GetScale() : Vector3(1.0f, 1.0f, 1.0f);
+	const Vector3 scale = OwnerScale(m_GameObject, m_UseOwnerScale);
 	float maxScale = MaxFloat(AbsFloat(scale.x), MaxFloat(AbsFloat(scale.y), AbsFloat(scale.z)));
 	return m_Radius * maxScale;
 }
 
 float Collider::GetCapsuleHalfHeight() const
 {
-	Vector3 scale = m_UseOwnerScale ? m_GameObject->GetScale() : Vector3(1.0f, 1.0f, 1.0f);
+	const Vector3 scale = OwnerScale(m_GameObject, m_UseOwnerScale);
 	return m_CapsuleHalfHeight * AbsFloat(scale.y);
 }
 

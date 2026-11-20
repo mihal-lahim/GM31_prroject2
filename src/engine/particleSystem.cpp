@@ -6,6 +6,8 @@
 #include "gameTime.h"
 #include "world.h"
 
+#include <cmath>
+
 namespace
 {
 	constexpr int kMaxSparks = 4096;
@@ -31,6 +33,16 @@ namespace
 
 		return false;
 	}
+
+	bool IsFiniteVector(const Vector3& value)
+	{
+		return std::isfinite(value.x) && std::isfinite(value.y) && std::isfinite(value.z);
+	}
+
+	bool IsFiniteColor(const XMFLOAT4& value)
+	{
+		return std::isfinite(value.x) && std::isfinite(value.y) && std::isfinite(value.z) && std::isfinite(value.w);
+	}
 }
 
 ParticleSystem* ParticleSystem::s_Instance = nullptr;
@@ -48,24 +60,46 @@ void ParticleSystem::Init()
 	m_FreeSparkIndices.reserve(kMaxSparks);
 	m_VertexScratch.reserve(kMaxSparks * kVerticesPerSpark);
 
-	if (s_VertexBuffer == nullptr)
+	// 5つの共有資源が揃っていなければ作り直します。どれか1つでも作れなければ全部手放し、
+	// 半端に残った資源のせいで次のInitが作り直しを諦めることがないようにします。
+	if (!HasSharedResources())
 	{
+		ReleaseSharedResources();
 		D3D11_BUFFER_DESC bd{};
 		bd.Usage = D3D11_USAGE_DYNAMIC;
 		bd.ByteWidth = sizeof(Engine::VERTEX_3D) * kMaxSparks * kVerticesPerSpark;
 		bd.BindFlags = D3D11_BIND_VERTEX_BUFFER;
 		bd.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
-		m_RenderingAvailable = Engine::GraphicsResourceFactory::CreateBuffer(
+		const bool bufferCreated = Engine::GraphicsResourceFactory::CreateBuffer(
 			s_VertexBuffer, bd, nullptr, "ParticleSystem");
-		m_RenderingAvailable = Engine::GraphicsResourceFactory::CreateUnlitShaderPair(
-			s_VertexShader, s_VertexLayout, s_PixelShader, "ParticleSystem")
-			&& m_RenderingAvailable;
-
-		s_Texture = Engine::ResourceManager::LoadTexture(L"assets/texture/particle.png");
+		const bool shadersCreated = bufferCreated && Engine::GraphicsResourceFactory::CreateUnlitShaderPair(
+			s_VertexShader, s_VertexLayout, s_PixelShader, "ParticleSystem");
+		if (shadersCreated)
+		{
+			s_Texture = Engine::ResourceManager::LoadTexture(L"assets/texture/particle.png");
+		}
+		if (!HasSharedResources())
+		{
+			ReleaseSharedResources();
+		}
 	}
-	m_RenderingAvailable = Engine::GraphicsResourceFactory::IsDrawable(
+	m_RenderingAvailable = HasSharedResources();
+}
+
+bool ParticleSystem::HasSharedResources()
+{
+	return Engine::GraphicsResourceFactory::IsDrawable(
 		s_VertexBuffer.Get(), s_VertexLayout.Get(), s_VertexShader.Get(), s_PixelShader.Get())
 		&& s_Texture != nullptr;
+}
+
+void ParticleSystem::ReleaseSharedResources()
+{
+	s_VertexBuffer.Reset();
+	s_VertexLayout.Reset();
+	s_VertexShader.Reset();
+	s_PixelShader.Reset();
+	s_Texture.reset();
 }
 
 void ParticleSystem::Uninit()
@@ -77,16 +111,14 @@ void ParticleSystem::Uninit()
 
 	m_Sparks.clear();
 	m_FreeSparkIndices.clear();
+	m_VertexScratch.clear();
+	m_RenderingAvailable = false;
 }
 
 void ParticleSystem::UnloadSharedResources()
 {
 	s_Instance = nullptr;
-	s_VertexBuffer.Reset();
-	s_VertexLayout.Reset();
-	s_VertexShader.Reset();
-	s_PixelShader.Reset();
-	s_Texture.reset();
+	ReleaseSharedResources();
 }
 
 void ParticleSystem::Emit(const Vector3& position, const Vector3& velocity, float scale, int life, const XMFLOAT4& color, float gravity, float shrink, int timeChannel, Blend blend)
@@ -101,7 +133,10 @@ void ParticleSystem::Emit(const Vector3& position, const Vector3& velocity, floa
 
 void ParticleSystem::AddSpark(const Vector3& position, const Vector3& velocity, float scale, int life, const XMFLOAT4& color, float gravity, float shrink, int timeChannel, Blend blend)
 {
-	if (life <= 0)
+	// NaN・無限大の粒は頂点を壊し、0以下の大きさの粒は見えないので作りません。
+	if (life <= 0 || !std::isfinite(scale) || scale <= 0.0f
+		|| !IsFiniteVector(position) || !IsFiniteVector(velocity)
+		|| !std::isfinite(gravity) || !std::isfinite(shrink) || !IsFiniteColor(color))
 	{
 		return;
 	}
@@ -193,13 +228,25 @@ void ParticleSystem::Update()
 
 void ParticleSystem::Draw()
 {
+	// 初期化前・終了後や、共有資源が揃っていないときは描きません。
+	if (Engine::Renderer::GetDeviceContext() == nullptr || !HasSharedResources())
+	{
+		return;
+	}
 	XMMATRIX view{};
-	if (s_Texture == nullptr || !TryGetViewMatrix(GetWorld(), view))
+	if (!TryGetViewMatrix(GetWorld(), view))
 	{
 		return;
 	}
 
-	XMMATRIX invView = XMMatrixInverse(nullptr, view);
+	// 逆行列が作れないビュー行列(特異・NaN)では、板の向きが NaN になるので描きません。
+	XMVECTOR determinant{};
+	XMMATRIX invView = XMMatrixInverse(&determinant, view);
+	const float determinantValue = XMVectorGetX(determinant);
+	if (!std::isfinite(determinantValue) || std::fabs(determinantValue) < 1e-12f)
+	{
+		return;
+	}
 	XMFLOAT3 rightValue{};
 	XMFLOAT3 upValue{};
 	XMStoreFloat3(&rightValue, invView.r[0]);

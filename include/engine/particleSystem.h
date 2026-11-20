@@ -50,6 +50,8 @@ private:
 	std::vector<Engine::VERTEX_3D> m_VertexScratch;
 
 	void AddSpark(const Vector3& position, const Vector3& velocity, float scale, int life, const XMFLOAT4& color, float gravity, float shrink, int timeChannel, Blend blend);
+	// 共有の描画資源だけを手放します(Emitの送り先は変えません)。
+	static void ReleaseSharedResources();
 
 public:
 	void Init() override;
@@ -62,6 +64,18 @@ public:
 	static void Emit(const Vector3& position, const Vector3& velocity, float scale, int life, const XMFLOAT4& color,
 		float gravity = -8.5f, float shrink = 0.985f, int timeChannel = 0, Blend blend = Blend::Additive);
 	static void UnloadSharedResources();
+	// 共有の描画資源(頂点バッファ・入力レイアウト・VS・PS・テクスチャ)がすべて揃っているかです。
+	static bool HasSharedResources();
 	// Emitの送り先が生きているかを返します。破棄後に古いポインタが残らないことを自己テストで確かめます。
 	static bool HasActiveInstance() { return s_Instance != nullptr; }
+	// 生きている粒の数です。自己テストで、不正な値の粒を作らないことを確かめるのに使います。
+	std::size_t GetLiveSparkCount() const
+	{
+		std::size_t count = 0;
+		for (const Spark& spark : m_Sparks)
+		{
+			if (spark.Life > 0.0f) ++count;
+		}
+		return count;
+	}
 };

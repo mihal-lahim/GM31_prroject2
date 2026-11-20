@@ -140,6 +140,8 @@ void Mouse_Initialize(HWND hWnd)
 	g_MouseWindow = hWnd;
 	// 作り直したときに、前回 Mouse_SetAutoCapture(false) にした状態を持ち越しません。
 	g_MouseAutoCapture = true;
+	// 前のウィンドウで始まった「ボタンを離すまで無視」も持ち越しません。
+	g_MouseSuppressUntilButtonsReleased = false;
 	RAWINPUTDEVICE rid{};
 	rid.usUsagePage = 0x01;
 	rid.usUsage = 0x02;
@@ -285,6 +287,10 @@ bool Mouse_ProcessMessage(UINT message, WPARAM wParam, LPARAM lParam)
 	case WM_DESTROY:
 		g_MouseWindowActive = false;
 		Mouse_SetCursorCaptured(false);
+		// 破棄されたウィンドウを覚えたままにしません(後から捕捉やクリップに使われないように)。
+		g_MouseWindow = nullptr;
+		Mouse_Reset();
+		g_MouseSuppressUntilButtonsReleased = false;
 		break;
 
 	case WM_SETFOCUS:
@@ -347,7 +353,10 @@ bool Mouse_ProcessMessage(UINT message, WPARAM wParam, LPARAM lParam)
 				break;
 			}
 
-			if (rawInput.header.dwType == RIM_TYPEMOUSE)
+			// 絶対座標のデバイス(リモートデスクトップ・ペンタブレットなど)の lLastX/lLastY は
+			// 0〜65535 の位置なので、移動量として足すとカメラが暴れます。相対移動だけを足します。
+			if (rawInput.header.dwType == RIM_TYPEMOUSE
+				&& (rawInput.data.mouse.usFlags & MOUSE_MOVE_ABSOLUTE) == 0)
 			{
 				g_MouseDeltaX += rawInput.data.mouse.lLastX;
 				g_MouseDeltaY += rawInput.data.mouse.lLastY;

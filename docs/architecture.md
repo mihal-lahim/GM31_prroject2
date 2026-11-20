@@ -162,7 +162,8 @@ Engineの型はすべて `Engine::` 名前空間にあります(`Engine::Rendere
 - **入力アクション** — `Engine::InputActions` が操作名をキー、マウスボタン、1台目のXInputゲームパッドへ
   割り当てます。ゲームは `GameDefinition::DefineInputs` で既定の割り当てを登録し、
   `GameDefinition::InputBindingsPath`(例: `assets/config/slow-input.cfg`)でプレイヤーが差し替えられます
-  (`attack = MOUSE_LEFT, PAD_X`)。押下状態は固定ステップごとに1回 `Manager` が確定させるので、
+  (`attack = MOUSE_LEFT, PAD_X`)。書いたキー名がすべて書き間違いの行は既定の割り当てを残し、
+  `attack =` のように右辺を空にすると割り当てを外せます。押下状態は固定ステップごとに1回 `Manager` が確定させるので、
   `IsTriggered` と `IsReleased` は1ステップの中で食い違いません。右スティックの視点操作は
   `DefineLookStick` と `GetLookDelta` で共通化しています。
 - **時間チャンネル** — `GameTime::SetChannelScale(n, scale)` と `GetChannelDeltaTime(n)` で、
