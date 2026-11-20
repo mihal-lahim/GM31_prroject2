@@ -249,6 +249,12 @@ void SlowPlayer::Update()
 			}
 			if (m_AttackTime >= duration)
 			{
+				// 当たる位置を通過しないまま終わった場合(位相の丸め誤差など)も、当たりを1度だけ出します。
+				if (!m_AttackHitDone)
+				{
+					m_AttackHitDone = true;
+					PerformAttackHit();
+				}
 				if (m_BufferedAttack != AttackType::None)
 				{
 					StartAttack(m_BufferedAttack, input);
@@ -298,6 +304,12 @@ void SlowPlayer::UpdateSwordTrail()
 	if (m_Trail == nullptr || !m_SwordAttached)
 	{
 		return;
+	}
+	// 攻撃が変わったら、前の振りの跡とは繋げず、新しい跡から始めます。
+	if (m_TrailStrokePending && m_State == State::Attack)
+	{
+		m_Trail->BeginStroke();
+		m_TrailStrokePending = false;
 	}
 	// 振りの途中だけ跡を残します。振りかぶりの後半から、振り抜いて残心の序盤まで。
 	// 攻撃を途中で止めたとき(ダッシュキャンセル)は、新しい跡を作らず、古い跡が薄れて消えます。
@@ -566,6 +578,7 @@ void SlowPlayer::StartAttack(AttackType type, const SlowInputState& input)
 	m_BufferedAttack = AttackType::None;
 	m_AttackTime = 0.0f;
 	m_AttackHitDone = false;
+	m_TrailStrokePending = true;
 	if (type == AttackType::Normal)
 	{
 		m_ComboStep = chained ? m_ComboStep % 3 + 1 : 1;
@@ -739,11 +752,16 @@ void SlowPlayer::UpdateAttackLunge(float deltaTime)
 	}
 	toTarget = toTarget / distance;
 
-	// 敵が動いても、当たる瞬間まで向きを追わせます。
-	const float difference = WrapAngle(YawFromDirection(toTarget) - m_Yaw);
-	const float step = XMConvertToRadians(tuning.AimTrackDegreesPerSecond) * deltaTime;
-	m_Yaw = WrapAngle(m_Yaw + std::clamp(difference, -step, step));
-	m_AttackDirection = ForwardFromYaw(m_Yaw);
+	// 敵が動いても、当たる瞬間まで向きを追わせます。向き直りの途中は、UpdateAttackTurnだけが向きを動かします
+	// (二重に動かすと、向き直りのなめらかさが崩れるため)。
+	m_AttackYawTarget = YawFromDirection(toTarget);
+	if (m_AttackTurnRemaining <= 0.0f)
+	{
+		const float difference = WrapAngle(m_AttackYawTarget - m_Yaw);
+		const float step = XMConvertToRadians(tuning.AimTrackDegreesPerSecond) * deltaTime;
+		m_Yaw = WrapAngle(m_Yaw + std::clamp(difference, -step, step));
+		m_AttackDirection = ForwardFromYaw(m_Yaw);
+	}
 
 	// 敵が近づいてきたら、その分だけ踏み込みを減らします。
 	const float stand = tuning.PlayerRadius + m_AttackTarget->GetRadius() + tuning.NormalLungeGap;

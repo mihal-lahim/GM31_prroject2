@@ -248,6 +248,8 @@ bool RunSlowActionRenderTest()
 			&& h.Player()->GetLocomotionWeight("Dash") > 0.9f, h.Player()->GetLocomotionWeight("Dash"));
 		// ダッシュの前傾が効いている(速さに合わせて少しずつ)。
 		h.Check("dash leans forward", h.Player()->GetLeanDegrees() > 3.0f, h.Player()->GetLeanDegrees());
+		h.Draw();
+		h.Check("capture dash lean", Capture(L"slow-render-dash-lean.png"));
 	}
 	// 真横へ切り返した直後は、まだ前向きの速度が残っています(慣性)。
 	h.Input.MoveZ = 0.0f;

@@ -91,6 +91,7 @@ void SlowSwordTrail::AddSample(const Vector3& root, const Vector3& tip, const XM
 	sample.Root = root;
 	sample.Tip = tip;
 	sample.Color = color;
+	sample.Stroke = m_Stroke;
 	m_Samples.push_back(sample);
 }
 
@@ -105,7 +106,11 @@ void SlowSwordTrail::Draw()
 	const int subdivisions = (std::max)(tuning.SwordTrailSubdivisions, 1);
 	const int count = static_cast<int>(m_Samples.size());
 
-	// 跡を分割点の列にします。各分割点は根元・切っ先の位置と色、薄れ具合を持ちます。
+	// 根元側は薄く、切っ先側は明るく光らせます。古い跡ほど薄くします。
+	const float rootAlpha = std::clamp(tuning.SwordTrailRootAlpha, 0.0f, 1.0f);
+	const float brightness = (std::max)(tuning.SwordTrailBrightness, 0.0f);
+
+	// 分割点の位置・色・薄れ具合です。
 	struct Point
 	{
 		Vector3 Root;
@@ -113,43 +118,6 @@ void SlowSwordTrail::Draw()
 		XMFLOAT3 Color;
 		float Fade;
 	};
-	std::vector<Point> points;
-	points.reserve(static_cast<size_t>((count - 1) * subdivisions + 1));
-	for (int i = 0; i + 1 < count; ++i)
-	{
-		const Sample& s0 = m_Samples[static_cast<size_t>((std::max)(i - 1, 0))];
-		const Sample& s1 = m_Samples[static_cast<size_t>(i)];
-		const Sample& s2 = m_Samples[static_cast<size_t>(i + 1)];
-		const Sample& s3 = m_Samples[static_cast<size_t>((std::min)(i + 2, count - 1))];
-		for (int step = 0; step < subdivisions; ++step)
-		{
-			const float t = static_cast<float>(step) / static_cast<float>(subdivisions);
-			Point point;
-			point.Root = CatmullRom(s0.Root, s1.Root, s2.Root, s3.Root, t);
-			point.Tip = CatmullRom(s0.Tip, s1.Tip, s2.Tip, s3.Tip, t);
-			point.Color = XMFLOAT3(
-				s1.Color.x + (s2.Color.x - s1.Color.x) * t,
-				s1.Color.y + (s2.Color.y - s1.Color.y) * t,
-				s1.Color.z + (s2.Color.z - s1.Color.z) * t);
-			const float fade1 = 1.0f - s1.Age / life;
-			const float fade2 = 1.0f - s2.Age / life;
-			point.Fade = std::clamp(fade1 + (fade2 - fade1) * t, 0.0f, 1.0f);
-			points.push_back(point);
-		}
-	}
-	{
-		const Sample& last = m_Samples.back();
-		Point point;
-		point.Root = last.Root;
-		point.Tip = last.Tip;
-		point.Color = XMFLOAT3(last.Color.x, last.Color.y, last.Color.z);
-		point.Fade = std::clamp(1.0f - last.Age / life, 0.0f, 1.0f);
-		points.push_back(point);
-	}
-
-	// 根元側は薄く、切っ先側は明るく光らせます。古い跡ほど薄くします。
-	const float rootAlpha = std::clamp(tuning.SwordTrailRootAlpha, 0.0f, 1.0f);
-	const float brightness = (std::max)(tuning.SwordTrailBrightness, 0.0f);
 	const auto rootVertex = [&](const Point& point)
 	{
 		return MakeVertex(point.Root, XMFLOAT4(point.Color.x * 0.5f, point.Color.y * 0.5f, point.Color.z * 0.5f,
@@ -161,22 +129,52 @@ void SlowSwordTrail::Draw()
 			point.Color.z * brightness, point.Fade));
 	};
 
+	// 隣の跡が同じ振りのものだけ、Catmull-Rom でつなぎます。振りが違う隣は、自分の位置で止めます。
 	m_Vertices.clear();
-	for (size_t i = 0; i + 1 < points.size(); ++i)
+	for (int i = 0; i + 1 < count; ++i)
 	{
-		const Point& a = points[i];
-		const Point& b = points[i + 1];
-		const Engine::VERTEX_3D ra = rootVertex(a);
-		const Engine::VERTEX_3D ta = tipVertex(a);
-		const Engine::VERTEX_3D rb = rootVertex(b);
-		const Engine::VERTEX_3D tb = tipVertex(b);
-		if (m_Vertices.size() + 12 > static_cast<size_t>(kMaxVertices))
+		const Sample& s1 = m_Samples[static_cast<size_t>(i)];
+		const Sample& s2 = m_Samples[static_cast<size_t>(i + 1)];
+		if (s1.Stroke != s2.Stroke)
 		{
-			break;
+			continue;
 		}
-		// 両面で描きます。裏側から見ても帯が見えるよう、同じ三角形を逆向きにも並べます。
-		const Engine::VERTEX_3D quad[12] = { ra, ta, rb, ra, rb, ta, ta, tb, rb, ta, rb, tb };
-		m_Vertices.insert(m_Vertices.end(), quad, quad + 12);
+		const Sample& s0 = (i > 0 && m_Samples[static_cast<size_t>(i - 1)].Stroke == s1.Stroke)
+			? m_Samples[static_cast<size_t>(i - 1)] : s1;
+		const Sample& s3 = (i + 2 < count && m_Samples[static_cast<size_t>(i + 2)].Stroke == s2.Stroke)
+			? m_Samples[static_cast<size_t>(i + 2)] : s2;
+
+		const auto pointAt = [&](float t)
+		{
+			Point point;
+			point.Root = CatmullRom(s0.Root, s1.Root, s2.Root, s3.Root, t);
+			point.Tip = CatmullRom(s0.Tip, s1.Tip, s2.Tip, s3.Tip, t);
+			point.Color = XMFLOAT3(
+				s1.Color.x + (s2.Color.x - s1.Color.x) * t,
+				s1.Color.y + (s2.Color.y - s1.Color.y) * t,
+				s1.Color.z + (s2.Color.z - s1.Color.z) * t);
+			const float fade1 = 1.0f - s1.Age / life;
+			const float fade2 = 1.0f - s2.Age / life;
+			point.Fade = std::clamp(fade1 + (fade2 - fade1) * t, 0.0f, 1.0f);
+			return point;
+		};
+
+		for (int step = 0; step < subdivisions; ++step)
+		{
+			const Point a = pointAt(static_cast<float>(step) / static_cast<float>(subdivisions));
+			const Point b = pointAt(static_cast<float>(step + 1) / static_cast<float>(subdivisions));
+			const Engine::VERTEX_3D ra = rootVertex(a);
+			const Engine::VERTEX_3D ta = tipVertex(a);
+			const Engine::VERTEX_3D rb = rootVertex(b);
+			const Engine::VERTEX_3D tb = tipVertex(b);
+			if (m_Vertices.size() + 12 > static_cast<size_t>(kMaxVertices))
+			{
+				break;
+			}
+			// 両面で描きます。裏側から見ても帯が見えるよう、同じ三角形を逆向きにも並べます。
+			const Engine::VERTEX_3D quad[12] = { ra, ta, rb, ra, rb, ta, ta, tb, rb, ta, rb, tb };
+			m_Vertices.insert(m_Vertices.end(), quad, quad + 12);
+		}
 	}
 	if (m_Vertices.empty())
 	{

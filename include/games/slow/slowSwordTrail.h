@@ -18,6 +18,8 @@ public:
 
 	// 1フレーム分の剣の根元と切っ先です。colorは根元側の基準の色で、切っ先側は明るく描きます。
 	void AddSample(const Vector3& root, const Vector3& tip, const XMFLOAT4& color);
+	// 次の振りの跡を始めます。前の振りの跡とは繋げず、振りごとに別々の帯にします。
+	void BeginStroke() { ++m_Stroke; }
 	// 跡をすべて消します。編集モードに入ったときや、シーンを終えるときに使います。
 	void Clear() { m_Samples.clear(); }
 	int GetSampleCount() const { return static_cast<int>(m_Samples.size()); }
@@ -30,9 +32,12 @@ private:
 		XMFLOAT4 Color{ 1.0f, 1.0f, 1.0f, 1.0f };
 		// 追加されてからの実時間(ヒットストップ中は止まります)です。
 		float Age = 0.0f;
+		// 同じ振りの跡なら同じ番号です。番号が違う隣どうしは繋ぎません。
+		int Stroke = 0;
 	};
 
 	std::vector<Sample> m_Samples;
+	int m_Stroke = 0;
 	std::vector<Engine::VERTEX_3D> m_Vertices;
 	ComPtr<ID3D11Buffer> m_VertexBuffer;
 	ComPtr<ID3D11InputLayout> m_VertexLayout;

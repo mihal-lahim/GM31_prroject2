@@ -247,13 +247,13 @@ SLOW_TUNING_FLOAT(CameraWallMargin, 0.3f)
 // 跡が実時間で薄れて消えるまでの秒数です。ヒットストップ中は止まります。
 SLOW_TUNING_FLOAT(SwordTrailSeconds, 0.22f)
 // 跡の幅です。1で剣の根元から切っ先まで、小さくすると切っ先寄りだけになります。
-SLOW_TUNING_FLOAT(SwordTrailWidth, 1.0f)
+SLOW_TUNING_FLOAT(SwordTrailWidth, 0.8f)
 // 跡の長さです。切っ先の外へ、剣の長さの何倍まで伸ばすかです。
 SLOW_TUNING_FLOAT(SwordTrailTipExtend, 1.15f)
 // 切っ先側の明るさです。大きいほど白く飛びます。
-SLOW_TUNING_FLOAT(SwordTrailBrightness, 1.6f)
+SLOW_TUNING_FLOAT(SwordTrailBrightness, 1.1f)
 // 根元側の不透明さ(切っ先側を1とした割合)です。
-SLOW_TUNING_FLOAT(SwordTrailRootAlpha, 0.2f)
+SLOW_TUNING_FLOAT(SwordTrailRootAlpha, 0.05f)
 // 1フレームの間を何分割して滑らかにつなぐかです。
 SLOW_TUNING_INT(SwordTrailSubdivisions, 3)
 

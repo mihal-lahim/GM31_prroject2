@@ -236,6 +236,8 @@ private:
 	float m_LeanPreviousYaw = 0.0f;
 	// 溜めに入ってからの実時間です。剣の震えの波に使います。
 	float m_ChargeTime = 0.0f;
+	// 攻撃を始めた直後に立ち、次に剣閃へ渡すとき新しい跡として始めます。
+	bool m_TrailStrokePending = false;
 	// 当たる瞬間の位相(Start〜Endを0〜1)です。クリップの位相で当たりを出すときに使います。
 	float m_AttackHitPhase = 0.0f;
 	// trueなら当たりはクリップの位相(ActionPassed)で出し、falseなら秒数(クリップが読めないとき)で出します。
