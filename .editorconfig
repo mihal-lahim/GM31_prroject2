@@ -28,6 +28,12 @@ end_of_line = lf
 indent_style = space
 indent_size = 4
 
+# git のフック(拡張子なしの bash スクリプト)も同じく LF に固定します。
+[scripts/git-hooks/*]
+end_of_line = lf
+indent_style = space
+indent_size = 4
+
 [*.{vcxproj,props,filters,slnx}]
 indent_style = space
 indent_size = 2
