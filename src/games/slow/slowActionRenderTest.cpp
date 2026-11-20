@@ -6,6 +6,7 @@
 #include "slowAction.h"
 #include "slowActionTuning.h"
 #include "slowActionUtil.h"
+#include "slowSwordTrail.h"
 #include "gameTime.h"
 #include "renderQueue.h"
 #include "renderer.h"
@@ -812,6 +813,32 @@ bool RunSlowActionRenderTest()
 			&& target->GetHp() == hpLaunched - 1 - tuning.PursuitDamageBonus, static_cast<float>(target->GetHp()));
 		target->MarkForDestroy();
 		h.Step();
+	}
+
+	// ---- 剣閃: 振りの途中だけ跡が出て、振り終わると実時間で消える ----
+	{
+		SlowSwordTrail* trail = h.GetWorld().FindFirst<SlowSwordTrail>();
+		h.Check("sword trail exists", trail != nullptr);
+		h.Settle(openSpot, yawPlusX);
+		h.Input.Attack = true;
+		h.Step(2);
+		h.Input.Attack = false;
+		int peak = 0;
+		for (int frame = 0; frame < 8; ++frame)
+		{
+			h.Step();
+			if (trail != nullptr) peak = (std::max)(peak, trail->GetSampleCount());
+			if (frame == 5)
+			{
+				h.Draw();
+				h.Check("capture sword trail", Capture(L"slow-render-sword-trail.png"));
+			}
+		}
+		h.Check("sword trail follows the swing", peak >= 4, static_cast<float>(peak));
+		// 0.22秒(約13フレーム)を過ぎれば、振りが終わった後の跡はすべて消えています。
+		h.Step(30);
+		h.Check("sword trail fades out after the swing", trail != nullptr && trail->GetSampleCount() == 0,
+			trail != nullptr ? static_cast<float>(trail->GetSampleCount()) : -1.0f);
 	}
 
 	SlowInput::SetOverride(nullptr);

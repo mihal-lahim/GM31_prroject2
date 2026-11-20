@@ -8,12 +8,15 @@
 #include "modelRenderer.h"
 #include "gameTime.h"
 #include "sceneEditor.h"
+#include "slowSwordTrail.h"
 #include "world.h"
 
 using namespace SlowUtil;
 
 namespace
 {
+	// 大剣のモデル(slowSword.obj)の刃の長さです。握りが原点で、+Yへ伸びています(SwordScale前)。
+	constexpr float kSwordBladeLength = 1.4f;
 	// 床に立ったときに床と接触扱いにならないよう、カプセルの下端を少し浮かせます。
 	constexpr float kCapsuleLift = 0.05f;
 	// Akai_Dash.fbxをそのまま再生したときの進む速さ(m/秒)。腰が1周(47tick/60fps)で約5.25m進みます。
@@ -219,6 +222,46 @@ void SlowPlayer::Update()
 	{ Vector3 value = GetRotation(); value.y = m_Yaw; SetRotation(value); }
 	UpdateAnimation(deltaTime);
 	EmitSlowTrail();
+	UpdateSwordTrail();
+}
+
+void SlowPlayer::UpdateSwordTrail()
+{
+	if (m_Trail == nullptr)
+	{
+		m_Trail = GetWorld().FindFirst<SlowSwordTrail>();
+	}
+	if (m_Trail == nullptr || !m_SwordAttached)
+	{
+		return;
+	}
+	// 振りの途中だけ跡を残します。振りかぶりの後半から、振り抜いて残心の序盤まで。
+	// 攻撃を途中で止めたとき(ダッシュキャンセル)は、新しい跡を作らず、古い跡が薄れて消えます。
+	if (m_State != State::Attack || m_AttackDuration <= 0.0f)
+	{
+		return;
+	}
+	const float progress = m_AttackTime / m_AttackDuration;
+	if (progress < 0.2f || progress > 0.85f)
+	{
+		return;
+	}
+	const SlowActionTuning& tuning = GetSlowActionTuning();
+	const float blade = kSwordBladeLength * tuning.SwordScale;
+	const Vector3 root = m_SwordGrip + m_SwordAxis * (blade * (1.0f - std::clamp(tuning.SwordTrailWidth, 0.0f, 1.0f)));
+	const Vector3 tip = m_SwordGrip + m_SwordAxis * (blade * tuning.SwordTrailTipExtend);
+	m_Trail->AddSample(root, tip, SwordTrailColor());
+}
+
+// 通常の1・2段目は白〜薄水色、3段目と強攻撃は黄金〜オレンジ。減速中は鮮やかなシアンへ寄せます。
+XMFLOAT4 SlowPlayer::SwordTrailColor() const
+{
+	const bool heavy = m_AttackType == AttackType::Strong || (m_AttackType == AttackType::Normal && m_ComboStep == 3);
+	const XMFLOAT4 base = heavy ? XMFLOAT4{ 1.0f, 0.78f, 0.35f, 1.0f } : XMFLOAT4{ 0.85f, 0.95f, 1.0f, 1.0f };
+	const float slow = SlowTimeFx::GetIntensity() > 0.05f ? SlowTimeFx::GetIntensity() : 0.0f;
+	const XMFLOAT4 cyan{ 0.35f, 0.95f, 1.0f, 1.0f };
+	return XMFLOAT4(base.x + (cyan.x - base.x) * slow, base.y + (cyan.y - base.y) * slow,
+		base.z + (cyan.z - base.z) * slow, 1.0f);
 }
 
 // 止まった世界の中で自分だけ速く動いていることを見せる軌跡です。粒は実時間(チャンネル0)で消えるので、
@@ -245,7 +288,7 @@ void SlowPlayer::EmitSlowTrail()
 	else if (m_State == State::Attack && m_SwordAttached)
 	{
 		// 刃の中ほどから切っ先までに並べます。剣のモデルは長さ1.4mで、握りから+Yへ伸びています。
-		const float bladeLength = 1.4f * tuning.SwordScale;
+		const float bladeLength = kSwordBladeLength * tuning.SwordScale;
 		for (int i = 0; i < count; ++i)
 		{
 			const float t = count > 1 ? static_cast<float>(i) / static_cast<float>(count - 1) : 1.0f;

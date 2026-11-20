@@ -11,6 +11,7 @@ class Collider;
 class DynamicText;
 class ModelRenderer;
 class SlowEnemy;
+class SlowSwordTrail;
 class SoundPool;
 
 namespace SlowCollisionLayers
@@ -194,6 +195,8 @@ private:
 	// 最後に合わせた剣の握りの位置と、刃の向き(単位ベクトル)です。減速中の斬撃の軌跡に使います。
 	Vector3 m_SwordGrip{ 0.0f, 0.0f, 0.0f };
 	Vector3 m_SwordAxis{ 0.0f, 1.0f, 0.0f };
+	// 剣閃(剣が通った跡)です。シーンが生成し、ここから剣の位置を渡します。
+	SlowSwordTrail* m_Trail = nullptr;
 	State m_State = State::Move;
 	AttackType m_AttackType = AttackType::None;
 	AttackType m_BufferedAttack = AttackType::None;
@@ -234,6 +237,10 @@ private:
 	void UpdateSword();
 	// 減速中だけ、ダッシュと攻撃に青白い軌跡を実時間で付けます。
 	void EmitSlowTrail();
+	// 攻撃の振りの間、剣閃に剣の根元と切っ先を渡します。
+	void UpdateSwordTrail();
+	// 剣閃の色です。段と強攻撃で色を変え、減速中は寒色へ寄せます。
+	XMFLOAT4 SwordTrailColor() const;
 };
 
 // 効果音です。シーンが持つ音源の組から鳴らします。音源がなければ何もしません(テスト中など)。

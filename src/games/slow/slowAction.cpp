@@ -14,6 +14,7 @@
 #include "sceneEditor.h"
 #include "sceneSerializer.h"
 #include "sky.h"
+#include "slowSwordTrail.h"
 
 #include <cstdarg>
 
@@ -283,6 +284,7 @@ void SlowActionScene::Init()
 	SlowCamera* camera = world.Spawn<SlowCamera>();
 	world.Spawn<Sky>()->SetRadius(90.0f);
 	world.Spawn<ParticleSystem>();
+	world.Spawn<SlowSwordTrail>();
 	world.Spawn<SlowSoundBank>();
 	if (const SlowPlayer* player = world.FindFirst<SlowPlayer>())
 	{
