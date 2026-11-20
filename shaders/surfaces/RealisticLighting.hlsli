@@ -30,9 +30,11 @@ float3 RealisticShade(RealisticSurface surface, float3 worldPosition)
     float metallic = saturate(surface.Metallic);
     float3 N = surface.Normal;
 
-    float3 V = normalize(CameraPosition.xyz - worldPosition);
-    float3 L = normalize(-Light.Direction.xyz);
-    float3 H = normalize(L + V);
+    // 視線とライトが真逆だと L + V が0になり、normalize が NaN を返して鏡面反射ごと壊れます。
+    // 長さが足りないときは、面の向き(N)や真上を代わりに使います。
+    float3 V = RealisticSafeNormalize(CameraPosition.xyz - worldPosition, N);
+    float3 L = RealisticSafeNormalize(-Light.Direction.xyz, float3(0.0f, 1.0f, 0.0f));
+    float3 H = RealisticSafeNormalize(L + V, N);
     float NL = saturate(dot(N, L));
     float NV = max(dot(N, V), 0.0001f);
     float NH = saturate(dot(N, H));
@@ -41,7 +43,7 @@ float3 RealisticShade(RealisticSurface surface, float3 worldPosition)
     float3 sun = RealisticToLinear(Light.Diffuse.rgb) * SUN_INTENSITY;
     float3 skyColor = RealisticToLinear(Light.SkyColor.rgb);
     float3 groundColor = RealisticToLinear(Light.GroundColor.rgb);
-    float3 groundNormal = normalize(Light.GroundNormal.xyz);
+    float3 groundNormal = RealisticSafeNormalize(Light.GroundNormal.xyz, float3(0.0f, 1.0f, 0.0f));
 
     // --- 直接光: Disney拡散 + GGX ---
     float3 f0 = lerp(0.04f.xxx, albedo, metallic);

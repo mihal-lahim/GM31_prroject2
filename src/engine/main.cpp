@@ -194,6 +194,8 @@ int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLi
 	if (gameDefinition.InitializeUi != nullptr && !gameDefinition.InitializeUi())
 	{
 		Engine::Manager::Uninit();
+		// Mouse_Initialize で隠して閉じ込めたカーソルを戻してから終わります(ランタイムの初期化失敗と同じ後片付け)。
+		Mouse_SetCursorCaptured(false);
 		DestroyWindow(g_Window);
 		UnregisterClass(CLASS_NAME, wcex.hInstance);
 		return -1;

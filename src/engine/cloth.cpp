@@ -41,6 +41,38 @@ namespace
 	{
 		return std::isfinite(value.x) && std::isfinite(value.y) && std::isfinite(value.z);
 	}
+
+	// NaN・無限大の設定値は既定の値へ戻します(1つでも入ると、全粒子がNaNになって戻りません)。
+	void ReplaceNonFinite(float& value, float fallback)
+	{
+		if (!std::isfinite(value)) value = fallback;
+	}
+
+	void ReplaceNonFinite(Vector3& value, const Vector3& fallback)
+	{
+		if (!IsFiniteVector(value)) value = fallback;
+	}
+
+	void SanitizeSettings(ClothSettings& settings)
+	{
+		const ClothSettings defaults{};
+		ReplaceNonFinite(settings.Width, defaults.Width);
+		ReplaceNonFinite(settings.Height, defaults.Height);
+		ReplaceNonFinite(settings.PanelGap, defaults.PanelGap);
+		ReplaceNonFinite(settings.Mass, defaults.Mass);
+		ReplaceNonFinite(settings.Stiffness, defaults.Stiffness);
+		ReplaceNonFinite(settings.ShearRatio, defaults.ShearRatio);
+		ReplaceNonFinite(settings.BendRatio, defaults.BendRatio);
+		ReplaceNonFinite(settings.SpringDampingRatio, defaults.SpringDampingRatio);
+		ReplaceNonFinite(settings.Drag, defaults.Drag);
+		ReplaceNonFinite(settings.MaxStretch, defaults.MaxStretch);
+		ReplaceNonFinite(settings.Gravity, defaults.Gravity);
+		ReplaceNonFinite(settings.Wind, defaults.Wind);
+		ReplaceNonFinite(settings.WindTurbulence, defaults.WindTurbulence);
+		ReplaceNonFinite(settings.AirCoefficient, defaults.AirCoefficient);
+		ReplaceNonFinite(settings.CollisionThickness, defaults.CollisionThickness);
+		ReplaceNonFinite(settings.Friction, defaults.Friction);
+	}
 }
 
 //----------------------------------------------------------------------------
@@ -50,6 +82,7 @@ namespace
 void ClothSimulation::Build(const ClothSettings& settings)
 {
 	m_Settings = settings;
+	SanitizeSettings(m_Settings);
 	m_Settings.PanelCount = (std::max)(1, m_Settings.PanelCount);
 	m_Settings.ColumnsPerPanel = (std::max)(2, m_Settings.ColumnsPerPanel);
 	m_Settings.Rows = (std::max)(2, m_Settings.Rows);
@@ -190,8 +223,14 @@ void ClothSimulation::ChooseSubsteps(float deltaTime)
 	const float nodeStiffness = 4.0f * m_Settings.Stiffness
 		* (1.0f + m_Settings.ShearRatio + m_Settings.BendRatio);
 	const float omega = sqrtf((std::max)(0.0f, nodeStiffness) / minimumMass);
-	const int substeps = static_cast<int>(ceilf(deltaTime * omega / 0.35f));
-	m_Substeps = std::clamp(substeps, 2, 96);
+	// Build後にGetSettingsで書き換えられた値がNaN・無限大でも、intへの変換(範囲外は未定義動作)に
+	// 渡さないよう、floatのうちに範囲へ収めます。NaNは最も細かく分ける扱いにします。
+	float substeps = ceilf(deltaTime * omega / 0.35f);
+	if (!std::isfinite(substeps))
+	{
+		substeps = 96.0f;
+	}
+	m_Substeps = static_cast<int>(std::clamp(substeps, 2.0f, 96.0f));
 }
 
 Vector3 ClothSimulation::SampleWind(const Vector3& position) const
@@ -413,7 +452,8 @@ void ClothSimulation::Collide(const std::vector<ClothCollisionShape>& shapes, fl
 
 void ClothSimulation::Step(float deltaTime, const std::vector<ClothCollisionShape>& shapes)
 {
-	if (deltaTime <= 0.0f || m_Particles.empty())
+	// NaNは <= 0 の比較をすり抜けるので、有限かどうかを先に確かめます。
+	if (!std::isfinite(deltaTime) || deltaTime <= 0.0f || m_Particles.empty())
 	{
 		return;
 	}
@@ -524,6 +564,8 @@ void Cloth::Uninit()
 {
 	m_VertexBuffer.Reset();
 	m_IndexBuffer.Reset();
+	m_IndexCount = 0;
+	m_RenderingAvailable = false;
 	m_PreviousCenters.clear();
 }
 

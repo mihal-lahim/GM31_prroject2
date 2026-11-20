@@ -26,11 +26,12 @@ namespace Engine
 		static std::vector<std::string> GetKeysWithPrefix(const std::string& prefix);
 
 		// 値をプログラムから変えます(ライブ調整用)。成功すると世代が進み、Tuning側は次に読むとき最新値を使います。
-		// keyが空、またはvalueが有限でないときは何もせず false を返します。
+		// keyが空・'='や'#'や改行を含む・前後に空白がある、またはvalueが有限でないときは何もせず false を返します。
 		static bool SetFloat(const std::string& key, float value);
 		static bool SetInt(const std::string& key, int value);
 		// 既存ファイルのコメント・空行・並び順を保ったまま、entries(キーと書く値の文字列)で一致する行だけを置き換えます。
 		// ファイルに無いキーは末尾に追記します。ファイルが無ければ全キーを書き出して新規作成します。
+		// 行の形を壊すキー(SetFloatと同じ条件)や改行を含む値が1つでもあれば、ファイルに触れず false を返します。
 		static bool SavePreservingComments(const std::filesystem::path& path,
 			const std::vector<std::pair<std::string, std::string>>& entries);
 

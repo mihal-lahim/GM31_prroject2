@@ -9,6 +9,14 @@
 
 static const float REALISTIC_PI = 3.14159265f;
 
+// 長さがほぼ0のベクトルを normalize すると NaN になり、その画素の色全体が壊れます(ポストで周りへ広がることも)。
+// 長さが「ほぼ0」のときだけ fallback を返し、それ以外は normalize そのものを使います(見た目を変えないため)。
+// 閾値は float の正規化数の範囲にとどめ、短いが正しいベクトルを置き換えないようにします。
+float3 RealisticSafeNormalize(float3 v, float3 fallback)
+{
+    return dot(v, v) > 1e-30f ? normalize(v) : fallback;
+}
+
 // マイクロファセットの分布関数 (SP31 CalculateBeckmann)。m は粗さです。
 float RealisticBeckmann(float m, float nh)
 {
@@ -88,8 +96,9 @@ float3 RealisticSkyEnvironment(float3 direction, float3 groundNormal, float3 sky
     float up = dot(direction, groundNormal);
     float sunAlong = saturate(dot(direction, toSun));
     // 太陽の方角(水平面の上で)へ向くほど、地平線の帯を暖かくします。
-    float3 sunFlat = normalize(toSun - groundNormal * dot(toSun, groundNormal) + 1e-4f);
-    float3 dirFlat = normalize(direction - groundNormal * up + 1e-4f);
+    // 真上・真下を向くと水平成分が0になります(+1e-4 も打ち消される向きがあります)。そのときは任意の水平方向にします。
+    float3 sunFlat = RealisticSafeNormalize(toSun - groundNormal * dot(toSun, groundNormal) + 1e-4f, float3(1.0f, 0.0f, 0.0f));
+    float3 dirFlat = RealisticSafeNormalize(direction - groundNormal * up + 1e-4f, float3(1.0f, 0.0f, 0.0f));
     float towardSun = saturate(dot(dirFlat, sunFlat) * 0.5f + 0.5f);
 
     float3 horizon = skyColor * 1.35f + sunColor * (0.05f + 0.10f * towardSun * towardSun);
@@ -131,7 +140,7 @@ float3 RealisticPerturbNormal(float3 N, float3 worldPosition, float2 uv, float3 
     float3 T = dp2perp * duv1.x + dp1perp * duv2.x;
     float3 B = dp2perp * duv1.y + dp1perp * duv2.y;
     float scale = rsqrt(max(max(dot(T, T), dot(B, B)), 1e-20f));
-    return normalize(tangentNormal.x * T * scale + tangentNormal.y * B * scale + tangentNormal.z * N);
+    return RealisticSafeNormalize(tangentNormal.x * T * scale + tangentNormal.y * B * scale + tangentNormal.z * N, N);
 }
 
 // テクスチャの明るさ(輝度)を高さとみなします。
@@ -149,6 +158,8 @@ float3 RealisticToLinear(float3 color)
 // 明るい部分を白飛びさせずに圧縮するトーンマップ(ACES近似)の後、表示用のガンマへ戻します。
 float3 RealisticToDisplay(float3 color)
 {
+    // 負の光は無いものとして扱います(負のまま通すと分母が0付近になったり、pow に負を渡したりします)。
+    color = max(color, 0.0f);
     color = saturate((color * (2.51f * color + 0.03f)) / (color * (2.43f * color + 0.59f) + 0.14f));
     return pow(color, 1.0f / 2.2f);
 }

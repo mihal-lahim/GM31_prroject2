@@ -7,8 +7,10 @@
 #include "objModelLoader.h"
 #include "manager.h"
 #include "scene.h"
+#include "characterMover.h"
 #include "cloth.h"
 #include "collider.h"
+#include "tuningFields.h"
 #include "glyphRenderer2D.h"
 #include "modelRenderer.h"
 #include "polygon2D.h"
@@ -1862,6 +1864,154 @@ namespace
 	}
 }
 
+namespace
+{
+	bool TestClothRejectsNonFiniteInput()
+	{
+		constexpr float nan = std::numeric_limits<float>::quiet_NaN();
+		constexpr float inf = std::numeric_limits<float>::infinity();
+		const std::vector<Engine::ClothCollisionShape> noShapes;
+		bool ok = true;
+
+		// NaN・無限大の時間では1粒子も動かしません。
+		Engine::ClothSimulation cloth;
+		cloth.Build(MakeTestClothSettings());
+		cloth.Place(XMMatrixTranslation(0.0f, 2.0f, 0.0f));
+		cloth.Step(1.0f / 60.0f, noShapes);
+		std::vector<Vector3> before;
+		for (const auto& particle : cloth.GetParticles()) before.push_back(particle.Position);
+		cloth.Step(nan, noShapes);
+		cloth.Step(inf, noShapes);
+		cloth.Step(-inf, noShapes);
+		ok &= cloth.IsFinite() && cloth.GetParticles().size() == before.size();
+		for (std::size_t i = 0; ok && i < before.size(); ++i)
+		{
+			ok &= cloth.GetParticles()[i].Position == before[i];
+		}
+
+		// 設定にNaN・無限大があっても、既定の値へ戻して有限のまま動きます。
+		Engine::ClothSettings broken = MakeTestClothSettings();
+		broken.Mass = nan;
+		broken.Width = inf;
+		broken.Height = nan;
+		broken.PanelGap = -inf;
+		broken.Stiffness = nan;
+		broken.ShearRatio = inf;
+		broken.BendRatio = nan;
+		broken.SpringDampingRatio = nan;
+		broken.Drag = inf;
+		broken.MaxStretch = nan;
+		broken.Gravity = { nan, -9.8f, 0.0f };
+		broken.Wind = { 0.0f, inf, 0.0f };
+		broken.WindTurbulence = nan;
+		broken.AirCoefficient = inf;
+		broken.CollisionThickness = nan;
+		broken.Friction = inf;
+		Engine::ClothSimulation sanitized;
+		sanitized.Build(broken);
+		sanitized.Place(XMMatrixTranslation(0.0f, 2.0f, 0.0f));
+		for (int frame = 0; frame < 120; ++frame) sanitized.Step(1.0f / 60.0f, noShapes);
+		ok &= sanitized.IsFinite() && !sanitized.GetParticles().empty();
+		return ok;
+	}
+
+	bool TestCharacterMoverRejectsNonFiniteOffset()
+	{
+		constexpr float nan = std::numeric_limits<float>::quiet_NaN();
+		constexpr float inf = std::numeric_limits<float>::infinity();
+		World world;
+		CollisionTestObject* mover = world.Spawn<CollisionTestObject>();
+		mover->GetCollider().SetSphere(0.5f);
+		const Vector3 start = mover->GetPosition();
+
+		bool ok = true;
+		// NaN・無限大のoffsetは動かさずに失敗を返します(以前はNaNの位置へ動いて成功扱いでした)。
+		for (const Vector3& offset : { Vector3{ nan, 0.0f, 0.0f }, Vector3{ 0.0f, 0.0f, inf },
+			Vector3{ 1.0f, nan, 0.0f }, Vector3{ -inf, 0.0f, -inf } })
+		{
+			ok &= !Engine::CharacterMover::TryMove(*mover, mover->GetCollider(), offset, CollisionLayers::All);
+			ok &= mover->GetPosition() == start;
+		}
+		const Engine::CharacterMover::SlideResult slid = Engine::CharacterMover::MoveAndSlide(
+			*mover, mover->GetCollider(), { nan, 0.0f, inf }, CollisionLayers::All);
+		ok &= slid.BlockedX && slid.BlockedZ && mover->GetPosition() == start;
+
+		// 有限のoffsetは今までどおり動きます。
+		ok &= Engine::CharacterMover::TryMove(*mover, mover->GetCollider(), { 1.0f, 0.0f, 0.0f }, CollisionLayers::All)
+			&& mover->GetPosition() == Vector3(1.0f, 0.0f, 0.0f);
+		return ok;
+	}
+
+	bool TestTuningIntRangeAcceptsNegativeDefaults()
+	{
+		constexpr int intMax = (std::numeric_limits<int>::max)();
+		constexpr int intMin = (std::numeric_limits<int>::min)();
+		const std::filesystem::path configPath =
+			std::filesystem::temp_directory_path() / "gm31-tuning-int-self-test.cfg";
+		{
+			std::ofstream file(configPath, std::ios::trunc);
+			file << "test.negative=-20\n"
+				<< "test.too_negative=-500\n"
+				<< "test.big=2000000000\n";
+		}
+		Engine::RuntimeConfig::Reset();
+		bool ok = Engine::RuntimeConfig::Load(configPath);
+		// 負の既定値(-5)なら -50〜50 が範囲です。以前は下限が0に固定で、-20が0に丸められていました。
+		ok &= Engine::TuningFields::Read("test.negative", -5) == -20;
+		ok &= Engine::TuningFields::Read("test.missing", -5) == -5;
+		ok &= Engine::TuningFields::Read("test.too_negative", -5) == -100;
+		// 正の既定値では従来どおり下限は0です。
+		ok &= Engine::TuningFields::Read("test.negative", 5) == 0;
+		// intの端の既定値でも、10倍の計算が桁あふれしません。
+		ok &= Engine::TuningFields::Read("test.big", intMax) == 2000000000;
+		ok &= Engine::TuningFields::Read("test.missing", intMax) == intMax;
+		ok &= Engine::TuningFields::Read("test.missing", intMin) == intMin;
+		ok &= Engine::TuningFields::Read("test.negative", intMin) == -20;
+
+		Engine::RuntimeConfig::Reset();
+		std::error_code removeError;
+		std::filesystem::remove(configPath, removeError);
+		return ok;
+	}
+
+	bool TestRuntimeConfigRejectsLineBreakingKeys()
+	{
+		Engine::RuntimeConfig::Reset();
+		bool ok = true;
+		for (const char* key : { "", "a=b", "a#b", "a\nb", "a\rb", " a", "a " })
+		{
+			ok &= !Engine::RuntimeConfig::SetFloat(key, 1.0f);
+		}
+		ok &= Engine::RuntimeConfig::SetFloat("good.key", 1.0f)
+			&& Engine::RuntimeConfig::GetKeysWithPrefix("") == std::vector<std::string>{ "good.key" };
+
+		const std::filesystem::path path = std::filesystem::temp_directory_path() / "gm31-runtime-config-save-self-test.cfg";
+		const std::string original = "# comment\nalpha=1\n";
+		{
+			std::ofstream file(path, std::ios::binary | std::ios::trunc);
+			file << original;
+		}
+		const auto readAll = [&path]()
+		{
+			std::ifstream file(path, std::ios::binary);
+			return std::string(std::istreambuf_iterator<char>(file), std::istreambuf_iterator<char>());
+		};
+		// 行の形を壊す項目が1つでもあれば、ファイルは元のままです。
+		ok &= !Engine::RuntimeConfig::SavePreservingComments(path, { { "alpha", "2" }, { "bad\nkey", "3" } });
+		ok &= !Engine::RuntimeConfig::SavePreservingComments(path, { { "alpha=x", "2" } });
+		ok &= !Engine::RuntimeConfig::SavePreservingComments(path, { { "alpha", "2\nbeta=3" } });
+		ok &= readAll() == original;
+		// 正しい項目は今までどおり置き換えます(コメントも残ります)。
+		ok &= Engine::RuntimeConfig::SavePreservingComments(path, { { "alpha", "2" } });
+		ok &= readAll() == "# comment\nalpha=2\n" || readAll() == "# comment\r\nalpha=2\r\n";
+
+		Engine::RuntimeConfig::Reset();
+		std::error_code removeError;
+		std::filesystem::remove(path, removeError);
+		return ok;
+	}
+}
+
 namespace Engine
 {
 	// Managerのprivateな状態へ触れる、自己テスト専用の入口です(manager.hでfriend指定)。
@@ -2007,6 +2157,10 @@ bool RunEngineSelfTests()
 		{ "input bindings reject missing path", TestInputBindingsRejectMissingPath },
 		{ "scene read rejects nameless property", TestSceneReadRejectsNamelessProperty },
 		{ "obj loader handles extreme indices and spaced names", TestObjLoaderHandlesExtremeIndicesAndSpacedNames },
+		{ "cloth rejects non-finite input", TestClothRejectsNonFiniteInput },
+		{ "character mover rejects non-finite offset", TestCharacterMoverRejectsNonFiniteOffset },
+		{ "tuning int range accepts negative defaults", TestTuningIntRangeAcceptsNegativeDefaults },
+		{ "runtime config rejects line breaking keys", TestRuntimeConfigRejectsLineBreakingKeys },
 	};
 
 	// どの項目で落ちたか分かるよう、全項目を実行して結果をログへ残します。

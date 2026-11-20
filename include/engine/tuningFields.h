@@ -4,6 +4,8 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstdlib>
+#include <limits>
 #include <string>
 #include <vector>
 
@@ -18,9 +20,15 @@ namespace Engine::TuningFields
 		return RuntimeConfig::GetFloat(key, defaultValue, defaultValue < 0.0f ? -magnitude : 0.0f, magnitude);
 	}
 
+	// 整数版も float 版と同じく、負の既定値なら -10倍〜+10倍、そうでなければ 0〜10倍(最低100)を範囲にします。
+	// 10倍の計算は64bitで行い、intの範囲へ収めます(大きな既定値やINT_MINで桁あふれしないように)。
 	inline int Read(const char* key, int defaultValue)
 	{
-		return RuntimeConfig::GetInt(key, defaultValue, 0, (std::max)(std::abs(defaultValue) * 10, 100));
+		const long long magnitude = (std::max)(std::llabs(static_cast<long long>(defaultValue)) * 10LL, 100LL);
+		const long long maximum = (std::min)(magnitude, static_cast<long long>((std::numeric_limits<int>::max)()));
+		const long long minimum = defaultValue < 0
+			? (std::max)(-magnitude, static_cast<long long>((std::numeric_limits<int>::min)())) : 0LL;
+		return RuntimeConfig::GetInt(key, defaultValue, static_cast<int>(minimum), static_cast<int>(maximum));
 	}
 
 	// 負の値にも振れる調整値用です。-10倍〜+10倍を調整範囲にします。

@@ -32,6 +32,19 @@ namespace
 		return value.substr(first, last - first + 1);
 	}
 
+	// 設定ファイルの1行「key=値」として書き戻せるキーかどうかです。区切りの '='、コメントの '#'、
+	// 改行、前後の空白を含むと、読み直したときに別のキーや別の行になってしまいます。
+	bool IsWritableKey(const std::string& key)
+	{
+		return !key.empty() && key.find_first_of("=#\r\n") == std::string::npos && Trim(key) == key;
+	}
+
+	// 値の文字列は1行に収まっていなければなりません(改行を含むと次の行が増えます)。
+	bool IsWritableValueText(const std::string& text)
+	{
+		return text.find_first_of("\r\n") == std::string::npos;
+	}
+
 	bool TryParseFloat(const std::string& text, float& value)
 	{
 		char* end = nullptr;
@@ -189,7 +202,7 @@ std::vector<std::string> Engine::RuntimeConfig::GetKeysWithPrefix(const std::str
 
 bool Engine::RuntimeConfig::SetFloat(const std::string& key, float value)
 {
-	if (key.empty() || !std::isfinite(value))
+	if (!IsWritableKey(key) || !std::isfinite(value))
 	{
 		return false;
 	}
@@ -208,10 +221,12 @@ bool Engine::RuntimeConfig::SavePreservingComments(
 	const std::vector<std::pair<std::string, std::string>>& entries)
 {
 	std::unordered_map<std::string, std::string> values;
+	// 1つでも書けない項目があれば、ファイルには触れずにfalseを返します(途中まで書いて壊さないため)。
 	for (const auto& [key, text] : entries)
 	{
-		if (key.empty())
+		if (!IsWritableKey(key) || !IsWritableValueText(text))
 		{
+			LogConfigWarning("refused to save '" + path.string() + "': a key or value would break the line format.");
 			return false;
 		}
 		values[key] = text;

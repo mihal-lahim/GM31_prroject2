@@ -3,6 +3,8 @@
 #include "collider.h"
 #include "gameObject.h"
 
+#include <cmath>
+
 // 壁や障害物にめり込まないように、キャラクターを動かす共通処理です。
 // 衝突の押し出しではなく「動かしてみて、重なったら戻す」方式なので、
 // 1軸ずつ呼べば壁に沿って滑ります(MoveAndSlide)。
@@ -10,8 +12,13 @@ namespace Engine::CharacterMover
 {
 	// offsetだけ動かし、blockingLayersのコライダーと重なったら元へ戻します。
 	// 動けたらtrueです。offsetが水平に0なら何もせずtrueを返します。
+	// NaN・無限大を含むoffsetは動かさずfalseです(NaNの位置では重なり判定が空になり、動けた扱いになってしまうため)。
 	inline bool TryMove(GameObject& owner, const Collider& collider, const Vector3& offset, CollisionLayer blockingLayers)
 	{
+		if (!std::isfinite(offset.x) || !std::isfinite(offset.y) || !std::isfinite(offset.z))
+		{
+			return false;
+		}
 		if (offset.x == 0.0f && offset.z == 0.0f)
 		{
 			return true;

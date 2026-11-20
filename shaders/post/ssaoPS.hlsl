@@ -28,7 +28,12 @@ void main(in PS_IN input, out float4 output : SV_Target)
         float3 down = ViewPosition(uv + float2(0.0f, texel.y), LoadDepth(uv + float2(0.0f, texel.y)));
         float3 dx = abs(right.z - center.z) < abs(center.z - left.z) ? right - center : center - left;
         float3 dy = abs(down.z - center.z) < abs(center.z - up.z) ? down - center : center - up;
-        float3 normal = normalize(cross(dx, dy));
+        // 隣との差が平行や0だと外積が0になり、normalize が NaN を返します(ぼかしで周りへ広がります)。
+        // そのときはカメラ向きの法線にします。隣との差は画素1つ分の距離なので外積はとても小さくなり得ます。
+        // 正しい面を誤って置き換えないよう、閾値は「ほぼ0」だけを弾く大きさ(floatの正規化数の範囲)にします。
+        float3 rawNormal = cross(dx, dy);
+        float rawLengthSq = dot(rawNormal, rawNormal);
+        float3 normal = rawLengthSq > 1e-30f ? normalize(rawNormal) : float3(0.0f, 0.0f, -1.0f);
         // カメラ側を向く向きにそろえます。
         normal = dot(normal, center) > 0.0f ? -normal : normal;
 
