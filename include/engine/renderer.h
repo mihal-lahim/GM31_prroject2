@@ -97,6 +97,11 @@ private:
 	static ComPtr<ID3D11RenderTargetView> m_SceneRenderTarget;
 	static ComPtr<ID3D11ShaderResourceView> m_SceneResource;
 	static ComPtr<ID3D11Buffer>			m_PostVertexBuffer;
+	// 画面の深度(24bit)をポスト効果で読むためのビューです。ポストの間だけ t8 へつなぎます。
+	static ComPtr<ID3D11ShaderResourceView> m_DepthResource;
+	// ポスト効果へ渡す追加の値(b9: 時間減速などの動的な値と見た目)と、深度から位置を戻す値(b10)です。
+	static ComPtr<ID3D11Buffer>			m_PostUserBuffer;
+	static ComPtr<ID3D11Buffer>			m_SceneDepthBuffer;
 public:
 	// 複数パスのポスト効果用の作業バッファの枠数。枠 0,1 は 1/2、2,3 は 1/4、4,5 は 1/8 解像度。
 	static constexpr std::size_t PostWorkSlots = 6;
@@ -113,6 +118,11 @@ private:
 	static bool m_CustomPostOptions;
 	static XMFLOAT4 m_PostDefinitionParameters;
 	static XMFLOAT4 m_ClearColor;
+	static XMFLOAT4 m_PostLook;
+	// このフレームで最後に設定した透視投影の値 (m33, m43, 1/m11, 1/m22)。透視投影が無ければ m43=0 です。
+	static XMFLOAT4 m_DepthProjection;
+	// このフレームのポスト効果を、もう画面へ解決したかどうかです(UIをポストの後に描くため)。
+	static bool m_PostResolved;
 
 
 	static ComPtr<ID3D11DepthStencilState> m_DepthStateEnable;
@@ -132,6 +142,7 @@ private:
 
 
 	static void DrawPostDefinition(const ShaderDefinition& definition);
+	static void DrawPostToBackBuffer();
 
 public:
 	static constexpr std::size_t MaxPostPasses = 16;
@@ -167,12 +178,19 @@ public:
 	static const LIGHT& GetLight() { return m_Light; }
 	static void SetCameraPosition(XMFLOAT3 CameraPosition);
 	static void SetParameter(XMFLOAT4 Parameter);
-	static void SetPostEffect(PostEffectMode mode) { m_PostEffectMode = mode; m_PostDefinitionId.clear(); m_CustomPostOptions = false; }
+	static void SetPostEffect(PostEffectMode mode) { m_PostEffectMode = mode; m_PostDefinitionId.clear(); m_CustomPostOptions = false; m_PostLook = {}; }
 	static void SetPostEffectParameters(XMFLOAT4 options, XMFLOAT4 extra = {})
 	{
 		m_PostOptions = options; m_PostExtraOptions = extra; m_CustomPostOptions = true;
 	}
+	// 複数パスのポスト効果へ渡す、見た目の追加の値です(b9 の3つ目。x=ふだんのビネットなど、効果ごとに意味を決める)。
+	static void SetPostEffectLook(XMFLOAT4 look) { m_PostLook = look; }
 	static PostEffectMode GetPostEffect() { return m_PostEffectMode; }
+	static bool IsPostEffectEnabled() { return m_PostEffectMode != PostEffectMode::None || !m_PostDefinitionId.empty(); }
+	// ポスト効果をこの場で画面(バックバッファ)へ解決し、以降の描画先を画面にします。
+	// RenderQueue が UI 層の前に呼び、HUD の文字がブルームや歪みを受けないようにします。
+	// ポスト効果が無いか、このフレームで解決済みなら何もしません。End は解決していなければここを呼びます。
+	static void ResolvePostEffects();
 	static bool SetPostEffectDefinition(std::string_view id);
 	static bool SetPostEffectFloat(std::string_view name, float value);
 	static std::string_view GetPostEffectDefinitionId() { return m_PostDefinitionId; }
@@ -184,6 +202,8 @@ public:
 	static ID3D11Device* GetDevice( void ){ return m_Device.Get(); }
 	static ID3D11DeviceContext* GetDeviceContext( void ){ return m_DeviceContext.Get(); }
 	static ID3D11ShaderResourceView* GetPostSource() { return m_SceneResource.Get(); }
+	// 画面の深度(0〜1、R24_UNORM)です。描画先の深度として使っている間はシェーダーで読めません(ポストの間だけ t8 に繋ぎます)。
+	static ID3D11ShaderResourceView* GetDepthResource() { return m_DepthResource.Get(); }
 
 
 

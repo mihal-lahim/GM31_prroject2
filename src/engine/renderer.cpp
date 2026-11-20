@@ -28,6 +28,9 @@ ComPtr<ID3D11Texture2D>		Renderer::m_SceneTexture{};
 ComPtr<ID3D11RenderTargetView> Renderer::m_SceneRenderTarget{};
 ComPtr<ID3D11ShaderResourceView> Renderer::m_SceneResource{};
 ComPtr<ID3D11Buffer>			Renderer::m_PostVertexBuffer{};
+ComPtr<ID3D11ShaderResourceView> Renderer::m_DepthResource{};
+ComPtr<ID3D11Buffer>			Renderer::m_PostUserBuffer{};
+ComPtr<ID3D11Buffer>			Renderer::m_SceneDepthBuffer{};
 std::array<ComPtr<ID3D11Texture2D>, Renderer::PostWorkSlots> Renderer::m_PostWorkTextures{};
 std::array<ComPtr<ID3D11RenderTargetView>, Renderer::PostWorkSlots> Renderer::m_PostWorkTargets{};
 std::array<ComPtr<ID3D11ShaderResourceView>, Renderer::PostWorkSlots> Renderer::m_PostWorkResources{};
@@ -39,6 +42,9 @@ XMFLOAT4 Renderer::m_PostExtraOptions{};
 bool Renderer::m_CustomPostOptions = false;
 XMFLOAT4 Renderer::m_PostDefinitionParameters{};
 XMFLOAT4 Renderer::m_ClearColor = Renderer::DefaultClearColor;
+XMFLOAT4 Renderer::m_PostLook{};
+XMFLOAT4 Renderer::m_DepthProjection{};
+bool Renderer::m_PostResolved = false;
 
 
 ComPtr<ID3D11DepthStencilState> Renderer::m_DepthStateEnable{};
@@ -57,6 +63,21 @@ LIGHT Renderer::m_Light{};
 
 namespace
 {
+	// ポスト効果が読む画面の深度のテクスチャ番号と、追加の値の定数バッファ番号です。
+	// t0〜t7 はポストの入力(元画面・直前・作業枠)、b8 は影(Shadow.hlsli)が使っています。
+	constexpr UINT kDepthTextureSlot = 8;
+	constexpr UINT kPostUserSlot = 9;
+	constexpr UINT kSceneDepthSlot = 10;
+
+	// b9 の中身です。ポスト効果の動的な値(SetPostEffectParameters)と見た目(SetPostEffectLook)をまとめて渡します。
+	struct PostUserConstants
+	{
+		XMFLOAT4 Options;
+		// z は「独自の値を渡したか」の印(1=渡した)です。
+		XMFLOAT4 Extra;
+		XMFLOAT4 Look;
+	};
+
 	bool CheckInitializationResult(HRESULT result, const char* operation)
 	{
 		if (SUCCEEDED(result))
@@ -141,10 +162,11 @@ bool Renderer::Init()
 	textureDesc.Height = swapChainDesc.BufferDesc.Height;
 	textureDesc.MipLevels = 1;
 	textureDesc.ArraySize = 1;
-	textureDesc.Format = DXGI_FORMAT_D16_UNORM;
+	// 24bitの深度にし、ポスト効果(接地の陰など)でも読めるよう、型なしで作って深度とテクスチャの両方の見方をします。
+	textureDesc.Format = DXGI_FORMAT_R24G8_TYPELESS;
 	textureDesc.SampleDesc = swapChainDesc.SampleDesc;
 	textureDesc.Usage = D3D11_USAGE_DEFAULT;
-	textureDesc.BindFlags = D3D11_BIND_DEPTH_STENCIL;
+	textureDesc.BindFlags = D3D11_BIND_DEPTH_STENCIL | D3D11_BIND_SHADER_RESOURCE;
 	textureDesc.CPUAccessFlags = 0;
 	textureDesc.MiscFlags = 0;
 	hr = m_Device->CreateTexture2D(&textureDesc, nullptr, depthStencile.ReleaseAndGetAddressOf());
@@ -156,11 +178,21 @@ bool Renderer::Init()
 
 	// デプスステンシルビュー作成
 	D3D11_DEPTH_STENCIL_VIEW_DESC depthStencilViewDesc{};
-	depthStencilViewDesc.Format = textureDesc.Format;
+	depthStencilViewDesc.Format = DXGI_FORMAT_D24_UNORM_S8_UINT;
 	depthStencilViewDesc.ViewDimension = D3D11_DSV_DIMENSION_TEXTURE2D;
 	depthStencilViewDesc.Flags = 0;
 	hr = m_Device->CreateDepthStencilView(depthStencile.Get(), &depthStencilViewDesc, m_DepthStencilView.ReleaseAndGetAddressOf());
 	if (!CheckInitializationResult(hr, "ID3D11Device::CreateDepthStencilView"))
+	{
+		Uninit();
+		return false;
+	}
+	D3D11_SHADER_RESOURCE_VIEW_DESC depthResourceDesc{};
+	depthResourceDesc.Format = DXGI_FORMAT_R24_UNORM_X8_TYPELESS;
+	depthResourceDesc.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D;
+	depthResourceDesc.Texture2D.MipLevels = 1;
+	hr = m_Device->CreateShaderResourceView(depthStencile.Get(), &depthResourceDesc, m_DepthResource.ReleaseAndGetAddressOf());
+	if (!CheckInitializationResult(hr, "ID3D11Device::CreateShaderResourceView(depth)"))
 	{
 		Uninit();
 		return false;
@@ -405,7 +437,9 @@ bool Renderer::Init()
 	sceneDesc.Height = SCREEN_HEIGHT;
 	sceneDesc.MipLevels = 0;
 	sceneDesc.ArraySize = 1;
-	sceneDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+	// ポスト効果を通す画面は浮動小数にし、加算の光(剣閃・火花)が1で切れずにブルームへ渡るようにします。
+	// 表面のシェーダーはこれまでどおり0〜1の表示用の色を書きます。
+	sceneDesc.Format = DXGI_FORMAT_R16G16B16A16_FLOAT;
 	sceneDesc.SampleDesc.Count = 1;
 	sceneDesc.Usage = D3D11_USAGE_DEFAULT;
 	sceneDesc.BindFlags = D3D11_BIND_RENDER_TARGET | D3D11_BIND_SHADER_RESOURCE;
@@ -446,6 +480,19 @@ bool Renderer::Init()
 	m_DeviceContext->PSSetConstantBuffers(6, 1, &parameterBuffer);
 	hr = m_Device->CreateBuffer(&bufferDesc, nullptr, m_PostOptionsBuffer.ReleaseAndGetAddressOf());
 	if (!CheckInitializationResult(hr, "ID3D11Device::CreateBuffer(post options)"))
+	{
+		Uninit();
+		return false;
+	}
+	hr = m_Device->CreateBuffer(&bufferDesc, nullptr, m_SceneDepthBuffer.ReleaseAndGetAddressOf());
+	if (!CheckInitializationResult(hr, "ID3D11Device::CreateBuffer(scene depth)"))
+	{
+		Uninit();
+		return false;
+	}
+	bufferDesc.ByteWidth = sizeof(PostUserConstants);
+	hr = m_Device->CreateBuffer(&bufferDesc, nullptr, m_PostUserBuffer.ReleaseAndGetAddressOf());
+	if (!CheckInitializationResult(hr, "ID3D11Device::CreateBuffer(post user)"))
 	{
 		Uninit();
 		return false;
@@ -494,6 +541,12 @@ void Renderer::Uninit()
 	m_SceneResource.Reset();
 	m_SceneRenderTarget.Reset();
 	m_SceneTexture.Reset();
+	m_DepthResource.Reset();
+	m_PostUserBuffer.Reset();
+	m_SceneDepthBuffer.Reset();
+	m_PostLook = {};
+	m_DepthProjection = {};
+	m_PostResolved = false;
 	m_PostEffectMode = PostEffectMode::None;
 	m_PostDefinitionId.clear();
 	m_ParameterBuffer.Reset();
@@ -527,8 +580,10 @@ void Renderer::Begin()
 {
 	SetDepthEnable(true);
 	SetBlendMode(RenderBlendMode::Alpha);
-	ID3D11RenderTargetView* target = m_PostEffectMode == PostEffectMode::None
-		&& m_PostDefinitionId.empty()
+	m_PostResolved = false;
+	// 透視投影はカメラがこのフレームで設定し直します。設定されなければ、ポストは深度を使いません。
+	m_DepthProjection = {};
+	ID3D11RenderTargetView* target = !IsPostEffectEnabled()
 		? m_RenderTargetView.Get() : m_SceneRenderTarget.Get();
 	m_DeviceContext->OMSetRenderTargets(1, &target, m_DepthStencilView.Get());
 	const float clearColor[4] = { m_ClearColor.x, m_ClearColor.y, m_ClearColor.z, m_ClearColor.w };
@@ -547,7 +602,77 @@ void Renderer::ClearDepth()
 
 void Renderer::End()
 {
-	if (m_PostEffectMode != PostEffectMode::None || !m_PostDefinitionId.empty())
+	ResolvePostEffects();
+	if (m_OverlayCallback != nullptr) m_OverlayCallback();
+	m_SwapChain->Present( 1, 0 );
+}
+
+namespace
+{
+	// 元画面(浮動小数)とバックバッファは形式が違うので、CopyResource は形式が同じときだけ使えます。
+	// シェーダーが読めなかったときの代わりの手段で、使えなければ何もしません(画面はクリア色のまま)。
+	void CopySceneIfCompatible(ID3D11DeviceContext* context, ID3D11RenderTargetView* backBuffer, ID3D11Texture2D* scene)
+	{
+		ComPtr<ID3D11Resource> backResource;
+		backBuffer->GetResource(backResource.GetAddressOf());
+		ComPtr<ID3D11Texture2D> backTexture;
+		if (FAILED(backResource.As(&backTexture)) || scene == nullptr)
+		{
+			return;
+		}
+		D3D11_TEXTURE2D_DESC backDesc{};
+		D3D11_TEXTURE2D_DESC sceneDesc{};
+		backTexture->GetDesc(&backDesc);
+		scene->GetDesc(&sceneDesc);
+		if (backDesc.Format == sceneDesc.Format && backDesc.MipLevels == sceneDesc.MipLevels)
+		{
+			context->CopyResource(backTexture.Get(), scene);
+		}
+		else
+		{
+			OutputDebugStringA("Renderer: post shader unavailable; scene copy skipped (format differs).\n");
+		}
+	}
+}
+
+void Renderer::ResolvePostEffects()
+{
+	if (m_PostResolved || !IsPostEffectEnabled() || m_DeviceContext == nullptr)
+	{
+		return;
+	}
+	m_PostResolved = true;
+	ID3D11RenderTargetView* backBuffer = m_RenderTargetView.Get();
+	UINT viewportCount = 1;
+	D3D11_VIEWPORT fullViewport{};
+	m_DeviceContext->RSGetViewports(&viewportCount, &fullViewport);
+	// 深度を描画先から外してから、ポスト効果が読めるよう t8 へ繋ぎます(同時に繋ぐと D3D11 が片方を外します)。
+	m_DeviceContext->OMSetRenderTargets(1, &backBuffer, nullptr);
+	ID3D11ShaderResourceView* depth = m_DepthResource.Get();
+	m_DeviceContext->PSSetShaderResources(kDepthTextureSlot, 1, &depth);
+	m_DeviceContext->UpdateSubresource(m_SceneDepthBuffer.Get(), 0, nullptr, &m_DepthProjection, 0, 0);
+	PostUserConstants user{ m_CustomPostOptions ? m_PostOptions : XMFLOAT4{},
+		m_CustomPostOptions ? m_PostExtraOptions : XMFLOAT4{}, m_PostLook };
+	user.Extra.z = m_CustomPostOptions ? 1.0f : 0.0f;
+	m_DeviceContext->UpdateSubresource(m_PostUserBuffer.Get(), 0, nullptr, &user, 0, 0);
+	ID3D11Buffer* userBuffer = m_PostUserBuffer.Get();
+	ID3D11Buffer* depthBuffer = m_SceneDepthBuffer.Get();
+	m_DeviceContext->PSSetConstantBuffers(kPostUserSlot, 1, &userBuffer);
+	m_DeviceContext->PSSetConstantBuffers(kSceneDepthSlot, 1, &depthBuffer);
+
+	DrawPostToBackBuffer();
+
+	// 深度のテクスチャを外し、UI(と ImGui)が画面へ描けるよう、深度付きでバックバッファを描画先に戻します。
+	ID3D11ShaderResourceView* nullView = nullptr;
+	m_DeviceContext->PSSetShaderResources(kDepthTextureSlot, 1, &nullView);
+	m_DeviceContext->OMSetRenderTargets(1, &backBuffer, m_DepthStencilView.Get());
+	m_DeviceContext->RSSetViewports(1, &fullViewport);
+	SetDepthEnable(true);
+	SetBlendMode(RenderBlendMode::Alpha);
+}
+
+void Renderer::DrawPostToBackBuffer()
+{
 	{
 		const ShaderDefinition* definition = m_PostDefinitionId.empty()
 			? nullptr : FindShaderDefinition(m_PostDefinitionId);
@@ -557,8 +682,6 @@ void Renderer::End()
 			m_DeviceContext->OMSetRenderTargets(1, &backBuffer, nullptr);
 			if (definition->GenerateMips) m_DeviceContext->GenerateMips(m_SceneResource.Get());
 			DrawPostDefinition(*definition);
-			if (m_OverlayCallback != nullptr) m_OverlayCallback();
-			m_SwapChain->Present(1, 0);
 			return;
 		}
 		const VertexShaderHandle vs = ResourceManager::LoadVertexShader(definition
@@ -597,13 +720,9 @@ void Renderer::End()
 		}
 		else
 		{
-			ComPtr<ID3D11Resource> backResource;
-			m_RenderTargetView->GetResource(backResource.GetAddressOf());
-			m_DeviceContext->CopyResource(backResource.Get(), m_SceneTexture.Get());
+			CopySceneIfCompatible(m_DeviceContext.Get(), m_RenderTargetView.Get(), m_SceneTexture.Get());
 		}
 	}
-	if (m_OverlayCallback != nullptr) m_OverlayCallback();
-	m_SwapChain->Present( 1, 0 );
 }
 
 bool Renderer::SetPostEffectDefinition(std::string_view id)
@@ -634,9 +753,7 @@ void Renderer::DrawPostDefinition(const ShaderDefinition& definition)
 		pixelShaders[i] = ResourceManager::LoadPixelShader(std::string(definition.Passes[i].PixelFile));
 		if (!vertexShaders[i] || !pixelShaders[i])
 		{
-			ComPtr<ID3D11Resource> backResource;
-			m_RenderTargetView->GetResource(backResource.GetAddressOf());
-			m_DeviceContext->CopyResource(backResource.Get(), m_SceneTexture.Get());
+			CopySceneIfCompatible(m_DeviceContext.Get(), m_RenderTargetView.Get(), m_SceneTexture.Get());
 			return;
 		}
 	}
@@ -763,6 +880,16 @@ void Renderer::SetProjectionMatrix(XMMATRIX ProjectionMatrix)
 	XMFLOAT4X4 projectionf;
 	XMStoreFloat4x4(&projectionf, XMMatrixTranspose(ProjectionMatrix));
 	m_DeviceContext->UpdateSubresource(m_ProjectionBuffer.Get(), 0, NULL, &projectionf, 0, 0);
+
+	// 3Dの透視投影(左手系)のときだけ、ポスト効果が深度から位置を戻すための値を覚えます。
+	// UI 用の正射影(SetWorldViewProjection2D)では上書きしません。
+	//   ビューの奥行き z = m43 / (深度 - m33)、ビューの xy = NDC の xy * (1/m11, 1/m22) * z
+	XMFLOAT4X4 projection;
+	XMStoreFloat4x4(&projection, ProjectionMatrix);
+	if (projection._34 != 0.0f && projection._44 == 0.0f && projection._11 != 0.0f && projection._22 != 0.0f)
+	{
+		m_DepthProjection = { projection._33, projection._43, 1.0f / projection._11, 1.0f / projection._22 };
+	}
 
 }
 

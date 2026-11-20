@@ -86,32 +86,52 @@ void RenderQueue::Execute()
 
 	// 各スコープは直前スコープの復元後=同一ベースラインを再取得していただけなので、
 	// スナップショットは1回だけ取得し、各Draw後に同じ状態へ復元します。
-	Engine::RendererStateScope stateScope;
-	auto draw = [&stateScope](const RenderItem& item)
-	{
-		if (item.Object == nullptr)
-		{
-			return;
-		}
-		item.Object->RunDraw();
-		stateScope.Restore();
-	};
-
-	// カメラ層が先頭に並びます。カメラがライトと視点を設定してから影を描き、その後で通常の描画をします。
 	std::size_t index = 0;
-	for (; index < m_Items.size() && m_Items[index].ObjectLayer == Layer::Camera; ++index)
 	{
-		draw(m_Items[index]);
+		Engine::RendererStateScope stateScope;
+		auto draw = [&stateScope](const RenderItem& item)
+		{
+			if (item.Object == nullptr)
+			{
+				return;
+			}
+			item.Object->RunDraw();
+			stateScope.Restore();
+		};
+
+		// カメラ層が先頭に並びます。カメラがライトと視点を設定してから影を描き、その後で通常の描画をします。
+		for (; index < m_Items.size() && m_Items[index].ObjectLayer == Layer::Camera; ++index)
+		{
+			draw(m_Items[index]);
+		}
+		if (m_HasShadowFocus)
+		{
+			ExecuteShadowPass(index);
+			// 影パスは描画先・視点・ラスタライザを切り替えるので、元のベースラインへ戻します。
+			stateScope.Restore();
+		}
+		// UI より前(ワールド・エフェクト)を描きます。
+		for (; index < m_Items.size() && m_Items[index].ObjectLayer != Layer::UI; ++index)
+		{
+			draw(m_Items[index]);
+		}
 	}
-	if (m_HasShadowFocus)
+	if (index >= m_Items.size())
 	{
-		ExecuteShadowPass(index);
-		// 影パスは描画先・視点・ラスタライザを切り替えるので、元のベースラインへ戻します。
-		stateScope.Restore();
+		return;
 	}
+
+	// HUD の文字がブルームや歪みを受けないよう、ポスト効果を先に画面へ解決してから UI を描きます。
+	// 解決後は描画先がバックバッファなので、スナップショットはここで取り直します(前のスコープへは戻しません)。
+	Engine::Renderer::ResolvePostEffects();
+	Engine::RendererStateScope uiScope;
 	for (; index < m_Items.size(); ++index)
 	{
-		draw(m_Items[index]);
+		if (m_Items[index].Object != nullptr)
+		{
+			m_Items[index].Object->RunDraw();
+			uiScope.Restore();
+		}
 	}
 }
 
