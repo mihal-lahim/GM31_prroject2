@@ -461,8 +461,16 @@ void SlowPlayer::UpdateSword()
 	}
 	edge.normalize();
 	const Vector3 side = Vector3::cross(edge, up);
-	const Vector3 grip = (knuckles + secondJoints) * 0.5f
+	Vector3 grip = (knuckles + secondJoints) * 0.5f
 		+ edge * tuning.SwordGripOffsetX + up * tuning.SwordGripOffsetY + side * tuning.SwordGripOffsetZ;
+	// 溜めの間は、力んで剣が微かに震えるように見せます(速さの違う3つの波を重ねて、規則的に見えないようにします)。
+	if (m_State == State::Charge)
+	{
+		const float t = m_ChargeTime;
+		const float amount = tuning.ChargeShakeMeters;
+		grip = grip + Vector3(sinf(t * 37.0f) + 0.5f * sinf(t * 53.0f), cosf(t * 29.0f), sinf(t * 23.0f) + 0.5f * cosf(t * 41.0f))
+			* amount;
+	}
 
 	// 行ベクトルの規約(DirectXMath)なので、各行が剣のローカル軸のワールドでの向きです。
 	const XMMATRIX basis(
@@ -498,11 +506,41 @@ void SlowPlayer::StartCharge(const SlowInputState& input)
 	options.FadeOut = 0.12f;
 	options.RootMotionMode = Anim::RootMotion::Lock;
 	m_Model->PlayAction("Strong", options);
+	m_ChargeTime = 0.0f;
+	// 強攻撃が出せるようになった瞬間、剣先がキラッと光ります(実時間)。
+	if (m_SwordAttached)
+	{
+		const float blade = kSwordBladeLength * tuning.SwordScale;
+		EmitBurst(m_SwordGrip + m_SwordAxis * blade, 12, 2.0f, 0.12f, 16, { 1.0f, 1.0f, 0.85f, 1.0f });
+	}
+}
+
+// 溜めの間、周囲の光の粒が剣の握りへ吸い込まれていきます。粒は実時間(チャンネル0)で動きます。
+void SlowPlayer::EmitChargeGather()
+{
+	const SlowActionTuning& tuning = GetSlowActionTuning();
+	const float life = 22.0f;
+	const float lifeSeconds = life / 60.0f;
+	for (int i = 0; i < tuning.ChargeGatherPerFrame; ++i)
+	{
+		const float angle = RandomRange(0.0f, XM_2PI);
+		const float distance = tuning.ChargeGatherRadius * sqrtf(RandomRange(0.3f, 1.0f));
+		const Vector3 start = m_SwordGrip + Vector3(cosf(angle) * distance, RandomRange(-0.3f, 0.6f), sinf(angle) * distance);
+		// 握りへ届くように、残りの寿命で割った速さで向かわせます。
+		const Vector3 velocity = (m_SwordGrip - start) / lifeSeconds;
+		ParticleSystem::Emit(start, velocity, RandomRange(0.05f, 0.1f), static_cast<int>(life),
+			{ 0.8f, 0.95f, 1.0f, 0.8f }, 0.0f, 0.95f);
+	}
 }
 
 void SlowPlayer::UpdateCharge(const SlowInputState& input, float deltaTime)
 {
 	const SlowActionTuning& tuning = GetSlowActionTuning();
+	m_ChargeTime += deltaTime;
+	if (m_SwordAttached)
+	{
+		EmitChargeGather();
+	}
 	// 動けない代わりに、入力した方向へ向き直せます。離した瞬間の狙いを付けるためです。
 	const SlowCamera* camera = GetWorld().FindFirst<SlowCamera>();
 	const float cameraYaw = camera != nullptr ? camera->GetYaw() : 0.0f;

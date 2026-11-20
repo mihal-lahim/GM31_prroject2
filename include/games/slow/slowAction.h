@@ -234,6 +234,8 @@ private:
 	float m_BankDegrees = 0.0f;
 	float m_LeanDegrees = 0.0f;
 	float m_LeanPreviousYaw = 0.0f;
+	// 溜めに入ってからの実時間です。剣の震えの波に使います。
+	float m_ChargeTime = 0.0f;
 	// 当たる瞬間の位相(Start〜Endを0〜1)です。クリップの位相で当たりを出すときに使います。
 	float m_AttackHitPhase = 0.0f;
 	// trueなら当たりはクリップの位相(ActionPassed)で出し、falseなら秒数(クリップが読めないとき)で出します。
@@ -244,6 +246,8 @@ private:
 
 	void StartCharge(const SlowInputState& input);
 	void UpdateCharge(const SlowInputState& input, float deltaTime);
+	// 溜めの間、周囲の光の粒を剣の握りへ吸い込ませます。
+	void EmitChargeGather();
 	void StartAttack(AttackType type, const SlowInputState& input);
 	// 通常攻撃のロック先へ向きを追わせ、踏み込みます。当たる瞬間までだけ動きます。
 	void UpdateAttackLunge(float deltaTime);

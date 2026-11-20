@@ -277,3 +277,11 @@ SLOW_TUNING_FLOAT(BankDegreesPerYawRate, 1.0f)
 SLOW_TUNING_FLOAT(BankSmoothing, 8.0f)
 // ダッシュ中に前へ傾ける角度(度)です。
 SLOW_TUNING_FLOAT(DashLeanDegrees, 6.0f)
+
+// ---- 溜めの演出 ----
+// 溜めの間の剣の微かな震えの大きさ(m)です。
+SLOW_TUNING_FLOAT(ChargeShakeMeters, 0.012f)
+// 溜めの間、周囲の光の粒が剣へ吸い込まれる範囲の半径(m)です。
+SLOW_TUNING_FLOAT(ChargeGatherRadius, 1.4f)
+// 溜めの間、1フレームに吸い込まれる光の粒の数です。
+SLOW_TUNING_INT(ChargeGatherPerFrame, 2)
