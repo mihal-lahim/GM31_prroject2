@@ -58,6 +58,9 @@ inline constexpr std::array<ShaderPass, 1> RealisticWaterPasses{{
 inline constexpr std::array<ShaderPass, 1> RealisticFoliagePasses{{
 	{ "classroomLitVS.cso", "realisticFoliagePS.cso" }
 }};
+inline constexpr std::array<ShaderPass, 1> RealisticArenaPasses{{
+	{ "classroomLitVS.cso", "realisticArenaPS.cso" }
+}};
 inline constexpr std::array<ShaderPass, 1> InvertPostPasses{{
 	{ "spPostVS.cso", "invertPostPS.cso" }
 }};
@@ -107,7 +110,7 @@ inline constexpr std::array<ShaderPass, 2> Sp31ToonBackfacePasses{{
 inline constexpr std::array<ShaderPass, 1> Sp31SpotFieldPasses{{ { "Sp31PixelLitVS.cso", "Sp31SpotLightingPS.cso" } }};
 inline constexpr std::array<ShaderPass, 1> Sp31BumpFieldPasses{{ { "Sp31PixelLitVS.cso", "Sp31BumpPS.cso" } }};
 
-inline constexpr std::array<ShaderDefinition, 24> ShaderCatalog{{
+inline constexpr std::array<ShaderDefinition, 25> ShaderCatalog{{
 	{ "sample-stripes", L"Sample Stripes", ShaderUsage::Surface,
 		SampleStripesPasses,
 		{ "stripeCount", "contrast", "lightMix", "phase" }, { 12.0f, 0.75f, 0.7f, 0.0f } },
@@ -129,6 +132,11 @@ inline constexpr std::array<ShaderDefinition, 24> ShaderCatalog{{
 	{ "realistic-foliage", L"Realistic Foliage", ShaderUsage::Surface,
 		RealisticFoliagePasses,
 		{}, { 0.0f, 0.0f, 0.0f, 0.0f } },
+	// 同じ照明で、テクスチャを使わずワールド座標から石材・コンクリートのブロック(目地・ムラ・接地の陰)を作る面。
+	// 素地の色はモデルの材質色。SlowAction の闘技場(床・壁・障害物)が使う。
+	{ "realistic-arena", L"Realistic Arena", ShaderUsage::Surface,
+		RealisticArenaPasses,
+		{ "roughness", "metallic", "tileScale", "weathering" }, { 0.85f, 0.0f, 1.0f, 0.6f } },
 	{ "post-invert", L"Invert", ShaderUsage::Post,
 		InvertPostPasses,
 		{ "strength", {}, {}, {} }, { 1.0f, 0.0f, 0.0f, 0.0f }, -1, false,

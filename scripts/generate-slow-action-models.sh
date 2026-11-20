@@ -74,10 +74,11 @@ make_model slowBullet        "Core 1.00 0.35 0.85" -- "Core 0 0 0 0.18 0.18 0.18
 make_model slowBulletDeflected "Core 0.40 1.00 1.00" -- "Core 0 0 0 0.18 0.18 0.18"
 
 # -1〜1の立方体です。scaleがそのまま半サイズになります。
-make_model slowWall     "Wall 0.36 0.42 0.52" -- "Wall 0 0 0 1 1 1"
-make_model slowObstacle "Obstacle 0.20 0.62 0.60" -- "Obstacle 0 0 0 1 1 1"
+# 壁は風化したコンクリート、障害物は暗い鉄混じりの石です。石材の模様は realistic-arena シェーダーが付けます。
+make_model slowWall     "Wall 0.50 0.48 0.45" -- "Wall 0 0 0 1 1 1"
+make_model slowObstacle "Obstacle 0.21 0.22 0.24" -- "Obstacle 0 0 0 1 1 1"
 
-# 40m四方の床です。2mの市松模様にして、移動速度を目で追えるようにします。
+# 40m四方の床です。2mの敷石を明るさだけ少し変えた市松にして、移動速度を目で追えるようにします。
 tiles=()
 for ix in $(seq 0 19); do
 	for iz in $(seq 0 19); do
@@ -85,4 +86,4 @@ for ix in $(seq 0 19); do
 		tiles+=("$m $((ix * 2 - 19)) -0.5 $((iz * 2 - 19)) 1 0.5 1 top")
 	done
 done
-make_model slowFloor "TileA 0.30 0.32 0.36" "TileB 0.22 0.24 0.28" -- "${tiles[@]}"
+make_model slowFloor "TileA 0.40 0.37 0.33" "TileB 0.35 0.32 0.29" -- "${tiles[@]}"

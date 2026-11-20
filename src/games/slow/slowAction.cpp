@@ -216,18 +216,22 @@ void SlowBlock::Init()
 	m_Layer = Layer::World;
 	// モデルは-1〜1の立方体なので、scaleがそのまま見た目と当たり判定の半サイズになります。
 	// 壁用と障害物用の色違いを両方持ち、Obstacleの値で見せる方を切り替えます。
-	const auto addModel = [this](const char* path)
+	// 壁は風化したコンクリートの大きなブロック、障害物は暗い鉄混じりの石柱で、粗さと金属度で質感を分けます。
+	const auto addModel = [this](const char* path, float roughness, float metallic, float tileScale, float weathering)
 	{
 		ModelRenderer* model = AddComponent<ModelRenderer>()->SetUseOwnerTransform();
 		model->Load(path);
-		if (model->SetShaderDefinition("realistic"))
+		if (model->SetShaderDefinition("realistic-arena"))
 		{
-			model->SetShaderFloat("roughness", 0.85f);
+			model->SetShaderFloat("roughness", roughness);
+			model->SetShaderFloat("metallic", metallic);
+			model->SetShaderFloat("tileScale", tileScale);
+			model->SetShaderFloat("weathering", weathering);
 		}
 		return model;
 	};
-	m_WallModel = addModel("assets\\model\\slowWall.obj");
-	m_ObstacleModel = addModel("assets\\model\\slowObstacle.obj");
+	m_WallModel = addModel("assets\\model\\slowWall.obj", 0.88f, 0.0f, 1.6f, 0.75f);
+	m_ObstacleModel = addModel("assets\\model\\slowObstacle.obj", 0.52f, 0.45f, 0.8f, 0.55f);
 	OnPropertiesChanged();
 	AddComponent<Collider>()
 		->SetAABB({ 1.0f, 1.0f, 1.0f })
@@ -251,9 +255,13 @@ void SlowFloor::Init()
 	m_Layer = Layer::World;
 	ModelRenderer* model = AddComponent<ModelRenderer>()->SetUseOwnerTransform();
 	model->Load("assets\\model\\slowFloor.obj");
-	if (model->SetShaderDefinition("realistic"))
+	// 床は暗めの石畳(2mの敷石)です。
+	if (model->SetShaderDefinition("realistic-arena"))
 	{
-		model->SetShaderFloat("roughness", 0.9f);
+		model->SetShaderFloat("roughness", 0.82f);
+		model->SetShaderFloat("metallic", 0.0f);
+		model->SetShaderFloat("tileScale", 2.0f);
+		model->SetShaderFloat("weathering", 0.6f);
 	}
 }
 
