@@ -2472,6 +2472,150 @@ namespace
 		return ok;
 	}
 
+	bool TestRuntimeConfigDefaultsAndDuplicateSaveKeys()
+	{
+		using Engine::RuntimeConfig;
+		constexpr float nan = std::numeric_limits<float>::quiet_NaN();
+		constexpr float inf = std::numeric_limits<float>::infinity();
+		const std::string missing = "selftest.cycle11.missing";
+
+		// 未登録の整数は float を経由せず、既定値そのままです。
+		bool ok = RuntimeConfig::GetInt(missing, 16777217) == 16777217
+			&& RuntimeConfig::GetInt(missing, (std::numeric_limits<int>::max)()) == (std::numeric_limits<int>::max)()
+			&& RuntimeConfig::GetInt(missing, (std::numeric_limits<int>::min)()) == (std::numeric_limits<int>::min)()
+			&& RuntimeConfig::GetInt(missing, 16777217, 0, (std::numeric_limits<int>::max)()) == 16777217;
+
+		// NaN の既定値や範囲でも、有限の値を返します。
+		ok &= RuntimeConfig::GetFloat(missing, 5.0f, nan, nan) == 5.0f
+			&& RuntimeConfig::GetFloat(missing, nan, 1.0f, 2.0f) == 1.0f
+			&& RuntimeConfig::GetFloat(missing, nan, -2.0f, 3.0f) == 0.0f
+			&& RuntimeConfig::GetFloat(missing, 5.0f, nan, 2.0f) == 2.0f
+			&& RuntimeConfig::GetFloat(missing, 5.0f, 7.0f, nan) == 7.0f
+			&& std::isfinite(RuntimeConfig::GetFloat(missing, inf, -inf, inf))
+			&& std::isfinite(RuntimeConfig::GetFloat(missing, 5.0f, inf, inf));
+
+		// 同じキーが何度あっても、新規でも既存でも最後の値を書きます。
+		const std::vector<std::pair<std::string, std::string>> entries{
+			{ "alpha", "1" }, { "beta", "2" }, { "alpha", "3" } };
+		const auto readLines = [](const std::filesystem::path& path)
+		{
+			std::vector<std::string> lines;
+			std::ifstream in(path);
+			std::string line;
+			while (std::getline(in, line)) lines.push_back(line);
+			return lines;
+		};
+		const std::filesystem::path path = std::filesystem::temp_directory_path() / "engine-self-test-duplicate-keys.cfg";
+		std::error_code error;
+		std::filesystem::remove(path, error);
+		ok &= RuntimeConfig::SavePreservingComments(path, entries)
+			&& readLines(path) == std::vector<std::string>{ "alpha=3", "beta=2" };
+		{
+			std::ofstream file(path, std::ios::trunc);
+			file << "# keep\nalpha=0\n";
+		}
+		ok &= RuntimeConfig::SavePreservingComments(path, entries)
+			&& readLines(path) == std::vector<std::string>{ "# keep", "alpha=3", "beta=2" };
+		std::filesystem::remove(path, error);
+		return ok;
+	}
+
+	bool TestObjLoaderRejectsNonFiniteAndKeepsSpacedMaterialNames()
+	{
+		const std::filesystem::path directory = std::filesystem::temp_directory_path() / "gm31 selftest obj cycle11";
+		std::error_code error;
+		std::filesystem::create_directories(directory, error);
+		{
+			std::ofstream material(directory / "materials.mtl", std::ios::trunc);
+			material << "newmtl Steel Plate\n"
+				"Kd 0.25 0.5 0.75\n"
+				// NaN を含む行・途中に読めない値がある行は、成分の一部も書き換えません。
+				"Kd nan 0 0\n"
+				"Kd 0.5 bad 0.5\n"
+				"Ka inf 0 0\n"
+				"Ns inf\n"
+				"d nan\n"
+				"map_Kd steel plate.png\n"
+				// 先頭の単語が同じ別のマテリアルです(以前は Steel Plate がこれと衝突しました)。
+				"newmtl Steel\n"
+				"Kd 1 1 1\n"
+				"newmtl   \n";
+		}
+		{
+			std::ofstream model(directory / "model.obj", std::ios::trunc);
+			model << "mtllib materials.mtl\n"
+				"v 0 0 0\n"
+				// 読めない・NaN・無限大の頂点も番号は保ちます(原点に置き換え)。飛ばすと後ろの番号がずれて下の面が壊れます。
+				"v nan 0 0\n"
+				"v 1 0 0\n"
+				"v 0 inf 1\n"
+				"v 0 1 0\n"
+				"vn inf 0 0\n"
+				"vt nan 0\n"
+				"usemtl Steel Plate\n"
+				"f 1 3 5\n"
+				"f 2 4 5\n";
+		}
+
+		MODEL_OBJ model;
+		ObjModelLoader::LoadObj((directory / "model.obj").string().c_str(), &model);
+		std::filesystem::remove_all(directory, error);
+
+		bool ok = model.IndexNum == 6 && model.SubsetNum == 1;
+		bool foundRight = false;
+		bool foundUp = false;
+		for (const Engine::VERTEX_3D& vertex : model.VertexArray)
+		{
+			ok &= std::isfinite(vertex.Position.x) && std::isfinite(vertex.Position.y) && std::isfinite(vertex.Position.z)
+				&& std::isfinite(vertex.Normal.x) && std::isfinite(vertex.Normal.y) && std::isfinite(vertex.Normal.z)
+				&& std::isfinite(vertex.TexCoord.x) && std::isfinite(vertex.TexCoord.y);
+			foundRight |= vertex.Position.x == 1.0f && vertex.Position.y == 0.0f && vertex.Position.z == 0.0f;
+			foundUp |= vertex.Position.x == 0.0f && vertex.Position.y == 1.0f && vertex.Position.z == 0.0f;
+		}
+		ok &= foundRight && foundUp;
+		if (model.SubsetNum == 1)
+		{
+			const MODEL_MATERIAL& material = model.SubsetArray[0].Material;
+			const Engine::MATERIAL& values = material.Material;
+			ok &= material.Name == "Steel Plate"
+				&& values.Diffuse.x == 0.25f && values.Diffuse.y == 0.5f && values.Diffuse.z == 0.75f && values.Diffuse.w == 1.0f
+				&& std::isfinite(values.Ambient.x) && std::isfinite(values.Shininess)
+				&& std::filesystem::path(material.TextureName).filename() == "steel plate.png";
+		}
+		return ok;
+	}
+
+	bool TestClothRejectsNonFiniteWindAndSkipsHeadlessDraw()
+	{
+		constexpr float nan = std::numeric_limits<float>::quiet_NaN();
+		constexpr float inf = std::numeric_limits<float>::infinity();
+		World world;
+		auto* cloth = world.Spawn<Engine::Cloth>(MakeTestClothSettings());
+		cloth->SetPosition({ 0.0f, 2.0f, 0.0f });
+		cloth->SetWind({ 1.0f, 0.0f, 0.0f }, 0.5f);
+
+		// NaN・無限大の風は反映せず、有限な方だけを反映します。
+		cloth->SetWind({ nan, 0.0f, 0.0f }, inf);
+		const Engine::ClothSettings& settings = cloth->GetSimulation().GetSettings();
+		bool ok = settings.Wind.x == 1.0f && settings.Wind.y == 0.0f && settings.Wind.z == 0.0f
+			&& settings.WindTurbulence == 0.5f;
+		cloth->SetWind({ 0.0f, 0.0f, inf }, 0.25f);
+		ok &= settings.Wind.x == 1.0f && settings.WindTurbulence == 0.25f;
+		cloth->SetWind({ 0.0f, 0.0f, 2.0f }, nan);
+		ok &= settings.Wind.z == 2.0f && settings.WindTurbulence == 0.25f;
+
+		for (int i = 0; i < 30; ++i) cloth->Simulate(1.0f / 60.0f);
+		ok &= cloth->GetSimulation().IsFinite();
+
+		// GPU が無いので描画の資源は作れず、Draw / DrawShadow は何もせずに戻ります。
+		cloth->Draw();
+		cloth->DrawShadow();
+		cloth->Uninit();
+		cloth->Draw();
+		cloth->DrawShadow();
+		return ok && cloth->GetSimulation().IsFinite();
+	}
+
 	bool TestDynamicTextUninitThenDraw()
 	{
 		World world;
@@ -2717,6 +2861,9 @@ bool RunEngineSelfTests()
 		{ "collision rejects non-finite input", TestCollisionRejectsNonFiniteInput },
 		{ "game time pause clears finished hit stop", TestGameTimePauseClearsFinishedHitStop },
 		{ "keyboard kill focus releases keys", TestKeyboardKillFocusReleasesKeys },
+		{ "runtime config defaults and duplicate save keys", TestRuntimeConfigDefaultsAndDuplicateSaveKeys },
+		{ "obj loader rejects non-finite and keeps spaced material names", TestObjLoaderRejectsNonFiniteAndKeepsSpacedMaterialNames },
+		{ "cloth rejects non-finite wind and skips headless draw", TestClothRejectsNonFiniteWindAndSkipsHeadlessDraw },
 	};
 
 	// どの項目で落ちたか分かるよう、全項目を実行して結果をログへ残します。

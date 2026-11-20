@@ -122,7 +122,14 @@ float Engine::RuntimeConfig::GetFloat(const std::string& key, float defaultValue
 
 int Engine::RuntimeConfig::GetInt(const std::string& key, int defaultValue)
 {
-	const float value = GetFloat(key, static_cast<float>(defaultValue));
+	// 未登録なら既定値をそのまま返します。float を経由すると 2^24 を超える整数が別の値に丸まり、
+	// INT_MAX は範囲外の 2147483648 になってしまうためです。
+	const auto found = g_Values.find(key);
+	if (found == g_Values.end())
+	{
+		return defaultValue;
+	}
+	const float value = found->second;
 	const float rounded = std::round(value);
 	if (!std::isfinite(value)
 		|| std::abs(value - rounded) > 0.0001f
@@ -141,12 +148,34 @@ float Engine::RuntimeConfig::GetFloat(
 	float minimum,
 	float maximum)
 {
+	// std::clamp に NaN を渡すと前提を満たさない(未定義動作)ので、範囲は有限の値へ直します。
+	// NaN の端はその側に制限が無いもの、無限大の端は float の最大・最小として扱います。
+	const auto finiteBound = [](float bound, float fallback)
+	{
+		if (std::isnan(bound))
+		{
+			return fallback;
+		}
+		if (std::isinf(bound))
+		{
+			return bound > 0.0f ? (std::numeric_limits<float>::max)() : std::numeric_limits<float>::lowest();
+		}
+		return bound;
+	};
+	minimum = finiteBound(minimum, std::numeric_limits<float>::lowest());
+	maximum = finiteBound(maximum, (std::numeric_limits<float>::max)());
 	if (minimum > maximum)
 	{
 		std::swap(minimum, maximum);
 	}
 
-	const float value = GetFloat(key, defaultValue);
+	float value = GetFloat(key, defaultValue);
+	if (!std::isfinite(value))
+	{
+		// 読み込んだ値は常に有限なので、ここへ来るのは未登録で既定値が NaN・無限大のときだけです。
+		LogConfigWarning("'" + key + "' has a non-finite default value. Using 0 within the safe range.");
+		return std::clamp(0.0f, minimum, maximum);
+	}
 	const float clamped = std::clamp(value, minimum, maximum);
 	if (clamped != value)
 	{
@@ -261,11 +290,13 @@ bool Engine::RuntimeConfig::SavePreservingComments(
 	}
 
 	// 無かったキーは末尾へ追記します(新規ファイルなら、ここで全キーが並びます)。
-	for (const auto& [key, text] : entries)
+	// 同じキーが何度もあるときは、既存の行の書き換えと同じく最後の値を書きます。
+	for (const auto& entry : entries)
 	{
+		const std::string& key = entry.first;
 		if (written.insert(key).second)
 		{
-			lines.push_back(key + "=" + text);
+			lines.push_back(key + "=" + values.at(key));
 		}
 	}
 

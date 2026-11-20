@@ -5,6 +5,7 @@
 
 #include <algorithm>
 #include <cerrno>
+#include <cmath>
 #include <cstdint>
 #include <cstdlib>
 #include <limits>
@@ -125,6 +126,43 @@ namespace
 		std::string rest;
 		std::getline(stream, rest);
 		return Trim(rest);
+	}
+
+	// count 個の数を一時変数へ読み、すべて読めて有限なときだけ out へ書きます。
+	// MSVC のストリームは "nan" や "inf" も読めてしまうので、有限かどうかも確かめます。
+	// 途中で失敗した行は、成分の一部だけが書き換わることのないよう、何も変えません。
+	bool ReadFiniteFloats(std::stringstream& stream, float* out, int count)
+	{
+		float values[4]{};
+		for (int i = 0; i < count; ++i)
+		{
+			if (!(stream >> values[i]) || !std::isfinite(values[i]))
+			{
+				return false;
+			}
+		}
+		for (int i = 0; i < count; ++i)
+		{
+			out[i] = values[i];
+		}
+		return true;
+	}
+
+	// 頂点の行(v / vn / vt)用です。面は頂点を通し番号で指すので、行を飛ばすと後ろの頂点の番号が
+	// 全部ずれて、正しい面まで別の頂点を指してしまいます。そこで読めない値("nan" など、処理系によっては
+	// 数として読めない)や NaN・無限大を含む行も1つの頂点として数え、fallback の値で埋めます。
+	void ReadVertexFloats(std::stringstream& stream, float* out, const float* fallback, int count)
+	{
+		float values[4]{};
+		bool valid = true;
+		for (int i = 0; valid && i < count; ++i)
+		{
+			valid = (stream >> values[i]) && std::isfinite(values[i]);
+		}
+		for (int i = 0; i < count; ++i)
+		{
+			out[i] = valid ? values[i] : fallback[i];
+		}
 	}
 
 	struct ObjVertexRef
@@ -297,37 +335,33 @@ void ObjModelLoader::LoadObj(const char* FileName, MODEL_OBJ* ModelObj)
 		}
 		else if (token == "usemtl")
 		{
-			std::string materialName;
-			stream >> materialName;
+			// 空白を含む名前(newmtl と同じく行の残り全体)で探します。
+			const std::string materialName = RestOfLine(stream);
 			auto material = materials.find(materialName);
 			currentMaterial = (material != materials.end()) ? material->second : MakeDefaultMaterial(materialName);
 			BeginSubset(*ModelObj, currentMaterial);
 		}
 		else if (token == "v")
 		{
-			XMFLOAT3 position{};
-			if (stream >> position.x >> position.y >> position.z)
-			{
-				positions.push_back(position);
-			}
+			// 読めない・非有限の位置は原点に置き換えます(番号を保つため。ReadVertexFloats)。
+			constexpr float fallback[3] = { 0.0f, 0.0f, 0.0f };
+			float values[3]{};
+			ReadVertexFloats(stream, values, fallback, 3);
+			positions.push_back({ values[0], values[1], values[2] });
 		}
 		else if (token == "vn")
 		{
-			XMFLOAT3 normal{};
-			if (stream >> normal.x >> normal.y >> normal.z)
-			{
-				normals.push_back(normal);
-			}
+			constexpr float fallback[3] = { 0.0f, 1.0f, 0.0f };
+			float values[3]{};
+			ReadVertexFloats(stream, values, fallback, 3);
+			normals.push_back({ values[0], values[1], values[2] });
 		}
 		else if (token == "vt")
 		{
-			XMFLOAT2 texcoord{};
-			if (stream >> texcoord.x >> texcoord.y)
-			{
-				texcoord.x = 1.0f - texcoord.x;
-				texcoord.y = 1.0f - texcoord.y;
-				texcoords.push_back(texcoord);
-			}
+			constexpr float fallback[2] = { 0.0f, 0.0f };
+			float values[2]{};
+			ReadVertexFloats(stream, values, fallback, 2);
+			texcoords.push_back({ 1.0f - values[0], 1.0f - values[1] });
 		}
 		else if (token == "f")
 		{
@@ -406,8 +440,8 @@ void ObjModelLoader::LoadMaterial(const char* FileName, std::unordered_map<std::
 
 		if (token == "newmtl")
 		{
-			std::string name;
-			stream >> name;
+			// 空白を含む名前(例: Steel Plate)も1つの名前として扱います。空の名前は無視します。
+			const std::string name = RestOfLine(stream);
 			if (!name.empty())
 			{
 				MaterialMap[name] = MakeDefaultMaterial(name);
@@ -418,28 +452,32 @@ void ObjModelLoader::LoadMaterial(const char* FileName, std::unordered_map<std::
 		{
 			continue;
 		}
-		else if (token == "Ka")
+		else if (token == "Ka" || token == "Kd" || token == "Ks")
 		{
-			stream >> currentMaterial->Material.Ambient.x >> currentMaterial->Material.Ambient.y >> currentMaterial->Material.Ambient.z;
-			currentMaterial->Material.Ambient.w = 1.0f;
-		}
-		else if (token == "Kd")
-		{
-			stream >> currentMaterial->Material.Diffuse.x >> currentMaterial->Material.Diffuse.y >> currentMaterial->Material.Diffuse.z;
-			currentMaterial->Material.Diffuse.w = 1.0f;
-		}
-		else if (token == "Ks")
-		{
-			stream >> currentMaterial->Material.Specular.x >> currentMaterial->Material.Specular.y >> currentMaterial->Material.Specular.z;
-			currentMaterial->Material.Specular.w = 1.0f;
+			// 3成分すべてが読めて有限なときだけ反映します(壊れた行で一部だけ変わらないように)。
+			float values[3]{};
+			if (ReadFiniteFloats(stream, values, 3))
+			{
+				XMFLOAT4& color = token == "Ka" ? currentMaterial->Material.Ambient
+					: token == "Kd" ? currentMaterial->Material.Diffuse : currentMaterial->Material.Specular;
+				color = { values[0], values[1], values[2], 1.0f };
+			}
 		}
 		else if (token == "Ns")
 		{
-			stream >> currentMaterial->Material.Shininess;
+			float value = 0.0f;
+			if (ReadFiniteFloats(stream, &value, 1))
+			{
+				currentMaterial->Material.Shininess = value;
+			}
 		}
 		else if (token == "d")
 		{
-			stream >> currentMaterial->Material.Diffuse.w;
+			float value = 0.0f;
+			if (ReadFiniteFloats(stream, &value, 1))
+			{
+				currentMaterial->Material.Diffuse.w = value;
+			}
 		}
 		else if (token == "map_Kd")
 		{

@@ -585,6 +585,10 @@ void Cloth::CreateGpuResources()
 	vertexDescription.ByteWidth = static_cast<UINT>(particles.size() * 2 * sizeof(VERTEX_3D));
 	vertexDescription.BindFlags = D3D11_BIND_VERTEX_BUFFER;
 	vertexDescription.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
+	// 作り直しに備えて先に手放します。
+	m_VertexBuffer.Reset();
+	m_IndexBuffer.Reset();
+	m_IndexCount = 0;
 	m_RenderingAvailable = GraphicsResourceFactory::CreateBuffer(
 		m_VertexBuffer, vertexDescription, nullptr, "Cloth");
 
@@ -607,6 +611,14 @@ void Cloth::CreateGpuResources()
 	m_IndexCount = static_cast<UINT>(indices.size());
 
 	m_RenderingAvailable = m_Surface.Load(SurfaceShader::Directional, m_Texture) && m_RenderingAvailable;
+	if (!m_RenderingAvailable)
+	{
+		// どれか1つでも作れなければ、作れた分も手放して半端な状態を残しません。
+		// 布の計算(m_Simulation)はGPUと無関係なので、描画の資源だけを戻します。
+		m_VertexBuffer.Reset();
+		m_IndexBuffer.Reset();
+		m_IndexCount = 0;
+	}
 }
 
 void Cloth::SetTexture(TextureHandle texture)
@@ -623,9 +635,16 @@ bool Cloth::SetShaderDefinition(std::string_view id)
 
 void Cloth::SetWind(const Vector3& velocity, float turbulence)
 {
+	// NaN・無限大は次の Step で全粒子を NaN にするので、有限な方だけを反映します。
 	ClothSettings& settings = m_Simulation.GetSettings();
-	settings.Wind = velocity;
-	settings.WindTurbulence = turbulence;
+	if (IsFiniteVector(velocity))
+	{
+		settings.Wind = velocity;
+	}
+	if (std::isfinite(turbulence))
+	{
+		settings.WindTurbulence = turbulence;
+	}
 }
 
 void Cloth::ResetToRest()
@@ -695,7 +714,9 @@ void Cloth::LateUpdate()
 
 void Cloth::Draw()
 {
-	if (!UploadVertices())
+	// 描画の資源が揃っていなければ(ヘッドレス・作成失敗)、頂点の書き込みもしません。
+	if (!m_RenderingAvailable || !m_Surface.Ready() || m_VertexBuffer == nullptr
+		|| m_IndexBuffer == nullptr || m_IndexCount == 0 || !UploadVertices())
 	{
 		return;
 	}
@@ -707,7 +728,8 @@ void Cloth::Draw()
 void Cloth::DrawShadow()
 {
 	// 影パスは通常の描画より先に走るので、ここでも最新の粒子位置を書いてから描きます。
-	if (!UploadVertices())
+	if (!m_RenderingAvailable || m_VertexBuffer == nullptr || m_IndexBuffer == nullptr
+		|| m_IndexCount == 0 || !UploadVertices())
 	{
 		return;
 	}
@@ -719,6 +741,10 @@ void Cloth::DrawShadow()
 void Cloth::SubmitGeometry()
 {
 	auto* context = Renderer::GetDeviceContext();
+	if (context == nullptr || m_VertexBuffer == nullptr || m_IndexBuffer == nullptr || m_IndexCount == 0)
+	{
+		return;
+	}
 	UINT stride = sizeof(VERTEX_3D);
 	UINT offset = 0;
 	context->IASetVertexBuffers(0, 1, m_VertexBuffer.GetAddressOf(), &stride, &offset);
