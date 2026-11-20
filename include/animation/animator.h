@@ -203,7 +203,8 @@ namespace Anim
 		float GetClipSeconds(const std::string& name) const;
 		void AddBlendSpace1D(const std::string& name, BlendSpace1D space);
 		void DefineMask(const std::string& name, const std::vector<std::pair<std::string, float>>& bones);
-		void SetRootBone(const std::string& name) { m_RootBoneName = name; m_RootBone = m_Skeleton.Find(name); }
+		// 登録済みのクリップの腰の高さの比(SetClipKeepProportions)も、新しい腰のボーンで決め直します。
+		void SetRootBone(const std::string& name);
 		// ベース層(Play/ブレンドツリー)で再生するときに、腰の水平移動を打ち消してその場で再生します。
 		// Mixamoで「In Place」にせず書き出した走りなど、前へ進んでしまうクリップに使います。
 		// アクション層でLock再生するときも、再生を始めた位置ではなく原点の真上に腰を固定します。
@@ -212,7 +213,8 @@ namespace Anim
 		// 指定しないと、クリップに入っている骨の位置で手足が伸び縮みします。
 		void SetClipKeepProportions(const std::string& name, bool keep);
 
-		void SetParameter(const std::string& name, float value) { m_Parameters[name] = value; }
+		// NaN・無限大は無視します(ブレンドの重みが壊れるため)。
+		void SetParameter(const std::string& name, float value);
 		float GetParameter(const std::string& name) const;
 
 		// ベース層 -------------------------------------------------------------

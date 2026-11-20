@@ -312,6 +312,10 @@ namespace Anim
 
 	PlaybackRange SanitizeRange(PlaybackRange range)
 	{
+		// NaN・無限大はstd::max/clampを素通りして位相を壊すので、既定の値へ戻します。
+		if (!std::isfinite(range.Speed)) range.Speed = 1.0f;
+		if (!std::isfinite(range.Start)) range.Start = 0.0f;
+		if (!std::isfinite(range.End)) range.End = 1.0f;
 		range.Speed = (std::max)(range.Speed, 0.01f);
 		range.Start = std::clamp(range.Start, 0.0f, 0.99f);
 		range.End = std::clamp(range.End, range.Start + 0.01f, 1.0f);
@@ -322,10 +326,13 @@ namespace Anim
 	{
 		const double start = clip.DurationTicks * range.Start;
 		const double length = clip.DurationTicks * (range.End - range.Start);
-		const double elapsed = phase * length;
+		// 長さ0のクリップでは fmod が NaN になるので、先頭を返します。
+		if (!(length > 0.0) || !std::isfinite(length)) return std::isfinite(start) ? start : 0.0;
+		const double elapsed = std::isfinite(phase) ? phase * length : 0.0;
+		// 極端に短いクリップでは length - 0.001 が負になり、clamp の上限が下限を下回る(未定義動作)ので0で止めます。
 		return range.Loop
 			? start + std::fmod((std::max)(elapsed, 0.0), length)
-			: start + std::clamp(elapsed, 0.0, length - 0.001);
+			: start + std::clamp(elapsed, 0.0, (std::max)(length - 0.001, 0.0));
 	}
 
 	double CycleSeconds(const ClipBinding& clip, const PlaybackRange& range)
@@ -459,7 +466,30 @@ namespace Anim
 		for (BlendClip& clip : space.Clips) clip.Playback = SanitizeRange(clip.Playback);
 		std::stable_sort(space.Clips.begin(), space.Clips.end(),
 			[](const BlendClip& a, const BlendClip& b) { return a.Threshold < b.Threshold; });
-		m_BlendSpaces[name] = std::move(space);
+		BlendSpace1D& stored = m_BlendSpaces[name];
+		stored = std::move(space);
+		// 再生中のブレンドツリーを差し替えたときは、クリップごとの位相と重みを新しいクリップ数に合わせます。
+		// 合わせないと、次の評価で古い数の配列を新しい数で読みます。
+		if (m_BaseSpace != nullptr && m_BaseName == name)
+		{
+			m_BaseSpace = &stored;
+			m_FreePhases.resize(stored.Clips.size(), 0.0);
+			m_SpaceWeights.resize(stored.Clips.size(), 0.0f);
+		}
+	}
+
+	void Animator::SetRootBone(const std::string& name)
+	{
+		m_RootBoneName = name;
+		m_RootBone = m_Skeleton.Find(name);
+		// 腰の高さの比(KeepProportions)は腰のボーン番号から決まるので、登録済みのクリップも決め直します。
+		for (auto& [clipName, entry] : m_Clips) ApplyKeepProportions(entry);
+	}
+
+	void Animator::SetParameter(const std::string& name, float value)
+	{
+		if (!std::isfinite(value)) return;
+		m_Parameters[name] = value;
 	}
 
 	void Animator::DefineMask(const std::string& name, const std::vector<std::pair<std::string, float>>& bones)
@@ -503,6 +533,7 @@ namespace Anim
 		const auto space = m_BlendSpaces.find(name);
 		const ClipEntry* clip = space == m_BlendSpaces.end() ? FindClip(name) : nullptr;
 		if (space == m_BlendSpaces.end() && clip == nullptr) return false;
+		if (!std::isfinite(blendSeconds)) blendSeconds = 0.0f;
 
 		const bool canBlend = !m_BaseName.empty() && m_HasBasePose && blendSeconds > 0.0f;
 		m_BaseSnapshot = canBlend ? m_LastBasePose : Pose{};
@@ -537,6 +568,8 @@ namespace Anim
 	void Animator::EvaluateBlendSpace(const BlendSpace1D& space, float step, Pose& out)
 	{
 		const size_t count = space.Clips.size();
+		// 位相の配列がクリップ数と合っていなければ合わせます(下で添字にcountまでを使うため)。
+		if (m_FreePhases.size() != count) m_FreePhases.resize(count, 0.0);
 		m_SmoothedParameter = Approach(m_SmoothedParameter, GetParameter(space.Parameter),
 			step, space.ParameterSmoothing);
 		std::vector<float> thresholds(count);
@@ -695,8 +728,12 @@ namespace Anim
 		layer.Entry = clip;
 		layer.Options = options;
 		layer.Options.Playback = SanitizeRange(options.Playback);
-		layer.Options.FadeIn = (std::max)(options.FadeIn, 0.0f);
-		layer.Options.FadeOut = (std::max)(options.FadeOut, 0.0f);
+		// NaN・無限大のフェード時間と加算の基準位置は、既定の値に戻します。
+		const ActionOptions defaults{};
+		layer.Options.FadeIn = std::isfinite(options.FadeIn) ? (std::max)(options.FadeIn, 0.0f) : defaults.FadeIn;
+		layer.Options.FadeOut = std::isfinite(options.FadeOut) ? (std::max)(options.FadeOut, 0.0f) : defaults.FadeOut;
+		if (!std::isfinite(layer.Options.AdditiveReference))
+			layer.Options.AdditiveReference = defaults.AdditiveReference;
 		const auto mask = options.Mask.empty() ? m_MaskDefinitions.end() : m_MaskDefinitions.find(options.Mask);
 		layer.Mask = mask != m_MaskDefinitions.end() ? BuildBoneMask(m_Skeleton, mask->second) : std::vector<float>{};
 		layer.Phase = 0.0;
@@ -731,7 +768,7 @@ namespace Anim
 			const ClipEntry* referenceClip = options.AdditiveReferenceClip.empty()
 				? clip : FindClip(options.AdditiveReferenceClip);
 			if (referenceClip == nullptr) referenceClip = clip;
-			const float fraction = options.AdditiveReference >= 0.0f ? (std::min)(options.AdditiveReference, 1.0f)
+			const float fraction = layer.Options.AdditiveReference >= 0.0f ? (std::min)(layer.Options.AdditiveReference, 1.0f)
 				: referenceClip == clip ? layer.Options.Playback.Start : 0.0f;
 			const ClipBinding& reference = referenceClip->Binding;
 			const double ticks = (std::min)(reference.DurationTicks * fraction, reference.DurationTicks - 0.001);
@@ -751,7 +788,8 @@ namespace Anim
 		ActionLayer& layer = m_Layers[static_cast<size_t>(layerIndex)];
 		if (!layer.Active) return;
 		layer.Stopping = true;
-		layer.StopFade = fadeOutSeconds >= 0.0f ? fadeOutSeconds : layer.Options.FadeOut;
+		// 負やNaNは再生時のFadeOutを使います。無限大だとフェードが終わらないので、これも再生時の値にします。
+		layer.StopFade = std::isfinite(fadeOutSeconds) && fadeOutSeconds >= 0.0f ? fadeOutSeconds : layer.Options.FadeOut;
 		if (layer.StopFade <= 0.0f)
 		{
 			layer.Active = false;
@@ -832,11 +870,13 @@ namespace Anim
 
 	void Animator::SetLayerWeight(float weight, int layerIndex)
 	{
+		if (!std::isfinite(weight)) return;
 		LayerAt(layerIndex).LayerWeight = std::clamp(weight, 0.0f, 1.0f);
 	}
 
 	void Animator::SetActionSpeed(float speed, int layerIndex)
 	{
+		if (!std::isfinite(speed)) return;
 		if (layerIndex < 0 || static_cast<size_t>(layerIndex) >= m_Layers.size()) return;
 		ActionLayer& layer = m_Layers[static_cast<size_t>(layerIndex)];
 		if (!layer.Active) return;
@@ -851,9 +891,11 @@ namespace Anim
 
 	void Animator::SetActionMaskStrength(float strength, int layerIndex, float smoothingSeconds)
 	{
+		if (!std::isfinite(strength)) return;
 		ActionLayer& layer = LayerAt(layerIndex);
 		layer.MaskTarget = std::clamp(strength, 0.0f, 1.0f);
-		layer.MaskSmoothing = (std::max)(smoothingSeconds, 0.0f);
+		// 無限大の時間ではいつまでも近づかないので、NaN・無限大はすぐに切り替える扱い(0)にします。
+		layer.MaskSmoothing = std::isfinite(smoothingSeconds) ? (std::max)(smoothingSeconds, 0.0f) : 0.0f;
 		if (!layer.Active || layer.MaskSmoothing <= 0.0f) layer.MaskStrength = layer.MaskTarget;
 	}
 
@@ -958,7 +1000,8 @@ namespace Anim
 	bool Animator::Advance(float deltaSeconds)
 	{
 		if (m_BaseName.empty() || m_Skeleton.Size() == 0) return false;
-		const float step = (std::max)(deltaSeconds, 0.0f);
+		// NaN・無限大の時間は進めない(0)扱いにします。位相に入ると戻らないためです。
+		const float step = std::isfinite(deltaSeconds) ? (std::max)(deltaSeconds, 0.0f) : 0.0f;
 		if (step > 0.0f) m_RootMotion = {};
 		EvaluateBase(step, m_Pose);
 		m_LastBasePose = m_Pose;

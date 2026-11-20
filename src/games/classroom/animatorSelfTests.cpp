@@ -6,6 +6,7 @@
 
 #include <cmath>
 #include <fstream>
+#include <limits>
 #include <memory>
 #include <string>
 #include <vector>
@@ -522,6 +523,173 @@ namespace
 		fixture.Graph.Advance(0.5f);
 		return Near(AngleZ(fixture.Bone(kArmIndex)), 0.25f) && Near(AngleZ(fixture.Bone(kLegIndex)), 0.4f);
 	}
+
+	bool IsFinitePose(const Pose& pose)
+	{
+		if (pose.empty()) return false;
+		for (const BoneTransform& bone : pose)
+		{
+			const float values[] = {
+				bone.Position.x, bone.Position.y, bone.Position.z,
+				bone.Rotation.w, bone.Rotation.x, bone.Rotation.y, bone.Rotation.z,
+				bone.Scale.x, bone.Scale.y, bone.Scale.z };
+			for (const float value : values)
+				if (!std::isfinite(value)) return false;
+		}
+		return true;
+	}
+
+	// 長さがほぼ0のクリップでも、tick位置はクリップの中に収まります(以前は clamp の上限が下限を下回っていました)。
+	bool TestPhaseToTicksShortClip()
+	{
+		bool ok = true;
+		for (const double duration : { 0.0005, 0.0 })
+		{
+			ClipBinding binding;
+			binding.TicksPerSecond = 30.0;
+			binding.DurationTicks = duration;
+			for (const bool loop : { false, true })
+			{
+				const PlaybackRange range{ 1.0f, 0.0f, 1.0f, loop };
+				for (const double phase : { 0.0, 0.5, 1.0, 2.5, -1.0, std::nan("") })
+				{
+					const double ticks = PhaseToTicks(binding, range, phase);
+					ok &= std::isfinite(ticks) && ticks >= 0.0 && ticks <= duration;
+				}
+			}
+		}
+
+		// Animatorから非ループで再生しても落ちず、姿勢は有限のままです。
+		Fixture fixture;
+		fixture.Add("Blink", 0.0005, { { kArm, 0.0f, 1.0f, {}, {}, false } });
+		fixture.Graph.SetPlayback({ 1.0f, 0.0f, 1.0f, false });
+		fixture.Graph.Play("Blink", 0.0f);
+		for (int frame = 0; frame < 5; ++frame) fixture.Graph.Advance(1.0f / 60.0f);
+		ok &= IsFinitePose(fixture.Graph.GetPose());
+		ActionOptions once;
+		once.Playback = { 1.0f, 0.0f, 1.0f, false };
+		fixture.Graph.PlayAction("Blink", once);
+		for (int frame = 0; frame < 5; ++frame) fixture.Graph.Advance(1.0f / 60.0f);
+		return ok && IsFinitePose(fixture.Graph.GetPose());
+	}
+
+	// 再生中のブレンドツリーをクリップ数の違うものへ差し替えても、位相の配列が新しい数に合わせられます。
+	bool TestBlendSpaceReplacedWhilePlaying()
+	{
+		Fixture fixture;
+		fixture.AddLocomotion(0.0f);
+		fixture.Graph.Play("Locomotion", 0.0f);
+		fixture.Graph.SetParameter("Speed", 2.0f);
+		fixture.Graph.Advance(0.1f);
+
+		// 3本 → 5本。後ろの2本は同期しない(クリップごとの位相を使う)クリップです。
+		BlendSpace1D wider;
+		wider.Parameter = "Speed";
+		wider.ParameterSmoothing = 0.0f;
+		wider.Clips = {
+			{ "Idle", 0.0f, {}, false },
+			{ "Walk", 1.0f, {}, true },
+			{ "Run", 2.0f, {}, true },
+			{ "Attack2", 3.0f, {}, false },
+			{ "Flinch", 4.0f, {}, false } };
+		fixture.Graph.AddBlendSpace1D("Locomotion", wider);
+		fixture.Graph.SetParameter("Speed", 3.5f);
+		bool ok = true;
+		for (int frame = 0; frame < 10; ++frame)
+		{
+			ok &= fixture.Graph.Advance(0.05f);
+		}
+		return ok && IsFinitePose(fixture.Graph.GetPose())
+			&& fixture.Graph.GetCurrentName() == "Locomotion"
+			&& Near(fixture.Graph.GetBlendSpaceWeight("Attack2"), 0.5f)
+			&& Near(fixture.Graph.GetBlendSpaceWeight("Flinch"), 0.5f);
+	}
+
+	// NaN・無限大をどの入口へ渡しても、姿勢は有限のままです。
+	bool TestNonFiniteInputsKeepPoseFinite()
+	{
+		const float nan = std::nanf("");
+		const float inf = std::numeric_limits<float>::infinity();
+		bool ok = true;
+
+		const PlaybackRange sanitized = SanitizeRange({ nan, inf, nan, true });
+		ok &= sanitized.Speed == 1.0f && sanitized.Start == 0.0f && sanitized.End == 1.0f;
+
+		Fixture fixture;
+		fixture.AddLocomotion(0.1f);
+		fixture.Graph.Play("Idle", 0.0f);
+		fixture.Graph.Advance(0.1f);
+		ok &= fixture.Graph.Play("Locomotion", nan);
+		fixture.Graph.SetParameter("Speed", nan);
+		fixture.Graph.SetParameter("Speed", 1.5f);
+		fixture.Graph.SetParameter("Speed", inf);
+		ok &= fixture.Graph.GetParameter("Speed") == 1.5f;
+		fixture.Graph.SetPlayback({ nan, inf, nan, true });
+		fixture.Graph.Advance(nan);
+		fixture.Graph.Advance(inf);
+		fixture.Graph.Advance(-inf);
+
+		ActionOptions attack;
+		attack.FadeIn = nan;
+		attack.FadeOut = inf;
+		attack.Playback = { inf, nan, inf, false };
+		ok &= fixture.Graph.PlayAction("Attack", attack);
+		ActionOptions flinch;
+		flinch.Blend = LayerBlend::Additive;
+		flinch.AdditiveReference = nan;
+		flinch.FadeIn = -inf;
+		flinch.Layer = 1;
+		ok &= fixture.Graph.PlayAction("Flinch", flinch);
+		fixture.Graph.SetLayerWeight(nan, 1);
+		fixture.Graph.SetActionSpeed(inf, 0);
+		fixture.Graph.SetActionSpeed(nan, 0);
+		fixture.Graph.SetActionMaskStrength(nan, 0, inf);
+		fixture.Graph.SetActionMaskStrength(0.5f, 0, nan);
+		for (int frame = 0; frame < 30; ++frame)
+		{
+			fixture.Graph.Advance(1.0f / 60.0f);
+			ok &= IsFinitePose(fixture.Graph.GetPose());
+		}
+		ok &= fixture.Graph.GetLayerWeight(1) == 1.0f;
+
+		// 無限大のフェードアウトは再生時のFadeOut(ここでは既定の0.2秒)に置き換わるので、ちゃんと終わります。
+		fixture.Graph.StopAction(0, inf);
+		fixture.Graph.StopAction(1, nan);
+		for (int frame = 0; frame < 60; ++frame)
+		{
+			fixture.Graph.Advance(1.0f / 60.0f);
+			ok &= IsFinitePose(fixture.Graph.GetPose());
+		}
+		return ok && !fixture.Graph.IsActionActive(0) && !fixture.Graph.IsActionActive(1);
+	}
+
+	// クリップを登録して体格を合わせる指定をした後で腰のボーンを指定しても、腰の高さの比が決め直されます。
+	bool TestSetRootBoneRefreshesKeepProportions()
+	{
+		constexpr const char* kPelvis = "Pelvis";
+		aiMatrix4x4 pelvis;
+		aiMatrix4x4::Translation(aiVector3D(0.0f, 100.0f, 0.0f), pelvis);
+		Skeleton skeleton;
+		skeleton.Build({ kRoot, kPelvis }, { -1, 0 }, { aiMatrix4x4(), pelvis });
+		Animator graph;
+		graph.SetSkeleton(skeleton);
+
+		// 2倍の背丈のキャラクター用のクリップです。腰は高さ200から1秒で260まで上がります。
+		std::unique_ptr<aiAnimation> clip = MakeClip(30.0, {
+			{ kPelvis, 0.0f, 0.0f, aiVector3D(0.0f, 200.0f, 0.0f), aiVector3D(0.0f, 260.0f, 0.0f), true } });
+		graph.AddClip("Tall", clip.get());
+		graph.SetClipKeepProportions("Tall", true);
+		graph.Play("Tall", 0.0f);
+		graph.Advance(0.0f);
+		// 腰のボーンがまだ分からない("mixamorig:Hips"が無い)ので、腰もバインド姿勢の高さのままです。
+		const bool beforeIsBind = Near(graph.GetPose()[1].Position.y, 100.0f);
+
+		graph.SetRootBone(kPelvis);
+		graph.Advance(0.5f);
+		// 腰の動きを使い、先頭の高さの比 100/200 を掛けます。0.5秒時点のクリップの高さ230 → 115。
+		// (比が決め直されないと、腰のボーンが分からないままなので100のままです。)
+		return beforeIsBind && Near(graph.GetPose()[1].Position.y, 115.0f);
+	}
 }
 
 bool RunAnimatorSelfTests()
@@ -553,6 +721,10 @@ bool RunAnimatorSelfTests()
 		{ "additive adds difference", TestAdditiveAddsDifference },
 		{ "additive over attack", TestAdditiveOverAttack },
 		{ "additive reference clip", TestAdditiveReferenceClip },
+		{ "phase to ticks short clip", TestPhaseToTicksShortClip },
+		{ "blend space replaced while playing", TestBlendSpaceReplacedWhilePlaying },
+		{ "non-finite inputs keep pose finite", TestNonFiniteInputsKeepPoseFinite },
+		{ "set root bone refreshes keep proportions", TestSetRootBoneRefreshesKeepProportions },
 	};
 	std::ofstream log("self-test-animator.log");
 	bool passed = true;

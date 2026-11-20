@@ -51,6 +51,8 @@ private:
 	// メッシュごとのGPUバッファです。要素数はm_AiScene->mNumMeshesと一致します。
 	std::vector<ComPtr<ID3D11Buffer>> m_VertexBuffer;
 	std::vector<ComPtr<ID3D11Buffer>> m_IndexBuffer;
+	// メッシュごとに実際にインデックスバッファへ入れた数です(三角形以外の面は飛ばすので面数×3とは限りません)。
+	std::vector<UINT> m_IndexCount;
 	ComPtr<ID3D11InputLayout> m_VertexLayout;
 	ComPtr<ID3D11VertexShader> m_VertexShader;
 	ComPtr<ID3D11PixelShader> m_PixelShader;
@@ -87,6 +89,9 @@ private:
 	// Pose before terrain IK, so a transition never applies the old IK twice.
 	std::unordered_map<std::string, aiMatrix4x4> m_AnimatedPose;
 
+	// 読み込んだモデルから作ったデータ(バッファ・ボーン・クリップ・足の頂点など)を捨てます。
+	// 足のIKの関数や表面シェーダーのような、呼び出し側の設定は残します。Loadの読み直しとUninitが使います。
+	void ReleaseModelData();
 	void CreateBone(aiNode* Node);
 	void UpdateBoneMatrix(aiNode* Node, aiMatrix4x4 Matrix);
 	void ApplyPose(const Anim::Pose& pose, bool uploadMesh);
@@ -194,7 +199,10 @@ public:
 			m_FootTargetCorrection[footIndex] = std::clamp(
 				m_FootTargetCorrection[footIndex] + clearance, -0.8f, 0.8f);
 	}
-	float GetFootIKWeight(int footIndex) const { return m_FootIKWeight[footIndex]; }
+	float GetFootIKWeight(int footIndex) const
+	{
+		return footIndex >= 0 && footIndex < 2 ? m_FootIKWeight[footIndex] : 0.0f;
+	}
 	void Update(const char* AnimationName1, int Frame1);
 	void Draw() override;
 };

@@ -90,6 +90,12 @@ namespace
 		for (unsigned int i = 0; i < scene.mNumTextures; i++)
 		{
 			const aiTexture* aitexture = scene.mTextures[i];
+			// 圧縮(PNG・JPEGなど)の埋め込みテクスチャだけを扱います。mHeight != 0 は非圧縮の画素の並びで、
+			// mWidthがバイト数ではなく幅なので、WICへ渡すと大きさを取り違えます。
+			if (aitexture == nullptr || aitexture->mHeight != 0 || aitexture->pcData == nullptr || aitexture->mWidth == 0)
+			{
+				continue;
+			}
 			ComPtr<ID3D11ShaderResourceView> texture;
 			TexMetadata metadata{};
 			ScratchImage image{};
@@ -134,15 +140,16 @@ void AnimationModel::Draw()
 	}
 
 	ID3D11DeviceContext* context = Engine::Renderer::GetDeviceContext();
-	if (context == nullptr || m_AiScene == nullptr || m_VertexBuffer.empty() || m_IndexBuffer.empty()
-		|| m_VertexLayout == nullptr || m_VertexShader == nullptr || m_PixelShader == nullptr)
+	if (context == nullptr || m_AiScene == nullptr || m_VertexBuffer.empty() || m_IndexBuffer.empty())
 	{
 		return;
 	}
 
+	// 表面シェーダーは自前のシェーダーで描くので、既定のシェーダーが無くても描けます。
 	if (m_UseSurfaceShader && !m_Surface.Ready()) return;
 	if (!m_UseSurfaceShader)
 	{
+		if (m_VertexLayout == nullptr || m_VertexShader == nullptr || m_PixelShader == nullptr) return;
 		context->IASetInputLayout(m_VertexLayout.Get());
 		context->VSSetShader(m_VertexShader.Get(), nullptr, 0);
 		context->PSSetShader(m_PixelShader.Get(), nullptr, 0);
@@ -169,6 +176,12 @@ void AnimationModel::Draw()
 		for (unsigned int m = 0; m < m_AiScene->mNumMeshes; ++m)
 		{
 		aiMesh* mesh = m_AiScene->mMeshes[m];
+		// バッファを作れなかったメッシュは描きません。
+		if (mesh == nullptr || m >= m_VertexBuffer.size() || m >= m_IndexBuffer.size() || m >= m_IndexCount.size()
+			|| m_VertexBuffer[m] == nullptr || m_IndexBuffer[m] == nullptr || m_IndexCount[m] == 0)
+		{
+			continue;
+		}
 
 
 		// マテリアル設定
@@ -176,10 +189,14 @@ void AnimationModel::Draw()
 		aiColor3D diffuse(1.0f, 1.0f, 1.0f);
 		float opacity = 1.0f;
 
-		aiMaterial* aimaterial = m_AiScene->mMaterials[mesh->mMaterialIndex];
-		aimaterial->GetTexture(aiTextureType_DIFFUSE, 0, &texture);
-		aimaterial->Get(AI_MATKEY_COLOR_DIFFUSE, diffuse);
-		aimaterial->Get(AI_MATKEY_OPACITY, opacity);
+		aiMaterial* aimaterial = mesh->mMaterialIndex < m_AiScene->mNumMaterials
+			? m_AiScene->mMaterials[mesh->mMaterialIndex] : nullptr;
+		if (aimaterial != nullptr)
+		{
+			aimaterial->GetTexture(aiTextureType_DIFFUSE, 0, &texture);
+			aimaterial->Get(AI_MATKEY_COLOR_DIFFUSE, diffuse);
+			aimaterial->Get(AI_MATKEY_OPACITY, opacity);
+		}
 
 		ID3D11ShaderResourceView* textureView = nullptr;
 		if (texture != aiString("") && m_Texture != nullptr)
@@ -210,7 +227,7 @@ void AnimationModel::Draw()
 		context->IASetIndexBuffer(m_IndexBuffer[m].Get(), DXGI_FORMAT_R32_UINT, 0);
 
 		// ポリゴン描画
-		context->DrawIndexed(mesh->mNumFaces * 3, 0, 0);
+		context->DrawIndexed(m_IndexCount[m], 0, 0);
 		}
 	}
 }
@@ -230,9 +247,14 @@ void AnimationModel::DrawShadow()
 	UINT offset = 0;
 	for (unsigned int m = 0; m < m_AiScene->mNumMeshes; ++m)
 	{
+		if (m >= m_VertexBuffer.size() || m >= m_IndexBuffer.size() || m >= m_IndexCount.size()
+			|| m_VertexBuffer[m] == nullptr || m_IndexBuffer[m] == nullptr || m_IndexCount[m] == 0)
+		{
+			continue;
+		}
 		context->IASetVertexBuffers(0, 1, m_VertexBuffer[m].GetAddressOf(), &stride, &offset);
 		context->IASetIndexBuffer(m_IndexBuffer[m].Get(), DXGI_FORMAT_R32_UINT, 0);
-		context->DrawIndexed(m_AiScene->mMeshes[m]->mNumFaces * 3, 0, 0);
+		context->DrawIndexed(m_IndexCount[m], 0, 0);
 	}
 }
 
@@ -262,6 +284,13 @@ bool AnimationModel::SetShaderMode(Engine::SurfaceShader shader)
 
 void AnimationModel::Load(const char* FileName)
 {
+	if (FileName == nullptr || FileName[0] == '\0')
+	{
+		OutputDebugStringA("AnimationModel: file name is empty.\n");
+		return;
+	}
+	// 読み直したとき、前のモデルのボーン・頂点・クリップが混ざらないよう先に捨てます。
+	ReleaseModelData();
 	const std::string modelPath(FileName);
 	if (!Engine::GraphicsResourceFactory::CreateUnlitShaderPair(
 		m_VertexShader, m_VertexLayout, m_PixelShader, "AnimationModel"))
@@ -282,6 +311,7 @@ void AnimationModel::Load(const char* FileName)
 
 	m_VertexBuffer.resize(m_AiScene->mNumMeshes);
 	m_IndexBuffer.resize(m_AiScene->mNumMeshes);
+	m_IndexCount.assign(m_AiScene->mNumMeshes, 0);
 
 
 	//変形後頂点配列生成
@@ -305,65 +335,75 @@ void AnimationModel::Load(const char* FileName)
 	{
 		aiMesh* mesh = m_AiScene->mMeshes[m];
 
-		// 頂点バッファ生成
+		// 法線やUVを持たないメッシュもあります。無ければ上向きの法線と(0,0)のUVにします。
+		const bool hasNormals = mesh->HasNormals();
+		const bool hasTexCoords = mesh->HasTextureCoords(0);
+
+		// 頂点バッファ生成(作れなければそのメッシュは描かれません)
+		if (mesh->mNumVertices > 0)
 		{
-			Engine::VERTEX_3D* vertex = new Engine::VERTEX_3D[mesh->mNumVertices];
+			std::vector<Engine::VERTEX_3D> vertex(mesh->mNumVertices);
 
 			for (unsigned int v = 0; v < mesh->mNumVertices; v++)
 			{
 				vertex[v].Position = XMFLOAT3(mesh->mVertices[v].x, mesh->mVertices[v].y, mesh->mVertices[v].z);
-				vertex[v].Normal = XMFLOAT3(mesh->mNormals[v].x, mesh->mNormals[v].y, mesh->mNormals[v].z);
-				vertex[v].TexCoord = XMFLOAT2(mesh->mTextureCoords[0][v].x, mesh->mTextureCoords[0][v].y);
+				vertex[v].Normal = hasNormals
+					? XMFLOAT3(mesh->mNormals[v].x, mesh->mNormals[v].y, mesh->mNormals[v].z)
+					: XMFLOAT3(0.0f, 1.0f, 0.0f);
+				vertex[v].TexCoord = hasTexCoords
+					? XMFLOAT2(mesh->mTextureCoords[0][v].x, mesh->mTextureCoords[0][v].y)
+					: XMFLOAT2(0.0f, 0.0f);
 				vertex[v].Diffuse = XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f);
 			}
 
-			D3D11_BUFFER_DESC bd;
-			ZeroMemory(&bd, sizeof(bd));
+			D3D11_BUFFER_DESC bd{};
 			bd.Usage = D3D11_USAGE_DYNAMIC;
-			bd.ByteWidth = sizeof(Engine::VERTEX_3D) * mesh->mNumVertices;
+			bd.ByteWidth = static_cast<UINT>(sizeof(Engine::VERTEX_3D) * vertex.size());
 			bd.BindFlags = D3D11_BIND_VERTEX_BUFFER;
 			bd.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
 
-			D3D11_SUBRESOURCE_DATA sd;
-			ZeroMemory(&sd, sizeof(sd));
-			sd.pSysMem = vertex;
+			D3D11_SUBRESOURCE_DATA sd{};
+			sd.pSysMem = vertex.data();
 
-			Engine::Renderer::GetDevice()->CreateBuffer(&bd, &sd,
-				m_VertexBuffer[m].GetAddressOf());
-
-			delete[] vertex;
+			(void)Engine::GraphicsResourceFactory::CreateBuffer(m_VertexBuffer[m], bd, &sd, "AnimationModel vertices");
 		}
 
 
-		// インデックスバッファ生成
+		// インデックスバッファ生成。三角形以外の面(点・線・多角形)は飛ばします
+		// (assertだけではReleaseで面の頂点数を超えて読んでしまうため)。
 		{
-			unsigned int* index = new unsigned int[mesh->mNumFaces * 3];
+			std::vector<unsigned int> index;
+			index.reserve(static_cast<std::size_t>(mesh->mNumFaces) * 3);
 
 			for (unsigned int f = 0; f < mesh->mNumFaces; f++)
 			{
 				const aiFace* face = &mesh->mFaces[f];
+				if (face->mNumIndices != 3 || face->mIndices == nullptr)
+				{
+					continue;
+				}
 
-				assert(face->mNumIndices == 3);
-
-				index[f * 3 + 0] = face->mIndices[0];
-				index[f * 3 + 1] = face->mIndices[1];
-				index[f * 3 + 2] = face->mIndices[2];
+				index.push_back(face->mIndices[0]);
+				index.push_back(face->mIndices[1]);
+				index.push_back(face->mIndices[2]);
 			}
 
-			D3D11_BUFFER_DESC bd;
-			ZeroMemory(&bd, sizeof(bd));
-			bd.Usage = D3D11_USAGE_DEFAULT;
-			bd.ByteWidth = sizeof(unsigned int) * mesh->mNumFaces * 3;
-			bd.BindFlags = D3D11_BIND_INDEX_BUFFER;
-			bd.CPUAccessFlags = 0;
+			if (!index.empty())
+			{
+				D3D11_BUFFER_DESC bd{};
+				bd.Usage = D3D11_USAGE_DEFAULT;
+				bd.ByteWidth = static_cast<UINT>(sizeof(unsigned int) * index.size());
+				bd.BindFlags = D3D11_BIND_INDEX_BUFFER;
+				bd.CPUAccessFlags = 0;
 
-			D3D11_SUBRESOURCE_DATA sd;
-			ZeroMemory(&sd, sizeof(sd));
-			sd.pSysMem = index;
+				D3D11_SUBRESOURCE_DATA sd{};
+				sd.pSysMem = index.data();
 
-			Engine::Renderer::GetDevice()->CreateBuffer(&bd, &sd, m_IndexBuffer[m].GetAddressOf());
-
-			delete[] index;
+				if (Engine::GraphicsResourceFactory::CreateBuffer(m_IndexBuffer[m], bd, &sd, "AnimationModel indices"))
+				{
+					m_IndexCount[m] = static_cast<UINT>(index.size());
+				}
+			}
 		}
 
 
@@ -373,7 +413,7 @@ void AnimationModel::Load(const char* FileName)
 		{
 			DEFORM_VERTEX deformVertex;
 			deformVertex.Position = mesh->mVertices[v];
-			deformVertex.Normal = mesh->mNormals[v];
+			deformVertex.Normal = hasNormals ? mesh->mNormals[v] : aiVector3D(0.0f, 1.0f, 0.0f);
 			deformVertex.BoneNum = 0;
 
 			for (unsigned int b = 0; b < 4; b++)
@@ -440,6 +480,11 @@ void AnimationModel::Load(const char* FileName)
 
 void AnimationModel::LoadAnimation(const char* FileName, const char* Name)
 {
+	if (FileName == nullptr || FileName[0] == '\0' || Name == nullptr || Name[0] == '\0')
+	{
+		OutputDebugStringA("AnimationModel: animation file name or clip name is empty.\n");
+		return;
+	}
 
 	AnimationScenePtr scene = AcquireAnimationScene(FileName, aiProcess_ConvertToLeftHanded);
 	if (scene == nullptr)
@@ -474,15 +519,15 @@ void AnimationModel::CreateBone(aiNode* node)
 }
 
 
-void AnimationModel::Uninit()
+void AnimationModel::ReleaseModelData()
 {
 	// ComPtr / vector が所有するため、明示的なReleaseとdelete[]は不要です。
 	m_VertexBuffer.clear();
 	m_IndexBuffer.clear();
+	m_IndexCount.clear();
 	m_DeformVertex.clear();
 	m_Texture.reset();
-
-
+	m_Bone.clear();
 
 	// 共有ハンドルなので、最後の参照が消えた時点でaiReleaseImportされます。
 	m_AiScene.reset();
@@ -490,16 +535,22 @@ void AnimationModel::Uninit()
 	m_PoseBones.clear();
 	m_Animation.clear();
 	m_AnimatedPose.clear();
-	m_GroundHeight = nullptr;
 	m_FootLocalVertices[0].clear();
 	m_FootLocalVertices[1].clear();
 	m_FootVertexRefs[0].clear();
 	m_FootVertexRefs[1].clear();
+	m_FootIKWeight[0] = m_FootIKWeight[1] = 0.0f;
+	m_FootTargetCorrection[0] = m_FootTargetCorrection[1] = 0.0f;
 	m_SkinTransforms.clear();
+}
+
+void AnimationModel::Uninit()
+{
+	ReleaseModelData();
+	m_GroundHeight = nullptr;
 	m_VertexLayout.Reset();
 	m_VertexShader.Reset();
 	m_PixelShader.Reset();
-
 }
 
 
@@ -647,6 +698,7 @@ bool AnimationModel::GetFootEndClearance(float (*heightAt)(float, float), float 
 
 bool AnimationModel::GetBoneWorldPosition(const char* name, Vector3& position) const
 {
+	if (name == nullptr) return false;
 	const auto found = m_Bone.find(name);
 	if (found == m_Bone.end() || !m_AiScene || !m_AiScene->mRootNode) return false;
 	aiMatrix4x4 inverse = m_AiScene->mRootNode->mTransformation;
@@ -988,9 +1040,9 @@ void AnimationModel::ApplyPose(const Anim::Pose& pose, bool uploadMesh)
 
 			vertices[vertexIndex].Position = XMFLOAT3(position.x, position.y, position.z);
 			vertices[vertexIndex].Normal = XMFLOAT3(normal.x, normal.y, normal.z);
-			vertices[vertexIndex].TexCoord = XMFLOAT2(
-				mesh->mTextureCoords[0][vertexIndex].x,
-				mesh->mTextureCoords[0][vertexIndex].y);
+			vertices[vertexIndex].TexCoord = mesh->HasTextureCoords(0)
+				? XMFLOAT2(mesh->mTextureCoords[0][vertexIndex].x, mesh->mTextureCoords[0][vertexIndex].y)
+				: XMFLOAT2(0.0f, 0.0f);
 			vertices[vertexIndex].Diffuse = XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f);
 		}
 
