@@ -80,6 +80,9 @@ WireAction(`wireGameplayTuning.def`)と BattingCenter(`battingGameplayTuning.def
 - **攻撃の緩急**: 通常攻撃の再生倍率を振りの位相で変えます。振りかぶりは溜め(`ComboWindupScale`)、当たる瞬間の前後で一気に斬り抜き
   (`ComboSlashScale`)、振り終わりは緩めて残心を見せます(`ComboFollowScale`)。攻撃の長さと当たる瞬間は、この倍率の積分で決まるので、見た目と判定は一致します。
   当たりはクリップの当たる位置を通過した瞬間に出します。現在の値では、1段目が約0.23秒、2段目が約0.30秒です(2段目はクリップの区間が長いため)。
+- **向き直り・踏み込み**: 攻撃の出だしは向きを `AttackTurnSeconds` かけて変え、瞬間にワープしません。踏み込みは速く出て、当たる直前にキュッと止まります(足元に砂ぼこり)。
+- **残心**: 攻撃の終わりは `AttackFadeOutSeconds`(0.28秒)かけて構えを解きます。ダッシュで打ち切るときは短く解きます。
+- **移動**: 速さで Idle→Run→Dash を混ぜる1Dブレンドツリー(`Locomotion`)です。攻撃・溜めの間は待機側へ寄せます。
 - **体の傾き**: 旋回の内側へ最大 `BankMaxDegrees`(12度)傾け、攻撃・溜め・停止では起こします。ダッシュは `DashLeanDegrees`(6度)前へ傾けます。
   傾きは足元を中心にモデルの中で掛けるので、剣も一緒に傾き、コライダーは変わりません。
 - **溜め**: 溜めの間は剣が微かに震え(`ChargeShakeMeters`)、周囲の光の粒が剣の握りへ吸い込まれます(`ChargeGatherPerFrame`、`ChargeGatherRadius`)。
