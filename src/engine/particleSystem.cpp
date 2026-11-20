@@ -95,17 +95,17 @@ void ParticleSystem::UnloadSharedResources()
 	s_Texture.reset();
 }
 
-void ParticleSystem::Emit(const Vector3& position, const Vector3& velocity, float scale, int life, const XMFLOAT4& color, float gravity, float shrink)
+void ParticleSystem::Emit(const Vector3& position, const Vector3& velocity, float scale, int life, const XMFLOAT4& color, float gravity, float shrink, int timeChannel)
 {
 	if (s_Instance == nullptr)
 	{
 		return;
 	}
 
-	s_Instance->AddSpark(position, velocity, scale, life, color, gravity, shrink);
+	s_Instance->AddSpark(position, velocity, scale, life, color, gravity, shrink, timeChannel);
 }
 
-void ParticleSystem::AddSpark(const Vector3& position, const Vector3& velocity, float scale, int life, const XMFLOAT4& color, float gravity, float shrink)
+void ParticleSystem::AddSpark(const Vector3& position, const Vector3& velocity, float scale, int life, const XMFLOAT4& color, float gravity, float shrink, int timeChannel)
 {
 	if (life <= 0)
 	{
@@ -117,7 +117,7 @@ void ParticleSystem::AddSpark(const Vector3& position, const Vector3& velocity, 
 	{
 		const int index = m_FreeSparkIndices.back();
 		m_FreeSparkIndices.pop_back();
-		if (index >= 0 && index < static_cast<int>(m_Sparks.size()) && m_Sparks[index].Life <= 0)
+		if (index >= 0 && index < static_cast<int>(m_Sparks.size()) && m_Sparks[index].Life <= 0.0f)
 		{
 			slot = &m_Sparks[index];
 			break;
@@ -137,34 +137,58 @@ void ParticleSystem::AddSpark(const Vector3& position, const Vector3& velocity, 
 	slot->Position = position;
 	slot->Velocity = velocity;
 	slot->Scale = scale;
-	slot->Life = life;
-	slot->MaxLife = life;
+	slot->Life = static_cast<float>(life);
+	slot->MaxLife = static_cast<float>(life);
 	slot->Color = color;
 	slot->Gravity = gravity;
 	slot->Shrink = shrink;
+	slot->TimeChannel = timeChannel;
+}
+
+bool ParticleSystem::AdvanceSpark(Spark& spark)
+{
+	if (spark.Life <= 0.0f)
+	{
+		return false;
+	}
+	const float dt = Engine::GameTime::GetChannelDeltaTime(spark.TimeChannel);
+	// 寿命と縮小は「フレーム換算の時間」で進めます。チャンネル0は従来どおり1フレームごとに1進みます。
+	// それ以外は、チャンネルの時間(倍率とヒットストップ・ポーズを含む)を60分の1秒で割った量です。
+	// こうすると、動きと寿命・縮小が同じ時間で止まったり遅くなったりします。
+	const float step = spark.TimeChannel == 0 ? 1.0f : dt * 60.0f;
+	if (step <= 0.0f)
+	{
+		// ポーズ中などで時間が止まっている間は、粒も完全に静止します。
+		return true;
+	}
+
+	spark.Velocity.y += spark.Gravity * dt;
+	spark.Position += spark.Velocity * dt;
+	const float shrink = (std::max)(spark.Shrink, 0.0f);
+	spark.Scale *= step == 1.0f ? shrink : powf(shrink, step);
+	if (spark.Scale < 0.01f)
+	{
+		spark.Scale = 0.01f;
+	}
+	spark.Life -= step;
+	if (spark.Life <= 0.0f)
+	{
+		spark.Life = 0.0f;
+		return false;
+	}
+	return true;
 }
 
 void ParticleSystem::Update()
 {
-	const float dt = Engine::GameTime::GetDeltaTime();
-
 	for (int index = 0; index < static_cast<int>(m_Sparks.size()); index++)
 	{
 		Spark& spark = m_Sparks[index];
-		if (spark.Life <= 0)
+		if (spark.Life <= 0.0f)
 		{
 			continue;
 		}
-
-		spark.Velocity.y += spark.Gravity * dt;
-		spark.Position += spark.Velocity * dt;
-		spark.Scale *= spark.Shrink;
-		if (spark.Scale < 0.01f)
-		{
-			spark.Scale = 0.01f;
-		}
-		spark.Life--;
-		if (spark.Life <= 0)
+		if (!AdvanceSpark(spark))
 		{
 			// 消滅した瞬間に一度だけフリーリストへ登録します。
 			m_FreeSparkIndices.push_back(index);
@@ -193,7 +217,7 @@ void ParticleSystem::Draw()
 
 	for (const Spark& spark : m_Sparks)
 	{
-		if (spark.Life <= 0)
+		if (spark.Life <= 0.0f)
 		{
 			continue;
 		}
@@ -202,7 +226,7 @@ void ParticleSystem::Draw()
 			break;
 		}
 
-		float alpha = static_cast<float>(spark.Life) / static_cast<float>(spark.MaxLife);
+		const float alpha = spark.Life / spark.MaxLife;
 		XMFLOAT4 color = XMFLOAT4(spark.Color.x, spark.Color.y, spark.Color.z, spark.Color.w * alpha);
 		Vector3 halfRight = right * (spark.Scale * 0.5f);
 		Vector3 halfUp = up * (spark.Scale * 0.5f);

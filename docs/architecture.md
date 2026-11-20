@@ -165,7 +165,8 @@ Engineの型はすべて `Engine::` 名前空間にあります(`Engine::Rendere
 - **時間チャンネル** — `GameTime::SetChannelScale(n, scale)` と `GetChannelDeltaTime(n)` で、
   ゲーム専用の時計を作らずに「敵だけ遅くする」ような時間を扱えます。ヒットストップと一時停止は
   全チャンネルにかかります。チャンネルはSceneを切り替えるたびに元に戻ります。SlowActionのWorld時間は
-  チャンネル1です。
+  チャンネル1です。`ParticleSystem::Emit` の最後の引数 `timeChannel` でパーティクルもチャンネルに載せられ、
+  動き・寿命・縮小がその時間で進み、ヒットストップとポーズでも止まります(既定の0は従来どおり1フレームごと)。
 - **キャラクターの移動** — `Engine::CharacterMover::TryMove` と `MoveAndSlide`(`characterMover.h`)は、
   オブジェクトを動かし、Colliderが指定したレイヤーと重なるなら移動を取り消します。軸ごとに動かすので
   壁に沿って滑ります。

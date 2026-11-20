@@ -5,6 +5,7 @@
 #include "cloth.h"
 #include "collider.h"
 #include "modelRenderer.h"
+#include "particleSystem.h"
 #include "renderQueue.h"
 #include "renderer.h"
 #include "resourceManager.h"
@@ -493,6 +494,56 @@ namespace
 		return channelsOk && NearlyEqual(Engine::GameTime::GetChannelScale(1), 1.0f);
 	}
 
+	// 時間チャンネル1の粒は、倍率に合わせて動き・寿命・縮小が遅くなります。チャンネル0は従来どおり
+	// 1フレームに寿命1・縮小1回ぶん進み、チャンネル1の倍率を変えても影響を受けません。
+	bool TestParticleTimeChannel()
+	{
+		Engine::GameTime::Init();
+		Engine::GameTime::SetChannelScale(1, 0.25f);
+		Engine::GameTime::Update(0.02f);
+
+		ParticleSystem::Spark real;
+		real.Velocity = { 1.0f, 0.0f, 0.0f };
+		real.Gravity = 0.0f;
+		real.Scale = 1.0f;
+		real.Shrink = 0.9f;
+		real.Life = real.MaxLife = 10.0f;
+		ParticleSystem::Spark world = real;
+		world.TimeChannel = 1;
+
+		bool ok = true;
+		for (int frame = 0; frame < 4; ++frame)
+		{
+			ok &= ParticleSystem::AdvanceSpark(real);
+			ok &= ParticleSystem::AdvanceSpark(world);
+		}
+		// 4フレーム: 実時間側は 0.08 秒・寿命4・縮小 0.9^4。チャンネル1は倍率0.25のため 0.02 秒、
+		// 寿命と縮小は 1/60 秒を1フレームとした換算で 4 * 0.25 * 0.02 * 60 = 1.2 フレームぶん進みます。
+		const float worldFrames = 1.2f;
+		ok &= NearlyEqual(real.Position.x, 0.08f) && NearlyEqual(world.Position.x, 0.02f);
+		ok &= NearlyEqual(real.Life, 6.0f) && NearlyEqual(world.Life, 10.0f - worldFrames);
+		ok &= NearlyEqual(real.Scale, 0.6561f) && std::abs(world.Scale - std::pow(0.9f, worldFrames)) < 0.0001f;
+
+		// ポーズ中は時間が止まるので、チャンネル1の粒は位置も寿命も縮小も変わりません。
+		const ParticleSystem::Spark frozen = world;
+		Engine::GameTime::SetPaused(true);
+		Engine::GameTime::Update(0.02f);
+		ok &= ParticleSystem::AdvanceSpark(world);
+		ok &= NearlyEqual(world.Position.x, frozen.Position.x) && NearlyEqual(world.Life, frozen.Life)
+			&& NearlyEqual(world.Scale, frozen.Scale);
+		Engine::GameTime::SetPaused(false);
+		Engine::GameTime::Update(0.02f);
+
+		// 寿命が尽きたフレームで false を返し、それ以降は進みません。
+		for (int frame = 0; frame < 6; ++frame)
+		{
+			ParticleSystem::AdvanceSpark(real);
+		}
+		ok &= real.Life <= 0.0f && !ParticleSystem::AdvanceSpark(real) && NearlyEqual(real.Position.x, 0.2f);
+		Engine::GameTime::Init();
+		return ok;
+	}
+
 	bool TestWaveResourceCache()
 	{
 		Engine::ResourceManager::Clear();
@@ -902,6 +953,7 @@ bool RunEngineSelfTests()
 		{ "render ordering", TestRenderOrdering },
 		{ "render tie break keeps submission order", TestRenderTieBreakKeepsSubmissionOrder },
 		{ "game time", TestGameTime },
+		{ "particle time channel", TestParticleTimeChannel },
 		{ "input action bindings", TestInputActionBindings },
 		{ "scene serialization", TestSceneSerialization },
 		{ "runtime config validation and reload", TestRuntimeConfigValidationAndReload },
