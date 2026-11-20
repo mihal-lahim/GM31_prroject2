@@ -380,9 +380,12 @@ void SlowEnemy::Update()
 {
 	if (SceneEditor::IsActive())
 	{
+		m_HitShake.Clear(*this);
 		return;
 	}
 	const SlowActionTuning& tuning = GetSlowActionTuning();
+	// ヒットストップの間だけ見た目を震わせます。吹き飛び中(空中)は縦にも震えます。
+	m_HitShake.Apply(*this, IsLaunched());
 	const float worldDeltaTime = SlowClock::GetWorldDeltaTime();
 	if (m_FlashTime > 0.0f)
 	{
@@ -623,8 +626,18 @@ SlowEnemy::HitResult SlowEnemy::ApplyHit(const Vector3& direction, HitStrength s
 	}
 
 	const Vector3 center = GetPosition() + Vector3(0.0f, 0.9f, 0.0f);
+	// ヒットマークは体の中心ではなく、殴られた側の表面寄り(攻撃の来た向き)に出します。
+	Vector3 hitDirection = Flatten(direction);
+	if (hitDirection.length() < 0.01f) hitDirection = { 0.0f, 0.0f, 1.0f };
+	hitDirection.normalize();
+	const Vector3 hitPoint = center - hitDirection * (GetRadius() * 1.1f) + Vector3(0.0f, 0.3f, 0.0f);
+	// 受けた敵のヒットストップの震えの強さです(通常 < 3段目 < 追撃 < 強攻撃 < 撃破)。
+	const float shakeWeight = m_Hp <= 0 ? SlowHitShake::kKill : wasLaunched ? SlowHitShake::kPursuit
+		: strong ? SlowHitShake::kStrong : strength == HitStrength::Finisher ? SlowHitShake::kFinisher : SlowHitShake::kNormal;
+	const float shakeAmplitude = tuning.HitStopShakeEnemy * shakeWeight;
 	if (m_Hp <= 0)
 	{
+		EmitHitMark(hitPoint, hitDirection, 2.0f, { 3.4f, 1.3f, 0.7f, 1.0f });
 		// HPが尽きたらその場で消えます。止め・音・揺れで、倒したことをはっきり返します。
 		result.Killed = true;
 		EmitBurst(center, m_Kind == Kind::Brute ? 50 : 30, 8.0f, 0.4f, 30, { 1.0f, 0.4f, 0.3f, 1.0f },
@@ -632,7 +645,7 @@ SlowEnemy::HitResult SlowEnemy::ApplyHit(const Vector3& direction, HitStrength s
 		SlowScore::Add(m_Kind == Kind::Brute ? SlowScore::Event::KillBrute
 			: m_Kind == Kind::Gunner ? SlowScore::Event::KillGunner : SlowScore::Event::KillMelee);
 		SlowSound::Play(SlowSound::Id::Kill);
-		SlowCamera::Shake(GetWorld(), tuning.ShakeKill);
+		SlowCamera::Shake(GetWorld(), tuning.ShakeKill, SlowCamera::ShakeStyle::Heavy);
 		Engine::GameTime::StartHitStop(tuning.KillHitStopFrames, tuning.HitStopScale);
 		// 人型の敵は亡骸を残して、倒れるモーションを見せます。
 		if (HasSkinnedBody())
@@ -640,13 +653,17 @@ SlowEnemy::HitResult SlowEnemy::ApplyHit(const Vector3& direction, HitStrength s
 			if (wasLaunched)
 			{
 				// 吹き飛び中に倒したときは、向きも倒れるモーションもそのまま続きから引き継ぎます。
-				GetWorld().Spawn<SlowCorpse>()->Begin(GetPosition(), GetRotation().y, GetKnockdownSeconds());
+				SlowCorpse* corpse = GetWorld().Spawn<SlowCorpse>();
+				corpse->Begin(GetPosition(), GetRotation().y, GetKnockdownSeconds());
+				corpse->StartHitShake(shakeAmplitude, true);
 			}
 			else
 			{
 				// 攻撃してきた方を向いて、後ろへ倒れます。
 				const Vector3 facing = Flatten(direction) * -1.0f;
-				GetWorld().Spawn<SlowCorpse>()->Begin(GetPosition(), facing.length() > 0.01f ? YawFromDirection(facing) : GetRotation().y);
+				SlowCorpse* corpse = GetWorld().Spawn<SlowCorpse>();
+				corpse->Begin(GetPosition(), facing.length() > 0.01f ? YawFromDirection(facing) : GetRotation().y);
+				corpse->StartHitShake(shakeAmplitude, false);
 			}
 		}
 		MarkForDestroy();
@@ -654,6 +671,11 @@ SlowEnemy::HitResult SlowEnemy::ApplyHit(const Vector3& direction, HitStrength s
 	}
 
 	m_FlashTime = tuning.HitFlashSeconds;
+	m_HitShake.Start(shakeAmplitude, false);
+	EmitHitMark(hitPoint, hitDirection, shakeWeight,
+		wasLaunched ? XMFLOAT4{ 3.0f, 2.4f, 0.7f, 1.0f }
+		: strong ? XMFLOAT4{ 3.2f, 1.7f, 0.5f, 1.0f }
+		: strength == HitStrength::Finisher ? XMFLOAT4{ 2.6f, 2.2f, 1.2f, 1.0f } : XMFLOAT4{ 2.2f, 2.3f, 2.4f, 1.0f });
 	EmitBurst(center, wasLaunched ? 18 : 10, 6.0f, 0.3f, 18,
 		wasLaunched ? XMFLOAT4{ 1.0f, 0.9f, 0.3f, 1.0f } : XMFLOAT4{ 1.0f, 1.0f, 1.0f, 1.0f }, SlowClock::kWorldTimeChannel);
 
@@ -789,7 +811,7 @@ void SlowEnemy::UpdateLaunched(float worldDeltaTime)
 				SlowClock::kWorldTimeChannel);
 			SlowScore::Add(SlowScore::Event::WallBounce);
 			SlowSound::Play(SlowSound::Id::Bounce);
-			SlowCamera::Shake(GetWorld(), tuning.ShakeWallBounce);
+			SlowCamera::Shake(GetWorld(), tuning.ShakeWallBounce, SlowCamera::ShakeStyle::Punch);
 		}
 		else
 		{
@@ -880,10 +902,17 @@ const std::string& SlowCorpse::GetAnimationName() const
 
 void SlowCorpse::Update()
 {
-	if (SceneEditor::IsActive() || m_Body == nullptr)
+	if (SceneEditor::IsActive())
+	{
+		m_HitShake.Clear(*this);
+		return;
+	}
+	if (m_Body == nullptr)
 	{
 		return;
 	}
+	// 倒した一撃のヒットストップの間だけ震えます(終われば0へ戻ります)。
+	m_HitShake.Apply(*this, false);
 	const float worldDeltaTime = SlowClock::GetWorldDeltaTime();
 	m_Age += worldDeltaTime;
 	Vector3 position = GetPosition();

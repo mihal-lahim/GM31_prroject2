@@ -105,7 +105,17 @@ void SlowCamera::LateUpdate()
 
 	if (player != nullptr)
 	{
-		const Vector3 target = player->GetPosition() + Vector3(0.0f, tuning.CameraFocusHeight, 0.0f);
+		// 進む先へ注視点を少しずらします。止まると0へ戻るので、待機中の構図は変わりません。
+		const Vector3 lookAheadTarget = LookAheadTarget(*player);
+		if (!m_HasFocus)
+		{
+			m_LookAhead = lookAheadTarget;
+		}
+		else
+		{
+			m_LookAhead += (lookAheadTarget - m_LookAhead) * (std::min)(1.0f, (std::max)(tuning.CameraLookAheadRate, 0.0f) * deltaTime);
+		}
+		const Vector3 target = player->GetPosition() + Vector3(0.0f, tuning.CameraFocusHeight, 0.0f) + m_LookAhead;
 		if (!m_HasFocus)
 		{
 			m_Focus = target;
@@ -147,13 +157,19 @@ void SlowCamera::LateUpdate()
 	m_Eye = m_Focus + backward * m_Distance;
 	Vector3 focus = m_Focus;
 	// 揺れは注視点とカメラを同じだけずらします。向きが変わらないので酔いにくく、照準も狂いません。
+	// 形(ShakeStyle)ごとに揺れ方と収まる速さを変えます。
+	m_ShakeOffset = { 0.0f, 0.0f, 0.0f };
 	if (m_Shake > 0.0f)
 	{
-		m_ShakeTime += deltaTime;
-		const Vector3 offset{ sinf(m_ShakeTime * 47.0f), sinf(m_ShakeTime * 59.0f + 1.3f), sinf(m_ShakeTime * 41.0f + 2.1f) };
-		m_Eye += offset * m_Shake;
-		focus += offset * m_Shake;
-		m_Shake *= expf(-tuning.ShakeDecay * deltaTime);
+		// 揺れはヒットストップで止めず(止めの間こそ画面を揺らす)、ポーズと時間の倍率だけを受けます。
+		const float shakeDeltaTime = Engine::GameTime::GetChannelDeltaTime(Engine::GameTime::kHitStopFreeChannel);
+		m_ShakeTime += shakeDeltaTime;
+		m_ShakeOffset = ShakeShape() * m_Shake;
+		m_Eye += m_ShakeOffset;
+		focus += m_ShakeOffset;
+		const float decayScale = m_ShakeStyle == ShakeStyle::Vertical ? 1.4f
+			: m_ShakeStyle == ShakeStyle::Punch ? 1.15f : 0.75f;
+		m_Shake *= expf(-tuning.ShakeDecay * decayScale * shakeDeltaTime);
 		if (m_Shake < 0.002f)
 		{
 			m_Shake = 0.0f;
@@ -208,10 +224,128 @@ void SlowCamera::Draw()
 	Engine::Renderer::SetCameraPosition(XMFLOAT3(m_Eye.x, m_Eye.y, m_Eye.z));
 }
 
-void SlowCamera::Shake(World& world, float strength)
+void SlowCamera::AddShake(float strength, ShakeStyle style)
+{
+	if (strength <= 0.0f || strength < m_Shake)
+	{
+		return;
+	}
+	// 強い揺れが来たら、形も始まりからやり直します(弱い揺れの続きに強い形が混ざらないように)。
+	m_Shake = strength;
+	m_ShakeStyle = style;
+	m_ShakeTime = 0.0f;
+	m_ShakePhase = RandomRange(0.0f, XM_2PI);
+	m_PunchSide = RandomRange(0.0f, 1.0f) < 0.5f ? -1.0f : 1.0f;
+}
+
+Vector3 SlowCamera::ShakeShape() const
+{
+	const float t = m_ShakeTime;
+	// 画面の横(カメラの右)と縦で揺らすと、どの向きから見ても同じ手触りになります。
+	const Vector3 right = RightFromYaw(m_Yaw);
+	const Vector3 up{ 0.0f, 1.0f, 0.0f };
+	switch (m_ShakeStyle)
+	{
+	case ShakeStyle::Vertical:
+		// 縦の突き上げが主。横はわずかに添えるだけです。
+		return up * sinf(t * 58.0f) + right * (0.18f * sinf(t * 37.0f + 0.7f));
+	case ShakeStyle::Punch:
+	{
+		// 最初の約0.06秒に、縦横へ鋭く一度振ってから細かく揺れ戻します。
+		const float kick = expf(-t * 30.0f);
+		const float swing = cosf(t * 72.0f);
+		return right * (m_PunchSide * (0.9f * kick + 0.55f * swing))
+			+ up * (0.75f * kick + 0.5f * sinf(t * 66.0f + 0.4f));
+	}
+	case ShakeStyle::Heavy:
+	default:
+		// ゆっくりした大きな多軸の揺れ。始まりの位相を毎回変えて、同じ揺れに見えないようにします。
+		return { sinf(t * 39.0f + m_ShakePhase), sinf(t * 47.0f + m_ShakePhase * 1.7f + 1.3f),
+			sinf(t * 31.0f + m_ShakePhase * 0.6f + 2.1f) };
+	}
+}
+
+Vector3 SlowCamera::LookAheadTarget(const SlowPlayer& player) const
+{
+	const SlowActionTuning& tuning = GetSlowActionTuning();
+	const float distance = (std::max)(tuning.CameraLookAheadDistance, 0.0f);
+	if (distance <= 0.0f)
+	{
+		return { 0.0f, 0.0f, 0.0f };
+	}
+	switch (player.GetState())
+	{
+	case SlowPlayer::State::Attack:
+	case SlowPlayer::State::Charge:
+	{
+		// 攻撃と溜めは、振る向きの先を見せます。
+		Vector3 direction = Flatten(player.GetAttackDirection());
+		if (direction.length() < 0.01f) return { 0.0f, 0.0f, 0.0f };
+		direction.normalize();
+		return direction * distance;
+	}
+	default:
+	{
+		// 歩き・ダッシュは進む向きへ、速さに比例してずらします(歩きの最高速で全量。止まれば0)。
+		Vector3 velocity = Flatten(player.GetVelocity());
+		const float speed = velocity.length();
+		if (speed < 0.05f) return { 0.0f, 0.0f, 0.0f };
+		const float amount = (std::min)(1.0f, speed / (std::max)(tuning.WalkSpeed, 0.1f));
+		return velocity / speed * (distance * amount);
+	}
+	}
+}
+
+void SlowCamera::Shake(World& world, float strength, ShakeStyle style)
 {
 	if (SlowCamera* camera = world.FindFirst<SlowCamera>())
 	{
-		camera->AddShake(strength);
+		camera->AddShake(strength, style);
 	}
+}
+
+void SlowHitShake::Start(float amplitude, bool vertical)
+{
+	if (amplitude <= 0.0f)
+	{
+		return;
+	}
+	m_Amplitude = (std::max)(m_Amplitude, amplitude);
+	m_Vertical = m_Vertical || vertical;
+}
+
+void SlowHitShake::Clear(GameObject& owner)
+{
+	m_Amplitude = 0.0f;
+	m_Vertical = false;
+	m_Phase = 0.0f;
+	owner.SetDrawOffset({ 0.0f, 0.0f, 0.0f });
+}
+
+void SlowHitShake::Apply(GameObject& owner, bool airborne)
+{
+	const float remaining = Engine::GameTime::GetHitStopRemainingRatio();
+	if (m_Amplitude <= 0.0f || remaining <= 0.0f)
+	{
+		// ヒットストップが終わったら、描く位置を必ず元へ戻します。
+		Clear(owner);
+		return;
+	}
+	// 1フレームごとに左右へ振ります(ポーズ中は時間が止まるので、震えもその形で止まります)。
+	m_Phase += Engine::GameTime::GetChannelDeltaTime(Engine::GameTime::kHitStopFreeChannel) * 60.0f;
+	float yaw = 0.0f;
+	float distanceScale = 1.0f;
+	if (const SlowCamera* camera = owner.GetWorld().FindFirst<SlowCamera>())
+	{
+		yaw = camera->GetYaw();
+		const float distance = (owner.GetPosition() - camera->GetCameraPosition()).length();
+		distanceScale = std::clamp(distance / kReferenceDistance, 0.85f, 1.8f);
+	}
+	const float amplitude = m_Amplitude * remaining * distanceScale;
+	Vector3 offset = RightFromYaw(yaw) * (cosf(m_Phase * XM_PI) * amplitude);
+	if (m_Vertical || airborne)
+	{
+		offset.y = sinf(m_Phase * XM_PI * 0.5f + 0.6f) * amplitude * 0.8f;
+	}
+	owner.SetDrawOffset(offset);
 }

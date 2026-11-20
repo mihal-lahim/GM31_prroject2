@@ -197,6 +197,8 @@ SLOW_TUNING_INT(FinisherHitStopFrames, 11)
 SLOW_TUNING_INT(PursuitHitStopFrames, 9)
 SLOW_TUNING_INT(KillHitStopFrames, 13)
 // 画面揺れの強さ(m)と、揺れが収まる速さ(1/秒)です。
+// 画面揺れの形は出来事ごとに決まっています(SlowCamera::ShakeStyle)。3段目・追撃・弾返しは縦の突き上げ(Vertical)、
+// 強攻撃・壁反射は鋭い縦横の一撃(Punch)、撃破・被弾は大きな多軸の揺れ(Heavy)です。
 SLOW_TUNING_FLOAT(ShakeStrongHit, 0.12f)
 SLOW_TUNING_FLOAT(ShakeWallBounce, 0.18f)
 SLOW_TUNING_FLOAT(ShakeKill, 0.22f)
@@ -204,6 +206,11 @@ SLOW_TUNING_FLOAT(ShakePlayerDamage, 0.3f)
 SLOW_TUNING_FLOAT(ShakeDecay, 7.0f)
 // 被弾した敵を白く光らせる時間(実時間)です。
 SLOW_TUNING_FLOAT(HitFlashSeconds, 0.07f)
+// ヒットストップの間、当たった敵と当てたプレイヤーを見た目だけ震わせる幅(m)です(当たり判定と位置は動きません)。
+// 当てた直後が最大で、ヒットストップの終わりへ向けて小さくなります。地上は横だけ、吹き飛び中の敵は縦にも震えます。
+// 技ごとに倍率を掛けます(通常1、3段目1.3、追撃1.4、強攻撃1.6、撃破1.8)。カメラから遠いほど少し大きくします。
+SLOW_TUNING_FLOAT(HitStopShakeEnemy, 0.11f)
+SLOW_TUNING_FLOAT(HitStopShakePlayer, 0.025f)
 
 SLOW_TUNING_SECTION("スコアとコンボ")
 // 最後に当ててからこの時間(ワールド時間)が過ぎるとコンボが切れます。減速中は切れにくくなります。
@@ -244,6 +251,10 @@ SLOW_TUNING_FLOAT(CameraAssistMaxDegrees, 18.0f)
 SLOW_TUNING_FLOAT(CameraAssistDegreesPerSecond, 70.0f)
 // 壁に遮られたとき、当たった位置からこの距離だけ手前へ寄せます。
 SLOW_TUNING_FLOAT(CameraWallMargin, 0.3f)
+// 注視点を、移動・ダッシュ・攻撃の向きへこの距離(m)だけ先へずらし、進む先を広く見せます(0で無し)。
+// 止まっているときは0へ戻ります。Rate はずれが目標へ寄る速さ(1/秒)です。
+SLOW_TUNING_FLOAT(CameraLookAheadDistance, 0.40f)
+SLOW_TUNING_FLOAT(CameraLookAheadRate, 3.0f)
 
 SLOW_TUNING_SECTION("斬り抜きの軌跡(スラッシュアーク)")
 // 先端が伸び切るまでの秒数です(実時間。ヒットストップ中は止まります)。

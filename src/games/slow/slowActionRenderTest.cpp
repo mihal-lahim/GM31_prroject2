@@ -2,6 +2,7 @@
 #define NOMINMAX
 #endif
 #include "manager.h"
+#include "collider.h"
 #include "DirectXTex.h"
 #include "slowAction.h"
 #include "slowActionTuning.h"
@@ -986,6 +987,142 @@ bool RunSlowActionRenderTest()
 		Engine::RuntimeConfig::SetFloat("slow.SunElevationDegrees", 51.4f);
 		Engine::RuntimeConfig::SetFloat("slow.SunWarmth", 0.5f);
 		h.Step();
+	}
+
+	// ---- 桜井流の手触り: ヒットストップの震え・画面揺れの形・注視点の先読み・ヒットマーク ----
+	{
+		SlowEnemy::SetInvincible(true);
+		h.Settle(openSpot, yawPlusX);
+		const auto waitHitStopEnd = [&h]()
+		{
+			for (int i = 0; i < 120 && Engine::GameTime::IsHitStopActive(); ++i) h.Step();
+			h.Step();
+		};
+		const auto horizontalLength = [](const Vector3& value) { return sqrtf(value.x * value.x + value.z * value.z); };
+
+		// 地上の敵へ通常攻撃: 当たった敵は大きく、当てたプレイヤーは小さく、どちらも横だけに震えます。
+		SlowEnemy* target = spawnEnemy(SlowEnemy::Kind::Melee, openSpot + Vector3(1.2f, 0.0f, 0.0f));
+		// ヒットマークが攻撃した本人の体に隠れないよう、横から見ます(プレイヤーは+Xへ攻撃、カメラは+Zを向く)。
+		if (camera != nullptr) camera->SetYaw(0.0f);
+		h.Step(2);
+		h.TapAttack();
+		for (int i = 0; i < 60 && !Engine::GameTime::IsHitStopActive(); ++i) h.Step();
+		h.Step(2);
+		const Vector3 enemyShake = target->GetDrawOffset();
+		const Vector3 playerShake = h.Player()->GetDrawOffset();
+		h.Check("hit stop shakes the struck enemy", Engine::GameTime::IsHitStopActive() && target->GetHitShake().IsActive()
+			&& horizontalLength(enemyShake) > 0.01f, horizontalLength(enemyShake));
+		h.Check("grounded hit shake stays horizontal", enemyShake.y == 0.0f && playerShake.y == 0.0f, enemyShake.y);
+		h.Check("attacker shakes less than the struck enemy", horizontalLength(playerShake) > 0.0f
+			&& horizontalLength(playerShake) < horizontalLength(enemyShake) * 0.5f, horizontalLength(playerShake));
+		h.Check("hit shake stays within the distance-scaled amplitude",
+			horizontalLength(enemyShake) <= tuning.HitStopShakeEnemy * 1.8f + 0.001f, horizontalLength(enemyShake));
+		h.Draw();
+		h.Check("capture hit mark", Capture(L"slow-render-hitmark.png"));
+		// 震えは見た目だけ: 描く位置はずれても、当たり判定(コライダーの中心)はゲームの位置のままです。
+		const Vector3 shakenEnemyPosition = target->GetPosition();
+		const Collider* enemyCollider = nullptr;
+		for (const auto& component : target->GetComponents())
+		{
+			if (const auto* collider = dynamic_cast<const Collider*>(component.get())) enemyCollider = collider;
+		}
+		h.Check("hit shake never moves the collider", enemyCollider != nullptr
+			&& fabsf(enemyCollider->GetCenter().z - shakenEnemyPosition.z) < 0.0001f
+			&& fabsf(enemyCollider->GetCenter().x - shakenEnemyPosition.x) < 0.0001f, enemyCollider != nullptr ? enemyCollider->GetCenter().x - shakenEnemyPosition.x : -1.0f);
+		// 震えはヒットストップへ向けて小さくなり、終わったら必ず0へ戻ります。
+		float previousAmplitude = 1.0e9f;
+		bool decays = true;
+		for (int i = 0; i < 60 && Engine::GameTime::IsHitStopActive(); ++i)
+		{
+			h.Step();
+			const float amplitude = horizontalLength(target->GetDrawOffset());
+			decays = decays && amplitude <= previousAmplitude + 0.0001f;
+			previousAmplitude = amplitude;
+		}
+		h.Step();
+		h.Check("hit shake decays toward the end of the hit stop", decays, previousAmplitude);
+		h.Check("hit shake returns to zero after the hit stop", target->GetDrawOffset().length() == 0.0f
+			&& h.Player()->GetDrawOffset().length() == 0.0f && !target->GetHitShake().IsActive(),
+			target->GetDrawOffset().length());
+
+		// 空中(吹き飛び中)の敵は縦にも震えます。
+		waitHitStopEnd();
+		target->ApplyHit({ 1.0f, 0.0f, 0.0f }, SlowEnemy::HitStrength::Strong, 0);
+		Engine::GameTime::StartHitStop(tuning.StrongHitStopFrames, tuning.HitStopScale);
+		float largestVertical = 0.0f;
+		for (int i = 0; i < 8; ++i)
+		{
+			h.Step();
+			largestVertical = (std::max)(largestVertical, fabsf(target->GetDrawOffset().y));
+		}
+		h.Check("airborne hit shake also moves vertically", target->IsLaunched() && largestVertical > 0.005f, largestVertical);
+		waitHitStopEnd();
+		h.Check("airborne hit shake returns to zero", target->GetDrawOffset().length() == 0.0f, target->GetDrawOffset().length());
+		target->MarkForDestroy();
+		h.Settle(openSpot, yawPlusX);
+
+		// 画面揺れの形: 縦(Vertical)は縦が主、鋭い一撃(Punch)は出だしが大きく、多軸(Heavy)は長く残ります。
+		if (camera != nullptr)
+		{
+			for (int i = 0; i < 240 && camera->GetShake() > 0.0f; ++i) h.Step();
+			const auto measure = [&](SlowCamera::ShakeStyle style, float& vertical, float& horizontal, float& first, float& remaining)
+			{
+				for (int i = 0; i < 240 && camera->GetShake() > 0.0f; ++i) h.Step();
+				camera->AddShake(0.2f, style);
+				vertical = horizontal = 0.0f;
+				for (int i = 0; i < 12; ++i)
+				{
+					h.Step();
+					const Vector3 offset = camera->GetShakeOffset();
+					if (i == 0) first = offset.length();
+					vertical += fabsf(offset.y);
+					horizontal += horizontalLength(offset);
+				}
+				remaining = camera->GetShake();
+			};
+			float vV = 0, vH = 0, vFirst = 0, vRemain = 0, pV = 0, pH = 0, pFirst = 0, pRemain = 0, hV = 0, hH = 0, hFirst = 0, hRemain = 0;
+			measure(SlowCamera::ShakeStyle::Vertical, vV, vH, vFirst, vRemain);
+			measure(SlowCamera::ShakeStyle::Punch, pV, pH, pFirst, pRemain);
+			measure(SlowCamera::ShakeStyle::Heavy, hV, hH, hFirst, hRemain);
+			h.Log << "shake vertical v=" << vV << " h=" << vH << " punch first=" << pFirst << " heavy first=" << hFirst
+				<< " remain v/p/h=" << vRemain << "/" << pRemain << "/" << hRemain << std::endl;
+			h.Check("vertical shake is mostly vertical", vV > vH * 2.0f, vH > 0.0f ? vV / vH : 0.0f);
+			h.Check("punch shake kicks hard at the start", pFirst > 0.2f * 0.8f && pFirst > vFirst, pFirst);
+			h.Check("heavy shake lasts longest", hRemain > pRemain && pRemain > vRemain, hRemain);
+			// 形を省いた以前の呼び方は Heavy のままです。弱い揺れは強い揺れの形を上書きしません。
+			for (int i = 0; i < 240 && camera->GetShake() > 0.0f; ++i) h.Step();
+			SlowCamera::Shake(h.GetWorld(), 0.2f);
+			h.Check("shake without a style stays heavy", camera->GetShakeStyle() == SlowCamera::ShakeStyle::Heavy);
+			SlowCamera::Shake(h.GetWorld(), 0.05f, SlowCamera::ShakeStyle::Vertical);
+			h.Check("a weaker shake keeps the stronger style", camera->GetShakeStyle() == SlowCamera::ShakeStyle::Heavy);
+			for (int i = 0; i < 240 && camera->GetShake() > 0.0f; ++i) h.Step();
+			h.Step();
+			h.Check("shake settles back to no offset", camera->GetShake() == 0.0f && camera->GetShakeOffset().length() == 0.0f);
+
+			// 注視点の先読み: 止まっていれば0、歩くと進む向きへ、止まると0へ戻ります。0にすると先読みしません。
+			h.Settle(openSpot, 0.0f);
+			h.Step(120);
+			h.Check("idle camera has no look-ahead", camera->GetLookAhead().length() < 0.001f, camera->GetLookAhead().length());
+			h.Input.MoveZ = 1.0f;
+			h.Step(90);
+			const Vector3 lookAhead = camera->GetLookAhead();
+			Vector3 velocity = SlowUtil::Flatten(h.Player()->GetVelocity());
+			velocity.normalize();
+			const float along = lookAhead.length() > 0.0f ? Vector3::dot(lookAhead, velocity) / lookAhead.length() : 0.0f;
+			h.Check("walking looks ahead along the movement", lookAhead.length() > tuning.CameraLookAheadDistance * 0.6f
+				&& lookAhead.length() <= tuning.CameraLookAheadDistance + 0.001f && along > 0.95f, lookAhead.length());
+			h.Input = SlowInputState{};
+			h.Step(180);
+			h.Check("look-ahead returns when stopping", camera->GetLookAhead().length() < 0.02f, camera->GetLookAhead().length());
+			const float defaultLookAhead = tuning.CameraLookAheadDistance;
+			Engine::RuntimeConfig::SetFloat("slow.CameraLookAheadDistance", 0.0f);
+			h.Input.MoveZ = 1.0f;
+			h.Step(60);
+			h.Check("zero look-ahead distance turns it off", camera->GetLookAhead().length() < 0.02f, camera->GetLookAhead().length());
+			Engine::RuntimeConfig::SetFloat("slow.CameraLookAheadDistance", defaultLookAhead);
+			h.Input = SlowInputState{};
+		}
+		SlowEnemy::SetInvincible(false);
 	}
 
 	SlowInput::SetOverride(nullptr);

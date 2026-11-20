@@ -12,6 +12,7 @@ class Collider;
 class DynamicText;
 class ModelRenderer;
 class SlowEnemy;
+class SlowPlayer;
 class SlowSwordTrail;
 class SoundPool;
 
@@ -99,9 +100,51 @@ namespace SlowTimeFx
 	bool IsRealisticPostActive();
 }
 
+// ヒットストップの間だけ、キャラを見た目だけ震わせます(桜井流のヒットストップの揺れ)。
+// 位置(GetPosition)と当たり判定は動かさず、GameObject::SetDrawOffset で描く位置だけをずらします。
+// 当てた直後が最大で、ヒットストップの終わりへ向けて小さくなり、終わったら必ず0へ戻ります。
+// 地上は画面の横方向だけ(縦に揺らすと足が床へめり込むため)、空中は縦にも震わせます。
+// カメラから遠いほど少し大きくし(基準7mで0.85〜1.8倍)、遠くの敵でも当たったと分かるようにします。
+struct SlowHitShake
+{
+	// 技ごとの倍率です。調整値(HitStopShakeEnemy / HitStopShakePlayer)にこれを掛けます。
+	static constexpr float kNormal = 1.0f;
+	static constexpr float kFinisher = 1.3f;
+	static constexpr float kPursuit = 1.4f;
+	static constexpr float kStrong = 1.6f;
+	static constexpr float kKill = 1.8f;
+	static constexpr float kReferenceDistance = 7.0f;
+
+	// amplitude は技の倍率を掛けた幅(m)です。今の揺れより弱ければ幅はそのまま。vertical なら空中でなくても縦に震わせます。
+	void Start(float amplitude, bool vertical);
+	// 毎フレーム呼び、今のずれを owner の描く位置へ反映します。ヒットストップが終わっていれば0に戻します。
+	// airborne は今 owner が空中にいるか(吹き飛び中など)で、true なら縦にも震わせます。
+	void Apply(GameObject& owner, bool airborne);
+	void Clear(GameObject& owner);
+	bool IsActive() const { return m_Amplitude > 0.0f; }
+	float GetAmplitude() const { return m_Amplitude; }
+
+private:
+	float m_Amplitude = 0.0f;
+	bool m_Vertical = false;
+	// 揺れの位相(フレーム換算)。ヒットストップでも止まらない時間で進めます(ポーズでは止まります)。
+	float m_Phase = 0.0f;
+};
+
 class SlowCamera final : public GameObject, public ICameraView
 {
 public:
+	// 画面揺れの形です(桜井流「画面振動」: 出来事の大きさで揺れ方そのものを変えます)。
+	//   Vertical: 小さな衝撃。縦の突き上げが主で、すぐ収まります(3段目・追撃・弾返し)。
+	//   Punch   : 強打・壁反射。最初の数フレームに鋭い縦横の一撃を入れて、速く収まります。
+	//   Heavy   : 撃破・被弾。ゆっくりした大きな多軸の揺れで、始まりの位相を毎回変えます(長めに残ります)。
+	enum class ShakeStyle
+	{
+		Vertical,
+		Punch,
+		Heavy
+	};
+
 	void Init() override;
 	void PreUpdate() override;
 	void LateUpdate() override;
@@ -118,18 +161,28 @@ public:
 	float GetDistance() const { return m_Distance; }
 	// 指定したワールド座標の方へ、向きを少しだけ寄せます。マウスを動かすと中断します。
 	void AssistToward(const Vector3& worldPoint);
-	// 画面を揺らします。今の揺れより強いときだけ上書きし、実時間で収まります。
-	void AddShake(float strength) { m_Shake = (std::max)(m_Shake, strength); }
+	// 画面を揺らします。今の揺れより強いときだけ上書きし(形もそのときに変わります)、ヒットストップでは止まらない時間で収まります。
+	// 形を省いたときは Heavy(以前からの多軸の揺れ)です。
+	void AddShake(float strength, ShakeStyle style = ShakeStyle::Heavy);
 	float GetShake() const { return m_Shake; }
+	ShakeStyle GetShakeStyle() const { return m_ShakeStyle; }
+	// 直前の LateUpdate で揺れによって注視点とカメラをずらした量です。テストと確認用です。
+	Vector3 GetShakeOffset() const { return m_ShakeOffset; }
+	// 注視点を進む先へずらしている量(水平、m)です。テストと確認用です。
+	Vector3 GetLookAhead() const { return m_LookAhead; }
+	// 揺れのずれを除いた注視点です。
+	Vector3 GetFocus() const { return m_Focus; }
 	// 追従の遅れをなくして、今のプレイヤー位置へ合わせます。
 	void SnapToTarget();
 	// worldにカメラがあれば揺らします。
-	static void Shake(World& world, float strength);
+	static void Shake(World& world, float strength, ShakeStyle style = ShakeStyle::Heavy);
 
 private:
 	XMMATRIX m_View = XMMatrixIdentity();
 	Vector3 m_Focus{ 0.0f, 0.0f, 0.0f };
 	Vector3 m_Eye{ 0.0f, 0.0f, 0.0f };
+	Vector3 m_LookAhead{ 0.0f, 0.0f, 0.0f };
+	Vector3 m_ShakeOffset{ 0.0f, 0.0f, 0.0f };
 	float m_Yaw = 0.0f;
 	// 注視点から見たカメラの仰角です。大きいほど上から見下ろします。
 	float m_Pitch = 0.0f;
@@ -138,7 +191,16 @@ private:
 	float m_AssistRemaining = 0.0f;
 	float m_Shake = 0.0f;
 	float m_ShakeTime = 0.0f;
+	ShakeStyle m_ShakeStyle = ShakeStyle::Heavy;
+	// Heavy の始まりの位相と、Punch の一撃の向き(画面の横と縦の混ぜ具合)です。揺れを始めるたびに決め直します。
+	float m_ShakePhase = 0.0f;
+	float m_PunchSide = 1.0f;
 	bool m_HasFocus = false;
+
+	// 移動・ダッシュ・攻撃の向きから、注視点を先へずらす目標(水平)を決めます。
+	Vector3 LookAheadTarget(const SlowPlayer& player) const;
+	// 今の形と経過時間から、揺れの向きと大きさ(幅1あたり)を返します。
+	Vector3 ShakeShape() const;
 };
 
 class SlowPlayer final : public GameObject
@@ -179,6 +241,11 @@ public:
 	float GetYaw() const { return m_Yaw; }
 	void SetYaw(float yaw) { m_Yaw = yaw; Vector3 rotation = GetRotation(); rotation.y = yaw; SetRotation(rotation); }
 	float GetSpeed() const { return m_Velocity.length(); }
+	Vector3 GetVelocity() const { return m_Velocity; }
+	// 今の攻撃(溜めを含む)の水平の向きです。攻撃していなくても最後の向きを返します。
+	Vector3 GetAttackDirection() const { return m_AttackDirection; }
+	// ヒットストップの見た目だけの震えです。テストと確認用です。
+	const SlowHitShake& GetHitShake() const { return m_HitShake; }
 	int GetPursuitCount() const { return m_PursuitCount; }
 	// 通常攻撃の何段目か(1〜3)。通常攻撃中でなければ0です。
 	int GetComboStep() const { return m_State == State::Attack && m_AttackType == AttackType::Normal ? m_ComboStep : 0; }
@@ -232,6 +299,7 @@ private:
 	int m_PursuitCount = 0;
 	// 通常攻撃でロックした敵と、当たる瞬間までに残っている踏み込み距離です。
 	SlowEnemy* m_AttackTarget = nullptr;
+	SlowHitShake m_HitShake;
 	// 踏み込む距離の全体と、今までに進んだ距離です(当たる瞬間に全体へ達するイーズアウトで進めます)。
 	float m_LungeTotal = 0.0f;
 	float m_LungeTravelled = 0.0f;
@@ -427,6 +495,8 @@ public:
 	const std::string& GetHitReactionName() const;
 	// 腰の骨が敵の位置から水平にどれだけ離れているか(m)。モーションで体が位置からずれていないかを確かめます。
 	float GetBodyHipsOffset() const;
+	// ヒットストップの見た目だけの震えです。テストと確認用です。
+	const SlowHitShake& GetHitShake() const { return m_HitShake; }
 
 private:
 	static bool s_Invincible;
@@ -467,6 +537,7 @@ private:
 	Vector3 m_StaggerVelocity{ 0.0f, 0.0f, 0.0f };
 	// 射撃型が予兆に入った時点で決めた狙いの向きです。撃つまで変えないので、横へ動けば避けられます。
 	Vector3 m_AimDirection{ 0.0f, 0.0f, 1.0f };
+	SlowHitShake m_HitShake;
 
 	void SetState(State state, float seconds = 0.0f);
 	void Launch(const Vector3& direction, bool light = false);
@@ -500,6 +571,8 @@ public:
 	void Update() override;
 	// startSecondsは倒れるモーションの開始位置(秒)です。吹き飛び中に倒した敵は、その続きから倒れます。
 	void Begin(const Vector3& position, float yaw, float startSeconds = 0.0f);
+	// 倒した一撃のヒットストップの震えを引き継ぎます(撃破の震え)。
+	void StartHitShake(float amplitude, bool vertical) { m_HitShake.Start(amplitude, vertical); }
 	const std::string& GetAnimationName() const;
 
 private:
@@ -507,6 +580,7 @@ private:
 	float m_Age = 0.0f;
 	float m_DyingSeconds = 0.0f;
 	float m_FallSpeed = 0.0f;
+	SlowHitShake m_HitShake;
 };
 
 // 射撃型の敵が撃つ弾です。ワールド時間で進むので、時間減速中は避けたり打ち返したりしやすくなります。

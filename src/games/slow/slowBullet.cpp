@@ -129,7 +129,7 @@ void SlowBullet::Update()
 		SlowScore::Add(result.Pursuit ? SlowScore::Event::Pursuit : SlowScore::Event::StrongHit);
 		SlowClock::AddGauge(tuning.GaugeGainStrongHit);
 		SlowSound::Play(SlowSound::Id::StrongHit);
-		SlowCamera::Shake(GetWorld(), tuning.ShakeStrongHit);
+		SlowCamera::Shake(GetWorld(), tuning.ShakeStrongHit, SlowCamera::ShakeStyle::Punch);
 		MarkForDestroy();
 		return;
 	}

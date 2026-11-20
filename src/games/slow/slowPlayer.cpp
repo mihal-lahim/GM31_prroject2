@@ -183,6 +183,7 @@ void SlowPlayer::Update()
 	if (SceneEditor::IsActive())
 	{
 		// 編集モードの間は、配置されたまま動きません。編集で動かされても剣は手に付いていきます。
+		m_HitShake.Clear(*this);
 		UpdateSword();
 		return;
 	}
@@ -290,6 +291,8 @@ void SlowPlayer::Update()
 		UpdateMovement(input, deltaTime);
 	}
 	{ Vector3 value = GetRotation(); value.y = m_Yaw; SetRotation(value); }
+	// 当てたヒットストップの間だけ、見た目を小さく震わせます(剣も UpdateSword で同じだけずらします)。
+	m_HitShake.Apply(*this, false);
 	UpdateAnimation(deltaTime);
 	EmitSlowTrail();
 	UpdateSwordArc();
@@ -512,12 +515,14 @@ void SlowPlayer::UpdateSword()
 			* amount;
 	}
 
+	// ヒットストップの震えは見た目だけなので、描く剣にだけ足します(軌跡は元の握りの位置から出します)。
+	const Vector3 drawOffset = GetDrawOffset();
 	// 行ベクトルの規約(DirectXMath)なので、各行が剣のローカル軸のワールドでの向きです。
 	const XMMATRIX basis(
 		edge.x, edge.y, edge.z, 0.0f,
 		up.x, up.y, up.z, 0.0f,
 		side.x, side.y, side.z, 0.0f,
-		grip.x, grip.y, grip.z, 1.0f);
+		grip.x + drawOffset.x, grip.y + drawOffset.y, grip.z + drawOffset.z, 1.0f);
 	const float scale = tuning.SwordScale;
 	m_Sword->SetWorldMatrixOverride(XMMatrixScaling(scale, scale, scale) * basis);
 	m_Sword->SetVisible(true);
@@ -903,10 +908,24 @@ void SlowPlayer::PerformAttackHit()
 	if (hitAny)
 	{
 		SlowSound::Play(strong || finisher || pursuitAny ? SlowSound::Id::StrongHit : SlowSound::Id::Hit);
-		if (strong || finisher || pursuitAny)
+		// 強攻撃は鋭い一撃(Punch)、3段目と追撃は縦の突き上げ(Vertical)。1・2段目は揺らさず、止めと震えだけにします。
+		if (strong)
 		{
-			SlowCamera::Shake(GetWorld(), tuning.ShakeStrongHit);
+			SlowCamera::Shake(GetWorld(), tuning.ShakeStrongHit, SlowCamera::ShakeStyle::Punch);
 		}
+		else if (finisher || pursuitAny)
+		{
+			SlowCamera::Shake(GetWorld(), tuning.ShakeStrongHit, SlowCamera::ShakeStyle::Vertical);
+		}
+		// 当てた側も小さく震わせて、手応えを返します(受けた敵の方が大きく震えます)。
+		// 敵側(SlowEnemy::ApplyHit)と同じ優先順です: 追撃 > 強攻撃 > 3段目 > 通常。
+		const float weight = pursuitAny ? SlowHitShake::kPursuit : strong ? SlowHitShake::kStrong
+			: finisher ? SlowHitShake::kFinisher : SlowHitShake::kNormal;
+		m_HitShake.Start(tuning.HitStopShakePlayer * weight, false);
+	}
+	else if (deflected)
+	{
+		SlowCamera::Shake(GetWorld(), tuning.ShakeStrongHit * 0.6f, SlowCamera::ShakeStyle::Vertical);
 	}
 	if (strong && launchedEnemy != nullptr)
 	{
@@ -988,5 +1007,5 @@ void SlowPlayer::TakeDamage(int damage)
 	EmitBurst(GetPosition() + Vector3(0.0f, 1.0f, 0.0f), 14, 5.0f, 0.3f, 22, { 1.0f, 0.25f, 0.25f, 1.0f });
 	SlowScore::BreakCombo();
 	SlowSound::Play(SlowSound::Id::Damage);
-	SlowCamera::Shake(GetWorld(), tuning.ShakePlayerDamage);
+	SlowCamera::Shake(GetWorld(), tuning.ShakePlayerDamage, SlowCamera::ShakeStyle::Heavy);
 }
