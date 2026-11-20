@@ -99,6 +99,20 @@ SLOW_TUNING_FLOAT(JustSlowWindowSeconds, 0.3f)
 SLOW_TUNING_FLOAT(JustSlowBulletRange, 3.0f)
 SLOW_TUNING_FLOAT(JustSlowGaugeGain, 20.0f)
 
+// ---- 時間減速の演出 ----
+// 画面(ポストエフェクト post-time-slow)は減速の深さに合わせて掛かります。値は減速しきったときの強さ(0〜1)です。
+// 彩度を落とす量(0=そのまま、1=白黒)、寒色へ寄せる量、外周を暗くする量です。
+SLOW_TUNING_FLOAT(SlowFxDesaturate, 0.65f)
+SLOW_TUNING_FLOAT(SlowFxTint, 0.35f)
+SLOW_TUNING_FLOAT(SlowFxVignette, 0.45f)
+// 発動・解除の衝撃波が画面を横切る時間と、ジャスト減速のフラッシュが消えるまでの時間(どちらもゲームの時間。ヒットストップとポーズの間は止まります)です。
+SLOW_TUNING_FLOAT(SlowFxWaveSeconds, 0.35f)
+SLOW_TUNING_FLOAT(SlowFxFlashSeconds, 0.12f)
+// 闘技場に漂う光の粒の数(およそ)です。ワールド時間で動くので、減速中は宙に止まって見えます。
+SLOW_TUNING_INT(SlowFxDustCount, 70)
+// 減速中のプレイヤーのダッシュ・攻撃に付く軌跡の粒の数(1フレームあたり)です。0で無効になります。
+SLOW_TUNING_INT(SlowFxTrailPerFrame, 3)
+
 // ---- 吹き飛ばし ----
 SLOW_TUNING_FLOAT(LaunchDistance, 6.0f)
 SLOW_TUNING_FLOAT(LaunchSeconds, 1.2f)
@@ -217,6 +231,8 @@ SLOW_TUNING_FLOAT(CameraMaxPitchDegrees, 70.0f)
 SLOW_TUNING_FLOAT(CameraFovDegrees, 62.0f)
 SLOW_TUNING_FLOAT(CameraDashFovDegrees, 70.0f)
 SLOW_TUNING_FLOAT(CameraFovBlendRate, 6.0f)
+// 減速しきったとき、画角をこの角度だけ狭めます(ダッシュ中の画角からも同じだけ引きます)。
+SLOW_TUNING_FLOAT(CameraSlowFovNarrowDegrees, 5.0f)
 // 注視点がプレイヤーへ追いつく率(1/秒)です。ダッシュ中は小さくして少し遅らせます。
 SLOW_TUNING_FLOAT(CameraFollowRate, 22.0f)
 SLOW_TUNING_FLOAT(CameraDashFollowRate, 12.0f)

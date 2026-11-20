@@ -115,7 +115,9 @@ void SlowCamera::LateUpdate()
 		}
 	}
 
-	const float targetFov = dashing ? tuning.CameraDashFovDegrees : tuning.CameraFovDegrees;
+	// 減速中は深さに合わせて画角を少し狭め、時間が詰まった感じを出します。ダッシュの広がりにもそのまま重なります。
+	const float targetFov = (dashing ? tuning.CameraDashFovDegrees : tuning.CameraFovDegrees)
+		- tuning.CameraSlowFovNarrowDegrees * SlowTimeFx::GetIntensity();
 	m_FovDegrees += (targetFov - m_FovDegrees) * (std::min)(1.0f, tuning.CameraFovBlendRate * deltaTime);
 
 	// 注視点からカメラへレイを飛ばし、壁に遮られるならその手前まで寄せます。

@@ -254,6 +254,7 @@ void SlowActionScene::Init()
 	Collider::SetDebugDrawEnabled(false);
 	SlowEnemy::SetInvincible(false);
 	SlowClock::Reset();
+	SlowTimeFx::BeginScene();
 	// 設定ファイルのキー名の書き間違いは黙って既定値になるので、画面に出して気付けるようにします。
 	g_TuningWarning.clear();
 	for (const std::string& key : FindUnknownSlowActionTuningKeys())
@@ -323,6 +324,8 @@ void SlowActionScene::Init()
 
 void SlowActionScene::Uninit()
 {
+	// やり直し・倒れたとき・アプリの終了のどれでも、減速の画面演出を残さないようにします。
+	SlowTimeFx::Reset();
 	SceneEditor::SetActive(false);
 	SceneEditor::SetWorld(nullptr);
 }
@@ -358,6 +361,8 @@ void SlowActionScene::ToggleEditMode()
 	}
 	Engine::SceneSerializer::Read(world, g_StageText);
 	SlowClock::Reset();
+	// 編集中は演出が更新されないので、ここで消します。光の粒は残り、寿命で消えます。
+	SlowTimeFx::Reset();
 	SlowScore::Reset();
 	m_RespawnTimer = 0.0f;
 	m_ClearAwarded = false;
@@ -411,6 +416,8 @@ void SlowActionScene::Update()
 
 	if (Engine::InputActions::IsTriggered("retry"))
 	{
+		// 遷移の間も前のシーンが描かれるので、減速の演出はここで消しておきます。
+		SlowTimeFx::Reset();
 		ChangeSceneWith<SlowActionScene>(SceneTransition::Instant());
 		return;
 	}
@@ -433,9 +440,11 @@ void SlowActionScene::Update()
 
 	World& world = GetWorld();
 	const SlowPlayer* player = world.FindFirst<SlowPlayer>();
+	SlowTimeFx::Update(realDeltaTime, player != nullptr ? player->GetPosition() : Vector3(0.0f, 0.0f, 0.0f));
 	if (player != nullptr && player->GetHp() <= 0)
 	{
-		// ゲームオーバー画面は作らず、倒れたら最初からやり直します。
+		// ゲームオーバー画面は作らず、倒れたら最初からやり直します。フェード中に演出を残さないよう、先に消します。
+		SlowTimeFx::Reset();
 		ChangeScene<SlowActionScene>();
 		return;
 	}
@@ -495,7 +504,9 @@ void SlowActionScene::CheckJustSlow()
 	}
 	if (count > 0)
 	{
+		// 発動したプレイヤー側の手応えなので、火花は実時間(チャンネル0)で弾けさせます。
 		SlowUtil::EmitBurst(player->GetPosition() + Vector3(0.0f, 1.0f, 0.0f), 20, 7.0f, 0.3f, 20, { 0.5f, 0.85f, 1.0f, 1.0f });
+		SlowTimeFx::TriggerJustSlowFlash();
 		SlowSound::Play(SlowSound::Id::Deflect);
 	}
 }

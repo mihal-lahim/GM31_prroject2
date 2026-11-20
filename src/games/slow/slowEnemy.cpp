@@ -424,7 +424,7 @@ void SlowEnemy::Update()
 			const Vector3 muzzle = GetPosition() + Vector3(0.0f, 1.05f, 0.0f);
 			const float along = RandomRange(1.0f, tuning.GunnerMaxRange);
 			ParticleSystem::Emit(muzzle + m_AimDirection * along, Vector3(), 0.12f, 4,
-				{ 1.0f, 0.3f, 0.8f, 0.8f }, 0.0f, 1.0f);
+				{ 1.0f, 0.3f, 0.8f, 0.8f }, 0.0f, 1.0f, SlowClock::kWorldTimeChannel);
 		}
 		m_StateTime -= worldDeltaTime;
 		if (m_StateTime <= 0.0f)
@@ -580,7 +580,8 @@ void SlowEnemy::Strike()
 	const Vector3 forward = ForwardFromYaw(GetRotation().y);
 	const float halfAngle = XMConvertToRadians(spec.HalfAngleDegrees);
 	EmitFan(GetPosition() + Vector3(0.0f, 1.0f, 0.0f), forward, spec.HitRange, halfAngle,
-		m_Kind == Kind::Brute ? 15 : 9, m_Kind == Kind::Brute ? 0.55f : 0.4f, 12, { 1.0f, 0.2f, 0.2f, 1.0f });
+		m_Kind == Kind::Brute ? 15 : 9, m_Kind == Kind::Brute ? 0.55f : 0.4f, 12, { 1.0f, 0.2f, 0.2f, 1.0f },
+		SlowClock::kWorldTimeChannel);
 
 	SlowPlayer* player = GetWorld().FindFirst<SlowPlayer>();
 	if (player == nullptr)
@@ -626,7 +627,8 @@ SlowEnemy::HitResult SlowEnemy::ApplyHit(const Vector3& direction, HitStrength s
 	{
 		// HPが尽きたらその場で消えます。止め・音・揺れで、倒したことをはっきり返します。
 		result.Killed = true;
-		EmitBurst(center, m_Kind == Kind::Brute ? 50 : 30, 8.0f, 0.4f, 30, { 1.0f, 0.4f, 0.3f, 1.0f });
+		EmitBurst(center, m_Kind == Kind::Brute ? 50 : 30, 8.0f, 0.4f, 30, { 1.0f, 0.4f, 0.3f, 1.0f },
+			SlowClock::kWorldTimeChannel);
 		SlowScore::Add(m_Kind == Kind::Brute ? SlowScore::Event::KillBrute
 			: m_Kind == Kind::Gunner ? SlowScore::Event::KillGunner : SlowScore::Event::KillMelee);
 		SlowSound::Play(SlowSound::Id::Kill);
@@ -653,7 +655,7 @@ SlowEnemy::HitResult SlowEnemy::ApplyHit(const Vector3& direction, HitStrength s
 
 	m_FlashTime = tuning.HitFlashSeconds;
 	EmitBurst(center, wasLaunched ? 18 : 10, 6.0f, 0.3f, 18,
-		wasLaunched ? XMFLOAT4{ 1.0f, 0.9f, 0.3f, 1.0f } : XMFLOAT4{ 1.0f, 1.0f, 1.0f, 1.0f });
+		wasLaunched ? XMFLOAT4{ 1.0f, 0.9f, 0.3f, 1.0f } : XMFLOAT4{ 1.0f, 1.0f, 1.0f, 1.0f }, SlowClock::kWorldTimeChannel);
 
 	if (wasLaunched)
 	{
@@ -671,7 +673,8 @@ SlowEnemy::HitResult SlowEnemy::ApplyHit(const Vector3& direction, HitStrength s
 			if (m_Armor <= 0)
 			{
 				m_Armor = 0;
-				EmitBurst(center + Vector3(0.0f, 0.7f, 0.0f), 24, 7.0f, 0.35f, 24, { 0.85f, 0.8f, 0.7f, 1.0f });
+				EmitBurst(center + Vector3(0.0f, 0.7f, 0.0f), 24, 7.0f, 0.35f, 24, { 0.85f, 0.8f, 0.7f, 1.0f },
+					SlowClock::kWorldTimeChannel);
 				result.Launched = true;
 				Launch(direction);
 			}
@@ -782,7 +785,8 @@ void SlowEnemy::UpdateLaunched(float worldDeltaTime)
 			m_HangTime = tuning.WallBounceHangSeconds;
 			// 壁で留まる分だけ着地が遅れるので、倒れるモーションを残り時間に合わせ直します。
 			PlayKnockdown(GetKnockdownSeconds(), m_HangTime + (std::max)(m_LaunchSeconds - m_LaunchTime, 0.0f));
-			EmitBurst(GetPosition() + Vector3(0.0f, 0.9f, 0.0f), 16, 6.0f, 0.35f, 18, { 0.7f, 0.9f, 1.0f, 1.0f });
+			EmitBurst(GetPosition() + Vector3(0.0f, 0.9f, 0.0f), 16, 6.0f, 0.35f, 18, { 0.7f, 0.9f, 1.0f, 1.0f },
+				SlowClock::kWorldTimeChannel);
 			SlowScore::Add(SlowScore::Event::WallBounce);
 			SlowSound::Play(SlowSound::Id::Bounce);
 			SlowCamera::Shake(GetWorld(), tuning.ShakeWallBounce);

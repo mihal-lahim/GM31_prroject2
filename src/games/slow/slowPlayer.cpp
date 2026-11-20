@@ -218,6 +218,41 @@ void SlowPlayer::Update()
 	}
 	{ Vector3 value = GetRotation(); value.y = m_Yaw; SetRotation(value); }
 	UpdateAnimation(deltaTime);
+	EmitSlowTrail();
+}
+
+// 止まった世界の中で自分だけ速く動いていることを見せる軌跡です。粒は実時間(チャンネル0)で消えるので、
+// ワールド時間で漂う敵側の火花や光の粒との違いがはっきりします。
+void SlowPlayer::EmitSlowTrail()
+{
+	const SlowActionTuning& tuning = GetSlowActionTuning();
+	const int count = tuning.SlowFxTrailPerFrame;
+	const float intensity = SlowTimeFx::GetIntensity();
+	if (count <= 0 || intensity <= 0.05f)
+	{
+		return;
+	}
+	const XMFLOAT4 color{ 0.55f, 0.85f, 1.0f, 0.8f * intensity };
+	if (m_State == State::Dash)
+	{
+		for (int i = 0; i < count; ++i)
+		{
+			const Vector3 offset{ RandomRange(-0.25f, 0.25f), RandomRange(0.3f, 1.6f), RandomRange(-0.25f, 0.25f) };
+			ParticleSystem::Emit(GetPosition() + offset, m_Velocity * -0.05f, RandomRange(0.15f, 0.28f), 16,
+				color, 0.0f, 0.9f);
+		}
+	}
+	else if (m_State == State::Attack && m_SwordAttached)
+	{
+		// 刃の中ほどから切っ先までに並べます。剣のモデルは長さ1.4mで、握りから+Yへ伸びています。
+		const float bladeLength = 1.4f * tuning.SwordScale;
+		for (int i = 0; i < count; ++i)
+		{
+			const float t = count > 1 ? static_cast<float>(i) / static_cast<float>(count - 1) : 1.0f;
+			const Vector3 point = m_SwordGrip + m_SwordAxis * (bladeLength * (0.35f + 0.65f * t));
+			ParticleSystem::Emit(point, Vector3(), 0.18f, 12, color, 0.0f, 0.88f);
+		}
+	}
 }
 
 const std::string& SlowPlayer::GetAnimationName() const
@@ -311,6 +346,8 @@ void SlowPlayer::UpdateSword()
 	m_Sword->SetWorldMatrixOverride(XMMatrixScaling(scale, scale, scale) * basis);
 	m_Sword->SetVisible(true);
 	m_SwordAttached = true;
+	m_SwordGrip = grip;
+	m_SwordAxis = up;
 }
 
 // 溜め: 強攻撃の構え(クリップのStrongClipStartの姿勢)で止まります。移動もダッシュもできず、向きだけ変えられます。

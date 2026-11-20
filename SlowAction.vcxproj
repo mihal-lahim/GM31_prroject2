@@ -88,6 +88,7 @@
     <ClCompile Include="src\games\slow\slowBullet.cpp" />
     <ClCompile Include="src\games\slow\slowFeedback.cpp" />
     <ClCompile Include="src\games\slow\slowPlayer.cpp" />
+    <ClCompile Include="src\games\slow\slowTimeFx.cpp" />
     <ClCompile Include="src\games\slow\sceneEditor.cpp" />
     <ClCompile Include="src\shared\sky.cpp" />
     <ClCompile Include="src\engine\enginePch.cpp">

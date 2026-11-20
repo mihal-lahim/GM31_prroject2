@@ -120,6 +120,9 @@ bool RunSlowActionRenderTest()
 	h.Step(30);
 	h.Draw();
 	h.Check("capture start", Capture(L"slow-render.png"));
+	// 減速していない間は、時間減速のポストエフェクトを掛けません(通常時の描画を変えない)。
+	h.Check("no time slow post effect while not slowed", !SlowTimeFx::IsPostEffectActive()
+		&& SlowTimeFx::GetIntensity() == 0.0f);
 	// 敵の数はステージファイル次第なので、ファイルに書かれた数と比べます。
 	std::size_t stageEnemies = 0;
 	{
@@ -143,6 +146,11 @@ bool RunSlowActionRenderTest()
 		const std::uint64_t enemyId = h.Enemy()->GetId();
 		const std::uint64_t playerId = h.Player()->GetId();
 
+		// 減速の演出が掛かったまま編集モードへ入っても、演出は消えます。
+		h.Input.Slow = true;
+		h.Step(10);
+		h.Check("time slow post effect on before editing", SlowTimeFx::IsPostEffectActive());
+		h.Input = SlowInputState{};
 		h.Scene.ToggleEditMode();
 		h.Step(2);
 		h.Check("edit mode active", SceneEditor::IsActive());
@@ -156,6 +164,8 @@ bool RunSlowActionRenderTest()
 		h.Input = SlowInputState{};
 		h.Check("game is frozen while editing", h.Player()->GetPosition() == playerStart
 			&& world.FindById(enemyId)->GetPosition() == enemyStart && SlowClock::GetGauge() == tuning.GaugeMax);
+		h.Check("edit mode clears the time slow effect", !SlowTimeFx::IsPostEffectActive()
+			&& SlowTimeFx::GetWaveProgress() == 0.0f && SlowTimeFx::GetFlash() == 0.0f);
 
 		// インスペクタがするのと同じ経路で、位置と値を書き換えます。
 		GameObject* edited = world.FindById(enemyId);
@@ -382,6 +392,14 @@ bool RunSlowActionRenderTest()
 		h.Player()->GetSpeed());
 	h.Check("gauge drains", fabsf(SlowClock::GetGauge() - (tuning.GaugeMax - tuning.GaugeDrainPerSecond * 35.0f / 60.0f)) < 0.5f,
 		SlowClock::GetGauge());
+	// 減速しきると画面の演出が最大になり、画角が狭まります(歩いているので、ダッシュの広がりはありません)。
+	h.Check("time slow post effect at full intensity", SlowTimeFx::IsPostEffectActive()
+		&& fabsf(SlowTimeFx::GetIntensity() - 1.0f) < 0.001f, SlowTimeFx::GetIntensity());
+	if (const SlowCamera* camera = h.GetWorld().FindFirst<SlowCamera>())
+	{
+		h.Check("slow narrows fov", camera->GetFovDegrees() < tuning.CameraFovDegrees - tuning.CameraSlowFovNarrowDegrees * 0.7f,
+			camera->GetFovDegrees());
+	}
 	h.Draw();
 	h.Check("capture slow", Capture(L"slow-render-slow.png"));
 	// ゲージが尽きるまで押し続けると強制解除され、押したままでは再発動しません。
@@ -390,6 +408,9 @@ bool RunSlowActionRenderTest()
 	h.Step(static_cast<int>(tuning.GaugeMax / tuning.GaugeDrainPerSecond * 60.0f) + 30);
 	h.Check("slow forced off at empty gauge", !SlowClock::IsSlowActive() && SlowClock::GetGauge() == 0.0f
 		&& fabsf(SlowClock::GetWorldScale() - 1.0f) < 0.0001f, SlowClock::GetGauge());
+	// 強制解除でも、戻る衝撃波が走り終えたらポストエフェクトは外れます。
+	h.Check("time slow effect clears after forced release", !SlowTimeFx::IsPostEffectActive()
+		&& SlowTimeFx::GetWaveProgress() == 0.0f && SlowTimeFx::GetIntensity() == 0.0f);
 
 	// ---- 強攻撃で吹き飛ばす: 距離・時間・高さ ----
 	h.Settle(openSpot, yawPlusX);
@@ -547,6 +568,11 @@ bool RunSlowActionRenderTest()
 	h.Step();
 	h.Check("just slow scores and refills the gauge at once", h.Enemy()->GetState() == SlowEnemy::State::Windup
 		&& SlowScore::GetScore() == tuning.ScoreJustSlow && SlowClock::GetGauge() > gaugeBeforeJust, SlowClock::GetGauge());
+	// 発動の衝撃波(外向き)とジャスト減速のフラッシュが同時に出ます。
+	h.Check("just slow flashes with the outward wave", SlowTimeFx::GetFlash() > 0.5f && SlowTimeFx::GetWaveProgress() > 0.0f
+		&& SlowTimeFx::GetWaveSign() > 0.0f && SlowTimeFx::IsPostEffectActive(), SlowTimeFx::GetFlash());
+	h.Draw();
+	h.Check("capture just slow", Capture(L"slow-render-just-slow.png"));
 	h.Input.Slow = false;
 	h.Step();
 	h.Input.Slow = true;
@@ -789,6 +815,13 @@ bool RunSlowActionRenderTest()
 	}
 
 	SlowInput::SetOverride(nullptr);
+	// 減速中にシーンを終えても(やり直し・倒れたときと同じ経路)、ポストエフェクトは残りません。
+	h.Input.Slow = true;
+	SlowInput::SetOverride(&h.Input);
+	h.Step(10);
+	SlowInput::SetOverride(nullptr);
+	const bool effectWasOn = SlowTimeFx::IsPostEffectActive();
 	h.Scene.Uninit();
+	h.Check("scene uninit clears the time slow post effect", effectWasOn && !SlowTimeFx::IsPostEffectActive());
 	return h.Passed;
 }

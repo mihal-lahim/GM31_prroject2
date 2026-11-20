@@ -49,7 +49,7 @@ void SlowBullet::Deflect(const Vector3& direction)
 	m_Life = tuning.BulletLifeSeconds;
 	m_Model->SetVisible(false);
 	m_DeflectedModel->SetVisible(true);
-	EmitBurst(GetPosition(), 14, 6.0f, 0.25f, 14, { 0.4f, 1.0f, 1.0f, 1.0f });
+	EmitBurst(GetPosition(), 14, 6.0f, 0.25f, 14, { 0.4f, 1.0f, 1.0f, 1.0f }, SlowClock::kWorldTimeChannel);
 }
 
 bool SlowBullet::TryJustSlow(const Vector3& playerPosition, float range)
@@ -87,13 +87,14 @@ void SlowBullet::Update()
 	if (step.length() > 0.0f && GetWorld().GetCollisionWorld().Raycast(GetPosition(), step, step.length() + tuning.BulletRadius,
 		hit, SlowCollisionLayers::World))
 	{
-		EmitBurst(hit.Point, 8, 4.0f, 0.2f, 12, m_Deflected ? XMFLOAT4{ 0.4f, 1.0f, 1.0f, 1.0f } : XMFLOAT4{ 1.0f, 0.35f, 0.85f, 1.0f });
+		EmitBurst(hit.Point, 8, 4.0f, 0.2f, 12, m_Deflected ? XMFLOAT4{ 0.4f, 1.0f, 1.0f, 1.0f } : XMFLOAT4{ 1.0f, 0.35f, 0.85f, 1.0f },
+			SlowClock::kWorldTimeChannel);
 		MarkForDestroy();
 		return;
 	}
 	SetPosition(GetPosition() + step);
 	ParticleSystem::Emit(GetPosition(), Vector3(), 0.14f, 8,
-		m_Deflected ? XMFLOAT4{ 0.4f, 1.0f, 1.0f, 0.7f } : XMFLOAT4{ 1.0f, 0.35f, 0.85f, 0.7f }, 0.0f, 0.9f);
+		m_Deflected ? XMFLOAT4{ 0.4f, 1.0f, 1.0f, 0.7f } : XMFLOAT4{ 1.0f, 0.35f, 0.85f, 0.7f }, 0.0f, 0.9f, SlowClock::kWorldTimeChannel);
 
 	// 体の高さの中に入っていて、水平の距離が半径の和より近ければ当たりです。
 	const auto touches = [this, &tuning](const GameObject& target, float radius, float height)

@@ -69,6 +69,30 @@ public:
 	static void AddGaugeNow(float amount);
 };
 
+// 時間減速の画面演出です(ポストエフェクト post-time-slow と、闘技場に漂う光の粒)。
+// シーンが SlowClock::Update の後に毎ステップ Update を呼びます。編集モード・やり直し・シーンの終了では
+// Reset で演出を消し、ポストエフェクトを外します。
+namespace SlowTimeFx
+{
+	// 演出を消します(編集・やり直し・遷移など)。光の粒は残り、寿命で消えます。
+	void Reset();
+	// シーンの開始時に呼びます。Resetに加えて、光の粒を撒き直す準備をします。
+	void BeginScene();
+	// focusは光の粒を撒く中心(プレイヤーの位置)です。
+	void Update(float realDeltaTime, const Vector3& focus);
+	// ジャスト減速が決まった瞬間に呼びます。一瞬だけ画面を光らせます。
+	void TriggerJustSlowFlash();
+
+	// 減速の深さ(0=通常〜1=減速しきった)です。SlowClock の倍率から求めます。
+	float GetIntensity();
+	// 発動・解除の衝撃波の進み(0〜1、0なら無し)と向き(+1=発動、-1=解除)です。
+	float GetWaveProgress();
+	float GetWaveSign();
+	float GetFlash();
+	// ポストエフェクトを掛けているか。演出が何も無いときは外して、通常時の描画を変えません。
+	bool IsPostEffectActive();
+}
+
 class SlowCamera final : public GameObject, public ICameraView
 {
 public:
@@ -167,6 +191,9 @@ private:
 	// 右手に持たせる大剣です。毎フレーム手の骨からワールド行列を作って描きます。
 	ModelRenderer* m_Sword = nullptr;
 	bool m_SwordAttached = false;
+	// 最後に合わせた剣の握りの位置と、刃の向き(単位ベクトル)です。減速中の斬撃の軌跡に使います。
+	Vector3 m_SwordGrip{ 0.0f, 0.0f, 0.0f };
+	Vector3 m_SwordAxis{ 0.0f, 1.0f, 0.0f };
 	State m_State = State::Move;
 	AttackType m_AttackType = AttackType::None;
 	AttackType m_BufferedAttack = AttackType::None;
@@ -205,6 +232,8 @@ private:
 	void UpdateAnimation(float deltaTime);
 	// 剣を右手の骨に合わせます。アニメーションを進めた後に呼びます。
 	void UpdateSword();
+	// 減速中だけ、ダッシュと攻撃に青白い軌跡を実時間で付けます。
+	void EmitSlowTrail();
 };
 
 // 効果音です。シーンが持つ音源の組から鳴らします。音源がなければ何もしません(テスト中など)。
