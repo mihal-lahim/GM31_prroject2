@@ -71,9 +71,11 @@ public:
 	static void AddGaugeNow(float amount);
 };
 
-// 時間減速の画面演出です(ポストエフェクト post-time-slow と、闘技場に漂う光の粒)。
+// 時間減速の画面演出と画面の仕上げです(ポストエフェクト post-realistic と、闘技場に漂う光の粒)。
+// 遊んでいる間は post-realistic(接地の陰・ブルーム・ふだんのビネット)を常に掛け、時間減速の演出もその中で合成します。
+// 減速の開始・終了でポストエフェクトを付け外ししないので、切り替わりで画面が跳びません。
 // シーンが SlowClock::Update の後に毎ステップ Update を呼びます。編集モード・やり直し・シーンの終了では
-// Reset で演出を消し、ポストエフェクトを外します。
+// Reset で演出を消し、ポストエフェクトを外します(次の Update でまた掛けます)。
 namespace SlowTimeFx
 {
 	// 演出を消します(編集・やり直し・遷移など)。光の粒は残り、寿命で消えます。
@@ -91,8 +93,10 @@ namespace SlowTimeFx
 	float GetWaveProgress();
 	float GetWaveSign();
 	float GetFlash();
-	// ポストエフェクトを掛けているか。演出が何も無いときは外して、通常時の描画を変えません。
+	// 時間減速の画面演出(彩度・寒色・衝撃波・フラッシュ)が出ているか。仕上げのポストエフェクトだけのときは false です。
 	bool IsPostEffectActive();
+	// 仕上げのポストエフェクト(post-realistic)を掛けているか。遊んでいる間は常に true です。
+	bool IsRealisticPostActive();
 }
 
 class SlowCamera final : public GameObject, public ICameraView

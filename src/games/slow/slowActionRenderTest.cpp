@@ -123,7 +123,7 @@ bool RunSlowActionRenderTest()
 	h.Step(30);
 	h.Draw();
 	h.Check("capture start", Capture(L"slow-render.png"));
-	// 減速していない間は、時間減速のポストエフェクトを掛けません(通常時の描画を変えない)。
+	// 減速していない間は、時間減速の演出を出しません(画面の仕上げの post-realistic だけが掛かります)。
 	h.Check("no time slow post effect while not slowed", !SlowTimeFx::IsPostEffectActive()
 		&& SlowTimeFx::GetIntensity() == 0.0f);
 	// 敵の数はステージファイル次第なので、ファイルに書かれた数と比べます。
@@ -167,7 +167,7 @@ bool RunSlowActionRenderTest()
 		h.Input = SlowInputState{};
 		h.Check("game is frozen while editing", h.Player()->GetPosition() == playerStart
 			&& world.FindById(enemyId)->GetPosition() == enemyStart && SlowClock::GetGauge() == tuning.GaugeMax);
-		h.Check("edit mode clears the time slow effect", !SlowTimeFx::IsPostEffectActive()
+		h.Check("edit mode clears the time slow effect", !SlowTimeFx::IsPostEffectActive() && !SlowTimeFx::IsRealisticPostActive()
 			&& SlowTimeFx::GetWaveProgress() == 0.0f && SlowTimeFx::GetFlash() == 0.0f);
 
 		// インスペクタがするのと同じ経路で、位置と値を書き換えます。
@@ -960,6 +960,34 @@ bool RunSlowActionRenderTest()
 		h.Check("panel closes after the capture", !SlowTuningPanel::IsOpen() && !SceneEditor::IsCursorFree());
 	}
 
+	// ---- ライトと画面の仕上げ: 遊んでいる間は post-realistic を常に掛け、太陽の向き・色は調整値にすぐ追従する ----
+	{
+		h.Step(2);
+		h.Check("realistic post stays on while playing", SlowTimeFx::IsRealisticPostActive()
+			&& !SlowTimeFx::IsPostEffectActive());
+		const XMFLOAT4 defaultDirection = Engine::Renderer::GetLight().Direction;
+		// 既定値は以前の固定の向き(-0.45, -0.78, 0.43)を正規化したものと同じです。
+		const float defaultLength = sqrtf(0.45f * 0.45f + 0.78f * 0.78f + 0.43f * 0.43f);
+		h.Check("default sun matches the previous direction", fabsf(defaultDirection.x + 0.45f / defaultLength) < 0.01f
+			&& fabsf(defaultDirection.y + 0.78f / defaultLength) < 0.01f
+			&& fabsf(defaultDirection.z - 0.43f / defaultLength) < 0.01f, defaultDirection.y);
+		Engine::RuntimeConfig::SetFloat("slow.SunAzimuthDegrees", 250.0f);
+		Engine::RuntimeConfig::SetFloat("slow.SunElevationDegrees", 18.0f);
+		Engine::RuntimeConfig::SetFloat("slow.SunWarmth", 1.0f);
+		h.Step();
+		h.Draw();
+		const XMFLOAT4 sunsetDirection = Engine::Renderer::GetLight().Direction;
+		const XMFLOAT4 sunsetColor = Engine::Renderer::GetLight().Diffuse;
+		h.Check("sun direction follows the tuning at once", fabsf(sunsetDirection.y + sinf(XMConvertToRadians(18.0f))) < 0.01f,
+			sunsetDirection.y);
+		h.Check("warm sun turns orange", sunsetColor.x > sunsetColor.z + 0.3f, sunsetColor.z);
+		h.Check("capture low warm sun", Capture(L"slow-render-sunset.png"));
+		Engine::RuntimeConfig::SetFloat("slow.SunAzimuthDegrees", 133.7f);
+		Engine::RuntimeConfig::SetFloat("slow.SunElevationDegrees", 51.4f);
+		Engine::RuntimeConfig::SetFloat("slow.SunWarmth", 0.5f);
+		h.Step();
+	}
+
 	SlowInput::SetOverride(nullptr);
 	// 減速中にシーンを終えても(やり直し・倒れたときと同じ経路)、ポストエフェクトは残りません。
 	h.Input.Slow = true;
@@ -968,6 +996,7 @@ bool RunSlowActionRenderTest()
 	SlowInput::SetOverride(nullptr);
 	const bool effectWasOn = SlowTimeFx::IsPostEffectActive();
 	h.Scene.Uninit();
-	h.Check("scene uninit clears the time slow post effect", effectWasOn && !SlowTimeFx::IsPostEffectActive());
+	h.Check("scene uninit clears the time slow post effect", effectWasOn && !SlowTimeFx::IsPostEffectActive()
+		&& !SlowTimeFx::IsRealisticPostActive());
 	return h.Passed;
 }

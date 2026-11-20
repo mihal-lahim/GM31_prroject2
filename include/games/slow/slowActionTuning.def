@@ -102,7 +102,7 @@ SLOW_TUNING_FLOAT(JustSlowBulletRange, 3.0f)
 SLOW_TUNING_FLOAT(JustSlowGaugeGain, 20.0f)
 
 SLOW_TUNING_SECTION("時間減速の演出")
-// 画面(ポストエフェクト post-time-slow)は減速の深さに合わせて掛かります。値は減速しきったときの強さ(0〜1)です。
+// 画面(ポストエフェクト post-realistic の時間減速の部分)は減速の深さに合わせて掛かります。値は減速しきったときの強さ(0〜1)です。
 // 彩度を落とす量(0=そのまま、1=白黒)、寒色へ寄せる量、外周を暗くする量です。
 SLOW_TUNING_FLOAT(SlowFxDesaturate, 0.65f)
 SLOW_TUNING_FLOAT(SlowFxTint, 0.35f)
@@ -254,8 +254,8 @@ SLOW_TUNING_FLOAT(ArcTailDelaySeconds, 0.07f)
 SLOW_TUNING_FLOAT(ArcTailSeconds, 0.22f)
 // 円弧の太さ(m)です。中ほどが一番太く、両端へ細くなります。
 SLOW_TUNING_FLOAT(ArcThickness, 0.5f)
-// 主の帯の明るさです。大きいほど白く飛びます。
-SLOW_TUNING_FLOAT(ArcBrightness, 1.1f)
+// 主の帯の明るさです。1を超えた分は画面の仕上げ(ブルーム)で光をまといます。大きすぎると白く飛びます。
+SLOW_TUNING_FLOAT(ArcBrightness, 1.35f)
 // 円弧を何分割で描くかです(滑らかさ。最大40)。
 SLOW_TUNING_INT(ArcSegments, 30)
 // 斬り抜きの当たる位置の何割手前で、円弧を出すかです(クリップの位相)。
@@ -289,3 +289,22 @@ SLOW_TUNING_FLOAT(ChargeShakeMeters, 0.012f)
 SLOW_TUNING_FLOAT(ChargeGatherRadius, 1.4f)
 // 溜めの間、1フレームに吸い込まれる光の粒の数です。
 SLOW_TUNING_INT(ChargeGatherPerFrame, 2)
+
+SLOW_TUNING_SECTION("ライトと画面の見た目")
+// 太陽の向きです。方位は真上から見て+Z(奥)から時計回りの角度、高さは地平線からの角度(10〜85度に丸めます)です。
+// 既定値は以前の固定の向き(-0.45, -0.78, 0.43)と同じです。調整パネルで動かすと、影と映り込みも一緒に動きます。
+SLOW_TUNING_FLOAT(SunAzimuthDegrees, 133.7f)
+SLOW_TUNING_FLOAT(SunElevationDegrees, 51.4f)
+// 太陽の明るさの倍率と、色温度(0=青白い昼、0.5=ふだん、1=夕日のような暖色)です。
+SLOW_TUNING_FLOAT(SunIntensity, 1.0f)
+SLOW_TUNING_FLOAT(SunWarmth, 0.5f)
+// 空からの光と、地面の照り返しの倍率です。
+SLOW_TUNING_FLOAT(SkyIntensity, 1.0f)
+SLOW_TUNING_FLOAT(GroundBounceIntensity, 1.0f)
+// 画面の仕上げ(ポストエフェクト post-realistic)です。接地の陰(SSAO)の強さと半径[m]、ブルームの強さと、
+// 光り始める明るさ(1を超えた加算の光だけが強く光る)、ふだんの外周の暗さです。強さを0にすると、その効果は無くなります。
+SLOW_TUNING_FLOAT(PostAoStrength, 0.55f)
+SLOW_TUNING_FLOAT(PostAoRadius, 0.65f)
+SLOW_TUNING_FLOAT(PostBloomIntensity, 0.35f)
+SLOW_TUNING_FLOAT(PostBloomThreshold, 0.95f)
+SLOW_TUNING_FLOAT(PostVignette, 0.14f)

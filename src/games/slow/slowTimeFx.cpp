@@ -13,7 +13,7 @@
 
 namespace
 {
-	constexpr std::string_view kPostEffectId = "post-time-slow";
+	constexpr std::string_view kPostEffectId = "post-realistic";
 	// 光の粒の寿命(全体の時間でのフレーム数)と、撒く範囲(プレイヤーからの水平距離・高さ)です。
 	constexpr int kDustLifeFrames = 300;
 	constexpr float kDustRadius = 13.0f;
@@ -33,6 +33,8 @@ namespace
 	bool g_DustWarmed = false;
 	// ポストエフェクトが読み込めなかったら、毎フレーム読み直さないようにします。
 	bool g_PostUnavailable = false;
+	// 時間減速の画面演出(彩度・寒色・衝撃波・フラッシュ)を、いま画面へ出しているかです。
+	bool g_TimeSlowShown = false;
 	// ほかの演出の火花と乱数を分け、既存の火花の出方を変えないようにします。
 	std::mt19937 g_Random{ 20261120u };
 
@@ -84,33 +86,30 @@ namespace
 
 	void ApplyPostEffect()
 	{
-		const bool active = SlowTimeFx::IsPostEffectActive();
 		const float intensity = SlowTimeFx::GetIntensity();
 		const float wave = SlowTimeFx::GetWaveProgress();
-		if (intensity <= 0.001f && wave <= 0.0f && g_Flash <= 0.0f)
-		{
-			// 演出が何も無いときは外し、通常時の描画の手間と見た目を変えません。
-			if (active)
-			{
-				Engine::Renderer::SetPostEffect(Engine::PostEffectMode::None);
-			}
-			return;
-		}
-		if (!active)
+		// 時間減速の演出が何も無いときも、仕上げ(接地の陰・ブルーム・ビネット)のため post-realistic は掛けたままにします。
+		// 減速の開始・終了で付け外しをしないので、切り替わりで画面が跳びません。
+		g_TimeSlowShown = intensity > 0.001f || wave > 0.0f || g_Flash > 0.0f;
+		if (!SlowTimeFx::IsRealisticPostActive())
 		{
 			if (g_PostUnavailable || !Engine::Renderer::SetPostEffectDefinition(kPostEffectId))
 			{
 				g_PostUnavailable = true;
+				g_TimeSlowShown = false;
 				return;
 			}
 		}
 		const SlowActionTuning& tuning = GetSlowActionTuning();
-		Engine::Renderer::SetPostEffectFloat("intensity", intensity);
-		Engine::Renderer::SetPostEffectFloat("waveProgress", wave);
-		Engine::Renderer::SetPostEffectFloat("flash", g_Flash);
-		Engine::Renderer::SetPostEffectFloat("waveSign", g_WaveSign);
-		// extra.z は Renderer が書く印なので空けておきます(shaders/post/timeSlowPS.hlsl)。
-		Engine::Renderer::SetPostEffectParameters({}, { tuning.SlowFxDesaturate, tuning.SlowFxTint, 0.0f, tuning.SlowFxVignette });
+		Engine::Renderer::SetPostEffectFloat("aoStrength", tuning.PostAoStrength);
+		Engine::Renderer::SetPostEffectFloat("aoRadius", tuning.PostAoRadius);
+		Engine::Renderer::SetPostEffectFloat("bloomIntensity", tuning.PostBloomIntensity);
+		Engine::Renderer::SetPostEffectFloat("bloomThreshold", tuning.PostBloomThreshold);
+		// 時間減速の動的な値と見た目です。extra.z は Renderer が書く印なので空けておきます
+		// (shaders/post/realisticCompositePS.hlsl)。
+		Engine::Renderer::SetPostEffectParameters({ intensity, wave, g_Flash, g_WaveSign },
+			{ tuning.SlowFxDesaturate, tuning.SlowFxTint, 0.0f, tuning.SlowFxVignette });
+		Engine::Renderer::SetPostEffectLook({ tuning.PostVignette, 0.0f, 0.0f, 0.0f });
 	}
 }
 
@@ -123,8 +122,9 @@ void SlowTimeFx::Reset()
 	g_WasSlow = false;
 	g_DustCarry = 0.0f;
 	g_PostUnavailable = false;
+	g_TimeSlowShown = false;
 	g_Random.seed(20261120u);
-	if (IsPostEffectActive())
+	if (IsRealisticPostActive())
 	{
 		Engine::Renderer::SetPostEffect(Engine::PostEffectMode::None);
 	}
@@ -206,6 +206,11 @@ float SlowTimeFx::GetWaveSign() { return g_WaveSign; }
 float SlowTimeFx::GetFlash() { return g_Flash; }
 
 bool SlowTimeFx::IsPostEffectActive()
+{
+	return g_TimeSlowShown && IsRealisticPostActive();
+}
+
+bool SlowTimeFx::IsRealisticPostActive()
 {
 	return Engine::Renderer::GetPostEffectDefinitionId() == kPostEffectId;
 }

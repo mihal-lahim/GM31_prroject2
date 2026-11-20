@@ -174,13 +174,32 @@ void SlowCamera::Draw()
 		: 0.0f;
 	const auto blend = [slowAmount](float normal, float slow) { return normal + (slow - normal) * slowAmount; };
 
+	// 太陽の向き・明るさ・色温度と、空・地面の照り返しは調整値から毎フレーム決めます(調整パネルで動かすとすぐ反映)。
+	const SlowActionTuning& tuning = GetSlowActionTuning();
+	const float azimuth = XMConvertToRadians(tuning.SunAzimuthDegrees);
+	const float elevation = XMConvertToRadians(std::clamp(tuning.SunElevationDegrees, 10.0f, 85.0f));
+	// 太陽へ向かう向きの逆が、光の進む向きです。
+	const Vector3 toSun{ cosf(elevation) * sinf(azimuth), sinf(elevation), cosf(elevation) * cosf(azimuth) };
+	// 色温度: 0=青白い昼、0.5=ふだんの色(以前の固定値)、1=夕日のような暖色。
+	const float warmth = std::clamp(tuning.SunWarmth, 0.0f, 1.0f);
+	const auto warm = [warmth](float cool, float normal, float sunset)
+	{
+		return warmth < 0.5f ? cool + (normal - cool) * (warmth * 2.0f) : normal + (sunset - normal) * ((warmth - 0.5f) * 2.0f);
+	};
+	const float sunIntensity = (std::max)(tuning.SunIntensity, 0.0f);
+	const float skyIntensity = (std::max)(tuning.SkyIntensity, 0.0f);
+	const float groundIntensity = (std::max)(tuning.GroundBounceIntensity, 0.0f);
+
 	Engine::LIGHT light{};
 	light.Enable = TRUE;
-	light.Direction = { -0.45f, -0.78f, 0.43f, 0.0f };
-	light.Diffuse = { blend(0.92f, 0.74f), blend(0.90f, 0.84f), blend(0.80f, 0.98f), 1.0f };
+	light.Direction = { -toSun.x, -toSun.y, -toSun.z, 0.0f };
+	light.Diffuse = { blend(warm(0.88f, 0.92f, 1.00f), 0.74f) * sunIntensity,
+		blend(warm(0.92f, 0.90f, 0.72f), 0.84f) * sunIntensity,
+		blend(warm(0.98f, 0.80f, 0.46f), 0.98f) * sunIntensity, 1.0f };
 	light.Ambient = { blend(0.30f, 0.24f), blend(0.32f, 0.30f), blend(0.36f, 0.44f), 1.0f };
-	light.SkyColor = { blend(0.50f, 0.40f), blend(0.66f, 0.60f), blend(0.82f, 0.92f), 1.0f };
-	light.GroundColor = { 0.16f, 0.12f, 0.09f, 1.0f };
+	light.SkyColor = { blend(0.50f, 0.40f) * skyIntensity, blend(0.66f, 0.60f) * skyIntensity,
+		blend(0.82f, 0.92f) * skyIntensity, 1.0f };
+	light.GroundColor = { 0.16f * groundIntensity, 0.12f * groundIntensity, 0.09f * groundIntensity, 1.0f };
 	light.GroundNormal = { 0.0f, 1.0f, 0.0f, 0.0f };
 	Engine::Renderer::SetLight(light);
 	Engine::Renderer::SetProjectionMatrix(XMMatrixPerspectiveFovLH(XMConvertToRadians(m_FovDegrees),
